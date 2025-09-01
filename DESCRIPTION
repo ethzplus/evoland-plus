@@ -1,0 +1,32 @@
+Package: evoland
+Title: evoland-plus - or evoland for short - analyses land use evolution
+Version: 0.0.0.9000
+Authors@R:
+    person("Jan", "Hartman", , "jhartman@ethz.ch", role = c("aut", "cre"))
+Description: The evoland-plus package gathers land use data and can be
+    used to extrapolate likely future land use patterns.
+License: AGPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends:
+    R (>= 4.2)
+Imports:
+    rlang,
+    purrr,
+    R6,
+    duckdb,
+    DBI,
+    tibble,
+    glue,
+    yaml,
+    jsonlite
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    dplyr,
+    quarto,
+    devtools
+VignetteBuilder: quarto
+Config/testthat/edition: 3
