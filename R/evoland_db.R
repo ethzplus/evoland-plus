@@ -81,6 +81,9 @@ evoland_db <- R6::R6Class(
       if (!self$write_mode) {
         stop("Database opened in read-only mode. Cannot commit data.")
       }
+      if (!inherits(x, "data.frame")) {
+        stop("Object must inherit from data.frame.")
+      }
 
       # Validate mode
       valid_modes <- c("append", "upsert", "overwrite")
@@ -91,22 +94,15 @@ evoland_db <- R6::R6Class(
       }
 
       # Get table name from S3 class
-      table_name <- private$get_table_name(x)
-
-      # Convert to data.frame if needed
-      if (!is.data.frame(x)) {
-        x <- as.data.frame(x)
-      }
+      table_name <- class(x)[[1]]
 
       # Handle different commit modes
-      if (mode == "overwrite") {
-        private$commit_overwrite(x, table_name)
-      } else if (mode == "upsert") {
-        private$commit_upsert(x, table_name)
-      } else {
-        # append
-        private$commit_append(x, table_name)
-      }
+      switch(
+        mode,
+        overwrite = private$commit_overwrite(x, table_name),
+        upsert = private$commit_upsert(x, table_name),
+        append = private$commit_append(x, table_name)
+      )
 
       invisible(NULL)
     },
@@ -165,7 +161,7 @@ evoland_db <- R6::R6Class(
 
   ## Private Methods ----
   private = list(
-    # Close the database connection
+    # r6 hook called on gc(); Close the database connection
     #
     # return NULL (called for side effects)
     finalize = function() {
@@ -174,88 +170,16 @@ evoland_db <- R6::R6Class(
         self$connection <- NULL
       }
     },
+
     # create the database schema
     create_schema = function() {
       # Read schema from inst/schema.sql
-      schema_path <- system.file("schema.sql", package = "evoland")
+      schema_sql <-
+        system.file("schema.sql", package = "evoland") |>
+        readLines(warn = FALSE) |>
+        paste(collapse = "\n")
 
-      # Read and execute schema
-      schema_sql <- readLines(schema_path, warn = FALSE)
-      schema_sql <- paste(schema_sql, collapse = "\n")
-
-      # Split into individual statements and execute
-      statements <- private$split_sql_statements(schema_sql)
-
-      for (stmt in statements) {
-        if (nchar(stmt) > 0 && !startsWith(stmt, "--")) {
-          tryCatch(
-            {
-              DBI::dbExecute(self$connection, stmt)
-            },
-            error = function(e) {
-              warning(glue::glue("Failed to execute SQL statement: {e$message}"))
-            }
-          )
-        }
-      }
-    },
-
-    # Split SQL into individual statements
-    #
-    # param sql Character string containing multiple SQL statements
-    #
-    # return Character vector of individual SQL statements
-    split_sql_statements = function(sql) {
-      # Split by semicolon but be careful about semicolons in strings
-      statements <- strsplit(sql, ";")[[1]]
-      statements <- trimws(statements)
-      statements[nchar(statements) > 0]
-    },
-
-    # Get table name from object's S3 class
-    #
-    # param x Object with S3 class
-    #
-    # return Character string table name
-    get_table_name = function(x) {
-      classes <- class(x)
-
-      # Look for a class that ends with "_t" (table naming convention)
-      table_classes <- classes[grepl("_t$", classes)]
-
-      if (length(table_classes) == 1L) {
-        return(table_classes[1])
-      }
-
-      # Fallback: look for known table names
-      known_tables <- c(
-        "conf_t",
-        "coords_t",
-        "periods_t",
-        "lulc_meta_t",
-        "lulc_data_t",
-        "pred_meta_t",
-        "pred_data_t_float",
-        "pred_data_t_int",
-        "pred_data_t_bool",
-        "trans_meta_t",
-        "trans_preds_t",
-        "intrv_meta_t",
-        "intrv_data_t",
-        "trans_models_t",
-        "alloc_params_t"
-      )
-
-      matching_tables <- intersect(classes, known_tables)
-
-      if (length(matching_tables) == 0) {
-        return(matching_tables[1])
-      }
-
-      stop(glue::glue(
-        "Could not determine single table name from object classes: ",
-        "{paste(classes, collapse = ', ')}"
-      ))
+      DBI::dbExecute(self$connection, schema_sql)
     },
 
     # Commit data in overwrite mode
