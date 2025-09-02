@@ -1,13 +1,13 @@
 # Test that a new database can be set up using evoland_db$new()
 test_db_path <- tempfile(fileext = ".duckdb")
 db <- evoland_db$new(test_db_path)
-tinytest::expect_true(inherits(db, "evoland_db"))
-tinytest::expect_true(file.exists(test_db_path))
-tinytest::expect_identical(
+expect_true(inherits(db, "evoland_db"))
+expect_true(file.exists(test_db_path))
+expect_identical(
   db$list_tables(),
   c(
     "alloc_params_t",
-    "conf_t",
+    "config_t",
     "coords_t",
     "intrv_data_t",
     "intrv_meta_t",

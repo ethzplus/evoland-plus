@@ -12,15 +12,15 @@ RoxygenNote: 7.3.2
 Depends:
     R (>= 4.2)
 Imports:
-    rlang,
+    data.table,
+    DBI,
+    duckdb,
+    glue,
+    jsonlite,
     purrr,
     R6,
-    duckdb,
-    DBI,
-    tibble,
-    glue,
-    yaml,
-    jsonlite
+    rlang,
+    yaml
 Suggests:
     testthat (>= 3.0.0),
     knitr,

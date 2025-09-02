@@ -8,7 +8,7 @@ INSTALL json;
 LOAD json;
 
 -- Configuration table
-CREATE TABLE conf_t (
+CREATE TABLE config_t (
     name VARCHAR PRIMARY KEY,
     config JSON NOT NULL
 );
