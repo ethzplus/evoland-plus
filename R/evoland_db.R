@@ -187,7 +187,7 @@ evoland_db <- R6::R6Class(
     # param x Data frame to commit
     # param table_name Character string table name
     commit_overwrite = function(x, table_name) {
-      # Delete existing data
+      # Delete existing data without dropping the entity relations.
       DBI::dbExecute(self$connection, glue::glue("DELETE FROM {table_name}"))
 
       # Insert new data
@@ -207,29 +207,22 @@ evoland_db <- R6::R6Class(
     # param x Data frame to commit
     # param table_name Character string table name
     commit_upsert = function(x, table_name) {
-      # For upsert, we need to know the primary key columns
-      # This is a simplified implementation - could be enhanced with metadata
-
-      # Get column names
-      col_names <- names(x)
-      col_placeholders <- paste(rep("?", length(col_names)), collapse = ", ")
-      col_names_str <- paste(col_names, collapse = ", ")
-
-      # Create upsert query (this assumes a single-column primary key named 'id' or similar)
-      # In practice, this would need to be more sophisticated based on actual table schema
-
-      # For now, use a simple replace approach
-      tryCatch(
-        {
-          # Try INSERT first
-          DBI::dbAppendTable(self$connection, table_name, x)
-        },
-        error = function(e) {
-          # If INSERT fails due to constraint violation, try UPDATE approach
-          warning("Upsert operation fell back to replace mode due to constraint violations")
-          private$commit_overwrite(x, table_name)
-        }
+      duckdb::duckdb_register(
+        conn = self$connection,
+        "temporary_data_table",
+        df = x
       )
+
+      on.exit(duckdb::duckdb_unregister(
+        self$connection,
+        "temporary_data_table"
+      ))
+
+      # Build INSERT OR REPLACE query
+      sql <- glue::glue(
+        "INSERT OR REPLACE INTO {table_name} SELECT * FROM temporary_data_table"
+      )
+      DBI::dbExecute(self$connection, sql)
     }
   )
 )
