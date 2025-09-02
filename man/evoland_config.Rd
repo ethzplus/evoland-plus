@@ -5,12 +5,10 @@
 \alias{read_evoland_config}
 \title{Evoland Configuration Handling}
 \usage{
-read_evoland_config(path, name = "default")
+read_evoland_config(path)
 }
 \arguments{
 \item{path}{character, Path to the YAML configuration file.}
-
-\item{name}{character, The configurations' name, defaults to "default"}
 }
 \value{
 An object of class "evoland_config" containing the parsed configuration.

@@ -22,4 +22,8 @@ validate.default <- function(x, ...) {
 #' @describeIn util Add evoland_table class
 new_evoland_table <- function(x) {
   stopifnot(inherits(x, "data.table"))
+  class(x) <- unique(c(
+    "evoland_table",
+    class(x)
+  ))
 }

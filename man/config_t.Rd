@@ -7,7 +7,7 @@
 config_t(x)
 }
 \arguments{
-\item{x}{list of evoland_config objects}
+\item{x}{named list of evoland_config objects}
 }
 \description{
 A data.table-based class for storing multiple evoland configurations.

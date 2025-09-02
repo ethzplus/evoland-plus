@@ -8,21 +8,18 @@ NULL
 
 #' @describeIn evoland_config Read an Evoland Configuration File
 #' @param path character, Path to the YAML configuration file.
-#' @param name character, The configurations' name, defaults to "default"
 #'
 #' @return An object of class "evoland_config" containing the parsed configuration.
 #' @export
 
-read_evoland_config <- function(path, name = "default") {
+read_evoland_config <- function(path) {
   # Read and parse YAML file
-  stopifnot(length(name) == 1L)
   config_data <- yaml::read_yaml(path)
 
   validate(
     structure(
       config_data,
-      class = "evoland_config",
-      name = name
+      class = "evoland_config"
     )
   )
 }
@@ -92,7 +89,7 @@ validate.evoland_config <- function(config) {
 
 #' @export
 print.evoland_config <- function(x, ...) {
-  cat("Evoland Configuration:", attr(x, "name"), "\n")
+  cat("Evoland Configuration\n\n")
   cat(yaml::as.yaml(unclass(x)))
 
   invisible(x)
@@ -104,24 +101,23 @@ print.evoland_config <- function(x, ...) {
 #' Inherits from data.table and provides methods for managing collections
 #' of configuration objects.
 #'
-#' @param x list of evoland_config objects
+#' @param x named list of evoland_config objects
 #'
 #' @export
 config_t <- function(x) {
-  stopifnot(is.list(x))
-  stopifnot(all(purrr::map_lgl(
-    x,
-    inherits,
-    what = "evoland_config"
-  )))
-
-  names <- purrr::map_chr(x, attr, which = "name")
+  # eval sequentially
+  stopifnot(
+    is.list(x),
+    !is.null(names(x)), # has to have names
+    all(names(x) != ""), # no name can be empty
+    all(purrr::map_lgl(x, inherits, what = "evoland_config"))
+  )
 
   dt <- data.table::data.table(
-    name = names,
+    name = names(x),
     config = x
   )
 
-  class(dt) <- c("config_t", class(dt))
+  class(dt) <- c("config_t", "evoland_table", class(dt))
   dt
 }

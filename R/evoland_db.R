@@ -81,8 +81,8 @@ evoland_db <- R6::R6Class(
       if (!self$write_mode) {
         stop("Database opened in read-only mode. Cannot commit data.")
       }
-      if (!inherits(x, "data.frame")) {
-        stop("Object must inherit from data.frame.")
+      if (!inherits(x, "data.table")) {
+        stop("Object must inherit from data.table")
       }
 
       # Validate mode
@@ -95,6 +95,18 @@ evoland_db <- R6::R6Class(
 
       # Get table name from S3 class
       table_name <- class(x)[[1]]
+      for (col in names(x)) {
+        if (is.list(x[[col]])) {
+          message("converting list col `", col, "` to json")
+          x[[col]] <- purrr::map(x[[col]], \(y) {
+            jsonlite::toJSON(
+              unclass(y),
+              auto_unbox = TRUE,
+              digits = NA
+            )
+          })
+        }
+      }
 
       # Handle different commit modes
       switch(
