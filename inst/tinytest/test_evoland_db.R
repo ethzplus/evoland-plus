@@ -25,4 +25,6 @@ expect_identical(
 )
 
 # Clean up
+rm(db)
+gc() # need to call gc for finalizer
 file.remove(test_db_path)

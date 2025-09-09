@@ -22,20 +22,13 @@ evoland_db <- R6::R6Class(
 
     #' Initialize a new evoland_db object
     #'
-    #' @param path Character string. Path to the DuckDB database file.
+    #' @param path Character string. Path to the DuckDB database file. May also be ":memory:".
     #' @param write Logical. Whether to open the database in write mode. Default is TRUE.
     #'   If FALSE, the database file must already exist.
     #'
     #' @return A new `evoland_db` object.
     #'
     #' @examples
-    #' \dontrun{
-    #' # Create new database
-    #' db <- evoland_db$new("my_database.duckdb")
-    #'
-    #' # Open existing database in read-only mode
-    #' db_readonly <- evoland_db$new("existing.duckdb", write = FALSE)
-    #' }
     initialize = function(path, write = TRUE) {
       self$path <- path
       self$write_mode <- write
@@ -66,23 +59,12 @@ evoland_db <- R6::R6Class(
     #' Commit data to the database
     #'
     #' @param x Data object to commit. The S3 class determines the target table.
-    #' @param mode Character string. One of "append" (default), "upsert", or "overwrite".
+    #' @param mode Character string. One of "upsert" (default), "append", or "overwrite".
     #'
     #' @return NULL (called for side effects)
-    #'
-    #' @examples
-    #' \dontrun{
-    #' # Commit data with different modes
-    #' db$commit(lulc_meta_data, mode = "overwrite")
-    #' db$commit(lulc_data, mode = "append")
-    #' db$commit(updated_coords, mode = "upsert")
-    #' }
-    commit = function(x, mode = "append") {
+    commit = function(x, table_name, mode = "upsert") {
       if (!self$write_mode) {
         stop("Database opened in read-only mode. Cannot commit data.")
-      }
-      if (!inherits(x, "data.table")) {
-        stop("Object must inherit from data.table")
       }
 
       # Validate mode
@@ -91,21 +73,6 @@ evoland_db <- R6::R6Class(
         stop(glue::glue(
           "Invalid mode '{mode}'. Must be one of: {paste(valid_modes, collapse = ', ')}"
         ))
-      }
-
-      # Get table name from S3 class
-      table_name <- class(x)[[1]]
-      for (col in names(x)) {
-        if (is.list(x[[col]])) {
-          message("converting list col `", col, "` to json")
-          x[[col]] <- purrr::map(x[[col]], \(y) {
-            jsonlite::toJSON(
-              unclass(y),
-              auto_unbox = TRUE,
-              digits = NA
-            )
-          })
-        }
       }
 
       # Handle different commit modes
@@ -123,35 +90,23 @@ evoland_db <- R6::R6Class(
     #'
     #' @param x Character string. Name of the database table or view to query.
     #' @param where Character string. Optional WHERE clause for the SQL query.
+    #' @param limit integerish, limit the amount of rows to return
     #'
-    #' @return A data.frame with the queried data, with appropriate S3 class attached.
-    #'
-    #' @examples
-    #' \dontrun{
-    #' # Fetch all data from a table
-    #' coords <- db$fetch("coords_t")
-    #'
-    #' # Fetch with WHERE clause
-    #' recent_data <- db$fetch("lulc_data_t", where = "date >= '2020-01-01'")
-    #' }
-    fetch = function(x, where = NULL) {
+    #' @return A table of the original class
+    fetch = function(table_name, where = NULL, limit = NULL) {
       # Build SQL query
       sql <- glue::glue("SELECT * FROM {x}")
 
       if (!is.null(where)) {
         sql <- glue::glue("{sql} WHERE {where}")
       }
+      if (!is.null(limit)) {
+        sql <- glue::glue("{sql} LIMIT {limit}")
+      }
 
-      # Execute query
-      result <- DBI::dbGetQuery(self$connection, sql)
-
-      # Convert to tibble for consistent behavior
-      result <- tibble::as_tibble(result)
-
-      # Add appropriate S3 class based on table name
-      class(result) <- c(x, class(result))
-
-      return(result)
+      result <-
+        DBI::dbGetQuery(self$connection, sql) |>
+        data.table::as.data.table()
     },
 
     #' List all tables in the database
