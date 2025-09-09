@@ -19,11 +19,11 @@ validate.default <- function(x, ...) {
   stop("No validate method defined for class ", class(x))
 }
 
-#' @describeIn util Add evoland_table class
+#' @describeIn util Add evoland_t class
 new_evoland_table <- function(x) {
   stopifnot(inherits(x, "data.table"))
   class(x) <- unique(c(
-    "evoland_table",
+    "evoland_t",
     class(x)
   ))
 }

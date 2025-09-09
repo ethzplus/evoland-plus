@@ -22,6 +22,6 @@ These are mostly used to validate evoland S3 objects.
 \itemize{
 \item \code{validate()}: Provides an S3 validation generic
 
-\item \code{new_evoland_table()}: Add evoland_table class
+\item \code{new_evoland_table()}: Add evoland_t class
 
 }}

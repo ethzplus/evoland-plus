@@ -20,6 +20,7 @@ Imports:
     purrr,
     R6,
     rlang,
+    terra,
     yaml
 Suggests:
     testthat (>= 3.0.0),
@@ -27,7 +28,7 @@ Suggests:
     rmarkdown,
     dplyr,
     quarto,
-    devtools, 
+    devtools,
     tinytest
 VignetteBuilder: quarto
 Config/testthat/edition: 3

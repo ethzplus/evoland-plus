@@ -105,7 +105,9 @@ print.evoland_config <- function(x, ...) {
 #'
 #' @export
 config_t <- function(x) {
-  # eval sequentially
+  # TODO if we really want to include other configs, we might as well call them
+  # scenarios and give them an id_scenario
+  # stopifnot evaluates sequentially; breaks when one fails
   stopifnot(
     is.list(x),
     !is.null(names(x)), # has to have names
@@ -118,6 +120,6 @@ config_t <- function(x) {
     config = x
   )
 
-  class(dt) <- c("config_t", "evoland_table", class(dt))
+  class(dt) <- c("config_t", "evoland_t", class(dt))
   dt
 }

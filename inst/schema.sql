@@ -20,7 +20,6 @@ CREATE TABLE coords_t (
     lat DOUBLE NOT NULL,
     elevation DOUBLE,
     region VARCHAR,
-    geom_point GEOMETRY,
     geom_polygon GEOMETRY
 );
 
@@ -176,5 +175,4 @@ CREATE INDEX idx_pred_data_int_coord ON pred_data_t_int(id_coord);
 CREATE INDEX idx_pred_data_int_period ON pred_data_t_int(id_period);
 CREATE INDEX idx_pred_data_bool_coord ON pred_data_t_bool(id_coord);
 CREATE INDEX idx_pred_data_bool_period ON pred_data_t_bool(id_period);
-CREATE INDEX idx_coords_geom_point ON coords_t USING RTREE(geom_point);
 CREATE INDEX idx_coords_geom_polygon ON coords_t USING RTREE(geom_polygon);
