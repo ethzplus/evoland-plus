@@ -2,23 +2,31 @@
 % Please edit documentation in R/evoland_config.R
 \name{evoland_config}
 \alias{evoland_config}
+\alias{ingest_evoland_config}
+\alias{retrieve_evoland_config}
 \alias{read_evoland_config}
 \title{Evoland Configuration Handling}
 \usage{
-read_evoland_config(path)
+ingest_evoland_config(evoland_db, config_path, force = FALSE)
+
+retrieve_evoland_config(evoland_db)
+
+read_evoland_config(config_path)
 }
 \arguments{
-\item{path}{character, Path to the YAML configuration file.}
+\item{config_path}{character, Path to the JSON configuration file.}
 }
 \value{
 An object of class "evoland_config" containing the parsed configuration.
 }
 \description{
-Provides functionality for reading YAML-based configuration files and converting them
+Provides functionality for reading JSON-based configuration files and converting them
 into structured R objects for use in the evoland package.
 }
 \section{Functions}{
 \itemize{
+\item \code{retrieve_evoland_config()}: Retrieve the config from DB
+
 \item \code{read_evoland_config()}: Read an Evoland Configuration File
 
 }}

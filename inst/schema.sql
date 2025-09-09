@@ -9,8 +9,8 @@ LOAD json;
 
 -- Configuration table
 CREATE TABLE config_t (
-    name VARCHAR PRIMARY KEY,
-    config JSON NOT NULL
+    config JSON NOT NULL,
+    r_obj BLOB
 );
 
 -- Coordinates and spatial reference table

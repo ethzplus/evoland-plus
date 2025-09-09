@@ -1,0 +1,123 @@
+{
+  "reporting": {
+    "scenario_name": "Naturalistic Futuristic Framework No. 1",
+    "shortname": "nff_no1",
+    "include_datetime": true,
+    "authors": [
+      "Thing One",
+      "Thing Two"
+    ]
+  },
+  "coords": {
+    "type": "square",
+    "epsg": 2056,
+    "extent": {
+      "xmin": 2480000,
+      "xmax": 2840000,
+      "ymin": 1070000,
+      "ymax": 1300000
+    },
+    "resolution": 100
+  },
+  "lulc_data": {
+    "source": [
+      {
+        "url": "https://dam-api.bfs.admin.ch/hub/api/dam/assets/32376216/appendix",
+        "md5sum": "c32937eb4a11fc9c5c58c66e9830360a"
+      }
+    ]
+  },
+  "lulc_classes": {
+    "forest": {
+      "pretty_name": "Forest",
+      "aggregation": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "arable": {
+      "pretty_name": "Arable Land",
+      "aggregation": [
+        4,
+        6
+      ]
+    },
+    "water": {
+      "pretty_name": "Lakes and Rivers",
+      "aggregation": [
+        8,
+        9
+      ]
+    },
+    "other": {
+      "pretty_name": "Other Classes",
+      "aggregation": [
+        12,
+        13,
+        14,
+        49
+      ]
+    }
+  },
+  "pred_data": {
+    "noise": {
+      "unit": "dBa",
+      "pretty_name": "Maximum noise exposure",
+      "source": [
+        {
+          "url": "https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_tag/laerm-strassenlaerm_tag/laerm-strassenlaerm_tag_2056.tif",
+          "md5sum": "something"
+        },
+        {
+          "url": "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
+          "md5sum": "somethingelse"
+        }
+      ]
+    }
+  },
+  "transitions": {
+    "inclusion_threshold": 0.005,
+    "predictor_neighborhoods": {
+      "nhood_sizes": [
+        3,
+        5,
+        7
+      ],
+      "seed": 1234
+    },
+    "predictor_selection": {
+      "colinearity_threshold": 0.2,
+      "colinearity_method": "GLM"
+    },
+    "disallowed": {
+      "water": "other",
+      "other": "forest"
+    }
+  },
+  "periods": {
+    "period_length": "P5Y",
+    "start_observed": "1990-01-01",
+    "end_observed": "2020-01-01",
+    "end_extrapolated": "2060-12-01"
+  },
+  "interventions_pre_allocation": {
+    "protected_areas": {
+      "pretty_name": "Nature protection areas",
+      "masks": "$cachedir/protected_areas.gpkg"
+    },
+    "glaciers": {
+      "pretty_name": "Deglaciation",
+      "id_scenariomip": "SSP1-2.6",
+      "masks": [
+        "$cachedir/glacier_extent_2020.tif",
+        "$cachedir/glacier_extent_2030.tif",
+        "$cachedir/glacier_extent_2040.tif"
+      ]
+    },
+    "forest_expansion": {
+      "pretty_name": "Ecohydrological Covariates"
+    }
+  }
+}

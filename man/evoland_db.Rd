@@ -14,41 +14,7 @@ fetching operations.
 ## Method `evoland_db$new`
 ## ------------------------------------------------
 
-\dontrun{
-# Create new database
-db <- evoland_db$new("my_database.duckdb")
-
-# Open existing database in read-only mode
-db_readonly <- evoland_db$new("existing.duckdb", write = FALSE)
-}
 Commit data to the database
-
-
-## ------------------------------------------------
-## Method `evoland_db$commit`
-## ------------------------------------------------
-
-\dontrun{
-# Commit data with different modes
-db$commit(lulc_meta_data, mode = "overwrite")
-db$commit(lulc_data, mode = "append")
-db$commit(updated_coords, mode = "upsert")
-}
-Fetch data from the database
-
-
-## ------------------------------------------------
-## Method `evoland_db$fetch`
-## ------------------------------------------------
-
-\dontrun{
-# Fetch all data from a table
-coords <- db$fetch("coords_t")
-
-# Fetch with WHERE clause
-recent_data <- db$fetch("lulc_data_t", where = "date >= '2020-01-01'")
-}
-List all tables in the database
 
 }
 \section{Public fields}{
@@ -70,7 +36,8 @@ Initialize a new evoland_db object}
 \item \href{#method-evoland_db-commit}{\code{evoland_db$commit()}}
 \item \href{#method-evoland_db-fetch}{\code{evoland_db$fetch()}}
 \item \href{#method-evoland_db-list_tables}{\code{evoland_db$list_tables()}}
-\item \href{#method-evoland_db-table_exists}{\code{evoland_db$table_exists()}}
+\item \href{#method-evoland_db-execute}{\code{evoland_db$execute()}}
+\item \href{#method-evoland_db-row_count}{\code{evoland_db$row_count()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -85,7 +52,7 @@ Initialize a new evoland_db object}
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{path}}{Character string. Path to the DuckDB database file.}
+\item{\code{path}}{Character string. Path to the DuckDB database file. May also be ":memory:".}
 
 \item{\code{write}}{Logical. Whether to open the database in write mode. Default is TRUE.
 If FALSE, the database file must already exist.}
@@ -97,14 +64,7 @@ A new \code{evoland_db} object.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{\dontrun{
-# Create new database
-db <- evoland_db$new("my_database.duckdb")
-
-# Open existing database in read-only mode
-db_readonly <- evoland_db$new("existing.duckdb", write = FALSE)
-}
-Commit data to the database
+\preformatted{Commit data to the database
 
 }
 \if{html}{\out{</div>}}
@@ -117,73 +77,48 @@ Commit data to the database
 \if{latex}{\out{\hypertarget{method-evoland_db-commit}{}}}
 \subsection{Method \code{commit()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit(x, mode = "append")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit(x, table_name, mode = "upsert")}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{x}}{Data object to commit. The S3 class determines the target table.}
+\item{\code{x}}{Data object to commit.}
 
-\item{\code{mode}}{Character string. One of "append" (default), "upsert", or "overwrite".}
+\item{\code{table_name}}{Table to target}
+
+\item{\code{mode}}{Character string. One of "upsert" (default), "append", or "overwrite".}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
 NULL (called for side effects)
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{\dontrun{
-# Commit data with different modes
-db$commit(lulc_meta_data, mode = "overwrite")
-db$commit(lulc_data, mode = "append")
-db$commit(updated_coords, mode = "upsert")
-}
 Fetch data from the database
-
 }
-\if{html}{\out{</div>}}
-
-}
-
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-fetch"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-fetch}{}}}
 \subsection{Method \code{fetch()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$fetch(x, where = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$fetch(table_name, where = NULL, limit = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{x}}{Character string. Name of the database table or view to query.}
+\item{\code{table_name}}{Character string. Name of the database table or view to query.}
 
 \item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
+
+\item{\code{limit}}{integerish, limit the amount of rows to return}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A data.frame with the queried data, with appropriate S3 class attached.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{\dontrun{
-# Fetch all data from a table
-coords <- db$fetch("coords_t")
-
-# Fetch with WHERE clause
-recent_data <- db$fetch("lulc_data_t", where = "date >= '2020-01-01'")
-}
+A table of the original class
 List all tables in the database
-
 }
-\if{html}{\out{</div>}}
-
-}
-
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-list_tables"></a>}}
@@ -195,26 +130,46 @@ List all tables in the database
 
 \subsection{Returns}{
 Character vector of table names
-Check if a table exists
+Execute statement
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-table_exists"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-table_exists}{}}}
-\subsection{Method \code{table_exists()}}{
+\if{html}{\out{<a id="method-evoland_db-execute"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-execute}{}}}
+\subsection{Method \code{execute()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$table_exists(table_name)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$execute(statement)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{table_name}}{Character string. Name of the table to check.}
+\item{\code{statement}}{A SQL statement}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-Logical indicating if table exists
+No. of rows affected by statement
+Get table row count
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-row_count"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-row_count}{}}}
+\subsection{Method \code{row_count()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$row_count(table_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character string. Name of the database table or view to query.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+No. of rows affected by statement
 }
 }
 \if{html}{\out{<hr>}}

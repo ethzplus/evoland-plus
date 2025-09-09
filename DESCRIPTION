@@ -18,17 +18,12 @@ Imports:
     glue,
     jsonlite,
     purrr,
+    qs,
     R6,
     rlang,
-    terra,
-    yaml
+    terra
 Suggests:
     testthat (>= 3.0.0),
-    knitr,
-    rmarkdown,
-    dplyr,
-    quarto,
-    devtools,
     tinytest
 VignetteBuilder: quarto
 Config/testthat/edition: 3

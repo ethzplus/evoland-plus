@@ -51,6 +51,8 @@ evoland_db <- R6::R6Class(
       # If file doesn't exist and we're in write mode, create schema
       if (!file_exists && write) {
         private$create_schema()
+      } else {
+        DBI::dbExecute(self$connection, "load spatial;")
       }
 
       invisible(self)
@@ -58,7 +60,8 @@ evoland_db <- R6::R6Class(
 
     #' Commit data to the database
     #'
-    #' @param x Data object to commit. The S3 class determines the target table.
+    #' @param x Data object to commit.
+    #' @param table_name Table to target
     #' @param mode Character string. One of "upsert" (default), "append", or "overwrite".
     #'
     #' @return NULL (called for side effects)
@@ -88,14 +91,14 @@ evoland_db <- R6::R6Class(
 
     #' Fetch data from the database
     #'
-    #' @param x Character string. Name of the database table or view to query.
+    #' @param table_name Character string. Name of the database table or view to query.
     #' @param where Character string. Optional WHERE clause for the SQL query.
     #' @param limit integerish, limit the amount of rows to return
     #'
     #' @return A table of the original class
     fetch = function(table_name, where = NULL, limit = NULL) {
       # Build SQL query
-      sql <- glue::glue("SELECT * FROM {x}")
+      sql <- glue::glue("SELECT * FROM {table_name}")
 
       if (!is.null(where)) {
         sql <- glue::glue("{sql} WHERE {where}")
@@ -104,8 +107,7 @@ evoland_db <- R6::R6Class(
         sql <- glue::glue("{sql} LIMIT {limit}")
       }
 
-      result <-
-        DBI::dbGetQuery(self$connection, sql) |>
+      DBI::dbGetQuery(self$connection, sql) |>
         data.table::as.data.table()
     },
 
@@ -116,13 +118,19 @@ evoland_db <- R6::R6Class(
       DBI::dbListTables(self$connection)
     },
 
-    #' Check if a table exists
-    #'
-    #' @param table_name Character string. Name of the table to check.
-    #'
-    #' @return Logical indicating if table exists
-    table_exists = function(table_name) {
-      DBI::dbExistsTable(self$connection, table_name)
+    #' Execute statement
+    #' @param statement A SQL statement
+    #' @return No. of rows affected by statement
+    execute = function(statement) {
+      DBI::dbExecute(self$connection, statement)
+    },
+
+    #' Get table row count
+    #' @param table_name Character string. Name of the database table or view to query.
+    #' @return No. of rows affected by statement
+    row_count = function(table_name) {
+      qry <- glue::glue("select count() from {table_name};")
+      DBI::dbGetQuery(self$connection, qry)[[1]]
     }
   ),
 

@@ -1,20 +1,50 @@
 #' Evoland Configuration Handling
 #'
-#' Provides functionality for reading YAML-based configuration files and converting them
+#' Provides functionality for reading JSON-based configuration files and converting them
 #' into structured R objects for use in the evoland package.
 #'
 #' @name evoland_config
-NULL
+#' @export
+ingest_evoland_config <- function(evoland_db, config_path, force = FALSE) {
+  if (evoland_db$row_count("config_t") > 0L && !force) {
+    stop(
+      "DB already has a config!\n",
+      "Set force=FALSE if you are sure it is safe to overwrite the config."
+    )
+  }
+  config_data <- read_evoland_config(config_path)
+  config_json <- readLines(config_path) |> paste(collapse = "\n")
+
+  df <- data.table::data.table(
+    config = config_json,
+    r_obj = list(qs::qserialize(config_data))
+  )
+  evoland_db$commit(df, "config_t", mode = "overwrite")
+}
+
+#' @describeIn evoland_config Retrieve the config from DB
+#' @export
+retrieve_evoland_config <- function(evoland_db) {
+  config_data <-
+    evoland_db$fetch("config_t")[["r_obj"]][[1]] |>
+    qs::qdeserialize()
+
+  validate(
+    structure(
+      config_data,
+      class = "evoland_config"
+    )
+  )
+}
 
 #' @describeIn evoland_config Read an Evoland Configuration File
-#' @param path character, Path to the YAML configuration file.
-#'
+#' @param config_path character, Path to the JSON configuration file.
 #' @return An object of class "evoland_config" containing the parsed configuration.
 #' @export
 
-read_evoland_config <- function(path) {
+read_evoland_config <- function(config_path) {
   # Read and parse YAML file
-  config_data <- yaml::read_yaml(path)
+  config_data <- jsonlite::read_json(config_path)
 
   validate(
     structure(
@@ -90,36 +120,12 @@ validate.evoland_config <- function(config) {
 #' @export
 print.evoland_config <- function(x, ...) {
   cat("Evoland Configuration\n\n")
-  cat(yaml::as.yaml(unclass(x)))
+  cat(jsonlite::toJSON(
+    unclass(x),
+    pretty = TRUE,
+    digits = NA,
+    auto_unbox = TRUE
+  ))
 
   invisible(x)
-}
-
-#' Configuration Table Class
-#'
-#' A data.table-based class for storing multiple evoland configurations.
-#' Inherits from data.table and provides methods for managing collections
-#' of configuration objects.
-#'
-#' @param x named list of evoland_config objects
-#'
-#' @export
-config_t <- function(x) {
-  # TODO if we really want to include other configs, we might as well call them
-  # scenarios and give them an id_scenario
-  # stopifnot evaluates sequentially; breaks when one fails
-  stopifnot(
-    is.list(x),
-    !is.null(names(x)), # has to have names
-    all(names(x) != ""), # no name can be empty
-    all(purrr::map_lgl(x, inherits, what = "evoland_config"))
-  )
-
-  dt <- data.table::data.table(
-    name = names(x),
-    config = x
-  )
-
-  class(dt) <- c("config_t", "evoland_t", class(dt))
-  dt
 }
