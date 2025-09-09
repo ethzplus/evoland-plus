@@ -134,6 +134,29 @@ evoland_db <- R6::R6Class(
     }
   ),
 
+  ## Active Bindings ----
+  active = list(
+    #' Get the model configuration
+    #' @field config An `evoland_config`
+    config = function() {
+      config_data <- self$fetch("config_t")
+      if (nrow(config_data) == 0L) {
+        stop("No config ingested yet", call. = FALSE)
+      }
+
+      config_data <- qs::qdeserialize(
+        config_data[["r_obj"]][[1]]
+      )
+
+      validate(
+        structure(
+          config_data,
+          class = "evoland_config"
+        )
+      )
+    }
+  ),
+
   ## Private Methods ----
   private = list(
     # r6 hook called on gc(); Close the database connection

@@ -29,6 +29,13 @@ Initialize a new evoland_db object}
 }
 \if{html}{\out{</div>}}
 }
+\section{Active bindings}{
+\if{html}{\out{<div class="r6-active-bindings">}}
+\describe{
+\item{\code{config}}{An \code{evoland_config}}
+}
+\if{html}{\out{</div>}}
+}
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
@@ -170,6 +177,7 @@ Get table row count
 }
 \subsection{Returns}{
 No. of rows affected by statement
+Get the model configuration
 }
 }
 \if{html}{\out{<hr>}}

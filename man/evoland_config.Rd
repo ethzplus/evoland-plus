@@ -3,13 +3,10 @@
 \name{evoland_config}
 \alias{evoland_config}
 \alias{ingest_evoland_config}
-\alias{retrieve_evoland_config}
 \alias{read_evoland_config}
 \title{Evoland Configuration Handling}
 \usage{
 ingest_evoland_config(evoland_db, config_path, force = FALSE)
-
-retrieve_evoland_config(evoland_db)
 
 read_evoland_config(config_path)
 }
@@ -25,8 +22,6 @@ into structured R objects for use in the evoland package.
 }
 \section{Functions}{
 \itemize{
-\item \code{retrieve_evoland_config()}: Retrieve the config from DB
-
 \item \code{read_evoland_config()}: Read an Evoland Configuration File
 
 }}

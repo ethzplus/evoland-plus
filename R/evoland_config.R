@@ -22,21 +22,6 @@ ingest_evoland_config <- function(evoland_db, config_path, force = FALSE) {
   evoland_db$commit(df, "config_t", mode = "overwrite")
 }
 
-#' @describeIn evoland_config Retrieve the config from DB
-#' @export
-retrieve_evoland_config <- function(evoland_db) {
-  config_data <-
-    evoland_db$fetch("config_t")[["r_obj"]][[1]] |>
-    qs::qdeserialize()
-
-  validate(
-    structure(
-      config_data,
-      class = "evoland_config"
-    )
-  )
-}
-
 #' @describeIn evoland_config Read an Evoland Configuration File
 #' @param config_path character, Path to the JSON configuration file.
 #' @return An object of class "evoland_config" containing the parsed configuration.
