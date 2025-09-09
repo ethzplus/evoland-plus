@@ -50,3 +50,5 @@ rsconnect/
 
 renv*
 .Rprofile
+/doc/
+/Meta/
