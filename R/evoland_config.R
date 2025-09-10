@@ -93,3 +93,34 @@ print.evoland_config <- function(x, ...) {
 
   invisible(x)
 }
+
+# This is the active binding function for config handling in the evoland_db class
+utils::globalVariables("self")
+active_binding_config <- function(config_data) {
+  if (missing(config_data)) {
+    config_data <- DBI::dbGetQuery(
+      self$connection,
+      "select r_obj from config_t limit 1"
+    )
+    if (nrow(config_data) == 0L) {
+      stop("No config ingested yet", call. = FALSE)
+    }
+
+    config_data <- qs::qdeserialize(
+      config_data[["r_obj"]][[1]]
+    )
+
+    out <- validate(structure(config_data, class = "evoland_config"))
+    return(out)
+  }
+  if (self$row_count("config_t") > 0L) {
+    stop("DB already has a config! Use db$delete_from('config_t') to delete it")
+  }
+  config_json <- "{}" # empty until we can reliably (de)serialize JSON
+
+  df <- data.table::data.table(
+    config = config_json,
+    r_obj = list(qs::qserialize(config_data))
+  )
+  self$commit(df, "config_t", mode = "overwrite")
+}
