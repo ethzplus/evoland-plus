@@ -26,33 +26,16 @@ read_evoland_config <- function(config_path) {
 #' @export
 validate.evoland_config <- function(x, ...) {
   # Required top-level sections
-  required_sections <- c("reporting", "coords", "lulc_data", "lulc_classes", "periods")
-
-  missing_sections <- setdiff(required_sections, names(x))
-  if (length(missing_sections) > 0) {
-    stop(glue::glue(
-      "Missing required configuration sections: {paste(missing_sections, collapse = ', ')}"
-    ))
-  }
+  check_missing_names(x, c("reporting", "coords", "lulc_data", "lulc_classes", "periods"))
 
   # Validate reporting section
   if (!is.list(x[["reporting"]])) {
     stop("'reporting' section must be a list")
   }
-  required_reporting <- c("scenario_name", "shortname")
-  missing_reporting <- setdiff(required_reporting, names(x[["reporting"]]))
-  if (length(missing_reporting) > 0) {
-    stop(glue::glue(
-      "Missing required reporting fields: {paste(missing_reporting, collapse = ', ')}"
-    ))
-  }
+  check_missing_names(x[["reporting"]], c("scenario_name", "shortname"))
 
   # Validate coords section
-  required_coords <- c("type", "epsg", "extent", "resolution")
-  missing_coords <- setdiff(required_coords, names(x[["coords"]]))
-  if (length(missing_coords) > 0) {
-    stop(glue::glue("Missing required coords fields: {paste(missing_coords, collapse = ', ')}"))
-  }
+  check_missing_names(x[["coords"]], c("type", "epsg", "extent", "resolution"))
 
   # Validate lulc_classes section
   if (!is.list(x[["lulc_classes"]])) {
@@ -76,12 +59,7 @@ validate.evoland_config <- function(x, ...) {
   if (!is.list(x[["periods"]])) {
     stop("'periods' section must be a list")
   }
-
-  required_periods <- c("period_length", "start_observed", "end_observed")
-  missing_periods <- setdiff(required_periods, names(x[["periods"]]))
-  if (length(missing_periods) > 0) {
-    stop(glue::glue("Missing required periods fields: {paste(missing_periods, collapse = ', ')}"))
-  }
+  check_missing_names(x[["periods"]], c("period_length", "start_observed", "end_observed"))
 
   x
 }

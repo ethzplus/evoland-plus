@@ -38,13 +38,7 @@ validate.coords_t <- function(x, ...) {
   }
 
   # Check required columns
-  required_cols <- c("id_coord", "lon", "lat", "elevation", "region", "geom_polygon")
-  missing_cols <- setdiff(required_cols, names(x))
-  if (length(missing_cols) > 0) {
-    stop(glue::glue(
-      "coords_t missing required columns: {paste(missing_cols, collapse = ', ')}"
-    ))
-  }
+  check_missing_names(x, c("id_coord", "lon", "lat", "elevation", "region", "geom_polygon"))
 
   # Check column types
   if (!is.integer(x[["id_coord"]])) {
