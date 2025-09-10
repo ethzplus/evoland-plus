@@ -5,6 +5,7 @@
 \alias{validate}
 \alias{new_evoland_table}
 \alias{check_missing_names}
+\alias{\%||\%}
 \title{evoland utility functions}
 \usage{
 validate(x, ...)
@@ -12,15 +13,19 @@ validate(x, ...)
 new_evoland_table(x, class_name)
 
 check_missing_names(x, required_names)
+
+x \%||\% y
 }
 \arguments{
-\item{x}{A named object}
+\item{x}{Left-hand side value}
 
 \item{...}{Optional.}
 
 \item{class_name}{The class name to attach before "evoland_t"}
 
 \item{required_names}{Vector of required names}
+
+\item{y}{Right-hand side value (fallback)}
 }
 \description{
 These are mostly used to validate evoland S3 objects.
@@ -32,5 +37,7 @@ These are mostly used to validate evoland S3 objects.
 \item \code{new_evoland_table()}: Add evoland_t class
 
 \item \code{check_missing_names()}: Check that all required names are present
+
+\item \code{x \%||\% y}: Null coalescing operator
 
 }}

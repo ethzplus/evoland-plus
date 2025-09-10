@@ -42,3 +42,10 @@ check_missing_names <- function(x, required_names) {
     ))
   }
 }
+
+#' @describeIn util Null coalescing operator
+#' @param x Left-hand side value
+#' @param y Right-hand side value (fallback)
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
