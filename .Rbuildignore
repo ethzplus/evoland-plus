@@ -4,3 +4,5 @@
 ^\.github$
 ^doc$
 ^Meta$
+.lintr
+air.toml

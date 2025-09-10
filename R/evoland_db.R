@@ -4,6 +4,7 @@
 #' package. This class handles database initialization, data commits, and data
 #' fetching operations.
 #'
+#' @import R6 duckdb
 #' @export
 
 evoland_db <- R6::R6Class(
@@ -26,9 +27,7 @@ evoland_db <- R6::R6Class(
     #' @param write Logical. Whether to open the database in write mode. Default is TRUE.
     #'   If FALSE, the database file must already exist.
     #'
-    #' @return A new `evoland_db` object.
-    #'
-    #' @examples
+    #' @return A new `evoland_db` object
     initialize = function(path, write = TRUE) {
       self$path <- path
       self$write_mode <- write

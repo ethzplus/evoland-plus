@@ -109,9 +109,14 @@ create_coords_t_square <- function(coords_spec) {
   stopifnot(
     # Validate required fields
     c("epsg", "extent", "resolution") %in% names(coords_spec),
-    rlang::is_scalar_integerish(coords_spec[["epsg"]]),
+    # quasi rlang::is_scalar_integerish()
+    (is.numeric(coords_spec[["epsg"]]) &&
+      length(coords_spec[["epsg"]]) == 1 &&
+      coords_spec[["epsg"]] == as.integer(coords_spec[["epsg"]])),
     is.list(coords_spec[["extent"]]),
-    rlang::is_scalar_double(as.double(coords_spec[["resolution"]]))
+    # quasi rlang::is_scalar_double()
+    (is.numeric(coords_spec[["resolution"]]) &&
+      length(coords_spec[["resolution"]]) == 1)
   )
 
   base_grid_rast <- terra::rast(
@@ -126,8 +131,8 @@ create_coords_t_square <- function(coords_spec) {
   base_grid_dt <-
     base_grid_rast |>
     terra::crds(na.rm = FALSE) |>
-    data.table::as.data.table() |>
-    setNames(c("lon", "lat"))
+    data.table::as.data.table()
+  names(base_grid_dt) <- c("lon", "lat")
 
   data.table::set(base_grid_dt, j = "id_coord", value = seq_len(nrow(base_grid_dt)))
 

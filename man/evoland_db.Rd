@@ -8,15 +8,6 @@ An R6 class that provides an interface to a DuckDB database for the evoland
 package. This class handles database initialization, data commits, and data
 fetching operations.
 }
-\examples{
-
-## ------------------------------------------------
-## Method `evoland_db$new`
-## ------------------------------------------------
-
-Commit data to the database
-
-}
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
@@ -68,17 +59,9 @@ If FALSE, the database file must already exist.}
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A new \code{evoland_db} object.
+A new \code{evoland_db} object
+Commit data to the database
 }
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{Commit data to the database
-
-}
-\if{html}{\out{</div>}}
-
-}
-
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-commit"></a>}}

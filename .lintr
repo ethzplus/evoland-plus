@@ -6,7 +6,8 @@ linters: linters_with_defaults(
     paste_linter(),
     print_linter(),
     unnecessary_lambda_linter(),
-    list_comparison_linter()
+    list_comparison_linter(),
+    indentation_linter = NULL
   ) # see vignette("lintr")
 exclusions: list(
   "renv"

@@ -24,11 +24,11 @@ read_evoland_config <- function(config_path) {
 }
 
 #' @export
-validate.evoland_config <- function(config) {
+validate.evoland_config <- function(x, ...) {
   # Required top-level sections
   required_sections <- c("reporting", "coords", "lulc_data", "lulc_classes", "periods")
 
-  missing_sections <- setdiff(required_sections, names(config))
+  missing_sections <- setdiff(required_sections, names(x))
   if (length(missing_sections) > 0) {
     stop(glue::glue(
       "Missing required configuration sections: {paste(missing_sections, collapse = ', ')}"
@@ -36,11 +36,11 @@ validate.evoland_config <- function(config) {
   }
 
   # Validate reporting section
-  if (!is.list(config[["reporting"]])) {
+  if (!is.list(x[["reporting"]])) {
     stop("'reporting' section must be a list")
   }
   required_reporting <- c("scenario_name", "shortname")
-  missing_reporting <- setdiff(required_reporting, names(config[["reporting"]]))
+  missing_reporting <- setdiff(required_reporting, names(x[["reporting"]]))
   if (length(missing_reporting) > 0) {
     stop(glue::glue(
       "Missing required reporting fields: {paste(missing_reporting, collapse = ', ')}"
@@ -49,21 +49,21 @@ validate.evoland_config <- function(config) {
 
   # Validate coords section
   required_coords <- c("type", "epsg", "extent", "resolution")
-  missing_coords <- setdiff(required_coords, names(config[["coords"]]))
+  missing_coords <- setdiff(required_coords, names(x[["coords"]]))
   if (length(missing_coords) > 0) {
     stop(glue::glue("Missing required coords fields: {paste(missing_coords, collapse = ', ')}"))
   }
 
   # Validate lulc_classes section
-  if (!is.list(config[["lulc_classes"]])) {
+  if (!is.list(x[["lulc_classes"]])) {
     stop("'lulc_classes' section must be a list")
   }
-  if (length(config[["lulc_classes"]]) < 2) {
+  if (length(x[["lulc_classes"]]) < 2) {
     stop("At least two LULC classes must be defined")
   }
   # Validate each LULC class
-  for (class_name in names(config[["lulc_classes"]])) {
-    class_def <- config[["lulc_classes"]][[class_name]]
+  for (class_name in names(x[["lulc_classes"]])) {
+    class_def <- x[["lulc_classes"]][[class_name]]
     if (!is.list(class_def)) {
       stop(glue::glue("LULC class '{class_name}' must be a list"))
     }
@@ -73,17 +73,17 @@ validate.evoland_config <- function(config) {
   }
 
   # Validate periods section
-  if (!is.list(config[["periods"]])) {
+  if (!is.list(x[["periods"]])) {
     stop("'periods' section must be a list")
   }
 
   required_periods <- c("period_length", "start_observed", "end_observed")
-  missing_periods <- setdiff(required_periods, names(config[["periods"]]))
+  missing_periods <- setdiff(required_periods, names(x[["periods"]]))
   if (length(missing_periods) > 0) {
     stop(glue::glue("Missing required periods fields: {paste(missing_periods, collapse = ', ')}"))
   }
 
-  config
+  x
 }
 
 #' @export
