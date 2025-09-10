@@ -11,11 +11,9 @@ expect_silent(validate(config))
 
 db <- evoland_db$new(":memory:")
 
-expect_silent(ingest_evoland_config(db, config_path))
-expect_error(ingest_evoland_config(db, config_path), "DB already has a config")
-expect_silent(ingest_evoland_config(db, config_path, force = TRUE))
+expect_silent(db$config <- config)
+expect_error(db$config <- config, "DB already has a config")
+expect_equal(db$delete_from("config_t"), 1L)
+expect_silent(db$config <- config)
 
-expect_equal(
-  db$config,
-  config
-)
+expect_equal(db$config, config)

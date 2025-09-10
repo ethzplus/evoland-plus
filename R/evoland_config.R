@@ -4,23 +4,7 @@
 #' into structured R objects for use in the evoland package.
 #'
 #' @name evoland_config
-#' @export
-ingest_evoland_config <- function(evoland_db, config_path, force = FALSE) {
-  if (evoland_db$row_count("config_t") > 0L && !force) {
-    stop(
-      "DB already has a config!\n",
-      "Set force=FALSE if you are sure it is safe to overwrite the config."
-    )
-  }
-  config_data <- read_evoland_config(config_path)
-  config_json <- "{}" # empty until we can reliably (de)serialize JSON
-
-  df <- data.table::data.table(
-    config = config_json,
-    r_obj = list(qs::qserialize(config_data))
-  )
-  evoland_db$commit(df, "config_t", mode = "overwrite")
-}
+NULL
 
 #' @describeIn evoland_config Read an Evoland Configuration File
 #' @param config_path character, Path to the JSON configuration file.
@@ -105,12 +89,7 @@ validate.evoland_config <- function(config) {
 #' @export
 print.evoland_config <- function(x, ...) {
   cat("Evoland Configuration\n\n")
-  cat(jsonlite::toJSON(
-    unclass(x),
-    pretty = TRUE,
-    digits = NA,
-    auto_unbox = TRUE
-  ))
+  cat(yaml::as.yaml(x))
 
   invisible(x)
 }

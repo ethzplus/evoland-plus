@@ -2,12 +2,9 @@
 % Please edit documentation in R/evoland_config.R
 \name{evoland_config}
 \alias{evoland_config}
-\alias{ingest_evoland_config}
 \alias{read_evoland_config}
 \title{Evoland Configuration Handling}
 \usage{
-ingest_evoland_config(evoland_db, config_path, force = FALSE)
-
 read_evoland_config(config_path)
 }
 \arguments{

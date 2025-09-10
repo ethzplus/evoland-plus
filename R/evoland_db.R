@@ -131,6 +131,18 @@ evoland_db <- R6::R6Class(
     row_count = function(table_name) {
       qry <- glue::glue("select count() from {table_name};")
       DBI::dbGetQuery(self$connection, qry)[[1]]
+    },
+
+    #' Empty a table
+    #' @param table_name Character string. Name of the database table or view to delete.
+    #' @param where Character string, defaults to NULL: delete everything in table.
+    #' @return No. of rows affected by statement
+    delete_from = function(table_name, where = NULL) {
+      qry <- glue::glue("delete from {table_name}")
+      if (!is.null(where)) {
+        qry <- glue::glue("{qry} where {where}")
+      }
+      DBI::dbExecute(self$connection, qry)
     }
   ),
 
@@ -138,22 +150,33 @@ evoland_db <- R6::R6Class(
   active = list(
     #' Get the model configuration
     #' @field config An `evoland_config`
-    config = function() {
-      config_data <- self$fetch("config_t")
-      if (nrow(config_data) == 0L) {
-        stop("No config ingested yet", call. = FALSE)
-      }
-
-      config_data <- qs::qdeserialize(
-        config_data[["r_obj"]][[1]]
-      )
-
-      validate(
-        structure(
-          config_data,
-          class = "evoland_config"
+    config = function(config_data) {
+      if (missing(config_data)) {
+        config_data <- DBI::dbGetQuery(
+          self$connection,
+          "select r_obj from config_t limit 1"
         )
+        if (nrow(config_data) == 0L) {
+          stop("No config ingested yet", call. = FALSE)
+        }
+
+        config_data <- qs::qdeserialize(
+          config_data[["r_obj"]][[1]]
+        )
+
+        out <- validate(structure(config_data, class = "evoland_config"))
+        return(out)
+      }
+      if (self$row_count("config_t") > 0L) {
+        stop("DB already has a config! Use db$delete_from('config_t') to delete it")
+      }
+      config_json <- "{}" # empty until we can reliably (de)serialize JSON
+
+      df <- data.table::data.table(
+        config = config_json,
+        r_obj = list(qs::qserialize(config_data))
       )
+      self$commit(df, "config_t", mode = "overwrite")
     }
   ),
 

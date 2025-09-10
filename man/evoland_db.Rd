@@ -45,6 +45,7 @@ Initialize a new evoland_db object}
 \item \href{#method-evoland_db-list_tables}{\code{evoland_db$list_tables()}}
 \item \href{#method-evoland_db-execute}{\code{evoland_db$execute()}}
 \item \href{#method-evoland_db-row_count}{\code{evoland_db$row_count()}}
+\item \href{#method-evoland_db-delete_from}{\code{evoland_db$delete_from()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -172,6 +173,28 @@ Get table row count
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{table_name}}{Character string. Name of the database table or view to query.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+No. of rows affected by statement
+Empty a table
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-delete_from"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-delete_from}{}}}
+\subsection{Method \code{delete_from()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$delete_from(table_name, where = NULL)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character string. Name of the database table or view to delete.}
+
+\item{\code{where}}{Character string, defaults to NULL: delete everything in table.}
 }
 \if{html}{\out{</div>}}
 }

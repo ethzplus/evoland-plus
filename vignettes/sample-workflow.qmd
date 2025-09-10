@@ -19,7 +19,7 @@ Then, the real fun starts: we instantiate a new in-memory database and ingest th
 ```{r}
 db <- evoland_db$new(":memory:")
 config_path <- system.file("config.yaml", package = "evoland")
-ingest_evoland_config(db, config_path)
+db$config <- read_evoland_config(config_path)
 ```
 
 The configuration contains the definition of the base grid we'll be working on, also known as the coordinates table.
