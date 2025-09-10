@@ -2,10 +2,13 @@
 
 S3method(print,coords_t)
 S3method(print,evoland_config)
+S3method(print,periods_t)
 S3method(validate,coords_t)
 S3method(validate,default)
 S3method(validate,evoland_config)
+S3method(validate,periods_t)
 export(create_coords_t)
+export(create_periods_t)
 export(evoland_db)
 export(read_evoland_config)
 export(validate)

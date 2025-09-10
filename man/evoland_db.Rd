@@ -26,7 +26,10 @@ Initialize a new evoland_db object}
 \item{\code{config}}{Retrieve \link{evoland_config}; may be assigned a config
 (\code{\link[=read_evoland_config]{read_evoland_config()}}) only if no other config is present}
 
-\item{\code{coords_t}}{A \code{coords_t} instance; see \code{\link[=create_coords_t]{create_coords_t()}} on the type of
+\item{\code{coords_t}}{A \code{coords_t} instance; see \code{\link[=create_coords_t]{create_coords_t()}} for the type of
+object to assign. Assigning is an upsert operation.}
+
+\item{\code{periods_t}}{A \code{periods_t} instance; see \code{\link[=create_periods_t]{create_periods_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
 }
 \if{html}{\out{</div>}}

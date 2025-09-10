@@ -149,10 +149,65 @@ evoland_db <- R6::R6Class(
   active = list(
     #' @field config Retrieve [evoland_config]; may be assigned a config
     #' ([read_evoland_config()]) only if no other config is present
-    config = active_binding_config,
-    #' @field coords_t A `coords_t` instance; see [create_coords_t()] on the type of
+    config = function(config_data) {
+      if (missing(config_data)) {
+        config_data <- DBI::dbGetQuery(
+          self$connection,
+          "select r_obj from config_t limit 1"
+        )
+        if (nrow(config_data) == 0L) {
+          stop("No config ingested yet", call. = FALSE)
+        }
+
+        config_data <- qs::qdeserialize(
+          config_data[["r_obj"]][[1]]
+        )
+
+        out <- validate(structure(config_data, class = "evoland_config"))
+        return(out)
+      }
+      if (!inherits(config_data, "evoland_config")) {
+        stop("Can only insert evoland_config objects")
+      }
+      if (self$row_count("config_t") > 0L) {
+        stop("DB already has a config! Use db$delete_from('config_t') to delete it")
+      }
+      config_json <- "{}" # empty until we can reliably (de)serialize JSON
+
+      df <- data.table::data.table(
+        config = config_json,
+        r_obj = list(qs::qserialize(config_data))
+      )
+      self$commit(df, "config_t", mode = "overwrite")
+    },
+
+    #' @field coords_t A `coords_t` instance; see [create_coords_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    coords_t = active_binding_coords_t
+    coords_t = function(coords_t) {
+      if (missing(coords_t)) {
+        coords_t <-
+          DBI::dbGetQuery(self$connection, "from coords_t") |>
+          data.table::as.data.table(key = "id_coord")
+
+        data.table::set(coords_t, j = "region", value = as.factor(coords_t[["region"]]))
+
+        return(new_evoland_table(coords_t, "coords_t"))
+      }
+      self$commit(coords_t, "coords_t", mode = "upsert")
+    },
+
+    #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
+    #' object to assign. Assigning is an upsert operation.
+    periods_t = function(periods_t) {
+      if (missing(periods_t)) {
+        periods_t <-
+          DBI::dbGetQuery(self$connection, "from periods_t") |>
+          data.table::as.data.table(key = "id_period")
+
+        return(new_evoland_table(periods_t, "periods_t"))
+      }
+      self$commit(periods_t, "periods_t", mode = "upsert")
+    }
   ),
 
   ## Private Methods ----

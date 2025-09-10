@@ -93,21 +93,6 @@ print.coords_t <- function(x, nrow = 10, ...) {
   invisible(x)
 }
 
-# This is the active binding function for coords_t handling in the evoland_db class
-utils::globalVariables("self")
-active_binding_coords_t <- function(coords_t) {
-  if (missing(coords_t)) {
-    coords_t <-
-      DBI::dbGetQuery(self$connection, "from coords_t") |>
-      data.table::as.data.table(key = "id_coord")
-
-    data.table::set(coords_t, j = "region", value = as.factor(coords_t[["region"]]))
-
-    return(new_evoland_table(coords_t, "coords_t"))
-  }
-  self$commit(coords_t, "coords_t", mode = "upsert")
-}
-
 # Create a new coords_t_square from specs
 create_coords_t_square <- function(coords_spec) {
   stopifnot(
