@@ -2,13 +2,20 @@
 % Please edit documentation in R/coords_t.R
 \name{coords_t}
 \alias{coords_t}
-\alias{populate_coords_t}
+\alias{create_coords_t}
+\alias{print.coords_t}
 \title{Create Coordinate Table from Configuration}
 \usage{
-populate_coords_t(evoland_db)
+create_coords_t(config)
+
+\method{print}{coords_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{evoland_db}{An \link{evoland_db} instance}
+\item{config}{An \link{evoland_config} instance}
+
+\item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 }
 \value{
 A data.table of class "coords_t" with columns:
@@ -26,3 +33,8 @@ Creates a coords_t table based on the coordinate system specification in an
 evoland_config object. This function uses the coords field to establish a
 base grid and dispatches to type-specific implementation methods.
 }
+\section{Methods (by generic)}{
+\itemize{
+\item \code{print(coords_t)}: Print a coords_t object, passing params to data.table print
+
+}}

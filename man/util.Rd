@@ -8,12 +8,14 @@
 \usage{
 validate(x, ...)
 
-new_evoland_table(x)
+new_evoland_table(x, class_name)
 }
 \arguments{
 \item{x}{Object to validate.}
 
 \item{...}{Optional.}
+
+\item{class_name}{The class name to attach before "evoland_t"}
 }
 \description{
 These are mostly used to validate evoland S3 objects.

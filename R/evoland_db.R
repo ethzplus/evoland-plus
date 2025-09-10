@@ -147,9 +147,12 @@ evoland_db <- R6::R6Class(
 
   ## Active Bindings ----
   active = list(
-    #' Get the model configuration
-    #' @field config An `evoland_config`
-    config = active_binding_config
+    #' @field config Retrieve [evoland_config]; may be assigned a config
+    #' ([read_evoland_config()]) only if no other config is present
+    config = active_binding_config,
+    #' @field coords_t A `coords_t` instance; see [create_coords_t()] on the type of
+    #' object to assign. Assigning is an upsert operation.
+    coords_t = active_binding_coords_t
   ),
 
   ## Private Methods ----

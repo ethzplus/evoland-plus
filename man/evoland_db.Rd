@@ -23,7 +23,11 @@ Initialize a new evoland_db object}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
-\item{\code{config}}{An \code{evoland_config}}
+\item{\code{config}}{Retrieve \link{evoland_config}; may be assigned a config
+(\code{\link[=read_evoland_config]{read_evoland_config()}}) only if no other config is present}
+
+\item{\code{coords_t}}{A \code{coords_t} instance; see \code{\link[=create_coords_t]{create_coords_t()}} on the type of
+object to assign. Assigning is an upsert operation.}
 }
 \if{html}{\out{</div>}}
 }
@@ -183,7 +187,6 @@ Empty a table
 }
 \subsection{Returns}{
 No. of rows affected by statement
-Get the model configuration
 }
 }
 \if{html}{\out{<hr>}}

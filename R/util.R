@@ -20,10 +20,13 @@ validate.default <- function(x, ...) {
 }
 
 #' @describeIn util Add evoland_t class
-new_evoland_table <- function(x) {
+#' @param class_name The class name to attach before "evoland_t"
+new_evoland_table <- function(x, class_name) {
   stopifnot(inherits(x, "data.table"))
   class(x) <- unique(c(
+    class_name,
     "evoland_t",
     class(x)
   ))
+  validate(x)
 }

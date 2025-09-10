@@ -6,7 +6,7 @@
 #'
 #' @name coords_t
 #'
-#' @param evoland_db An [evoland_db] instance
+#' @param config An [evoland_config] instance
 #'
 #' @return A data.table of class "coords_t" with columns:
 #'   - `id_coord`: Unique ID for each coordinate pair
@@ -16,23 +16,18 @@
 #'   - `region`: Region designation (initially NULL)
 #'   - `geom_polygon`: Geometry polygon object (for grid cells)
 #' @export
-populate_coords_t <- function(evoland_db) {
-  config <- evoland_db$config
+create_coords_t <- function(config) {
   coords_spec <- config[["coords"]]
   coord_type <- coords_spec[["type"]]
 
   # Dispatch to type-specific implementation
-  out <- switch(
+  switch(
     coord_type,
     square = create_coords_t_square(coords_spec),
     stop(glue::glue(
       "Unsupported coordinate type: '{coord_type}'. Currently only 'square' is supported."
     ))
   )
-
-  out <- validate(out)
-
-  evoland_db$commit(out, "coords_t", mode = "overwrite")
 }
 
 #' @export
@@ -73,35 +68,50 @@ validate.coords_t <- function(x, ...) {
     warning("coerced region to factor")
   }
 
+  # if empty, don't run soft checks
+  if (nrow(x) == 0L) {
+    return(x)
+  }
+
   # Check for unique id_coord values
   if (anyDuplicated(x[["id_coord"]])) {
     stop("id_coord values must be unique")
-  }
-
-  if (!inherits(x[["geom_polygon"]], "sfc")) {
-    warning("`geom_polygon` is not a simple feature collection")
-  }
-  if (all(is.na(x[["elevation"]]))) {
-    # TODO insert name of method for sampling / setting elevation
-    warning("`elevation` is all NA, populate using ")
-  }
-  if (all(is.na(x[["region"]]))) {
-    # TODO insert name of method for sampling / setting region
-    warning("`region` is all NA, populate using ")
   }
 
   return(x)
 }
 
 #' @export
-print.coords_t <- function(x, ...) {
-  cat(glue::glue(
-    "Coordinate Table\n",
-    "longitude (x) range: [{range(x[['lon']])}]\n",
-    "latitude  (y) range: [{range(x[['lat']])}]\n\n"
-  ))
-  NextMethod(...)
+#' @describeIn coords_t Print a coords_t object, passing params to data.table print
+#' @param nrow see [data.table::print.data.table]
+#' @param ... passed to [data.table::print.data.table]
+print.coords_t <- function(x, nrow = 10, ...) {
+  if (nrow(x) > 1) {
+    cat(glue::glue(
+      "Coordinate Table\n",
+      "longitude (x) range: [{min(x[['lon']])}, {max(x[['lon']])}]\n",
+      "latitude  (y) range: [{min(x[['lat']])}, {max(x[['lat']])}]\n\n"
+    ))
+  } else {
+    cat("Coordinate Table\n")
+  }
+  NextMethod(nrow = nrow, ...)
   invisible(x)
+}
+
+# This is the active binding function for coords_t handling in the evoland_db class
+utils::globalVariables("self")
+active_binding_coords_t <- function(coords_t) {
+  if (missing(coords_t)) {
+    coords_t <-
+      DBI::dbGetQuery(self$connection, "from coords_t") |>
+      data.table::as.data.table(key = "id_coord")
+
+    data.table::set(coords_t, j = "region", value = as.factor(coords_t[["region"]]))
+
+    return(new_evoland_table(coords_t, "coords_t"))
+  }
+  self$commit(coords_t, "coords_t", mode = "upsert")
 }
 
 # Create a new coords_t_square from specs
@@ -135,6 +145,7 @@ create_coords_t_square <- function(coords_spec) {
   names(base_grid_dt) <- c("lon", "lat")
 
   data.table::set(base_grid_dt, j = "id_coord", value = seq_len(nrow(base_grid_dt)))
+  data.table::setkeyv(base_grid_dt, "id_coord")
 
   # populate later coords-agnostically with point sampling
   data.table::set(base_grid_dt, j = "elevation", value = NA_real_)
@@ -158,12 +169,6 @@ create_coords_t_square <- function(coords_spec) {
   )
 
   # Add S3 classes
-  class(base_grid_dt) <- c(
-    "coords_t_square",
-    "coords_t",
-    "evoland_t",
-    class(base_grid_dt)
-  )
 
-  return(base_grid_dt)
+  new_evoland_table(base_grid_dt, "coords_t")
 }
