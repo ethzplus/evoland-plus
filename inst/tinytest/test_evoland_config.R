@@ -11,6 +11,11 @@ expect_silent(validate(config))
 
 db <- evoland_db$new(":memory:")
 
+expect_error(
+  db$config <- list(gotnuttinbutlove = "for you baby"),
+  "Can only insert evoland_config objects"
+)
+
 expect_silent(db$config <- config)
 expect_error(db$config <- config, "DB already has a config")
 expect_equal(db$delete_from("config_t"), 1L)

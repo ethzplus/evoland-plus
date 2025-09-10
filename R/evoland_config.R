@@ -113,6 +113,9 @@ active_binding_config <- function(config_data) {
     out <- validate(structure(config_data, class = "evoland_config"))
     return(out)
   }
+  if (!inherits(config_data, "evoland_config")) {
+    stop("Can only insert evoland_config objects")
+  }
   if (self$row_count("config_t") > 0L) {
     stop("DB already has a config! Use db$delete_from('config_t') to delete it")
   }
