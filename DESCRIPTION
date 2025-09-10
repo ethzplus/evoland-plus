@@ -21,7 +21,8 @@ Imports:
     qs,
     R6,
     rlang,
-    terra
+    terra,
+    yaml
 Suggests:
     tinytest
 VignetteBuilder: quarto

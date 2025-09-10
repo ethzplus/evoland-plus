@@ -13,7 +13,7 @@ ingest_evoland_config <- function(evoland_db, config_path, force = FALSE) {
     )
   }
   config_data <- read_evoland_config(config_path)
-  config_json <- readLines(config_path) |> paste(collapse = "\n")
+  config_json <- "{}" # empty until we can reliably (de)serialize JSON
 
   df <- data.table::data.table(
     config = config_json,
@@ -29,7 +29,7 @@ ingest_evoland_config <- function(evoland_db, config_path, force = FALSE) {
 
 read_evoland_config <- function(config_path) {
   # Read and parse YAML file
-  config_data <- jsonlite::read_json(config_path)
+  config_data <- yaml::read_yaml(config_path)
 
   validate(
     structure(
