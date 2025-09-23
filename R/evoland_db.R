@@ -220,6 +220,21 @@ evoland_db <- R6::R6Class(
         return(new_evoland_table(lulc_meta_t, "lulc_meta_t"))
       }
       self$commit(lulc_meta_t, "lulc_meta_t", mode = "upsert")
+    },
+
+    #' @field lulc_data_t A `lulc_data_t` instance; see [create_lulc_data_t()] for the type of
+    #' object to assign. Assigning is an upsert operation.
+    lulc_data_t = function(lulc_data_t) {
+      if (missing(lulc_data_t)) {
+        lulc_data_t <-
+          DBI::dbGetQuery(self$connection, "from lulc_data_t") |>
+          data.table::as.data.table()
+
+        data.table::setkeyv(lulc_data_t, c("id_coord", "id_lulc", "id_period"))
+
+        return(new_evoland_table(lulc_data_t, "lulc_data_t"))
+      }
+      self$commit(lulc_data_t, "lulc_data_t", mode = "upsert")
     }
   ),
 

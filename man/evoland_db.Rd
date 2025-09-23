@@ -34,6 +34,9 @@ object to assign. Assigning is an upsert operation.}
 
 \item{\code{lulc_meta_t}}{A \code{lulc_meta_t} instance; see \code{\link[=create_lulc_meta_t]{create_lulc_meta_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
+
+\item{\code{lulc_data_t}}{A \code{lulc_data_t} instance; see \code{\link[=create_lulc_data_t]{create_lulc_data_t()}} for the type of
+object to assign. Assigning is an upsert operation.}
 }
 \if{html}{\out{</div>}}
 }
