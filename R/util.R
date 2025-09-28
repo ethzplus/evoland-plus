@@ -49,3 +49,47 @@ check_missing_names <- function(x, required_names) {
 `%||%` <- function(x, y) {
   if (is.null(x)) y else x
 }
+
+#' @describeIn util Pluck with wildcard support
+#' @param lst The list to index into
+#' @param ... Index arguments. Use NA to match all elements at that level
+#' @return The indexed result, which may be a single element or a list of elements
+
+pluck_wildcard <- function(lst, ...) {
+  indices <- list(...)
+  n_indices <- length(indices)
+
+  if (n_indices == 0L) {
+    return(lst)
+  }
+
+  # Recursive function to process indices
+  process_level <- function(current_data, level) {
+    if (level > n_indices) {
+      return(current_data)
+    }
+
+    current_index <- indices[[level]]
+
+    # If current index is na, then apply to all children
+    if (is.na(current_index)) {
+      # Apply remaining indices to all elements at this level
+      if (is.list(current_data)) {
+        result <- lapply(current_data, process_level, level = level + 1L)
+        return(result)
+      } else {
+        # If current_data is not a list, we can't descend further
+        return(current_data)
+      }
+    } else {
+      # Normal indexing
+      if (is.list(current_data) && !is.null(current_data[[current_index]])) {
+        return(process_level(current_data[[current_index]], level + 1L))
+      } else {
+        return(NULL)
+      }
+    }
+  }
+
+  return(process_level(lst, level = 1L))
+}

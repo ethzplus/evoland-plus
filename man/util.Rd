@@ -6,6 +6,7 @@
 \alias{new_evoland_table}
 \alias{check_missing_names}
 \alias{\%||\%}
+\alias{pluck_wildcard}
 \title{evoland utility functions}
 \usage{
 validate(x, ...)
@@ -15,17 +16,24 @@ new_evoland_table(x, class_name)
 check_missing_names(x, required_names)
 
 x \%||\% y
+
+pluck_wildcard(lst, ...)
 }
 \arguments{
 \item{x}{Left-hand side value}
 
-\item{...}{Optional.}
+\item{...}{Index arguments. Use NA to match all elements at that level}
 
 \item{class_name}{The class name to attach before "evoland_t"}
 
 \item{required_names}{Vector of required names}
 
 \item{y}{Right-hand side value (fallback)}
+
+\item{lst}{The list to index into}
+}
+\value{
+The indexed result, which may be a single element or a list of elements
 }
 \description{
 These are mostly used to validate evoland S3 objects.
@@ -39,5 +47,7 @@ These are mostly used to validate evoland S3 objects.
 \item \code{check_missing_names()}: Check that all required names are present
 
 \item \code{x \%||\% y}: Null coalescing operator
+
+\item \code{pluck_wildcard()}: Pluck with wildcard support
 
 }}
