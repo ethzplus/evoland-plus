@@ -193,6 +193,7 @@ evoland_db <- R6::R6Class(
 
         return(new_evoland_table(coords_t, "coords_t"))
       }
+      # TODO for this and the following: ensure proper inheritance before attempting upsert
       self$commit(coords_t, "coords_t", mode = "upsert")
     },
 
@@ -235,6 +236,80 @@ evoland_db <- R6::R6Class(
         return(new_evoland_table(lulc_data_t, "lulc_data_t"))
       }
       self$commit(lulc_data_t, "lulc_data_t", mode = "upsert")
+    },
+
+    #' @field pred_meta_t A `pred_meta_t` instance; see [create_pred_meta_t()] for the type of
+    #' object to assign. Assigning is an upsert operation.
+    pred_meta_t = function(pred_meta_t) {
+      if (missing(pred_meta_t)) {
+        pred_meta_t <-
+          DBI::dbGetQuery(self$connection, "from pred_meta_t") |>
+          data.table::as.data.table(key = "id_pred")
+
+        return(new_evoland_table(pred_meta_t, "pred_meta_t"))
+      }
+      stopifnot(inherits(pred_meta_t, "pred_meta_t"))
+      self$commit(pred_meta_t, "pred_meta_t", mode = "upsert")
+    },
+
+    #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
+    #' md5sum
+    pred_sources_v = function() {
+      pred_sources_v <-
+        DBI::dbGetQuery(self$connection, "from pred_sources_v") |>
+        data.table::as.data.table() |>
+        new_evoland_table("pred_sources_v")
+    },
+
+    #' @field pred_data_t_float A `pred_data_t_float` instance; see
+    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
+    #' upsert operation.
+    pred_data_t_float = function(pred_data_t_float) {
+      if (missing(pred_data_t_float)) {
+        pred_data_t_float <-
+          DBI::dbGetQuery(self$connection, "from pred_data_t_float") |>
+          data.table::as.data.table()
+
+        data.table::setkeyv(pred_data_t_float, c("id_pred", "id_coord", "id_period"))
+
+        return(new_evoland_table(pred_data_t_float, c("pred_data_t_float", "pred_data_t")))
+      }
+      stopifnot(inherits(pred_data_t_float, c("pred_data_t_float", "pred_data_t")))
+      self$commit(pred_data_t_float, "pred_data_t_float", mode = "upsert")
+    },
+
+    #' @field pred_data_t_int A `pred_data_t_int` instance; see
+    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
+    #' upsert operation.
+    pred_data_t_int = function(pred_data_t_int) {
+      if (missing(pred_data_t_int)) {
+        pred_data_t_int <-
+          DBI::dbGetQuery(self$connection, "from pred_data_t_int") |>
+          data.table::as.data.table()
+
+        data.table::setkeyv(pred_data_t_int, c("id_pred", "id_coord", "id_period"))
+
+        return(new_evoland_table(pred_data_t_int, c("pred_data_t_int", "pred_data_t")))
+      }
+      stopifnot(inherits(pred_data_t_int, c("pred_data_t_int", "pred_data_t")))
+      self$commit(pred_data_t_int, "pred_data_t_int", mode = "upsert")
+    },
+
+    #' @field pred_data_t_bool A `pred_data_t_bool` instance; see
+    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
+    #' upsert operation.
+    pred_data_t_bool = function(pred_data_t_bool) {
+      if (missing(pred_data_t_bool)) {
+        pred_data_t_bool <-
+          DBI::dbGetQuery(self$connection, "from pred_data_t_bool") |>
+          data.table::as.data.table()
+
+        data.table::setkeyv(pred_data_t_bool, c("id_pred", "id_coord", "id_period"))
+
+        return(new_evoland_table(pred_data_t_bool, c("pred_data_t_bool", "pred_data_t")))
+      }
+      stopifnot(inherits(pred_data_t_bool, c("pred_data_t_bool", "pred_data_t")))
+      self$commit(pred_data_t_bool, "pred_data_t_bool", mode = "upsert")
     }
   ),
 

@@ -18,6 +18,7 @@ expect_identical(
     "pred_data_t_float",
     "pred_data_t_int",
     "pred_meta_t",
+    "pred_sources_v",
     "trans_meta_t",
     "trans_models_t",
     "trans_preds_t"

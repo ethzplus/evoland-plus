@@ -58,10 +58,18 @@ CREATE TABLE pred_meta_t (
     pretty_name VARCHAR NOT NULL,
     description TEXT,
     orig_format VARCHAR,
-    url VARCHAR,
+    -- list of structs, can be unnest() ed
+    sources struct(url varchar, md5sum varchar)[],
     unit VARCHAR,
     factor_levels MAP(INTEGER, VARCHAR)
 );
+
+CREATE VIEW pred_sources_v AS
+SELECT DISTINCT
+    unnest(sources).url AS url,
+    unnest(sources).md5sum AS md5sum
+FROM pred_meta_t
+WHERE sources IS NOT NULL;
 
 -- Predictor data tables for different data types
 CREATE TABLE pred_data_t_float (

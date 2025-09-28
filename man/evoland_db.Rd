@@ -37,6 +37,24 @@ object to assign. Assigning is an upsert operation.}
 
 \item{\code{lulc_data_t}}{A \code{lulc_data_t} instance; see \code{\link[=create_lulc_data_t]{create_lulc_data_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
+
+\item{\code{pred_meta_t}}{A \code{pred_meta_t} instance; see \code{\link[=create_pred_meta_t]{create_pred_meta_t()}} for the type of
+object to assign. Assigning is an upsert operation.}
+
+\item{\code{pred_sources_v}}{Retrieve a table of distinct predictor urls and their
+md5sum}
+
+\item{\code{pred_data_t_float}}{A \code{pred_data_t_float} instance; see
+\code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
+upsert operation.}
+
+\item{\code{pred_data_t_int}}{A \code{pred_data_t_int} instance; see
+\code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
+upsert operation.}
+
+\item{\code{pred_data_t_bool}}{A \code{pred_data_t_bool} instance; see
+\code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
+upsert operation.}
 }
 \if{html}{\out{</div>}}
 }

@@ -6,16 +6,16 @@
 \alias{print.lulc_data_t}
 \title{Create LULC Data Table from Configuration}
 \usage{
-create_lulc_data_t(config)
+create_lulc_data_t()
 
 \method{print}{lulc_data_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{config}{An \link{evoland_config} instance}
-
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{config}{An \link{evoland_config} instance}
 }
 \value{
 A data.table of class "lulc_data_t" with columns:
