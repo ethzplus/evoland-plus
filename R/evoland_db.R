@@ -310,6 +310,46 @@ evoland_db <- R6::R6Class(
       }
       stopifnot(inherits(pred_data_t_bool, c("pred_data_t_bool", "pred_data_t")))
       self$commit(pred_data_t_bool, "pred_data_t_bool", mode = "upsert")
+    },
+
+    #' @field trans_meta_t A `trans_meta_t` instance; see [create_trans_meta_t()] for the type of
+    #' object to assign. Assigning is an upsert operation.
+    trans_meta_t = function(trans_meta_t) {
+      if (missing(trans_meta_t)) {
+        trans_meta_t <-
+          DBI::dbGetQuery(self$connection, "from trans_meta_t") |>
+          data.table::as.data.table(key = "id_trans")
+
+        return(new_evoland_table(trans_meta_t, "trans_meta_t"))
+      }
+
+      # Custom upsert for trans_meta_t to maintain primary key integrity
+      duckdb::duckdb_register(
+        conn = self$connection,
+        "temporary_trans_data",
+        df = trans_meta_t
+      )
+
+      on.exit(duckdb::duckdb_unregister(
+        self$connection,
+        "temporary_trans_data"
+      ))
+
+      # Use INSERT ... ON CONFLICT DO UPDATE to maintain id_trans relationship
+      sql <- "
+        INSERT INTO trans_meta_t (id_trans, id_lulc_anterior, id_lulc_posterior,
+                                  cardinality, frequency_rel, frequency_abs, is_viable)
+        SELECT id_trans, id_lulc_anterior, id_lulc_posterior,
+               cardinality, frequency_rel, frequency_abs, is_viable
+        FROM temporary_trans_data
+        ON CONFLICT (id_lulc_anterior, id_lulc_posterior)
+        DO UPDATE SET
+          cardinality = EXCLUDED.cardinality,
+          frequency_rel = EXCLUDED.frequency_rel,
+          frequency_abs = EXCLUDED.frequency_abs,
+          is_viable = EXCLUDED.is_viable
+      "
+      DBI::dbExecute(self$connection, sql)
     }
   ),
 
