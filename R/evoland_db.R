@@ -350,6 +350,21 @@ evoland_db <- R6::R6Class(
           is_viable = EXCLUDED.is_viable
       "
       DBI::dbExecute(self$connection, sql)
+    },
+
+    #' @field trans_preds_t A `trans_preds_t` instance; see [create_trans_preds_t()] for the type of
+    #' object to assign. Assigning is an upsert operation.
+    trans_preds_t = function(trans_preds_t) {
+      if (missing(trans_preds_t)) {
+        trans_preds_t <-
+          DBI::dbGetQuery(self$connection, "from trans_preds_t") |>
+          data.table::as.data.table()
+
+        data.table::setkeyv(trans_preds_t, c("id_pred", "id_trans"))
+
+        return(new_evoland_table(trans_preds_t, "trans_preds_t"))
+      }
+      self$commit(trans_preds_t, "trans_preds_t", mode = "upsert")
     }
   ),
 

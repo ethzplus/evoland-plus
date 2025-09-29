@@ -58,6 +58,9 @@ upsert operation.}
 
 \item{\code{trans_meta_t}}{A \code{trans_meta_t} instance; see \code{\link[=create_trans_meta_t]{create_trans_meta_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
+
+\item{\code{trans_preds_t}}{A \code{trans_preds_t} instance; see \code{\link[=create_trans_preds_t]{create_trans_preds_t()}} for the type of
+object to assign. Assigning is an upsert operation.}
 }
 \if{html}{\out{</div>}}
 }
