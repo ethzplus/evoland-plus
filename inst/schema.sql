@@ -136,8 +136,8 @@ CREATE TABLE intrv_meta_t (
     name VARCHAR NOT NULL,
     pretty_name VARCHAR NOT NULL,
     description TEXT,
-    has_mask BOOLEAN NOT NULL DEFAULT FALSE,
-    params JSON
+    sources struct(url varchar, md5sum varchar)[],
+    params MAP(VARCHAR, VARCHAR)
 );
 
 -- Intervention data (masks and parameters)
