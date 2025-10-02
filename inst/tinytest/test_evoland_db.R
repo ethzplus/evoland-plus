@@ -9,7 +9,7 @@ expect_identical(
     "alloc_params_t",
     "config_t",
     "coords_t",
-    "intrv_data_t",
+    "intrv_masks_t",
     "intrv_meta_t",
     "lulc_data_t",
     "lulc_meta_t",

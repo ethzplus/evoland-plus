@@ -61,6 +61,12 @@ object to assign. Assigning is an upsert operation.}
 
 \item{\code{trans_preds_t}}{A \code{trans_preds_t} instance; see \code{\link[=create_trans_preds_t]{create_trans_preds_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
+
+\item{\code{intrv_meta_t}}{A \code{intrv_meta_t} instance; see \code{\link[=create_intrv_meta_t]{create_intrv_meta_t()}} for the type of
+object to assign. Assigning is an upsert operation.}
+
+\item{\code{intrv_masks_t}}{A \code{intrv_masks_t} instance; see \code{\link[=create_intrv_masks_t]{create_intrv_masks_t()}} for the type of
+object to assign. Assigning is an upsert operation.}
 }
 \if{html}{\out{</div>}}
 }
@@ -74,6 +80,7 @@ object to assign. Assigning is an upsert operation.}
 \item \href{#method-evoland_db-execute}{\code{evoland_db$execute()}}
 \item \href{#method-evoland_db-row_count}{\code{evoland_db$row_count()}}
 \item \href{#method-evoland_db-delete_from}{\code{evoland_db$delete_from()}}
+\item \href{#method-evoland_db-copy_db}{\code{evoland_db$copy_db()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -220,6 +227,26 @@ Empty a table
 }
 \subsection{Returns}{
 No. of rows affected by statement
+Copy full DB to a different one
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-copy_db"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-copy_db}{}}}
+\subsection{Method \code{copy_db()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$copy_db(target_path, source_db)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{target_path}}{Character string. Name of the database file to copy to}
+
+\item{\code{source_db}}{Character string. Name of the database to copy from. Defaults to
+this object's DB path}
+}
+\if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}

@@ -365,6 +365,75 @@ evoland_db <- R6::R6Class(
         return(new_evoland_table(trans_preds_t, "trans_preds_t"))
       }
       self$commit(trans_preds_t, "trans_preds_t", mode = "upsert")
+    },
+
+    #' @field intrv_meta_t A `intrv_meta_t` instance; see [create_intrv_meta_t()] for the type of
+    #' object to assign. Assigning is an upsert operation.
+    intrv_meta_t = function(intrv_meta_t) {
+      if (missing(intrv_meta_t)) {
+        intrv_meta_t <-
+          DBI::dbGetQuery(self$connection, "from intrv_meta_t") |>
+          data.table::as.data.table(key = "id_intrv")
+        intrv_meta_t$params <- lapply(
+          intrv_meta_t$params,
+          function(x) {
+            if (is.null(x)) {
+              return(NULL)
+            }
+            out <- as.list(x$value)
+            names(out) <- x$key
+            out
+          }
+        )
+
+        return(new_evoland_table(intrv_meta_t, "intrv_meta_t"))
+      }
+
+      # Convert params list to data.frame format for DuckDB MAP conversion
+      intrv_meta_t$params <- lapply(intrv_meta_t$params, function(param_list) {
+        if (is.null(param_list)) {
+          return(NULL)
+        }
+        data.frame(
+          k = names(param_list),
+          v = as.character(unlist(param_list))
+        )
+      })
+
+      duckdb::duckdb_register(
+        conn = self$connection,
+        "temporary_intrv_data",
+        df = intrv_meta_t
+      )
+
+      on.exit(duckdb::duckdb_unregister(
+        self$connection,
+        "temporary_intrv_data"
+      ))
+
+      # Use INSERT OR REPLACE with MAP conversion for params field
+      sql <- "
+        INSERT OR REPLACE INTO intrv_meta_t
+        SELECT
+          id_intrv, id_period_list, id_trans_list, pre_allocation,
+          name, pretty_name, description, sources,
+          map_from_entries(params) as params
+        FROM temporary_intrv_data
+      "
+      DBI::dbExecute(self$connection, sql)
+    },
+
+    #' @field intrv_masks_t A `intrv_masks_t` instance; see [create_intrv_masks_t()] for the type of
+    #' object to assign. Assigning is an upsert operation.
+    intrv_masks_t = function(intrv_masks_t) {
+      if (missing(intrv_masks_t)) {
+        intrv_masks_t <-
+          DBI::dbGetQuery(self$connection, "from intrv_masks_t") |>
+          data.table::as.data.table()
+
+        return(new_evoland_table(intrv_masks_t, "intrv_masks_t"))
+      }
+      self$commit(intrv_masks_t, "intrv_masks_t", mode = "upsert")
     }
   ),
 

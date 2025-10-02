@@ -131,8 +131,9 @@ CREATE TABLE trans_preds_t (
 -- Intervention metadata
 CREATE TABLE intrv_meta_t (
     id_intrv INTEGER PRIMARY KEY,
-    id_period_list INTEGER[] NOT NULL,
-    id_trans_list INTEGER[] NOT NULL,
+    id_period_list INTEGER[],
+    id_trans_list INTEGER[],
+    pre_allocation BOOLEAN NOT NULL,
     name VARCHAR NOT NULL,
     pretty_name VARCHAR NOT NULL,
     description TEXT,
@@ -140,11 +141,10 @@ CREATE TABLE intrv_meta_t (
     params MAP(VARCHAR, VARCHAR)
 );
 
--- Intervention data (masks and parameters)
-CREATE TABLE intrv_data_t (
+-- Intervention masks
+CREATE TABLE intrv_masks_t (
     id_intrv INTEGER NOT NULL,
     id_coord INTEGER NOT NULL,
-    params MAP(VARCHAR, VARCHAR),
     PRIMARY KEY (id_intrv, id_coord),
     FOREIGN KEY (id_intrv) REFERENCES intrv_meta_t(id_intrv),
     FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord)

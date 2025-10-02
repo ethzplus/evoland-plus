@@ -93,9 +93,13 @@ transitions:
   predictor_selection:
     colinearity_threshold: 0.2
     colinearity_method: GLM
-  disallowed: # disallowed transitions: where logic forbids transitions
-    water: other # water to other
-    other: forest # other to forest, see comment if an explicit "other" class is a good concept
+  disallowed: # disallowed transitions: where logic forbids transitions. can use yaml ~ or null for "any"
+    - from: water
+      to: ~
+    - from: ~
+      to: water
+    - from: other
+      to: ~
 
 periods:
   # Periods are declared independently of lulc or predictor data. Either nearest neighbor or linear
@@ -106,21 +110,41 @@ periods:
   end_extrapolated: 2060-12-01
 
 # Settings for interventions (altering probabilities, overriding allocations)
-interventions_pre_allocation:
+interventions:
   protected_areas: # name is tied to logic that reads these parameters
+    pre_allocation: true
     pretty_name: Nature protection areas
-    masks:
-      - $cachedir/protected_areas.gpkg
+    description: >
+      This intervention introduces additional protected areas (PAs);
+      urbanisation or agricultural expansion is prohibited within a PA once established.
+    start_intervention: 2045-01-01
+    end_intervention: 2060-01-01
+    transitions:
+      - 1
+      - 2
+    sources:
+      - url: file:///somedir/protected_areas.gpkg
+        md5sum: something
   glaciers:
+    pre_allocation: false
     pretty_name: Deglaciation
-    id_scenariomip: SSP1-2.6
-    masks:
+    description: Deterministic transitions based on GloGEM
+    sources:
       # An intervention may read from a set of files.
       # The temporal evolution expressed here could also be (more reliably) be expressed
       # in a netcdf/hdf
-      - $cachedir/glacier_extent_2020.tif
-      - $cachedir/glacier_extent_2030.tif
-      - $cachedir/glacier_extent_2040.tif
-  forest_expansion:
+      - url: file:///somedir/glacier_extent_2030.tif
+        md5sum: something
+      - url: file:///somedir/glacier_extent_2040.tif
+        md5sum: something
+      - url: file:///somedir/glacier_extent_2050.tif
+        md5sum: something
+      - url: file:///somedir/glacier_extent_2060.tif
+        md5sum: something
+  hydro_predictors:
+    pre_allocation: true
     # An intervention may also just use existing predictor data
-    pretty_name: Ecohydrological Covariates
+    pretty_name: Hydrological predictor variables
+    description: Provide refined predictor variables based on the rsplash hydrological model.
+    params:
+      tmpdir: /mnt/ramdisk
