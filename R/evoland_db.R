@@ -142,6 +142,33 @@ evoland_db <- R6::R6Class(
         qry <- glue::glue("{qry} where {where}")
       }
       DBI::dbExecute(self$connection, qry)
+    },
+
+    #' Copy full DB to a different one
+    #' @param target_path Character string. Name of the database file to copy to
+    #' @param source_db Character string. Name of the database to copy from. Defaults to
+    #' this object's DB path
+    copy_db = function(target_path, source_db) {
+      if (missing(source_db)) {
+        # find source_db from attached databases
+        dbs <- DBI::dbGetQuery(self$connection, "pragma database_list;")
+        dbs$file <- ifelse(is.na(dbs$file), ":memory:", dbs$file)
+        source_db <- dbs$name[dbs$file == self$path]
+      }
+
+      target_db <- tools::file_path_sans_ext(basename(target_path))
+      DBI::dbExecute(
+        self$connection,
+        glue::glue("attach '{target_path}';")
+      )
+      DBI::dbExecute(
+        self$connection,
+        glue::glue("copy from database {source_db} to {target_db};")
+      )
+      DBI::dbExecute(
+        self$connection,
+        glue::glue("detach {target_db};")
+      )
     }
   ),
 
