@@ -479,6 +479,44 @@ evoland_db <- R6::R6Class(
         FROM tmp_table
       "
       DBI::dbExecute(self$connection, sql)
+    },
+
+    #' @field alloc_params_t A `alloc_params_t` instance; see [as_alloc_params_t()] for the type
+    #' of object to assign. Assigning is an upsert operation.
+    alloc_params_t = function(alloc_params_t) {
+      if (missing(alloc_params_t)) {
+        alloc_params_t <-
+          DBI::dbGetQuery(self$connection, "from alloc_params_t") |>
+          data.table::as.data.table()
+
+        alloc_params_t$alloc_params <- lapply(alloc_params_t$alloc_params, kv_df_to_list)
+        alloc_params_t$goodness_of_fit <- lapply(alloc_params_t$goodness_of_fit, kv_df_to_list)
+
+        return(new_evoland_table(alloc_params_t, "alloc_params_t"))
+      }
+
+      # Convert lists to data.frame format for DuckDB MAP conversion
+      alloc_params_t$alloc_params <- lapply(alloc_params_t$alloc_params, list_to_kv_df)
+      alloc_params_t$goodness_of_fit <- lapply(alloc_params_t$goodness_of_fit, list_to_kv_df)
+
+      duckdb::duckdb_register(
+        conn = self$connection,
+        name = "tmp_table",
+        df = alloc_params_t
+      )
+
+      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
+
+      # Use INSERT OR REPLACE with MAP conversion for params field
+      sql <- "
+        INSERT OR REPLACE INTO alloc_params_t
+        SELECT
+          id_trans, id_period, 
+          map_from_entries(alloc_params) as model_params,
+          map_from_entries(goodness_of_fit) as goodness_of_fit
+        FROM tmp_table
+      "
+      DBI::dbExecute(self$connection, sql)
     }
   ),
 
@@ -557,7 +595,7 @@ list_to_kv_df <- function(param_list) {
   }
   data.frame(
     k = names(param_list),
-    v = as.character(unlist(param_list))
+    v = unlist(param_list)
   )
 }
 

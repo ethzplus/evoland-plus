@@ -168,7 +168,7 @@ CREATE TABLE trans_models_t (
 CREATE TABLE alloc_params_t (
     id_trans INTEGER NOT NULL,
     id_period INTEGER NOT NULL,
-    alloc_params MAP(VARCHAR, VARCHAR) NOT NULL,
+    alloc_params MAP(VARCHAR, DOUBLE) NOT NULL,
     goodness_of_fit MAP(VARCHAR, DOUBLE) NOT NULL,
     PRIMARY KEY (id_trans, id_period),
     FOREIGN KEY (id_trans) REFERENCES trans_meta_t(id_trans),

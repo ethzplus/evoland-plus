@@ -70,6 +70,9 @@ object to assign. Assigning is an upsert operation.}
 
 \item{\code{trans_models_t}}{A \code{trans_models_t} instance; see \code{\link[=create_trans_models_t]{create_trans_models_t()}} for the type
 of object to assign. Assigning is an upsert operation.}
+
+\item{\code{alloc_params_t}}{A \code{alloc_params_t} instance; see \code{\link[=as_alloc_params_t]{as_alloc_params_t()}} for the type
+of object to assign. Assigning is an upsert operation.}
 }
 \if{html}{\out{</div>}}
 }
