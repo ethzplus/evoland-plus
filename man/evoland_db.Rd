@@ -65,8 +65,11 @@ object to assign. Assigning is an upsert operation.}
 \item{\code{intrv_meta_t}}{A \code{intrv_meta_t} instance; see \code{\link[=create_intrv_meta_t]{create_intrv_meta_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
 
-\item{\code{intrv_masks_t}}{A \code{intrv_masks_t} instance; see \code{\link[=create_intrv_masks_t]{create_intrv_masks_t()}} for the type of
+\item{\code{intrv_masks_t}}{A \code{intrv_masks_t} instance; see \code{\link[=as_intrv_masks_t]{as_intrv_masks_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
+
+\item{\code{trans_models_t}}{A \code{trans_models_t} instance; see \code{\link[=create_trans_models_t]{create_trans_models_t()}} for the type
+of object to assign. Assigning is an upsert operation.}
 }
 \if{html}{\out{</div>}}
 }

@@ -159,6 +159,7 @@ CREATE TABLE trans_models_t (
     goodness_of_fit MAP(VARCHAR, DOUBLE) NOT NULL,
     model_obj_part BLOB,
     model_obj_full BLOB,
+    PRIMARY KEY (id_trans, id_period),
     FOREIGN KEY (id_trans) REFERENCES trans_meta_t(id_trans),
     FOREIGN KEY (id_period) REFERENCES periods_t(id_period)
 );

@@ -5,7 +5,15 @@
 #' for intervention masks.
 #'
 #' @name intrv_masks_t
-NULL
+as_intrv_masks_t <- function(x) {
+  if (!inherits(x, "data.table")) {
+    stop("x must be a data.table")
+  }
+
+  data.table::setkeyv(x, c("id_intrv", "id_coord"))
+
+  new_evoland_table(x, "intrv_masks_t")
+}
 
 #' @export
 validate.intrv_masks_t <- function(x, ...) {

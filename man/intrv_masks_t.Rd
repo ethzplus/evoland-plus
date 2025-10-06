@@ -2,9 +2,12 @@
 % Please edit documentation in R/intrv_masks_t.R
 \name{intrv_masks_t}
 \alias{intrv_masks_t}
+\alias{as_intrv_masks_t}
 \alias{print.intrv_masks_t}
 \title{Create Intervention Masks Table from Configuration}
 \usage{
+as_intrv_masks_t(x)
+
 \method{print}{intrv_masks_t}(x, nrow = 10, ...)
 }
 \arguments{

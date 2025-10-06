@@ -401,42 +401,21 @@ evoland_db <- R6::R6Class(
         intrv_meta_t <-
           DBI::dbGetQuery(self$connection, "from intrv_meta_t") |>
           data.table::as.data.table(key = "id_intrv")
-        intrv_meta_t$params <- lapply(
-          intrv_meta_t$params,
-          function(x) {
-            if (is.null(x)) {
-              return(NULL)
-            }
-            out <- as.list(x$value)
-            names(out) <- x$key
-            out
-          }
-        )
+        intrv_meta_t$params <- lapply(intrv_meta_t$params, kv_df_to_list)
 
         return(new_evoland_table(intrv_meta_t, "intrv_meta_t"))
       }
 
       # Convert params list to data.frame format for DuckDB MAP conversion
-      intrv_meta_t$params <- lapply(intrv_meta_t$params, function(param_list) {
-        if (is.null(param_list)) {
-          return(NULL)
-        }
-        data.frame(
-          k = names(param_list),
-          v = as.character(unlist(param_list))
-        )
-      })
+      intrv_meta_t$params <- lapply(intrv_meta_t$params, list_to_kv_df)
 
       duckdb::duckdb_register(
         conn = self$connection,
-        "temporary_intrv_data",
+        name = "tmp_table",
         df = intrv_meta_t
       )
 
-      on.exit(duckdb::duckdb_unregister(
-        self$connection,
-        "temporary_intrv_data"
-      ))
+      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
 
       # Use INSERT OR REPLACE with MAP conversion for params field
       sql <- "
@@ -445,12 +424,12 @@ evoland_db <- R6::R6Class(
           id_intrv, id_period_list, id_trans_list, pre_allocation,
           name, pretty_name, description, sources,
           map_from_entries(params) as params
-        FROM temporary_intrv_data
+        FROM tmp_table
       "
       DBI::dbExecute(self$connection, sql)
     },
 
-    #' @field intrv_masks_t A `intrv_masks_t` instance; see [create_intrv_masks_t()] for the type of
+    #' @field intrv_masks_t A `intrv_masks_t` instance; see [as_intrv_masks_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     intrv_masks_t = function(intrv_masks_t) {
       if (missing(intrv_masks_t)) {
@@ -461,6 +440,45 @@ evoland_db <- R6::R6Class(
         return(new_evoland_table(intrv_masks_t, "intrv_masks_t"))
       }
       self$commit(intrv_masks_t, "intrv_masks_t", mode = "upsert")
+    },
+
+    #' @field trans_models_t A `trans_models_t` instance; see [create_trans_models_t()] for the type
+    #' of object to assign. Assigning is an upsert operation.
+    trans_models_t = function(trans_models_t) {
+      if (missing(trans_models_t)) {
+        trans_models_t <-
+          DBI::dbGetQuery(self$connection, "from trans_models_t") |>
+          data.table::as.data.table()
+
+        trans_models_t$model_params <- lapply(trans_models_t$model_params, kv_df_to_list)
+        trans_models_t$goodness_of_fit <- lapply(trans_models_t$goodness_of_fit, kv_df_to_list)
+
+        return(new_evoland_table(trans_models_t, "trans_models_t"))
+      }
+
+      # Convert lists to data.frame format for DuckDB MAP conversion
+      trans_models_t$model_params <- lapply(trans_models_t$model_params, list_to_kv_df)
+      trans_models_t$goodness_of_fit <- lapply(trans_models_t$goodness_of_fit, list_to_kv_df)
+
+      duckdb::duckdb_register(
+        conn = self$connection,
+        name = "tmp_table",
+        df = trans_models_t
+      )
+
+      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
+
+      # Use INSERT OR REPLACE with MAP conversion for params field
+      sql <- "
+        INSERT OR REPLACE INTO trans_models_t
+        SELECT
+          id_trans, id_period, model_family, 
+          map_from_entries(model_params) as model_params,
+          map_from_entries(goodness_of_fit) as goodness_of_fit,
+          model_obj_part, model_obj_full
+        FROM tmp_table
+      "
+      DBI::dbExecute(self$connection, sql)
     }
   ),
 
@@ -531,3 +549,31 @@ evoland_db <- R6::R6Class(
     }
   )
 )
+
+# utility function to transform a list to DuckDB-compatible k/v dataframe
+list_to_kv_df <- function(param_list) {
+  if (is.null(param_list)) {
+    return(NULL)
+  }
+  data.frame(
+    k = names(param_list),
+    v = as.character(unlist(param_list))
+  )
+}
+
+# utility function to transform a DuckDB key/value dataframe to list
+kv_df_to_list <- function(x) {
+  if (is.null(x)) {
+    return(NULL)
+  }
+  # assuming this is a list with depth 1, since we're converting back from a
+  # VARCHAR : VARCHAR map
+  nums <- as.numeric(x$value)
+  out <- as.list(ifelse(
+    is.na(nums),
+    x$value,
+    nums
+  ))
+  names(out) <- x$key
+  out
+}
