@@ -8,7 +8,7 @@ intrv_masks_t <-
     id_coord = 1:99,
     id_intrv = 1:3
   ) |>
-  evoland:::new_evoland_table("intrv_masks_t")
+  as_intrv_masks_t()
 
 expect_silent(print(intrv_masks_t))
 expect_error(

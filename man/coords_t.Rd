@@ -2,20 +2,20 @@
 % Please edit documentation in R/coords_t.R
 \name{coords_t}
 \alias{coords_t}
-\alias{create_coords_t}
+\alias{as_coords_t}
 \alias{print.coords_t}
 \title{Create Coordinate Table from Configuration}
 \usage{
-create_coords_t(config)
+as_coords_t(x)
 
 \method{print}{coords_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{config}{An \link{evoland_config} instance}
-
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{config}{An \link{evoland_config} instance}
 }
 \value{
 A data.table of class "coords_t" with columns:

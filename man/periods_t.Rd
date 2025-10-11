@@ -2,20 +2,20 @@
 % Please edit documentation in R/periods_t.R
 \name{periods_t}
 \alias{periods_t}
-\alias{create_periods_t}
+\alias{as_periods_t}
 \alias{print.periods_t}
 \title{Create Period Table from Configuration}
 \usage{
-create_periods_t(config)
+as_periods_t(x)
 
 \method{print}{periods_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{config}{An \link{evoland_config} instance}
-
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{config}{An \link{evoland_config} instance}
 }
 \value{
 A data.table of class "periods_t" with columns:

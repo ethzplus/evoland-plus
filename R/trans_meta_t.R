@@ -17,6 +17,15 @@
 #'   - `frequency_abs`: Frequency relative to all coordinate pairs with data in this timestep
 #'   - `is_viable`: Whether this transition is viable for modelling
 #' @export
+as_trans_meta_t <- function(x) {
+  new_evoland_table(
+    x,
+    "trans_meta_t",
+    "id_trans"
+  )
+}
+
+#' @export
 create_trans_meta_t <- function(db) {
   if (!inherits(db, "evoland_db")) {
     stop("db must be an evoland_db instance")
@@ -46,20 +55,14 @@ create_trans_meta_t <- function(db) {
     is_viable = logical(0)
   )
 
-  data.table::setkey(x, "id_trans")
-
-  new_evoland_table(x, "trans_meta_t")
+  as_trans_meta_t(x)
 }
 
 #' @export
 validate.trans_meta_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("trans_meta_t must inherit from data.table")
-  }
+  NextMethod()
 
-  # Check required columns
-  check_missing_names(
+  data.table::setcolorder(
     x,
     c(
       "id_trans",
@@ -72,79 +75,20 @@ validate.trans_meta_t <- function(x, ...) {
     )
   )
 
-  # Check column types
-  if (!is.integer(x[["id_trans"]])) {
-    id_ints <- as.integer(x[["id_trans"]])
-    if (anyNA(id_ints)) {
-      stop("id_trans must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_trans", value = id_ints)
-  }
-
-  if (!is.integer(x[["id_lulc_anterior"]])) {
-    id_ants <- as.integer(x[["id_lulc_anterior"]])
-    if (anyNA(id_ants)) {
-      stop("id_lulc_anterior must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_lulc_anterior", value = id_ants)
-  }
-
-  if (!is.integer(x[["id_lulc_posterior"]])) {
-    id_posts <- as.integer(x[["id_lulc_posterior"]])
-    if (anyNA(id_posts)) {
-      stop("id_lulc_posterior must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_lulc_posterior", value = id_posts)
-  }
-
-  if (!is.integer(x[["cardinality"]])) {
-    cards <- as.integer(x[["cardinality"]])
-    if (anyNA(cards)) {
-      stop("cardinality must be int or coercible to it")
-    }
-    data.table::set(x, j = "cardinality", value = cards)
-  }
-
-  if (!is.numeric(x[["frequency_rel"]])) {
-    stop("frequency_rel must be numeric")
-  }
-
-  if (!is.numeric(x[["frequency_abs"]])) {
-    stop("frequency_abs must be numeric")
-  }
-
-  if (!is.logical(x[["is_viable"]])) {
-    stop("is_viable must be logical")
-  }
-
-  # if empty, don't run soft checks
-  if (nrow(x) == 0L) {
-    return(x)
-  }
-
-  # Check for unique id_trans values
-  if (anyDuplicated(x[["id_trans"]])) {
-    stop("id_trans values must be unique")
-  }
-
-  # Check for unique combinations of anterior/posterior
-  if (anyDuplicated(x, by = c("id_lulc_anterior", "id_lulc_posterior"))) {
-    stop("combinations of id_lulc_anterior, id_lulc_posterior must be unique")
-  }
-
-  # Check for non-negative cardinality
-  if (any(x[["cardinality"]] < 0)) {
-    stop("cardinality must be non-negative")
-  }
-
-  # Check frequency bounds
-  if (any(x[["frequency_rel"]] < 0) || any(x[["frequency_rel"]] > 1)) {
-    stop("frequency_rel must be between 0 and 1")
-  }
-
-  if (any(x[["frequency_abs"]] < 0) || any(x[["frequency_abs"]] > 1)) {
-    stop("frequency_abs must be between 0 and 1")
-  }
+  stopifnot(
+    is.integer(x[["id_trans"]]),
+    is.integer(x[["id_lulc_anterior"]]),
+    is.integer(x[["id_lulc_posterior"]]),
+    is.integer(x[["cardinality"]]),
+    is.numeric(x[["frequency_rel"]]),
+    is.numeric(x[["frequency_abs"]]),
+    is.logical(x[["is_viable"]]),
+    !anyDuplicated(x[["id_trans"]]),
+    !anyDuplicated(x, by = c("id_lulc_anterior", "id_lulc_posterior")),
+    all(x[["cardinality"]] >= 0),
+    all(x[["frequency_rel"]] >= 0 & x[["frequency_rel"]] <= 1),
+    all(x[["frequency_abs"]] >= 0 & x[["frequency_abs"]] <= 1)
+  )
 
   return(x)
 }

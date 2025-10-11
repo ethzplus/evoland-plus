@@ -35,53 +35,24 @@ as_pred_data_t <- function(x, type) {
 
 #' @export
 validate.pred_data_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("pred_data_t must inherit from data.table")
-  }
+  NextMethod()
 
-  # Check required columns
-  check_missing_names(x, c("id_pred", "id_coord", "id_period", "value"))
+  data.table::setcolorder(
+    x,
+    c(
+      "id_pred",
+      "id_coord",
+      "id_period",
+      "value"
+    )
+  )
 
-  # Check column types
-  if (!is.integer(x[["id_pred"]])) {
-    id_preds <- as.integer(x[["id_pred"]])
-    if (anyNA(id_preds)) {
-      stop("id_pred must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_pred", value = id_preds)
-  }
-
-  if (!is.integer(x[["id_coord"]])) {
-    id_coords <- as.integer(x[["id_coord"]])
-    if (anyNA(id_coords)) {
-      stop("id_coord must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_coord", value = id_coords)
-  }
-
-  if (!is.integer(x[["id_period"]])) {
-    id_periods <- as.integer(x[["id_period"]])
-    if (anyNA(id_periods)) {
-      stop("id_period must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_period", value = id_periods)
-  }
-
-  # if empty, don't run soft checks
-  if (nrow(x) == 0L) {
-    return(x)
-  }
-
-  # Check for unique combinations of id_pred, id_coord, id_period
-  if (anyDuplicated(x, by = c("id_pred", "id_coord", "id_period"))) {
-    stop("combinations of id_pred, id_coord, id_period must be unique")
-  }
-
-  # Check for positive IDs
-  if (any(x[["id_pred"]] <= 0) || any(x[["id_coord"]] <= 0) || any(x[["id_period"]] <= 0)) {
-    stop("id_pred, id_coord, and id_period must be positive integers")
-  }
+  stopifnot(
+    is.integer(x[["id_pred"]]),
+    is.integer(x[["id_coord"]]),
+    is.integer(x[["id_period"]]),
+    !anyDuplicated(x, by = c("id_pred", "id_coord", "id_period"))
+  )
 
   return(x)
 }
@@ -90,9 +61,7 @@ validate.pred_data_t <- function(x, ...) {
 validate.pred_data_t_float <- function(x, ...) {
   x <- NextMethod()
 
-  if (!is.numeric(x[["value"]])) {
-    stop("value must be numeric for pred_data_t_float")
-  }
+  stopifnot(is.numeric(x[["value"]]))
 
   return(x)
 }
@@ -101,13 +70,7 @@ validate.pred_data_t_float <- function(x, ...) {
 validate.pred_data_t_int <- function(x, ...) {
   x <- NextMethod()
 
-  if (!is.integer(x[["value"]])) {
-    value_ints <- as.integer(x[["value"]])
-    if (anyNA(value_ints)) {
-      stop("value must be int or coercible to it for pred_data_t_int")
-    }
-    data.table::set(x, j = "value", value = value_ints)
-  }
+  stopifnot(is.integer(x[["value"]]))
 
   return(x)
 }
@@ -116,9 +79,7 @@ validate.pred_data_t_int <- function(x, ...) {
 validate.pred_data_t_bool <- function(x, ...) {
   x <- NextMethod()
 
-  if (!is.logical(x[["value"]])) {
-    stop("value must be logical for pred_data_t_bool")
-  }
+  stopifnot(is.logical(x[["value"]]))
 
   return(x)
 }

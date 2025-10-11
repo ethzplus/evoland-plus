@@ -11,7 +11,7 @@
 \usage{
 validate(x, ...)
 
-new_evoland_table(x, class_name)
+new_evoland_table(x, class_name, keycols)
 
 check_missing_names(x, required_names)
 
@@ -26,6 +26,8 @@ pluck_wildcard(lst, ...)
 
 \item{class_name}{The class name to attach before "evoland_t"}
 
+\item{keycols}{The columns to be set as key, see \code{\link[data.table:setkey]{data.table::setkey()}}}
+
 \item{required_names}{Vector of required names}
 
 \item{y}{Right-hand side value (fallback)}
@@ -33,6 +35,8 @@ pluck_wildcard(lst, ...)
 \item{lst}{The list to index into}
 }
 \value{
+NULL, called for side effect
+
 The indexed result, which may be a single element or a list of elements
 }
 \description{

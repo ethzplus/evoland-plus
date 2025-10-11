@@ -2,18 +2,18 @@
 % Please edit documentation in R/intrv_meta_t.R
 \name{intrv_meta_t}
 \alias{intrv_meta_t}
-\alias{create_intrv_meta_t}
+\alias{as_intrv_meta_t}
 \alias{print.intrv_meta_t}
 \title{Create Intervention Metadata Table from Configuration}
 \usage{
-create_intrv_meta_t(config)
+as_intrv_meta_t(x)
 
 \method{print}{intrv_meta_t}(x, ...)
 }
 \arguments{
-\item{config}{An \link{evoland_config} instance}
-
 \item{...}{passed to \code{\link[yaml:as.yaml]{yaml::as.yaml()}}}
+
+\item{config}{An \link{evoland_config} instance}
 }
 \value{
 A data.table of class "intrv_meta_t" with columns:

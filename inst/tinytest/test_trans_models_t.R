@@ -15,24 +15,24 @@ db$lulc_data_t <-
     id_period = c(1L, 1L, 2L),
     date = as.Date(c("2000-01-01", "2000-01-01", "2010-01-01"))
   ) |>
-  evoland:::new_evoland_table("lulc_data_t")
+  as_lulc_data_t()
 
 db$trans_meta_t <-
   data.table::data.table(
     id_trans = 1:3,
     id_lulc_anterior = 1:3,
     id_lulc_posterior = 2:4,
-    cardinality = c(100, 2000, 10),
+    cardinality = c(100L, 2000L, 10L),
     frequency_rel = c(0.1, 0.1, 0.15),
     frequency_abs = c(0.1, 0.1, 0.15),
     is_viable = c(TRUE, FALSE, FALSE)
   ) |>
-  evoland:::new_evoland_table("trans_meta_t")
+  as_trans_meta_t()
 
 # Test creation and validation
 trans_models_t <- as_trans_models_t(list(
-  id_trans = 1,
-  id_period = 2,
+  id_trans = 1L,
+  id_period = 2L,
   model_family = "rf",
   model_params = list(
     list(depth = 100)

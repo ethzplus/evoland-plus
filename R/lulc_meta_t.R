@@ -14,6 +14,15 @@
 #'   - `pretty_name`: Long name for plots/output
 #'   - `description`: Long description / operationalisation
 #' @export
+as_lulc_meta_t <- function(x) {
+  new_evoland_table(
+    x,
+    "lulc_meta_t",
+    "id_lulc"
+  )
+}
+
+#' @export
 create_lulc_meta_t <- function(config) {
   lulc_classes <- config[["lulc_classes"]]
 
@@ -45,59 +54,32 @@ create_lulc_meta_t <- function(config) {
 
   data.table::setkey(x, "id_lulc")
 
-  new_evoland_table(x, "lulc_meta_t")
+  as_lulc_meta_t(x)
 }
 
 #' @export
 validate.lulc_meta_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("lulc_meta_t must inherit from data.table")
-  }
+  NextMethod()
 
-  # Check required columns
-  check_missing_names(x, c("id_lulc", "name", "pretty_name", "description"))
+  data.table::setcolorder(
+    x,
+    c(
+      "id_lulc",
+      "name",
+      "pretty_name",
+      "description"
+    )
+  )
 
-  # Check column types
-  if (!is.integer(x[["id_lulc"]])) {
-    id_ints <- as.integer(x[["id_lulc"]])
-    if (anyNA(id_ints)) {
-      stop("id_lulc must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_lulc", value = id_ints)
-  }
-
-  if (!is.character(x[["name"]])) {
-    stop("name must be character")
-  }
-
-  if (!is.character(x[["pretty_name"]])) {
-    stop("pretty_name must be character")
-  }
-
-  if (!is.character(x[["description"]])) {
-    stop("description must be character")
-  }
-
-  # if empty, don't run soft checks
-  if (nrow(x) == 0L) {
-    return(x)
-  }
-
-  # Check for unique id_lulc values
-  if (anyDuplicated(x[["id_lulc"]])) {
-    stop("id_lulc values must be unique")
-  }
-
-  # Check for unique names
-  if (anyDuplicated(x[["name"]])) {
-    stop("name values must be unique")
-  }
-
-  # Check for non-empty names
-  if (any(x[["name"]] == "")) {
-    stop("name values cannot be empty strings")
-  }
+  stopifnot(
+    is.integer(x[["id_lulc"]]),
+    is.character(x[["name"]]),
+    is.character(x[["pretty_name"]]),
+    is.character(x[["description"]]),
+    !anyDuplicated(x[["id_lulc"]]),
+    !anyDuplicated(x[["name"]]),
+    !any(x[["name"]] == "")
+  )
 
   return(x)
 }

@@ -4,7 +4,14 @@ config_path <- system.file("config.yaml", package = "evoland")
 db <- evoland_db$new(":memory:")
 db$config <- read_evoland_config(config_path)
 
-expect_silent(lulc_data_t <- create_lulc_data_t())
+expect_silent(
+  lulc_data_t <- as_lulc_data_t(data.frame(
+    id_coord = integer(),
+    id_lulc = integer(),
+    id_period = integer(),
+    date = as.Date(numeric())
+  ))
+)
 expect_equal(nrow(lulc_data_t), 0L)
 
 # First populate the database with reference tables following the pattern from other tests
@@ -27,15 +34,21 @@ synthetic_lulc_data_t <- data.table::data.table(
   date = as.Date(c("2000-01-01", "2000-01-01", "2010-01-01"))
 )
 
-expect_silent(db$lulc_data_t <- synthetic_lulc_data_t)
+expect_error(
+  db$lulc_data_t <- synthetic_lulc_data_t,
+  r"(^inherits.* is not TRUE$)"
+)
+expect_silent(
+  db$lulc_data_t <- as_lulc_data_t(synthetic_lulc_data_t)
+)
 expect_equal(db$row_count("lulc_data_t"), 3L)
 
-invalid_lulc_data_t <- data.table::data.table(
+invalid_lulc_data_t <- as_lulc_data_t(data.table::data.table(
   id_coord = c(1L, 2L, 1L, 1L),
   id_lulc = c(1L, 2L, 3L, 20L),
   id_period = c(1L, 1L, 2L, 2L),
   date = as.Date(c("2000-01-01", "2000-01-01", "2010-01-01", "2010-01-01"))
-)
+))
 
 expect_error(
   db$lulc_data_t <- invalid_lulc_data_t,

@@ -2,18 +2,18 @@
 % Please edit documentation in R/pred_meta_t.R
 \name{pred_meta_t}
 \alias{pred_meta_t}
-\alias{create_pred_meta_t}
+\alias{as_pred_meta_t}
 \alias{print.pred_meta_t}
 \title{Create Predictor Metadata Table from Configuration}
 \usage{
-create_pred_meta_t(config)
+as_pred_meta_t(x)
 
 \method{print}{pred_meta_t}(x, ...)
 }
 \arguments{
-\item{config}{An \link{evoland_config} instance}
-
 \item{...}{passed to \code{\link[yaml:as.yaml]{yaml::as.yaml()}}}
+
+\item{config}{An \link{evoland_config} instance}
 }
 \value{
 A data.table of class "pred_meta_t" with columns:

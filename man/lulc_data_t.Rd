@@ -2,11 +2,11 @@
 % Please edit documentation in R/lulc_data_t.R
 \name{lulc_data_t}
 \alias{lulc_data_t}
-\alias{create_lulc_data_t}
+\alias{as_lulc_data_t}
 \alias{print.lulc_data_t}
 \title{Create LULC Data Table from Configuration}
 \usage{
-create_lulc_data_t()
+as_lulc_data_t(x)
 
 \method{print}{lulc_data_t}(x, nrow = 10, ...)
 }

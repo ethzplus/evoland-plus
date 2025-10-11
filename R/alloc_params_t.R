@@ -15,18 +15,18 @@
 #'   - `goodness_of_fit`: Map of various measures of fit (e.g., ROC AUC)
 #' @export
 as_alloc_params_t <- function(x) {
-  data.table::setDT(x)
-  new_evoland_table(x, "alloc_params_t")
+  new_evoland_table(
+    x,
+    "alloc_params_t",
+    c("id_trans", "id_period")
+  )
 }
 
 #' @export
 validate.alloc_params_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("alloc_params_t must inherit from data.table")
-  }
-  # Check required columns
-  check_missing_names(
+  NextMethod()
+
+  data.table::setcolorder(
     x,
     c(
       "id_trans",
@@ -36,42 +36,13 @@ validate.alloc_params_t <- function(x, ...) {
     )
   )
 
-  # Check column types
-  if (!is.integer(x[["id_trans"]])) {
-    id_trans <- as.integer(x[["id_trans"]])
-    if (anyNA(id_trans)) {
-      stop("id_trans must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_trans", value = id_trans)
-  }
-
-  if (!is.integer(x[["id_period"]])) {
-    id_periods <- as.integer(x[["id_period"]])
-    if (anyNA(id_periods)) {
-      stop("id_period must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_period", value = id_periods)
-  }
-
-  data.table::setkeyv(x, c("id_trans", "id_period"))
-
-  if (!is.list(x[["alloc_params"]])) {
-    stop("alloc_params must be a list")
-  }
-
-  if (!is.list(x[["goodness_of_fit"]])) {
-    stop("goodness_of_fit must be a list")
-  }
-
-  # if empty, don't run soft checks
-  if (nrow(x) == 0L) {
-    return(x)
-  }
-
-  # Check for positive IDs
-  if (any(x[["id_trans"]] <= 0) || any(x[["id_period"]] <= 0)) {
-    stop("id_trans and id_period must be positive integers")
-  }
+  stopifnot(
+    is.integer(x[["id_trans"]]),
+    is.integer(x[["id_period"]]),
+    is.list(x[["alloc_params"]]),
+    is.list(x[["goodness_of_fit"]]),
+    !anyDuplicated(x, by = c("id_trans", "id_period"))
+  )
 
   return(x)
 }

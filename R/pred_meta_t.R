@@ -18,6 +18,15 @@
 #'   - `unit`: SI-compatible unit (nullable for categorical)
 #'   - `factor_levels`: Map of factor levels (nullable)
 #' @export
+as_pred_meta_t <- function(x) {
+  new_evoland_table(
+    x,
+    "pred_meta_t",
+    "id_pred"
+  )
+}
+
+#' @export
 create_pred_meta_t <- function(config) {
   pred_data_spec <- config[["pred_data"]]
 
@@ -62,18 +71,14 @@ create_pred_meta_t <- function(config) {
 
   data.table::setkey(x, "id_pred")
 
-  new_evoland_table(x, "pred_meta_t")
+  as_pred_meta_t(x)
 }
 
 #' @export
 validate.pred_meta_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("pred_meta_t must inherit from data.table")
-  }
+  NextMethod()
 
-  # Check required columns
-  check_missing_names(
+  data.table::setcolorder(
     x,
     c(
       "id_pred",
@@ -87,73 +92,22 @@ validate.pred_meta_t <- function(x, ...) {
     )
   )
 
-  # Check column types
-  if (!is.integer(x[["id_pred"]])) {
-    id_ints <- as.integer(x[["id_pred"]])
-    if (anyNA(id_ints)) {
-      stop("id_pred must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_pred", value = id_ints)
-  }
-
-  if (!is.character(x[["name"]])) {
-    stop("name must be character")
-  }
-
-  if (!is.character(x[["pretty_name"]])) {
-    stop("pretty_name must be character")
-  }
-
-  if (!is.character(x[["description"]])) {
-    stop("description must be character")
-  }
-
-  if (!is.character(x[["orig_format"]])) {
-    stop("orig_format must be character")
-  }
-
-  if (!is.list(x[["sources"]])) {
-    stop("sources must be list")
-  }
-
-  if (!is.character(x[["unit"]])) {
-    stop("unit must be character")
-  }
-
-  if (!is.list(x[["factor_levels"]])) {
-    stop("factor_levels must be a list")
-  }
-
-  # if empty, don't run soft checks
-  if (nrow(x) == 0L) {
-    return(x)
-  }
-
-  # Check for unique id_pred values
-  if (anyDuplicated(x[["id_pred"]])) {
-    stop("id_pred values must be unique")
-  }
-
-  # Check for unique names
-  if (anyDuplicated(x[["name"]])) {
-    stop("name values must be unique")
-  }
-
-  # Check for non-empty names
-  if (any(x[["name"]] == "")) {
-    stop("name values cannot be empty strings")
-  }
-
-  # Check for positive IDs
-  if (any(x[["id_pred"]] <= 0)) {
-    stop("id_pred must be positive integers")
-  }
-
-  # check that we're not trying to ingest conflicting versions of raw files
   sources_dt <- unique(data.table::rbindlist(x[["sources"]]))
-  if (anyDuplicated(sources_dt[["url"]])) {
-    stop("One or more sources is declared with conflicting md5sums")
-  }
+
+  stopifnot(
+    is.integer(x[["id_pred"]]),
+    is.character(x[["name"]]),
+    is.character(x[["pretty_name"]]),
+    is.character(x[["description"]]),
+    is.character(x[["orig_format"]]),
+    is.list(x[["sources"]]),
+    is.character(x[["unit"]]),
+    is.list(x[["factor_levels"]]),
+    !anyDuplicated(x[["id_pred"]]),
+    !anyDuplicated(x[["name"]]),
+    !any(x[["name"]] == ""),
+    !anyDuplicated(sources_dt[["url"]])
+  )
 
   return(x)
 }

@@ -2,20 +2,20 @@
 % Please edit documentation in R/lulc_meta_t.R
 \name{lulc_meta_t}
 \alias{lulc_meta_t}
-\alias{create_lulc_meta_t}
+\alias{as_lulc_meta_t}
 \alias{print.lulc_meta_t}
 \title{Create LULC Metadata Table from Configuration}
 \usage{
-create_lulc_meta_t(config)
+as_lulc_meta_t(x)
 
 \method{print}{lulc_meta_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{config}{An \link{evoland_config} instance}
-
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{config}{An \link{evoland_config} instance}
 }
 \value{
 A data.table of class "lulc_meta_t" with columns:

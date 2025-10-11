@@ -12,6 +12,15 @@
 #'   - `id_pred`: Foreign key to pred_meta_t
 #'   - `id_trans`: Foreign key to trans_meta_t
 #' @export
+as_trans_preds_t <- function(x) {
+  new_evoland_table(
+    x,
+    "trans_preds_t",
+    c("id_pred", "id_trans")
+  )
+}
+
+#' @export
 create_trans_preds_t <- function(db) {
   if (!inherits(db, "evoland_db")) {
     stop("db must be an evoland_db instance")
@@ -28,50 +37,33 @@ create_trans_preds_t <- function(db) {
 
   data.table::setkeyv(x, c("id_pred", "id_trans"))
 
-  new_evoland_table(x, "trans_preds_t")
+  as_trans_preds_t(x)
 }
 
 #' @export
 validate.trans_preds_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("trans_preds_t must inherit from data.table")
-  }
+  NextMethod()
 
-  # Check required columns
-  check_missing_names(x, c("id_pred", "id_trans"))
+  data.table::setcolorder(
+    x,
+    c(
+      "id_pred",
+      "id_trans"
+    )
+  )
 
-  # Check column types
-  if (!is.integer(x[["id_pred"]])) {
-    id_preds <- as.integer(x[["id_pred"]])
-    if (anyNA(id_preds)) {
-      stop("id_pred must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_pred", value = id_preds)
-  }
-
-  if (!is.integer(x[["id_trans"]])) {
-    id_trans <- as.integer(x[["id_trans"]])
-    if (anyNA(id_trans)) {
-      stop("id_trans must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_trans", value = id_trans)
-  }
-
-  # if empty, don't run soft checks
+  # Skip soft checks if empty
   if (nrow(x) == 0L) {
     return(x)
   }
 
-  # Check for unique combinations of id_pred, id_trans (composite primary key)
-  if (anyDuplicated(x, by = c("id_pred", "id_trans"))) {
-    stop("combinations of id_pred, id_trans must be unique")
-  }
-
-  # Check for positive IDs
-  if (any(x[["id_pred"]] <= 0) || any(x[["id_trans"]] <= 0)) {
-    stop("id_pred and id_trans must be positive integers")
-  }
+  stopifnot(
+    is.integer(x[["id_pred"]]),
+    is.integer(x[["id_trans"]]),
+    !anyDuplicated(x, by = c("id_pred", "id_trans")),
+    all(x[["id_pred"]] > 0),
+    all(x[["id_trans"]] > 0)
+  )
 
   return(x)
 }

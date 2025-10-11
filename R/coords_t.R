@@ -16,61 +16,50 @@
 #'   - `region`: Region designation (initially NULL)
 #'   - `geom_polygon`: Geometry polygon object (for grid cells)
 #' @export
-create_coords_t <- function(config) {
-  coords_spec <- config[["coords"]]
-  coord_type <- coords_spec[["type"]]
-
-  # Dispatch to type-specific implementation
-  switch(
-    coord_type,
-    square = create_coords_t_square(coords_spec),
-    stop(glue::glue(
-      "Unsupported coordinate type: '{coord_type}'. Currently only 'square' is supported."
-    ))
+as_coords_t <- function(x) {
+  new_evoland_table(
+    x,
+    "coords_t",
+    "id_coord"
   )
 }
 
 #' @export
+create_coords_t <- function(config) {
+  coords_spec <- config[["coords"]]
+
+  # Dispatch to type-specific implementation
+  create_fun <- switch(
+    coords_spec[["type"]],
+    square = create_coords_t_square,
+    function(x) stop("Unsupported coordinate type specified.")
+  )
+
+  as_coords_t(create_fun(coords_spec))
+}
+
+#' @export
 validate.coords_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("coords_t must inherit from data.table")
-  }
+  NextMethod()
 
-  # Check required columns
-  check_missing_names(x, c("id_coord", "lon", "lat", "elevation", "region", "geom_polygon"))
-
-  # Check column types
-  if (!is.integer(x[["id_coord"]])) {
-    id_ints <- as.integer(x[["id_coord"]])
-    if (anyNA(id_ints)) {
-      stop("id_coord must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_coord", value = id_ints)
-  }
-
-  if (!is.numeric(x[["lon"]]) || !is.numeric(x[["lat"]])) {
-    stop("lon and lat must be numeric")
-  }
-
-  if (!is.factor(x[["region"]])) {
-    data.table::set(
-      x,
-      j = "region",
-      value = as.factor(x[["region"]])
+  data.table::setcolorder(
+    x,
+    c(
+      "id_coord",
+      "lon",
+      "lat",
+      "elevation",
+      "region",
+      "geom_polygon"
     )
-    warning("coerced region to factor")
-  }
+  )
 
-  # if empty, don't run soft checks
-  if (nrow(x) == 0L) {
-    return(x)
-  }
-
-  # Check for unique id_coord values
-  if (anyDuplicated(x[["id_coord"]])) {
-    stop("id_coord values must be unique")
-  }
+  stopifnot(
+    is.integer(x[["id_coord"]]),
+    is.numeric(x[["lon"]]),
+    is.numeric(x[["lat"]]),
+    !anyDuplicated(x[["id_coord"]])
+  )
 
   return(x)
 }
@@ -124,7 +113,6 @@ create_coords_t_square <- function(coords_spec) {
   names(base_grid_dt) <- c("lon", "lat")
 
   data.table::set(base_grid_dt, j = "id_coord", value = seq_len(nrow(base_grid_dt)))
-  data.table::setkeyv(base_grid_dt, "id_coord")
 
   # populate later coords-agnostically with point sampling
   data.table::set(base_grid_dt, j = "elevation", value = NA_real_)
@@ -135,19 +123,5 @@ create_coords_t_square <- function(coords_spec) {
   # skipping geom_polygon for the square case
   data.table::set(base_grid_dt, j = "geom_polygon", value = list())
 
-  data.table::setcolorder(
-    base_grid_dt,
-    c(
-      "id_coord",
-      "lon",
-      "lat",
-      "elevation",
-      "region",
-      "geom_polygon"
-    )
-  )
-
-  # Add S3 classes
-
-  new_evoland_table(base_grid_dt, "coords_t")
+  base_grid_dt
 }

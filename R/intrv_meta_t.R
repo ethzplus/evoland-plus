@@ -19,6 +19,15 @@
 #'   - `sources`: Array of structs with url and md5sum
 #'   - `params`: Map of parameters
 #' @export
+as_intrv_meta_t <- function(x) {
+  new_evoland_table(
+    x,
+    "intrv_meta_t",
+    "id_intrv"
+  )
+}
+
+#' @export
 create_intrv_meta_t <- function(config) {
   intrv_spec <- config[["interventions"]]
 
@@ -77,22 +86,15 @@ create_intrv_meta_t <- function(config) {
     params = pluck_wildcard(intrv_spec, NA, "params")
   )
 
-  data.table::setkey(x, "id_intrv")
-
-  new_evoland_table(x, "intrv_meta_t")
+  as_intrv_meta_t(x)
 }
 
 #' @export
 validate.intrv_meta_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("intrv_meta_t must inherit from data.table")
-  }
-
+  NextMethod()
   # TODO probably still needs a "has_mask" field, because some interventions apply to
   # the full domain
-  # Check required columns
-  check_missing_names(
+  data.table:::setcolorder(
     x,
     c(
       "id_intrv",
@@ -107,77 +109,23 @@ validate.intrv_meta_t <- function(x, ...) {
     )
   )
 
-  # Check column types
-  if (!is.integer(x[["id_intrv"]])) {
-    id_ints <- as.integer(x[["id_intrv"]])
-    if (anyNA(id_ints)) {
-      stop("id_intrv must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_intrv", value = id_ints)
-  }
-
-  if (!is.list(x[["id_period_list"]])) {
-    stop("id_period_list must be a list")
-  }
-
-  if (!is.list(x[["id_trans_list"]])) {
-    stop("id_trans_list must be a list")
-  }
-
-  if (!is.character(x[["name"]])) {
-    stop("name must be character")
-  }
-
-  if (!is.character(x[["pretty_name"]])) {
-    stop("pretty_name must be character")
-  }
-
-  if (!is.character(x[["description"]])) {
-    stop("description must be character")
-  }
-
-  if (!is.list(x[["sources"]])) {
-    stop("sources must be a list")
-  }
-
-  if (!is.logical(x[["pre_allocation"]])) {
-    stop("pre_allocation must be logical")
-  }
-
-  if (!is.list(x[["params"]])) {
-    stop("params must be a list")
-  }
-
-  # if empty, don't run soft checks
-  if (nrow(x) == 0L) {
-    return(x)
-  }
-
-  # Check for unique id_intrv values
-  if (anyDuplicated(x[["id_intrv"]])) {
-    stop("id_intrv values must be unique")
-  }
-
-  # Check for unique names
-  if (anyDuplicated(x[["name"]])) {
-    stop("name values must be unique")
-  }
-
-  # Check for non-empty names
-  if (any(x[["name"]] == "")) {
-    stop("name values cannot be empty strings")
-  }
-
-  # Check for positive IDs
-  if (any(x[["id_intrv"]] <= 0)) {
-    stop("id_intrv must be positive integers")
-  }
-
-  # check that we're not trying to ingest conflicting versions of raw files
   sources_dt <- unique(data.table::rbindlist(x[["sources"]]))
-  if (anyDuplicated(sources_dt[["url"]])) {
-    stop("One or more sources is declared with conflicting md5sums")
-  }
+
+  stopifnot(
+    is.integer(x[["id_intrv"]]),
+    is.list(x[["id_period_list"]]),
+    is.list(x[["id_trans_list"]]),
+    is.list(x[["sources"]]),
+    is.list(x[["params"]]),
+    is.character(x[["name"]]),
+    is.character(x[["pretty_name"]]),
+    is.character(x[["description"]]),
+    is.logical(x[["pre_allocation"]]),
+    !anyDuplicated(x[["id_intrv"]]),
+    !anyDuplicated(x[["name"]]),
+    !any(x[["name"]] == ""),
+    !anyDuplicated(sources_dt[["url"]])
+  )
 
   return(x)
 }

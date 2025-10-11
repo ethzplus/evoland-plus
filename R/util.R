@@ -19,10 +19,17 @@ validate.default <- function(x, ...) {
   stop("No validate method defined for class ", class(x))
 }
 
+#' @export
+validate.evoland_t <- function(x, ...) {
+  stopifnot(inherits(x, "data.table"))
+  invisible(x)
+}
+
 #' @describeIn util Add evoland_t class
 #' @param class_name The class name to attach before "evoland_t"
-new_evoland_table <- function(x, class_name) {
-  stopifnot(inherits(x, "data.table"))
+#' @param keycols The columns to be set as key, see [data.table::setkey()]
+new_evoland_table <- function(x, class_name, keycols) {
+  data.table::setDT(x, key = keycols)
   class(x) <- unique(c(
     class_name,
     "evoland_t",
@@ -34,6 +41,7 @@ new_evoland_table <- function(x, class_name) {
 #' @describeIn util Check that all required names are present
 #' @param x A named object
 #' @param required_names Vector of required names
+#' @return NULL, called for side effect
 check_missing_names <- function(x, required_names) {
   missing_names <- setdiff(required_names, names(x))
   if (length(missing_names) > 0) {

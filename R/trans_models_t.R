@@ -18,22 +18,18 @@
 #'   - `model_obj_full`: BLOB of serialized model object for extrapolation
 #' @export
 as_trans_models_t <- function(x) {
-  # For now, create an empty table with proper structure
-  # Full implementation would be populated during model training phase
-  data.table::setDT(x)
-  data.table::setkeyv(x, c("id_trans", "id_period"))
-
-  new_evoland_table(x, "trans_models_t")
+  new_evoland_table(
+    x,
+    "trans_models_t",
+    c("id_trans", "id_period")
+  )
 }
 
 #' @export
 validate.trans_models_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("trans_models_t must inherit from data.table")
-  }
-  # Check required columns
-  check_missing_names(
+  NextMethod()
+
+  data.table::setcolorder(
     x,
     c(
       "id_trans",
@@ -46,59 +42,18 @@ validate.trans_models_t <- function(x, ...) {
     )
   )
 
-  # Check column types
-  if (!is.integer(x[["id_trans"]])) {
-    id_trans <- as.integer(x[["id_trans"]])
-    if (anyNA(id_trans)) {
-      stop("id_trans must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_trans", value = id_trans)
-  }
-
-  if (!is.integer(x[["id_period"]])) {
-    id_periods <- as.integer(x[["id_period"]])
-    if (anyNA(id_periods)) {
-      stop("id_period must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_period", value = id_periods)
-  }
-
-  data.table::setkeyv(x, c("id_trans", "id_period"))
-
-  if (!is.character(x[["model_family"]])) {
-    stop("model_family must be character")
-  }
-
-  if (!is.list(x[["model_params"]])) {
-    stop("model_params must be a list")
-  }
-
-  if (!is.list(x[["goodness_of_fit"]])) {
-    stop("goodness_of_fit must be a list")
-  }
-
-  if (!is.list(x[["model_obj_part"]])) {
-    stop("model_obj_part must be a list")
-  }
-
-  if (!is.list(x[["model_obj_full"]])) {
-    stop("model_obj_full must be a list")
-  }
-
-  # if empty, don't run soft checks
-  if (nrow(x) == 0L) {
-    return(x)
-  }
-
-  # Check for positive IDs
-  if (any(x[["id_trans"]] <= 0) || any(x[["id_period"]] <= 0)) {
-    stop("id_trans and id_period must be positive integers")
-  }
-
-  # Check for non-empty model_family
-  if (any(x[["model_family"]] == "")) {
-    stop("model_family values cannot be empty strings")
-  }
+  stopifnot(
+    is.integer(x[["id_trans"]]),
+    is.integer(x[["id_period"]]),
+    is.character(x[["model_family"]]),
+    is.list(x[["model_params"]]),
+    is.list(x[["goodness_of_fit"]]),
+    is.list(x[["model_obj_part"]]),
+    is.list(x[["model_obj_full"]]),
+    all(x[["id_trans"]] > 0),
+    all(x[["id_period"]] > 0),
+    !any(x[["model_family"]] == "")
+  )
 
   return(x)
 }

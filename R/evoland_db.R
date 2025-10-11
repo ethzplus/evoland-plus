@@ -210,151 +210,118 @@ evoland_db <- R6::R6Class(
 
     #' @field coords_t A `coords_t` instance; see [create_coords_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    coords_t = function(coords_t) {
-      if (missing(coords_t)) {
-        coords_t <-
-          DBI::dbGetQuery(self$connection, "from coords_t") |>
-          data.table::as.data.table(key = "id_coord")
-
-        data.table::set(coords_t, j = "region", value = as.factor(coords_t[["region"]]))
-
-        return(new_evoland_table(coords_t, "coords_t"))
+    coords_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from coords_t")
+        data.table::set(x, j = "region", value = as.factor(x[["region"]]))
+        return(as_coords_t(x))
       }
-      # TODO for this and the following: ensure proper inheritance before attempting upsert
-      self$commit(coords_t, "coords_t", mode = "upsert")
+      stopifnot(inherits(x, "coords_t"))
+      self$commit(x, "coords_t", mode = "upsert")
     },
 
     #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    periods_t = function(periods_t) {
-      if (missing(periods_t)) {
-        periods_t <-
-          DBI::dbGetQuery(self$connection, "from periods_t") |>
-          data.table::as.data.table(key = "id_period")
-
-        return(new_evoland_table(periods_t, "periods_t"))
+    periods_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from periods_t")
+        return(as_periods_t(x))
       }
-      self$commit(periods_t, "periods_t", mode = "upsert")
+      stopifnot(inherits(x, "periods_t"))
+      self$commit(x, "periods_t", mode = "upsert")
     },
 
     #' @field lulc_meta_t A `lulc_meta_t` instance; see [create_lulc_meta_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    lulc_meta_t = function(lulc_meta_t) {
-      if (missing(lulc_meta_t)) {
-        lulc_meta_t <-
-          DBI::dbGetQuery(self$connection, "from lulc_meta_t") |>
-          data.table::as.data.table(key = "id_lulc")
-
-        return(new_evoland_table(lulc_meta_t, "lulc_meta_t"))
+    lulc_meta_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from lulc_meta_t")
+        return(as_lulc_meta_t(x))
       }
-      self$commit(lulc_meta_t, "lulc_meta_t", mode = "upsert")
+      stopifnot(inherits(x, "lulc_meta_t"))
+      self$commit(x, "lulc_meta_t", mode = "upsert")
     },
 
-    #' @field lulc_data_t A `lulc_data_t` instance; see [create_lulc_data_t()] for the type of
+    #' @field lulc_data_t A `lulc_data_t` instance; see [as_lulc_data_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    lulc_data_t = function(lulc_data_t) {
-      if (missing(lulc_data_t)) {
-        lulc_data_t <-
-          DBI::dbGetQuery(self$connection, "from lulc_data_t") |>
-          data.table::as.data.table()
-
-        data.table::setkeyv(lulc_data_t, c("id_coord", "id_lulc", "id_period"))
-
-        return(new_evoland_table(lulc_data_t, "lulc_data_t"))
+    lulc_data_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from lulc_data_t")
+        return(as_lulc_data_t(x))
       }
-      self$commit(lulc_data_t, "lulc_data_t", mode = "upsert")
+      stopifnot(inherits(x, "lulc_data_t"))
+      self$commit(x, "lulc_data_t", mode = "upsert")
     },
 
     #' @field pred_meta_t A `pred_meta_t` instance; see [create_pred_meta_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    pred_meta_t = function(pred_meta_t) {
-      if (missing(pred_meta_t)) {
-        pred_meta_t <-
-          DBI::dbGetQuery(self$connection, "from pred_meta_t") |>
-          data.table::as.data.table(key = "id_pred")
-
-        return(new_evoland_table(pred_meta_t, "pred_meta_t"))
+    pred_meta_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from pred_meta_t")
+        return(as_pred_meta_t(x))
       }
-      stopifnot(inherits(pred_meta_t, "pred_meta_t"))
-      self$commit(pred_meta_t, "pred_meta_t", mode = "upsert")
+      stopifnot(inherits(x, "pred_meta_t"))
+      self$commit(x, "pred_meta_t", mode = "upsert")
     },
 
     #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
     #' md5sum
     pred_sources_v = function() {
-      pred_sources_v <-
-        DBI::dbGetQuery(self$connection, "from pred_sources_v") |>
-        data.table::as.data.table() |>
+      DBI::dbGetQuery(self$connection, "from pred_sources_v") |>
         new_evoland_table("pred_sources_v")
     },
 
     #' @field pred_data_t_float A `pred_data_t_float` instance; see
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
-    pred_data_t_float = function(pred_data_t_float) {
-      if (missing(pred_data_t_float)) {
-        pred_data_t_float <-
-          DBI::dbGetQuery(self$connection, "from pred_data_t_float") |>
-          data.table::as.data.table()
+    pred_data_t_float = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from pred_data_t_float")
 
-        data.table::setkeyv(pred_data_t_float, c("id_pred", "id_coord", "id_period"))
-
-        return(new_evoland_table(pred_data_t_float, c("pred_data_t_float", "pred_data_t")))
+        return(as_pred_data_t(x, "float"))
       }
-      stopifnot(inherits(pred_data_t_float, c("pred_data_t_float", "pred_data_t")))
-      self$commit(pred_data_t_float, "pred_data_t_float", mode = "upsert")
+      stopifnot(inherits(x, c("pred_data_t_float", "pred_data_t")))
+      self$commit(x, "pred_data_t_float", mode = "upsert")
     },
 
     #' @field pred_data_t_int A `pred_data_t_int` instance; see
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
-    pred_data_t_int = function(pred_data_t_int) {
-      if (missing(pred_data_t_int)) {
-        pred_data_t_int <-
-          DBI::dbGetQuery(self$connection, "from pred_data_t_int") |>
-          data.table::as.data.table()
-
-        data.table::setkeyv(pred_data_t_int, c("id_pred", "id_coord", "id_period"))
-
-        return(new_evoland_table(pred_data_t_int, c("pred_data_t_int", "pred_data_t")))
+    pred_data_t_int = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from pred_data_t_int")
+        return(as_pred_data_t(x, "int"))
       }
-      stopifnot(inherits(pred_data_t_int, c("pred_data_t_int", "pred_data_t")))
-      self$commit(pred_data_t_int, "pred_data_t_int", mode = "upsert")
+      stopifnot(inherits(x, c("pred_data_t_int", "pred_data_t")))
+      self$commit(x, "pred_data_t_int", mode = "upsert")
     },
 
     #' @field pred_data_t_bool A `pred_data_t_bool` instance; see
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
-    pred_data_t_bool = function(pred_data_t_bool) {
-      if (missing(pred_data_t_bool)) {
-        pred_data_t_bool <-
-          DBI::dbGetQuery(self$connection, "from pred_data_t_bool") |>
-          data.table::as.data.table()
-
-        data.table::setkeyv(pred_data_t_bool, c("id_pred", "id_coord", "id_period"))
-
-        return(new_evoland_table(pred_data_t_bool, c("pred_data_t_bool", "pred_data_t")))
+    pred_data_t_bool = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from pred_data_t_bool")
+        return(as_pred_data_t(x, "bool"))
       }
-      stopifnot(inherits(pred_data_t_bool, c("pred_data_t_bool", "pred_data_t")))
-      self$commit(pred_data_t_bool, "pred_data_t_bool", mode = "upsert")
+      stopifnot(inherits(x, c("pred_data_t_bool", "pred_data_t")))
+      self$commit(x, "pred_data_t_bool", mode = "upsert")
     },
 
     #' @field trans_meta_t A `trans_meta_t` instance; see [create_trans_meta_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    trans_meta_t = function(trans_meta_t) {
-      if (missing(trans_meta_t)) {
-        trans_meta_t <-
-          DBI::dbGetQuery(self$connection, "from trans_meta_t") |>
-          data.table::as.data.table(key = "id_trans")
-
-        return(new_evoland_table(trans_meta_t, "trans_meta_t"))
+    trans_meta_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from trans_meta_t")
+        return(as_trans_meta_t(x))
       }
+      stopifnot(inherits(x, "trans_meta_t"))
 
       # Custom upsert for trans_meta_t to maintain primary key integrity
       duckdb::duckdb_register(
         conn = self$connection,
         "temporary_trans_data",
-        df = trans_meta_t
+        df = x
       )
 
       on.exit(duckdb::duckdb_unregister(
@@ -381,38 +348,40 @@ evoland_db <- R6::R6Class(
 
     #' @field trans_preds_t A `trans_preds_t` instance; see [create_trans_preds_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    trans_preds_t = function(trans_preds_t) {
-      if (missing(trans_preds_t)) {
-        trans_preds_t <-
-          DBI::dbGetQuery(self$connection, "from trans_preds_t") |>
-          data.table::as.data.table()
-
-        data.table::setkeyv(trans_preds_t, c("id_pred", "id_trans"))
-
-        return(new_evoland_table(trans_preds_t, "trans_preds_t"))
+    trans_preds_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from trans_preds_t")
+        return(as_trans_preds_t(x))
       }
-      self$commit(trans_preds_t, "trans_preds_t", mode = "upsert")
+      stopifnot(inherits(x, "trans_preds_t"))
+      self$commit(x, "trans_preds_t", mode = "upsert")
     },
 
     #' @field intrv_meta_t A `intrv_meta_t` instance; see [create_intrv_meta_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    intrv_meta_t = function(intrv_meta_t) {
-      if (missing(intrv_meta_t)) {
-        intrv_meta_t <-
-          DBI::dbGetQuery(self$connection, "from intrv_meta_t") |>
-          data.table::as.data.table(key = "id_intrv")
-        intrv_meta_t$params <- lapply(intrv_meta_t$params, kv_df_to_list)
+    intrv_meta_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from intrv_meta_t")
 
-        return(new_evoland_table(intrv_meta_t, "intrv_meta_t"))
+        x[["params"]] <- lapply(
+          x[["params"]],
+          kv_df_to_list
+        )
+
+        return(as_intrv_meta_t(x))
       }
+      stopifnot(inherits(x, "intrv_meta_t"))
 
       # Convert params list to data.frame format for DuckDB MAP conversion
-      intrv_meta_t$params <- lapply(intrv_meta_t$params, list_to_kv_df)
+      x[["params"]] <- lapply(
+        x[["params"]],
+        list_to_kv_df
+      )
 
       duckdb::duckdb_register(
         conn = self$connection,
         name = "tmp_table",
-        df = intrv_meta_t
+        df = x
       )
 
       on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
@@ -431,39 +400,48 @@ evoland_db <- R6::R6Class(
 
     #' @field intrv_masks_t A `intrv_masks_t` instance; see [as_intrv_masks_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
-    intrv_masks_t = function(intrv_masks_t) {
-      if (missing(intrv_masks_t)) {
-        intrv_masks_t <-
-          DBI::dbGetQuery(self$connection, "from intrv_masks_t") |>
-          data.table::as.data.table()
-
-        return(new_evoland_table(intrv_masks_t, "intrv_masks_t"))
+    intrv_masks_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from intrv_masks_t")
+        return(as_intrv_masks_t(x))
       }
-      self$commit(intrv_masks_t, "intrv_masks_t", mode = "upsert")
+      stopifnot(inherits(x, "intrv_masks_t"))
+      self$commit(x, "intrv_masks_t", mode = "upsert")
     },
 
     #' @field trans_models_t A `trans_models_t` instance; see [create_trans_models_t()] for the type
     #' of object to assign. Assigning is an upsert operation.
-    trans_models_t = function(trans_models_t) {
-      if (missing(trans_models_t)) {
-        trans_models_t <-
-          DBI::dbGetQuery(self$connection, "from trans_models_t") |>
-          data.table::as.data.table()
+    trans_models_t = function(x) {
+      if (missing(x)) {
+        x <- DBI::dbGetQuery(self$connection, "from trans_models_t")
 
-        trans_models_t$model_params <- lapply(trans_models_t$model_params, kv_df_to_list)
-        trans_models_t$goodness_of_fit <- lapply(trans_models_t$goodness_of_fit, kv_df_to_list)
+        x[["model_params"]] <- lapply(
+          x[["model_params"]],
+          kv_df_to_list
+        )
+        x[["goodness_of_fit"]] <- lapply(
+          x[["goodness_of_fit"]],
+          kv_df_to_list
+        )
 
-        return(new_evoland_table(trans_models_t, "trans_models_t"))
+        return(as_trans_models_t(x))
       }
+      stopifnot(inherits(x, "trans_models_t"))
 
       # Convert lists to data.frame format for DuckDB MAP conversion
-      trans_models_t$model_params <- lapply(trans_models_t$model_params, list_to_kv_df)
-      trans_models_t$goodness_of_fit <- lapply(trans_models_t$goodness_of_fit, list_to_kv_df)
+      x[["model_params"]] <- lapply(
+        x[["model_params"]],
+        list_to_kv_df
+      )
+      x[["goodness_of_fit"]] <- lapply(
+        x[["goodness_of_fit"]],
+        list_to_kv_df
+      )
 
       duckdb::duckdb_register(
         conn = self$connection,
         name = "tmp_table",
-        df = trans_models_t
+        df = x
       )
 
       on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
@@ -472,7 +450,7 @@ evoland_db <- R6::R6Class(
       sql <- "
         INSERT OR REPLACE INTO trans_models_t
         SELECT
-          id_trans, id_period, model_family, 
+          id_trans, id_period, model_family,
           map_from_entries(model_params) as model_params,
           map_from_entries(goodness_of_fit) as goodness_of_fit,
           model_obj_part, model_obj_full
@@ -483,26 +461,39 @@ evoland_db <- R6::R6Class(
 
     #' @field alloc_params_t A `alloc_params_t` instance; see [as_alloc_params_t()] for the type
     #' of object to assign. Assigning is an upsert operation.
-    alloc_params_t = function(alloc_params_t) {
-      if (missing(alloc_params_t)) {
-        alloc_params_t <-
+    alloc_params_t = function(x) {
+      if (missing(x)) {
+        x <-
           DBI::dbGetQuery(self$connection, "from alloc_params_t") |>
           data.table::as.data.table()
 
-        alloc_params_t$alloc_params <- lapply(alloc_params_t$alloc_params, kv_df_to_list)
-        alloc_params_t$goodness_of_fit <- lapply(alloc_params_t$goodness_of_fit, kv_df_to_list)
+        x[["alloc_params"]] <- lapply(
+          x[["alloc_params"]],
+          kv_df_to_list
+        )
+        x[["goodness_of_fit"]] <- lapply(
+          x[["goodness_of_fit"]],
+          kv_df_to_list
+        )
 
-        return(new_evoland_table(alloc_params_t, "alloc_params_t"))
+        return(as_alloc_params_t(x))
       }
+      stopifnot(inherits(x, "alloc_params_t"))
 
       # Convert lists to data.frame format for DuckDB MAP conversion
-      alloc_params_t$alloc_params <- lapply(alloc_params_t$alloc_params, list_to_kv_df)
-      alloc_params_t$goodness_of_fit <- lapply(alloc_params_t$goodness_of_fit, list_to_kv_df)
+      x[["alloc_params"]] <- lapply(
+        x[["alloc_params"]],
+        list_to_kv_df
+      )
+      x[["goodness_of_fit"]] <- lapply(
+        x[["goodness_of_fit"]],
+        list_to_kv_df
+      )
 
       duckdb::duckdb_register(
         conn = self$connection,
         name = "tmp_table",
-        df = alloc_params_t
+        df = x
       )
 
       on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
@@ -511,7 +502,7 @@ evoland_db <- R6::R6Class(
       sql <- "
         INSERT OR REPLACE INTO alloc_params_t
         SELECT
-          id_trans, id_period, 
+          id_trans, id_period,
           map_from_entries(alloc_params) as model_params,
           map_from_entries(goodness_of_fit) as goodness_of_fit
         FROM tmp_table

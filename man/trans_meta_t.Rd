@@ -2,20 +2,20 @@
 % Please edit documentation in R/trans_meta_t.R
 \name{trans_meta_t}
 \alias{trans_meta_t}
-\alias{create_trans_meta_t}
+\alias{as_trans_meta_t}
 \alias{print.trans_meta_t}
 \title{Create Transition Metadata Table}
 \usage{
-create_trans_meta_t(db)
+as_trans_meta_t(x)
 
 \method{print}{trans_meta_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{db}{An \link{evoland_db} instance with populated lulc_data_t and lulc_meta_t tables}
-
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{db}{An \link{evoland_db} instance with populated lulc_data_t and lulc_meta_t tables}
 }
 \value{
 A data.table of class "trans_meta_t" with columns:

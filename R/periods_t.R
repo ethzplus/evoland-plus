@@ -14,6 +14,15 @@
 #'   - `is_extrapolated`: bool, are observations matched to this period, or is it used
 #'     for extrapolation?
 #' @export
+as_periods_t <- function(x) {
+  new_evoland_table(
+    x,
+    "periods_t",
+    "id_period"
+  )
+}
+
+#' @export
 create_periods_t <- function(config) {
   periods_spec <- config[["periods"]]
 
@@ -53,37 +62,30 @@ create_periods_t <- function(config) {
     is_extrapolated = is_extrapolated
   )
 
-  data.table::setkey(x, "id_period")
-
-  new_evoland_table(x, "periods_t")
+  as_periods_t(x)
 }
 
 #' @export
 validate.periods_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("periods_t must inherit from data.table")
-  }
+  NextMethod()
 
-  # Check required columns
-  check_missing_names(x, c("id_period", "start_date", "end_date", "is_extrapolated"))
+  data.table::setcolorder(
+    x,
+    c(
+      "id_period",
+      "start_date",
+      "end_date",
+      "is_extrapolated"
+    )
+  )
 
-  # Check column types
-  if (!is.integer(x[["id_period"]])) {
-    id_ints <- as.integer(x[["id_period"]])
-    if (anyNA(id_ints)) {
-      stop("id_period must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_period", value = id_ints)
-  }
-
-  if (!inherits(x[["start_date"]], "Date") || !inherits(x[["end_date"]], "Date")) {
-    stop("start_date and end_date must be of class Date")
-  }
-
-  if (!is.logical(x[["is_extrapolated"]])) {
-    stop("is_extrapolated must be logical (bool)")
-  }
+  stopifnot(
+    is.integer(x[["id_period"]]),
+    inherits(x[["start_date"]], "Date"),
+    inherits(x[["end_date"]], "Date"),
+    is.logical(x[["is_extrapolated"]]),
+    !anyDuplicated(x[["id_period"]])
+  )
 
   return(x)
 }

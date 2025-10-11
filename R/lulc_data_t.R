@@ -14,74 +14,35 @@
 #'   - `id_period`: Foreign key to periods_t
 #'   - `date`: Exact date if available (nullable)
 #' @export
-create_lulc_data_t <- function() {
-  # For now, create an empty table with proper structure
-  # In a full implementation, this would process the actual LULC data files
-  x <- data.table::data.table(
-    id_coord = integer(0),
-    id_lulc = integer(0),
-    id_period = integer(0),
-    date = as.Date(character(0))
+as_lulc_data_t <- function(x) {
+  new_evoland_table(
+    x,
+    "lulc_data_t",
+    c("id_coord", "id_lulc", "id_period")
   )
-
-  data.table::setkeyv(x, c("id_coord", "id_lulc", "id_period"))
-
-  new_evoland_table(x, "lulc_data_t")
 }
 
 #' @export
 validate.lulc_data_t <- function(x, ...) {
-  # Check that it's a data.table
-  if (!inherits(x, "data.table")) {
-    stop("lulc_data_t must inherit from data.table")
-  }
+  NextMethod()
 
-  # Check required columns
-  check_missing_names(x, c("id_coord", "id_lulc", "id_period", "date"))
+  data.table::setcolorder(
+    x,
+    c(
+      "id_coord",
+      "id_lulc",
+      "id_period",
+      "date"
+    )
+  )
 
-  # Check column types
-  if (!is.integer(x[["id_coord"]])) {
-    id_coords <- as.integer(x[["id_coord"]])
-    if (anyNA(id_coords)) {
-      stop("id_coord must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_coord", value = id_coords)
-  }
-
-  if (!is.integer(x[["id_lulc"]])) {
-    id_lulcs <- as.integer(x[["id_lulc"]])
-    if (anyNA(id_lulcs)) {
-      stop("id_lulc must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_lulc", value = id_lulcs)
-  }
-
-  if (!is.integer(x[["id_period"]])) {
-    id_periods <- as.integer(x[["id_period"]])
-    if (anyNA(id_periods)) {
-      stop("id_period must be int or coercible to it")
-    }
-    data.table::set(x, j = "id_period", value = id_periods)
-  }
-
-  if (!inherits(x[["date"]], "Date")) {
-    stop("date must be of class Date")
-  }
-
-  # if empty, don't run soft checks
-  if (nrow(x) == 0L) {
-    return(x)
-  }
-
-  # Check for unique combinations of id_coord, id_lulc, id_period
-  if (anyDuplicated(x, by = c("id_coord", "id_lulc", "id_period"))) {
-    stop("combinations of id_coord, id_lulc, id_period must be unique")
-  }
-
-  # Check for positive IDs
-  if (any(x[["id_coord"]] <= 0) || any(x[["id_lulc"]] <= 0) || any(x[["id_period"]] <= 0)) {
-    stop("id_coord, id_lulc, and id_period must be positive integers")
-  }
+  stopifnot(
+    is.integer(x[["id_coord"]]),
+    is.integer(x[["id_lulc"]]),
+    is.integer(x[["id_period"]]),
+    inherits(x[["date"]], "Date"),
+    !anyDuplicated(x, by = c("id_coord", "id_lulc", "id_period"))
+  )
 
   return(x)
 }
