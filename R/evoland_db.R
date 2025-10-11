@@ -603,15 +603,25 @@ list_to_kv_df <- function(param_list) {
 kv_df_to_list <- function(x) {
   if (is.null(x)) {
     return(NULL)
+  } else if (is.list(x[["key"]]) || is.list(x[["value"]])) {
+    stop("cannot work on complex map keys or values")
+  } else if (is.numeric(x[["value"]])) {
+    out <- as.list(x[["value"]])
+    names(out) <- x[["key"]]
+    return(out)
   }
-  # assuming this is a list with depth 1, since we're converting back from a
-  # VARCHAR : VARCHAR map
-  nums <- as.numeric(x$value)
-  out <- as.list(ifelse(
-    is.na(nums),
-    x$value,
-    nums
-  ))
-  names(out) <- x$key
+  # assuming a VARCHAR : VARCHAR map, we want to retrieve numerics
+  nums <- suppressWarnings(as.numeric(x[["value"]]))
+  out <- list()
+  for (row in seq_len(nrow(x))) {
+    key <- x[["key"]][[row]]
+    if (is.na(nums[[row]])) {
+      # if as.numeric conversion resulted in NA, keep unaltered string
+      out[[key]] <- x[["value"]][[row]]
+      next
+    }
+    # if as.numeric conversion resulted in numeric, keep numeric
+    out[[key]] <- nums[[row]]
+  }
   out
 }
