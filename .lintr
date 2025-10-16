@@ -1,7 +1,7 @@
 linters: linters_with_defaults(
     line_length_linter(100),
     todo_comment_linter(),
-    object_name_linter = NULL,
+    object_usage_linter = NULL,
     return_linter = NULL,
     paste_linter(),
     print_linter(),
