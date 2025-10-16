@@ -36,7 +36,8 @@ CREATE TABLE lulc_meta_t (
     id_lulc INTEGER PRIMARY KEY,
     name VARCHAR NOT NULL,
     pretty_name VARCHAR NOT NULL,
-    description TEXT
+    description TEXT,
+    src_classes INTEGER[]
 );
 
 -- Land Use/Land Cover data

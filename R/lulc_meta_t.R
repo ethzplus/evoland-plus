@@ -49,7 +49,8 @@ create_lulc_meta_t <- function(config) {
       lulc_classes,
       function(cls) cls[["description"]] %||% NA_character_,
       character(1)
-    )
+    ),
+    src_classes = pluck_wildcard(config, "lulc_classes", NA, "src_classes")
   )
 
   data.table::setkey(x, "id_lulc")
@@ -67,7 +68,8 @@ validate.lulc_meta_t <- function(x, ...) {
       "id_lulc",
       "name",
       "pretty_name",
-      "description"
+      "description",
+      "src_classes"
     )
   )
 

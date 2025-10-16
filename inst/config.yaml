@@ -21,45 +21,106 @@ coords:
   resolution: 100 # unit according to EPSG; would be 100m in CH1903+ / LV95
 
 lulc_data:
-  # Eventually you would choose your data provider here, but let's assume it's the Arealstatistik for now
-  source:
+  # https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/boden-nutzung-bedeckung-eignung/arealstatistik-schweiz.html
+  provider: Arealstatistik
+  sources:
     - url: https://dam-api.bfs.admin.ch/hub/api/dam/assets/32376216/appendix
       md5sum: c32937eb4a11fc9c5c58c66e9830360a
 
-# Define the classes in use in the model
+# Define the classes in use in the model; the src_classes in this example is from the 72
+# categories used by the Arealstatistik
 lulc_classes:
-  # key "forest": internal name
-  forest:
+  # key "closed_forest": internal name
+  closed_forest:
     # pretty name for reporting
-    pretty_name: Forest
-    # aggregation: list of underlying classes. if the LULC data source does not require
-    # aggregation, this parameter can be left off.
-    aggregation:
+    pretty_name: Dense Forest
+    description: Normal forest; Forest strips; Afforestations; Felling areas; Brush forest
+    # src_classes: list of underlying classes. if the LULC data source does not require
+    # src_classes, this parameter can be left off.
+    src_classes:
+      - 50
+      - 51
+      - 52
+      - 53
+      - 57
+  arable:
+    pretty_name: Arable Land
+    src_classes:
+      - 41
+  urban:
+    pretty_name: Urban areas
+    description: >
+      Industrial and commercial buildings; Surroundings of industrial and commercial buildings;
+      One- and two-family houses; Surroundings of one- and two-family houses;
+      Terraced houses; Surroundings of terraced houses;
+      Blocks of flats; Surroundings of blocks of flats;
+      Public buildings; Surroundings of public buildings;
+      Agricultural buildings; Surroundings of agricultural buildings;
+      Unspecified buildings; Surroundings of unspecified buildings;
+      Parking areas; Construction sites; Unexploited urban areas;
+      Public parks; Sports facilities;
+      Golf courses; Camping areas; Garden allotments; Cemeteries
+    src_classes:
       - 1
       - 2
       - 3
       - 4
-  arable:
-    pretty_name: Arable Land
-    aggregation:
-      - 4
+      - 5
       - 6
-  water:
-    pretty_name: Lakes and Rivers
-    aggregation:
+      - 7
       - 8
       - 9
-  # Questionable: do we need an "other" class if this is conceptually very close to
-  # setting the class to NA / NULL? essentially, we're saying "we know there is a class
-  # here, so it's not nothing, but we also cannot apply useful transitions to it in the
-  # future"
-  other:
-    pretty_name: Other Classes
-    aggregation:
+      - 10
+      - 11
       - 12
       - 13
       - 14
-      - 49
+      - 19
+      - 29
+      - 30
+      - 31
+      - 32
+      - 33
+      - 34
+      - 35
+      - 36
+  # Questionable: do we need a "static" class if this is conceptually very close to
+  # setting the class to NA / NULL? essentially, we're saying "we know there is a class
+  # here, so it's not nothing, but we also cannot apply useful transitions to it in the
+  # future"
+  static:
+    pretty_name: Static / immutable classes
+    description: >
+      Motorways; Green motorway environs; Roads and paths; Green road environs; 
+      Sealed railway areas; Green railway environs; 
+      Airports; Airfields, green airport environs; 
+      Energy supply plants; Waste water treatment plants; Other supply or waste treatment plants;
+      Dumps; Quarries, mines; 
+      Lakes; Rivers; Flood protection structures; Avalanche and rockfall barriers; 
+      Wetlands; Alpine sports facilities; Rocks; Screes, sand; Landscape interventions
+    src_classes:
+      - 15
+      - 16
+      - 17
+      - 18
+      - 20
+      - 21
+      - 22
+      - 23
+      - 24
+      - 25
+      - 26
+      - 27
+      - 28
+      - 61
+      - 62
+      - 63
+      - 66
+      - 67
+      - 68
+      - 69
+      - 70
+      - 71
 
 pred_data:
   noise:
@@ -98,7 +159,7 @@ transitions:
       to: ~
     - from: ~
       to: water
-    - from: other
+    - from: static
       to: ~
 
 periods:
