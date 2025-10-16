@@ -12,12 +12,14 @@ RoxygenNote: 7.3.2
 Depends:
     R (>= 4.2)
 Imports:
+    curl,
     data.table,
     DBI,
     duckdb,
     glue,
     qs,
     R6,
+    stringi,
     terra,
     yaml
 Suggests:
