@@ -14,10 +14,10 @@ coords:
   type: square # could also be hexagonal or triangular or polygon
   epsg: 2056 # also provides the unit
   extent: # where x = longitude, y = latitude
-    xmin: 2480000
-    xmax: 2481000
-    ymin: 1070000
-    ymax: 1071000
+    xmin: 2697000
+    xmax: 2698000
+    ymin: 1252000
+    ymax: 1253000
   resolution: 100 # unit according to EPSG; would be 100m in CH1903+ / LV95
 
 lulc_data:
