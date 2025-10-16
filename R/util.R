@@ -101,3 +101,17 @@ pluck_wildcard <- function(lst, ...) {
 
   return(process_level(lst, level = 1L))
 }
+
+#' @describeIn util Ensure that a directory exists; return its argument for pipeability
+ensure_dir <- function(dir) {
+  tryCatch(
+    dir.create(dir, recursive = TRUE),
+    warning = function(w) {
+      if (!stringi::stri_detect_fixed(w$message, "already exists")) {
+        stop(w$message)
+      }
+    },
+    error = function(e) stop(e$message)
+  )
+  invisible(dir)
+}

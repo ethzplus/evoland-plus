@@ -7,6 +7,7 @@
 \alias{check_missing_names}
 \alias{\%||\%}
 \alias{pluck_wildcard}
+\alias{ensure_dir}
 \title{evoland utility functions}
 \usage{
 validate(x, ...)
@@ -18,6 +19,8 @@ check_missing_names(x, required_names)
 x \%||\% y
 
 pluck_wildcard(lst, ...)
+
+ensure_dir(dir)
 }
 \arguments{
 \item{x}{Left-hand side value}
@@ -53,5 +56,7 @@ These are mostly used to validate evoland S3 objects.
 \item \code{x \%||\% y}: Null coalescing operator
 
 \item \code{pluck_wildcard()}: Pluck with wildcard support
+
+\item \code{ensure_dir()}: Ensure that a directory exists; return its argument for pipeability
 
 }}
