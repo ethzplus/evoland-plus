@@ -25,41 +25,36 @@ read_evoland_config <- function(config_path) {
 
 #' @export
 validate.evoland_config <- function(x, ...) {
-  # Required top-level sections
-  check_missing_names(x, c("reporting", "coords", "lulc_data", "lulc_classes", "periods"))
+  # Required names for each section
+  check_missing_names(
+    x,
+    c("reporting", "coords", "lulc_data", "lulc_classes", "periods")
+  )
+  check_missing_names(
+    x[["reporting"]],
+    c("scenario_name", "shortname")
+  )
+  check_missing_names(
+    x[["coords"]],
+    c("type", "epsg", "extent", "resolution")
+  )
+  check_missing_names(
+    x[["periods"]],
+    c("period_length", "start_observed", "end_observed")
+  )
 
-  # Validate reporting section
-  if (!is.list(x[["reporting"]])) {
-    stop("'reporting' section must be a list")
-  }
-  check_missing_names(x[["reporting"]], c("scenario_name", "shortname"))
+  src_classes <-
+    pluck_wildcard(x[["lulc_classes"]], NA, "src_classes") |>
+    unlist()
 
-  # Validate coords section
-  check_missing_names(x[["coords"]], c("type", "epsg", "extent", "resolution"))
-
-  # Validate lulc_classes section
-  if (!is.list(x[["lulc_classes"]])) {
-    stop("'lulc_classes' section must be a list")
-  }
-  if (length(x[["lulc_classes"]]) < 2) {
-    stop("At least two LULC classes must be defined")
-  }
-  # Validate each LULC class
-  for (class_name in names(x[["lulc_classes"]])) {
-    class_def <- x[["lulc_classes"]][[class_name]]
-    if (!is.list(class_def)) {
-      stop(glue::glue("LULC class '{class_name}' must be a list"))
-    }
-    if (!"pretty_name" %in% names(class_def)) {
-      stop(glue::glue("LULC class '{class_name}' missing required 'pretty_name' field"))
-    }
-  }
-
-  # Validate periods section
-  if (!is.list(x[["periods"]])) {
-    stop("'periods' section must be a list")
-  }
-  check_missing_names(x[["periods"]], c("period_length", "start_observed", "end_observed"))
+  stopifnot(
+    is.list(x[["reporting"]]),
+    is.list(x[["lulc_classes"]]),
+    length(x[["lulc_classes"]]) > 1,
+    all(purrr::map_lgl(x[["lulc_classes"]], is.list)),
+    is.list(x[["periods"]]),
+    !anyDuplicated(src_classes)
+  )
 
   x
 }
