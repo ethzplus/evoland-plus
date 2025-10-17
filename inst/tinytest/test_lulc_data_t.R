@@ -12,6 +12,7 @@ expect_silent(
     date = as.Date(numeric())
   ))
 )
+expect_silent(print(lulc_data_t))
 expect_equal(nrow(lulc_data_t), 0L)
 
 # First populate the database with reference tables following the pattern from other tests
@@ -41,6 +42,7 @@ expect_error(
 expect_silent(
   db$lulc_data_t <- as_lulc_data_t(synthetic_lulc_data_t)
 )
+expect_silent(print(db$lulc_data_t))
 expect_equal(db$row_count("lulc_data_t"), 3L)
 
 invalid_lulc_data_t <- as_lulc_data_t(data.table::data.table(

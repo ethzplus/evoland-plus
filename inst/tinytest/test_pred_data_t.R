@@ -79,3 +79,7 @@ expect_silent(
     )
 )
 expect_equal(db$row_count("pred_data_t_bool"), 1L)
+
+expect_stdout(print(db$pred_data_t_bool), r"{Predictor Data Table \(bool\)}")
+expect_stdout(print(db$pred_data_t_int), r"{Predictor Data Table \(int\)}")
+expect_stdout(print(db$pred_data_t_float), r"{Predictor Data Table \(float\)}")

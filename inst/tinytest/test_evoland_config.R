@@ -4,6 +4,7 @@ require(tinytest)
 # Test that the default configuration can be read correctly
 config_path <- system.file("config.yaml", package = "evoland")
 config <- read_evoland_config(config_path)
+expect_stdout(print(config), "Evoland Configuration")
 expect_true(inherits(config, "evoland_config"))
 
 # Test that validation passes (no errors thrown)

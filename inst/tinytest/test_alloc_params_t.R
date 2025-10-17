@@ -50,5 +50,6 @@ alloc_params_t <- as_alloc_params_t(list(
 ))
 expect_silent(alloc_params_t)
 expect_equal(nrow(alloc_params_t), 1L)
+expect_silent(print(alloc_params_t))
 expect_silent(db$alloc_params_t <- alloc_params_t)
 expect_equal(db$alloc_params_t, alloc_params_t)
