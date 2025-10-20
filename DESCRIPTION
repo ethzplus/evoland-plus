@@ -17,6 +17,7 @@ Imports:
     DBI,
     duckdb,
     glue,
+    purrr,
     qs,
     R6,
     stringi,
