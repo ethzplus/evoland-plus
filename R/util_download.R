@@ -1,21 +1,35 @@
-#' Download files from URLs with MD5 verification
+#' Utilities to download and manage files
 #'
-#' @param df Data frame with 'url' and 'md5sum' columns
-#' @param target_dir Target directory for downloads
+#' In order to maintain a clean set of raw data files, these functions help with
+#' retrieving the raw data from an online source and caching it.
+#'
+#' @name util_download
+NULL
+
+#' @describeIn util_download Download a set of files and check their integrity against
+#'    their md5 checksum
+#' @param df_in Data frame with 'url' and 'md5sum' columns
+#' @param target_dir Target directory for downloads, defaults to option
+#'    `evoland.cachedir`
 #' @param overwrite Whether to overwrite existing files (default: FALSE)
 #'
-#' @return NULL (downloads files as side effect)
+#' @return df_out, Same as df_in but with added column "local_filename", the full path
+#' of which can be constructed
 #' @export
 
-download_and_verify <- function(df, target_dir, overwrite = FALSE) {
-  check_missing_names(df, c("url", "md5sum"))
+download_and_verify <- function(
+  df_in,
+  target_dir = getOption("evoland.cachedir"),
+  overwrite = FALSE
+) {
+  check_missing_names(df_in, c("url", "md5sum"))
   ensure_dir(target_dir)
-  df_out <- df
+  df_out <- df_in
   df_out[["local_filename"]] <- NA_character_
 
-  for (i in seq_len(nrow(df))) {
-    url <- df[["url"]][i]
-    expected_md5 <- df[["md5sum"]][i]
+  for (i in seq_len(nrow(df_in))) {
+    url <- df_in[["url"]][i]
+    expected_md5 <- df_in[["md5sum"]][i]
 
     md5dir <- ensure_dir(file.path(target_dir, expected_md5))
     present <- list.files(md5dir)
@@ -49,7 +63,8 @@ download_and_verify <- function(df, target_dir, overwrite = FALSE) {
     }
 
     # Verify MD5
-    filepath <- file.path(md5dir, filename_final)
+    filepath <- df_out[["local_path"]][i] <-
+      file.path(md5dir, filename_final)
     actual_md5 <- tools::md5sum(filepath)
     if (actual_md5 != expected_md5) {
       stop(glue::glue(
@@ -93,4 +108,32 @@ filename_cd_header <- function(res) {
   }
 
   out
+}
+
+#' @describeIn util_download Retrieve sources from an `evoland_config` object.
+#' @param config A configuration as constructed by [evoland_config]
+#' @return A data table with url, md5sum, and config_section
+#' @export
+
+get_sources_dt <- function(config) {
+  sources_flat <- c(
+    pluck_wildcard(config, NA, "sources") |> unlist(),
+    pluck_wildcard(config, NA, NA, "sources") |> unlist()
+  )
+
+  source_names <- names(sources_flat)
+
+  url_idx <- stringi::stri_detect_fixed(source_names, ".url")
+  md5sum_idx <- stringi::stri_detect_fixed(source_names, ".md5sum")
+  conf_key <- stringi::stri_replace_first_fixed(source_names[url_idx], ".url", "")
+
+  if (sum(url_idx) != sum(md5sum_idx)) {
+    stop("Unequal amount of urls and md5sums found, cannot transform to table")
+  }
+
+  data.table::data.table(
+    url = sources_flat[url_idx],
+    md5sum = sources_flat[md5sum_idx],
+    conf_key = conf_key
+  )
 }
