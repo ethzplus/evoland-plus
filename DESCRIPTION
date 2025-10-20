@@ -6,6 +6,8 @@ Authors@R:
 Description: The evoland-plus package gathers land use data and can be
     used to extrapolate likely future land use patterns.
 License: AGPL (>= 3)
+URL: https://ethzplus.github.io/evoland-plus, https://github.com/ethzplus/evoland-plus, https://ethzplus.github.io/evoland-plus/
+BugReports: https://github.com/ethzplus/evoland-plus/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
