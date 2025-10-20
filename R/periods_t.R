@@ -28,10 +28,12 @@ create_periods_t <- function(config) {
 
   # Parse the period length (ISO 8601 duration)
   period_length_str <- periods_spec[["period_length"]]
-  if (!grepl("^P\\d+Y$", period_length_str)) {
+  if (!stringi::stri_detect_regex(period_length_str, "^P\\d+Y$")) {
     stop("Only yearly period lengths are currently supported (e.g., P5Y)")
   }
-  period_length_years <- as.numeric(gsub("P(\\d+)Y", "\\1", period_length_str))
+  period_length_years <-
+    stringi::stri_match_first_regex(period_length_str, "P(\\d+)Y")[2] |>
+    as.integer()
 
   # Parse dates
   start_observed <- as.Date(periods_spec[["start_observed"]])

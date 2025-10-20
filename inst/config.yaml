@@ -165,8 +165,8 @@ transitions:
 periods:
   # Periods are declared independently of lulc or predictor data. Either nearest neighbor or linear
   # interpolation is used to associate empirical data to these idealized dates.
-  period_length: P5Y
-  start_observed: 1990-01-01
+  period_length: P10Y
+  start_observed: 1985-01-01
   end_observed: 2020-01-01
   end_extrapolated: 2060-12-01
 
