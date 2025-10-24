@@ -26,9 +26,21 @@ evoland_db <- R6::R6Class(
     #' @param path Character string. Path to the DuckDB database file. May also be ":memory:".
     #' @param write Logical. Whether to open the database in write mode. Default is TRUE.
     #'   If FALSE, the database file must already exist.
+    #' @param report_name Character string. Name of the report scenario.
+    #' @param report_name_pretty Character string. Pretty name of the report scenario.
+    #' @param report_include_date Logical. Whether to include the date in the report scenario.
+    #' @param report_username Character string. Username for the report scenario,
+    #' defaults to $USER env var
     #'
     #' @return A new `evoland_db` object
-    initialize = function(path, write = TRUE) {
+    initialize = function(
+      path,
+      write = TRUE,
+      report_name = "evoland_scenario",
+      report_name_pretty = "Default Evoland Scenario",
+      report_include_date = FALSE,
+      report_username = Sys.getenv("USER", unset = "unknown")
+    ) {
       self$path <- path
       self$write_mode <- write
 
@@ -50,9 +62,19 @@ evoland_db <- R6::R6Class(
       # If file doesn't exist and we're in write mode, create schema
       if (!file_exists && write) {
         private$create_schema()
-      } else {
-        DBI::dbExecute(self$connection, "load spatial;")
       }
+
+      # Upsert report metadata
+      reporting_t <- data.table::rowwiseDT(
+        key=, value=, # nolint
+        "report_name", report_name,
+        "report_name_pretty", report_name_pretty,
+        "report_include_date", report_include_date,
+        "report_username", report_username,
+        "last_opened", format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+      )
+
+      self$commit(reporting_t, "reporting_t", mode = "upsert")
 
       invisible(self)
     },
@@ -169,51 +191,32 @@ evoland_db <- R6::R6Class(
         self$connection,
         glue::glue("detach {target_db};")
       )
+    },
+
+    #' Set coordinates for DB
+    #' @param type string; which type of coordinates to set, see [coords_t]
+    #' @param ... named arguments are passed to the appropriate coordinate creator function
+    set_coords = function(type = c("square"), ...) {
+      create_fun <- switch(
+        type,
+        square = create_coords_t_square,
+        function(x) stop("Unsupported coordinate type specified.")
+      )
+
+      as_coords_t(create_fun(...))
     }
   ),
 
   ## Active Bindings ----
   active = list(
-    #' @field config Retrieve [evoland_config]; may be assigned a config
-    #' ([read_evoland_config()]) only if no other config is present
-    config = function(config_data) {
-      if (missing(config_data)) {
-        config_data <- DBI::dbGetQuery(
-          self$connection,
-          "select r_obj from config_t limit 1"
-        )
-        if (nrow(config_data) == 0L) {
-          stop("No config ingested yet", call. = FALSE)
-        }
-
-        config_data <- qs::qdeserialize(
-          config_data[["r_obj"]][[1]]
-        )
-
-        out <- validate(structure(config_data, class = "evoland_config"))
-        return(out)
-      }
-      if (!inherits(config_data, "evoland_config")) {
-        stop("Can only insert evoland_config objects")
-      }
-      if (self$row_count("config_t") > 0L) {
-        stop("DB already has a config! Use db$delete_from('config_t') to delete it")
-      }
-      config_json <- "{}" # empty until we can reliably (de)serialize JSON
-
-      df <- data.table::data.table(
-        config = config_json,
-        r_obj = list(qs::qserialize(config_data))
-      )
-      self$commit(df, "config_t", mode = "overwrite")
-    },
-
     #' @field coords_t A `coords_t` instance; see [create_coords_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     coords_t = function(x) {
       if (missing(x)) {
         x <- DBI::dbGetQuery(self$connection, "from coords_t")
-        data.table::set(x, j = "region", value = as.factor(x[["region"]]))
+        if (rlang::has_name(x, "region")) {
+          data.table::set(x, j = "region", value = as.factor(x[["region"]]))
+        }
         return(as_coords_t(x))
       }
       stopifnot(inherits(x, "coords_t"))

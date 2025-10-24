@@ -97,8 +97,8 @@ expect_null(
 # test actual transfer
 dir <- tempdir()
 df_in <- data.frame(
-  url = file.path("file:/", system.file("config.yaml", package = "evoland")),
-  md5sum = tools::md5sum(system.file("config.yaml", package = "evoland"))
+  url = file.path("file:/", system.file("schema.sql", package = "evoland")),
+  md5sum = tools::md5sum(system.file("schema.sql", package = "evoland"))
 )
 expect_message(
   df_out1 <- download_and_verify(df_in = df_in, target_dir = dir),
@@ -112,21 +112,4 @@ expect_equal(df_out1, df_out2)
 unlink(
   file.path(dir, df_out2$local_path),
   recursive = TRUE
-)
-
-# test sources getter
-expect_silent(
-  sources_dt <-
-    system.file("config.yaml", package = "evoland") |>
-    read_evoland_config() |>
-    get_sources_dt()
-)
-
-expect_equal(
-  sources_dt[1, ],
-  data.table::data.table(
-    url = "https://dam-api.bfs.admin.ch/hub/api/dam/assets/32376216/appendix",
-    md5sum = "c32937eb4a11fc9c5c58c66e9830360a",
-    conf_key = "lulc_data"
-  )
 )

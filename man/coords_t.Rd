@@ -4,18 +4,27 @@
 \alias{coords_t}
 \alias{as_coords_t}
 \alias{print.coords_t}
-\title{Create Coordinate Table from Configuration}
+\alias{create_coords_t_square}
+\title{Coordinate Tables}
 \usage{
 as_coords_t(x)
 
 \method{print}{coords_t}(x, nrow = 10, ...)
+
+create_coords_t_square(epsg, extent, resolution, ...)
 }
 \arguments{
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 
-\item{config}{An \link{evoland_config} instance}
+\item{epsg}{An integerish scalar representing an EPSG CRS code}
+
+\item{extent}{A \link[terra:SpatExtent-class]{terra::SpatExtent} object describing the extent of a desired
+\code{corods_t}}
+
+\item{resolution}{A numeric scalar, describing the required resolution of your
+\code{coords_t} object. The unit is that of the epsg.}
 }
 \value{
 A data.table of class "coords_t" with columns:
@@ -24,17 +33,25 @@ A data.table of class "coords_t" with columns:
 \item \code{lon}: Longitude/x coordinate
 \item \code{lat}: Latitude/y coordinate
 \item \code{elevation}: Elevation (initially NULL)
-\item \code{region}: Region designation (initially NULL)
 \item \code{geom_polygon}: Geometry polygon object (for grid cells)
 }
 }
 \description{
-Creates a coords_t table based on the coordinate system specification in an
-evoland_config object. This function uses the coords field to establish a
-base grid and dispatches to type-specific implementation methods.
+Create and validate \code{coords_t} objects, describing the base set of coordinate points
+upon which your land use model is intended to run. Because the coordinates are
+declared as points, you can describe sparse domains (e.g. following polity
+boundaries) or with arbitrary distribution (e.g. square, hexagonal, voronoi, polygon
+tesselations).
 }
 \section{Methods (by generic)}{
 \itemize{
 \item \code{print(coords_t)}: Print a coords_t object, passing params to data.table print
+
+}}
+\section{Functions}{
+\itemize{
+\item \code{as_coords_t()}: Cast and validate as coords_t
+
+\item \code{create_coords_t_square()}: Create a set of square coordinates
 
 }}

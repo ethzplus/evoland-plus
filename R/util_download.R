@@ -109,31 +109,3 @@ filename_cd_header <- function(res) {
 
   out
 }
-
-#' @describeIn util_download Retrieve sources from an `evoland_config` object.
-#' @param config A configuration as constructed by [evoland_config]
-#' @return A data table with url, md5sum, and config_section
-#' @export
-
-get_sources_dt <- function(config) {
-  sources_flat <- c(
-    pluck_wildcard(config, NA, "sources") |> unlist(),
-    pluck_wildcard(config, NA, NA, "sources") |> unlist()
-  )
-
-  source_names <- names(sources_flat)
-
-  url_idx <- stringi::stri_detect_fixed(source_names, ".url")
-  md5sum_idx <- stringi::stri_detect_fixed(source_names, ".md5sum")
-  conf_key <- stringi::stri_replace_first_fixed(source_names[url_idx], ".url", "")
-
-  if (sum(url_idx) != sum(md5sum_idx)) {
-    stop("Unequal amount of urls and md5sums found, cannot transform to table")
-  }
-
-  data.table::data.table(
-    url = sources_flat[url_idx],
-    md5sum = sources_flat[md5sum_idx],
-    conf_key = conf_key
-  )
-}

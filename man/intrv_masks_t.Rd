@@ -4,21 +4,26 @@
 \alias{intrv_masks_t}
 \alias{as_intrv_masks_t}
 \alias{print.intrv_masks_t}
-\title{Create Intervention Masks Table from Configuration}
+\title{Create Intervention Masks Table}
 \usage{
 as_intrv_masks_t(x)
 
 \method{print}{intrv_masks_t}(x, nrow = 10, ...)
 }
 \arguments{
+\item{x}{An object that is accepted by \code{\link[data.table:setDT]{data.table::setDT()}}}
+
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 }
+\value{
+A data.table-inheriting object with the columns \code{id_intrv} and \code{id_coord},
+creating a relation between coordinates to apply a
+}
 \description{
-Creates an intrv_masks_t table based on the intervention data specification in an
-evoland_config object. This function creates empty tables with proper structure
-for intervention masks.
+Construct and validate (part of) an \code{intrv_masks_t} object. This is used to
+positively link interventions []
 }
 \section{Methods (by generic)}{
 \itemize{

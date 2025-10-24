@@ -1,25 +1,24 @@
 -- DuckDB Schema for Evoland Plus
 -- Based on Database Backend.md documentation
 
--- Install required extensions
+-- TODO coord polygons aren't actually yet implemented, could get rid of this now?
 INSTALL spatial;
 LOAD spatial;
-INSTALL json;
-LOAD json;
 
--- Configuration table
-CREATE TABLE config_t (
-    config JSON NOT NULL,
-    r_obj BLOB
+-- used for storing arbitrary reporting information, such as authors etc
+CREATE TABLE reporting_t (
+    key VARCHAR PRIMARY KEY,
+    value VARCHAR
 );
 
 -- Coordinates and spatial reference table
+-- region column could be added to this table as enum, but only using ALTER TABLE
+-- we first need to know which regions exist to declare the enum
 CREATE TABLE coords_t (
     id_coord INTEGER PRIMARY KEY,
     lon DOUBLE NOT NULL,
     lat DOUBLE NOT NULL,
     elevation DOUBLE,
-    region VARCHAR,
     geom_polygon GEOMETRY
 );
 

@@ -1,8 +1,8 @@
-#' Create Predictor Data Table from Configuration
+#' Create Predictor Data Table
 #'
-#' Creates pred_data_t tables based on the predictor data specification in an
-#' evoland_config object. This function creates empty tables with proper structure
-#' for different data types (float, int, bool).
+#' Construct and validate a `pred_data_t` objects, which are used to store predictor
+#' data. Different data types (float, int, bool) have different subclasses
+#' (pred_data_t_float, ...)
 #'
 #' @name pred_data_t
 #'

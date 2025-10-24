@@ -1,12 +1,56 @@
 library(tinytest)
 
 # Setup required data for testing
-config_path <- system.file("config.yaml", package = "evoland")
 db <- evoland_db$new(":memory:")
-db$config <- read_evoland_config(config_path)
-db$pred_meta_t <- create_pred_meta_t(db$config)
-db$coords_t <- create_coords_t(db$config)
-db$periods_t <- create_periods_t(db$config)
+# nolint start
+pred_spec <- list(
+  noise = list(
+    unit = "dBa",
+    pretty_name = "Maximum noise exposure",
+    orig_format = "10m*10m raster",
+    description = "The maximum across all sonBASE noise exposure categories, i.e. daytime & nighttime road & rail exposure",
+    sources = list(
+      list(
+        url = "https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_tag/laerm-strassenlaerm_tag/laerm-strassenlaerm_tag_2056.tif",
+        md5sum = "a4b9f1c04ee63824f18852bfd1eecbdd"
+      ),
+      list(
+        url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
+        md5sum = "4b782128495b5af8467e2259bd57def2"
+      )
+    )
+  ),
+  distance_to_lake = list(
+    unit = "m",
+    pretty_name = "Distance to closest lake",
+    format = "vector",
+    description = "Derived from swissTLM3D",
+    sources = list(list(
+      url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
+      md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
+    ))
+  )
+)
+# nolint end
+
+# Test creation and validation
+db$pred_meta_t <- create_pred_meta_t(pred_spec)
+db$coords_t <- create_coords_t_square(
+  epsg = 2056,
+  extent = terra::ext(c(
+    xmin = 2697000,
+    xmax = 2698000,
+    ymin = 1252000,
+    ymax = 1253000
+  )),
+  resolution = 100
+)
+db$periods_t <- create_periods_t(
+  period_length_str = "P10Y",
+  start_observed = "1985-01-01",
+  end_observed = "2020-01-01",
+  end_extrapolated = "2060-01-01"
+)
 
 # float subtype
 pred_data_t_float <- as_pred_data_t(

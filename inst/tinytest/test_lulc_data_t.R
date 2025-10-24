@@ -1,8 +1,6 @@
 library(tinytest)
 
-config_path <- system.file("config.yaml", package = "evoland")
 db <- evoland_db$new(":memory:")
-db$config <- read_evoland_config(config_path)
 
 expect_silent(
   lulc_data_t <- as_lulc_data_t(data.frame(
@@ -16,14 +14,48 @@ expect_silent(print(lulc_data_t))
 expect_equal(nrow(lulc_data_t), 0L)
 
 # First populate the database with reference tables following the pattern from other tests
-expect_silent(coords_t <- create_coords_t(db$config))
-expect_silent(db$coords_t <- coords_t)
+expect_silent(
+  db$coords_t <- create_coords_t_square(
+    epsg = 2056,
+    extent = terra::ext(c(
+      xmin = 2697000,
+      xmax = 2698000,
+      ymin = 1252000,
+      ymax = 1253000
+    )),
+    resolution = 100
+  )
+)
 
-expect_silent(periods_t <- create_periods_t(db$config))
-expect_silent(db$periods_t <- periods_t)
+expect_silent(
+  db$periods_t <- create_periods_t(
+    period_length_str = "P10Y",
+    start_observed = "1985-01-01",
+    end_observed = "2020-01-01",
+    end_extrapolated = "2060-01-01"
+  )
+)
 
-expect_silent(lulc_meta_t <- create_lulc_meta_t(db$config))
-expect_silent(db$lulc_meta_t <- lulc_meta_t)
+expect_silent(
+  db$lulc_meta_t <- create_lulc_meta_t(list(
+    closed_forest = list(
+      pretty_name = "Dense Forest",
+      description = "Normal forest; Forest strips; Afforestations",
+      src_classes = c(50:53, 57L)
+    ),
+    arable = list(pretty_name = "Arable Land", src_classes = 41L),
+    urban = list(
+      pretty_name = "Urban areas",
+      description = "Industrial and camping areas; Garden allotments; Cemeteries",
+      src_classes = c(1:14, 19L, 29:36)
+    ),
+    static = list(
+      pretty_name = "Static / immutable classes",
+      description = "Airports; Airfields; Dumps; Quarries, mines, et cetera",
+      src_classes = c(15:18, 20:28, 61:63, 66:71)
+    )
+  ))
+)
 
 expect_silent(db$lulc_data_t <- lulc_data_t)
 expect_equal(db$row_count("lulc_data_t"), 0L)

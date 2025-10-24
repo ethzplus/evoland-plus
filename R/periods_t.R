@@ -1,11 +1,13 @@
-#' Create Period Table from Configuration
+#' Create Period Table
 #'
-#' Creates a period table, i.e. a description of discrete periods during which land use
-#' can transition, based on the specification in an [evoland_config] object.
+#' Creates a period table, i.e. a description of discrete periods during which land use can
+#' transition. This is necessary because a) land use data may not be available as regular time
+#' series and need to be assigned to such a form, and b) because this normalization helps
+#' consistency.
 #'
 #' @name periods_t
 #'
-#' @param config An [evoland_config] instance
+#' @param x A list or data.frame coercible to a data.table
 #'
 #' @return A data.table of class "periods_t" with columns:
 #'   - `id_period`: Unique ID for each tperiod
@@ -22,12 +24,21 @@ as_periods_t <- function(x) {
   )
 }
 
+#' @describeIn periods_t Creates a periods_t table from specifications; periods that start after
+#' `end_observed` are marked as extrapolated
+#' @param period_length_str ISO 8601 duration string specifying the length of each period (currently
+#' only accepting years, e.g., "P5Y" for 5 years)
+#' @param start_observed Start date of the observed data (YYYY-MM-DD)
+#' @param end_observed End date of the observed data (YYYY-MM-DD)
+#' @param end_extrapolated End date for extrapolation time range (YYYY-MM-DD)
 #' @export
-create_periods_t <- function(config) {
-  periods_spec <- config[["periods"]]
-
+create_periods_t <- function(
+  period_length_str = "P10Y",
+  start_observed = "1985-01-01",
+  end_observed = "2020-01-01",
+  end_extrapolated = "2060-01-01"
+) {
   # Parse the period length (ISO 8601 duration)
-  period_length_str <- periods_spec[["period_length"]]
   if (!stringi::stri_detect_regex(period_length_str, "^P\\d+Y$")) {
     stop("Only yearly period lengths are currently supported (e.g., P5Y)")
   }
@@ -36,9 +47,9 @@ create_periods_t <- function(config) {
     as.integer()
 
   # Parse dates
-  start_observed <- as.Date(periods_spec[["start_observed"]])
-  end_observed <- as.Date(periods_spec[["end_observed"]])
-  end_extrapolated <- as.Date(periods_spec[["end_extrapolated"]])
+  start_observed <- as.Date(start_observed)
+  end_observed <- as.Date(end_observed)
+  end_extrapolated <- as.Date(end_extrapolated)
 
   # Generate sequence of start dates from start_observed to end_extrapolated
   start_dates <- seq(

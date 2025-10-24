@@ -1,12 +1,10 @@
-#' Create Intervention Metadata Table from Configuration
+#' Create Intervention Metadata Table / Entries
 #'
-#' Creates an intrv_meta_t table based on the intervention specification in an
-#' evoland_config object. This function uses the interventions field to create
-#' metadata entries for each intervention type.
+#' Creates an `intrv_meta_t` table or rows therein based on intervention specifications.
 #'
 #' @name intrv_meta_t
 #'
-#' @param config An [evoland_config] instance
+#' @param x An object that can be passed to [data.table::setDT()]
 #'
 #' @return A data.table of class "intrv_meta_t" with columns:
 #'   - `id_intrv`: Unique ID for each intervention
@@ -27,43 +25,43 @@ as_intrv_meta_t <- function(x) {
   )
 }
 
+#' @describeIn intrv_meta_t Creates an intrv_meta_t table from intervention specifications
+#' @param intrv_spec A list of intervention specifications, schema: see examples
+#' @examples create_intrv_meta_t(list(
+#'   protected_areas = list(
+#'     pre_allocation = TRUE,
+#'     pretty_name = "Nature protection areas",
+#'     description = "introduces additional protected areas (PAs",
+#'     periods = c(7, 8),
+#'     transitions = c(1, 2),
+#'     sources = list(
+#'       list(
+#'         url = "file:///somedir/protected_areas.gpkg",
+#'         md5sum = "something"
+#'       )
+#'     )
+#'   ),
+#'   hydro_predictors = list(
+#'     pre_allocation = TRUE,
+#'     pretty_name = "Hydrological predictor variables",
+#'     description = "Provide dynamic predictor vars",
+#'     params = list(
+#'       tmpdir = "/mnt/ramdisk"
+#'     )
+#'   )
+#' ))
 #' @export
-create_intrv_meta_t <- function(config) {
-  intrv_spec <- config[["interventions"]]
-
-  if (is.null(intrv_spec)) {
-    stop("No interventions specified in config")
-  }
+create_intrv_meta_t <- function(intrv_spec) {
   # Extract intervention names
   intrv_names <- names(intrv_spec)
   if (is.null(intrv_names) || any(intrv_names == "")) {
     stop("All intervention entries must have names")
   }
 
-  # Create periods_t to do date lookups
-  periods_t <- create_periods_t(config)
-  find_matching_periods <- function(intrv, periods_t) {
-    start_date <- intrv[["start_intervention"]]
-    end_date <- intrv[["end_intervention"]]
-
-    if (is.null(start_date) || is.null(end_date)) {
-      return(integer())
-    }
-
-    start_date <- as.Date(start_date)
-    end_date <- as.Date(end_date)
-
-    # Find periods that overlap with intervention timeframe
-    overlap_mask <- start_date <= periods_t$end_date & end_date >= periods_t$start_date
-    matching_periods <- periods_t$id_period[overlap_mask]
-
-    return(matching_periods)
-  }
-
   x <- data.table::data.table(
     id_intrv = seq_along(intrv_names),
-    id_period_list = lapply(intrv_spec, find_matching_periods, periods_t = periods_t),
-    id_trans_list = pluck_wildcard(intrv_spec, NA, "transitions") %||% integer(),
+    id_period_list = pluck_wildcard(intrv_spec, NA, "periods"),
+    id_trans_list = pluck_wildcard(intrv_spec, NA, "transitions"),
     pre_allocation = unlist(
       pluck_wildcard(intrv_spec, NA, "pre_allocation") %||% NA
     ),
@@ -84,6 +82,52 @@ create_intrv_meta_t <- function(config) {
       }
     ),
     params = pluck_wildcard(intrv_spec, NA, "params")
+  )
+
+  as_intrv_meta_t(x)
+}
+
+#' @describeIn intrv_meta_t Creates an metadata entry / row
+#' @param name Name for use in code and queries
+#' @param pretty_name Name for plots/output
+#' @param description Long description / operationalisation
+#' @param id_period_list Array of associated period IDs
+#' @param id_trans_list Array of associated transition IDs
+#' @param pre_allocation Boolean indicating if intervention is pre-allocation
+#' @param sources Data frame of sources with columns `url` and `md5sum
+#' @param params A list of parameters, depth 1; children can only have length 1
+#' @export
+create_intrv_meta_t_row <- function(
+  name = character(),
+  pretty_name = character(),
+  description = NA_character_,
+  id_period_list = integer(),
+  id_trans_list = integer(),
+  pre_allocation = logical(),
+  sources = data.frame(url = character(), md5sum = character()),
+  params
+) {
+  stopifnot(
+    rlang::is_scalar_character(name),
+    rlang::is_scalar_character(pretty_name),
+    rlang::is_scalar_character(description),
+    is.integer(id_period_list),
+    is.integer(id_trans_list),
+    rlang::is_scalar_logical(pre_allocation),
+    inherits(sources, "data.frame"),
+  )
+  check_missing_names(sources, c("url", "md5sum"))
+
+  x <- data.table::data.table(
+    id_intrv = NA_integer_,
+    id_period_list = list(id_period_list),
+    id_trans_list = list(id_trans_list),
+    pre_allocation = pre_allocation,
+    name = name,
+    pretty_name = pretty_name,
+    description = description,
+    sources = list(sources),
+    params = list(params)
   )
 
   as_intrv_meta_t(x)
@@ -132,7 +176,7 @@ validate.intrv_meta_t <- function(x, ...) {
 
 #' @export
 #' @describeIn intrv_meta_t Print an intrv_meta_t object, passing params to data.table print
-#' @param ... passed to [yaml::as.yaml()]
+#' @param ... passed to [data.table::print.data.table()]
 print.intrv_meta_t <- function(x, ...) {
   if (nrow(x) > 0) {
     cat(glue::glue(
@@ -144,23 +188,7 @@ print.intrv_meta_t <- function(x, ...) {
     return(invisible(x))
   }
 
-  # try to serialize as close as possible to config file
-  # but print info about id_intrv
-  as_list <- list()
-  as_list[["interventions"]] <-
-    x |>
-    split(by = "name") |>
-    lapply(as.list) |>
-    lapply(function(y) {
-      y[["name"]] <- NULL
-      y[["sources"]] <- y[["sources"]][[1]]
-      y[["params"]] <- y[["params"]][[1]]
-      y[["id_period_list"]] <- y[["id_period_list"]][[1]]
-      y[["id_trans_list"]] <- y[["id_trans_list"]][[1]]
-      return(y)
-    })
-
-  cat(yaml::as.yaml(as_list, column.major = FALSE))
+  NextMethod(trunc.cols = TRUE, ...)
 
   invisible(x)
 }
