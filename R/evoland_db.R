@@ -183,13 +183,13 @@ evoland_db <- R6::R6Class(
         self$connection,
         glue::glue("attach '{target_path}';")
       )
+      on.exit(DBI::dbExecute(
+        self$connection,
+        glue::glue("detach {target_db};")
+      ))
       DBI::dbExecute(
         self$connection,
         glue::glue("copy from database {source_db} to {target_db};")
-      )
-      DBI::dbExecute(
-        self$connection,
-        glue::glue("detach {target_db};")
       )
     },
 
@@ -271,7 +271,7 @@ evoland_db <- R6::R6Class(
     #' md5sum
     pred_sources_v = function() {
       DBI::dbGetQuery(self$connection, "from pred_sources_v") |>
-        new_evoland_table("pred_sources_v")
+        new_evoland_table("pred_sources_v", keycols = NULL)
     },
 
     #' @field pred_data_t_float A `pred_data_t_float` instance; see

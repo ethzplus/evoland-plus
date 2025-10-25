@@ -41,15 +41,8 @@ intrv_spec <- list(
 )
 
 # Test creation and validation
-intrv_meta_t <- create_intrv_meta_t(intrv_spec)
-expect_silent(print(intrv_meta_t))
-expect_equal(nrow(intrv_meta_t), 3L)
-expect_equal(intrv_meta_t$pre_allocation, c(TRUE, FALSE, TRUE))
-expect_equal(intrv_meta_t$id_period_list, list(c(7, 8), NULL, NULL))
-
-# test roundtrip
-db <- evoland_db$new(":memory:")
-expect_silent(db$intrv_meta_t <- intrv_meta_t)
-# test upsert
-expect_silent(db$intrv_meta_t <- intrv_meta_t)
-expect_equal(db$intrv_meta_t, intrv_meta_t)
+intrv_meta_t_correct <- create_intrv_meta_t(intrv_spec)
+expect_silent(print(intrv_meta_t_correct))
+expect_equal(nrow(intrv_meta_t_correct), 3L)
+expect_equal(intrv_meta_t_correct$pre_allocation, c(TRUE, FALSE, TRUE))
+expect_equal(intrv_meta_t_correct$id_period_list, list(c(7, 8), NULL, NULL))

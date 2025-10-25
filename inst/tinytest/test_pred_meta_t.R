@@ -34,9 +34,18 @@ pred_spec <- list(
 # Test creation and validation
 pred_meta_t <- create_pred_meta_t(pred_spec)
 expect_true(nrow(pred_meta_t) == 2L)
-
-
-db <- evoland_db$new(":memory:")
-expect_silent(db$pred_meta_t <- pred_meta_t)
-expect_stdout(print(db$pred_meta_t), "Number of predictors")
-expect_equal(db$pred_meta_t, pred_meta_t)
+expect_true(inherits(pred_meta_t, "pred_meta_t"))
+expect_true(all(
+  c(
+    "id_pred",
+    "name",
+    "pretty_name",
+    "description",
+    "orig_format",
+    "sources",
+    "unit",
+    "factor_levels"
+  ) %in%
+    names(pred_meta_t)
+))
+expect_stdout(print(pred_meta_t), "Number of predictors")

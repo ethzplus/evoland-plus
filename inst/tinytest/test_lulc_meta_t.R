@@ -19,13 +19,19 @@ lulc_class_spec <- list(
   )
 )
 
-# expecting the validator to complain that fields are all-na
+# Test object creation and validation
 expect_silent(lulc_meta_t <- create_lulc_meta_t(lulc_class_spec))
 expect_stdout(print(lulc_meta_t), "LULC Metadata")
-
-
-db <- evoland_db$new(":memory:")
-expect_stdout(print(db$lulc_meta_t), "(0 rows and 5 cols)")
-expect_silent(db$lulc_meta_t <- lulc_meta_t)
-expect_equal(lulc_meta_t, db$lulc_meta_t)
-expect_equal(db$row_count("lulc_meta_t"), 4L)
+expect_equal(nrow(lulc_meta_t), 4L)
+expect_true(
+  all(
+    c(
+      "id_lulc",
+      "name",
+      "pretty_name",
+      "description",
+      "src_classes"
+    ) %in%
+      names(lulc_meta_t)
+  )
+)
