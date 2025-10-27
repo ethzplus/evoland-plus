@@ -10,7 +10,6 @@
 #'   - `id_coord`: Foreign key to coords_t
 #'   - `id_lulc`: Foreign key to lulc_meta_t
 #'   - `id_period`: Foreign key to periods_t
-#'   - `date`: Exact date if available (nullable)
 #' @export
 as_lulc_data_t <- function(x) {
   new_evoland_table(
@@ -29,8 +28,7 @@ validate.lulc_data_t <- function(x, ...) {
     c(
       "id_coord",
       "id_lulc",
-      "id_period",
-      "date"
+      "id_period"
     )
   )
 
@@ -38,7 +36,6 @@ validate.lulc_data_t <- function(x, ...) {
     is.integer(x[["id_coord"]]),
     is.integer(x[["id_lulc"]]),
     is.integer(x[["id_period"]]),
-    inherits(x[["date"]], "Date"),
     !anyDuplicated(x, by = c("id_coord", "id_lulc", "id_period"))
   )
 
@@ -54,17 +51,11 @@ print.lulc_data_t <- function(x, nrow = 10, ...) {
     n_coords <- data.table::uniqueN(x[["id_coord"]])
     n_lulc <- data.table::uniqueN(x[["id_lulc"]])
     n_periods <- data.table::uniqueN(x[["id_period"]])
-    date_range <- if (any(!is.na(x[["date"]]))) {
-      paste0("[", min(x[["date"]], na.rm = TRUE), ", ", max(x[["date"]], na.rm = TRUE), "]")
-    } else {
-      "no dates available"
-    }
 
     cat(glue::glue(
       "LULC Data Table\n",
       "Observations: {nrow(x)}\n",
-      "Coordinates: {n_coords}, LULC classes: {n_lulc}, Periods: {n_periods}\n",
-      "Date range: {date_range}\n\n"
+      "Coordinates: {n_coords}, LULC classes: {n_lulc}, Periods: {n_periods}\n\n"
     ))
   } else {
     cat("LULC Data Table (empty)\n")

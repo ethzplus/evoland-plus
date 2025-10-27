@@ -44,7 +44,7 @@ CREATE VIEW lulc_meta_long_v as (
         id_lulc,
         name,
         unnest(src_classes) as src_class
-    from 
+    from
         lulc_meta_t
 );
 
@@ -53,7 +53,6 @@ CREATE TABLE lulc_data_t (
     id_coord INTEGER NOT NULL,
     id_lulc INTEGER NOT NULL,
     id_period INTEGER NOT NULL,
-    date DATE,
     PRIMARY KEY (id_coord, id_lulc, id_period),
     FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord),
     FOREIGN KEY (id_lulc) REFERENCES lulc_meta_t(id_lulc),
