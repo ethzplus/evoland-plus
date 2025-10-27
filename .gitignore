@@ -53,3 +53,6 @@ renv*
 /doc/
 /Meta/
 docs
+
+# generally ignore databases, like .evolanddb, .duckdb, anything.db
+*db
