@@ -119,7 +119,7 @@ evoland_db <- R6::R6Class(
     #' @return A table of the original class
     fetch = function(table_name, where = NULL, limit = NULL) {
       # Build SQL query
-      sql <- glue::glue("SELECT * FROM {table_name}")
+      sql <- glue::glue("FROM {table_name}")
 
       if (!is.null(where)) {
         sql <- glue::glue("{sql} WHERE {where}")
@@ -193,17 +193,27 @@ evoland_db <- R6::R6Class(
       )
     },
 
-    #' Set coordinates for DB
+    #' Set coordinates for DB; overwrites on repeated call
     #' @param type string; which type of coordinates to set, see [coords_t]
     #' @param ... named arguments are passed to the appropriate coordinate creator function
     set_coords = function(type = c("square"), ...) {
+      if (self$row_count("coords_t") > 0L && interactive()) {
+        choice <- utils::menu(
+          choices = c("Yes, overwrite coordinates", "No, cancel operation"),
+          title = "Coordinates table already exists. Overwriting will drop all dependent relations. Continue?"
+        )
+        if (choice != 1) {
+          message("Operation cancelled.")
+          return(invisible(NULL))
+        }
+      }
       create_fun <- switch(
         type,
         square = create_coords_t_square,
         function(x) stop("Unsupported coordinate type specified.")
       )
 
-      as_coords_t(create_fun(...))
+      self$commit(as_coords_t(create_fun(...)), "coords_t", mode = "overwrite")
     }
   ),
 
@@ -213,7 +223,7 @@ evoland_db <- R6::R6Class(
     #' object to assign. Assigning is an upsert operation.
     coords_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from coords_t")
+        x <- self$fetch("coords_t")
         if (rlang::has_name(x, "region")) {
           data.table::set(x, j = "region", value = as.factor(x[["region"]]))
         }
@@ -227,7 +237,7 @@ evoland_db <- R6::R6Class(
     #' object to assign. Assigning is an upsert operation.
     periods_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from periods_t")
+        x <- self$fetch("periods_t")
         return(as_periods_t(x))
       }
       stopifnot(inherits(x, "periods_t"))
@@ -238,18 +248,25 @@ evoland_db <- R6::R6Class(
     #' object to assign. Assigning is an upsert operation.
     lulc_meta_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from lulc_meta_t")
+        x <- self$fetch("lulc_meta_t")
         return(as_lulc_meta_t(x))
       }
       stopifnot(inherits(x, "lulc_meta_t"))
       self$commit(x, "lulc_meta_t", mode = "upsert")
     },
 
+    #' @field lulc_meta_long_v A `lulc_meta_long_v` instance; see [create_lulc_meta_long_v()] for the type of
+    #' object to assign. Assigning is an upsert operation.
+    lulc_meta_long_v = function() {
+      self$fetch("lulc_meta_long_v") |>
+        new_evoland_table("lulc_meta_long_v", keycols = NULL)
+    },
+
     #' @field lulc_data_t A `lulc_data_t` instance; see [as_lulc_data_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     lulc_data_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from lulc_data_t")
+        x <- self$fetch("lulc_data_t")
         return(as_lulc_data_t(x))
       }
       stopifnot(inherits(x, "lulc_data_t"))
@@ -260,7 +277,7 @@ evoland_db <- R6::R6Class(
     #' object to assign. Assigning is an upsert operation.
     pred_meta_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from pred_meta_t")
+        x <- self$fetch("pred_meta_t")
         return(as_pred_meta_t(x))
       }
       stopifnot(inherits(x, "pred_meta_t"))
@@ -270,7 +287,7 @@ evoland_db <- R6::R6Class(
     #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
     #' md5sum
     pred_sources_v = function() {
-      DBI::dbGetQuery(self$connection, "from pred_sources_v") |>
+      self$fetch("pred_sources_v") |>
         new_evoland_table("pred_sources_v", keycols = NULL)
     },
 
@@ -279,7 +296,7 @@ evoland_db <- R6::R6Class(
     #' upsert operation.
     pred_data_t_float = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from pred_data_t_float")
+        x <- self$fetch("pred_data_t_float")
 
         return(as_pred_data_t(x, "float"))
       }
@@ -292,7 +309,7 @@ evoland_db <- R6::R6Class(
     #' upsert operation.
     pred_data_t_int = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from pred_data_t_int")
+        x <- self$fetch("pred_data_t_int")
         return(as_pred_data_t(x, "int"))
       }
       stopifnot(inherits(x, c("pred_data_t_int", "pred_data_t")))
@@ -304,7 +321,7 @@ evoland_db <- R6::R6Class(
     #' upsert operation.
     pred_data_t_bool = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from pred_data_t_bool")
+        x <- self$fetch("pred_data_t_bool")
         return(as_pred_data_t(x, "bool"))
       }
       stopifnot(inherits(x, c("pred_data_t_bool", "pred_data_t")))
@@ -315,7 +332,7 @@ evoland_db <- R6::R6Class(
     #' object to assign. Assigning is an upsert operation.
     trans_meta_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from trans_meta_t")
+        x <- self$fetch("trans_meta_t")
         return(as_trans_meta_t(x))
       }
       stopifnot(inherits(x, "trans_meta_t"))
@@ -353,7 +370,7 @@ evoland_db <- R6::R6Class(
     #' object to assign. Assigning is an upsert operation.
     trans_preds_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from trans_preds_t")
+        x <- self$fetch("trans_preds_t")
         return(as_trans_preds_t(x))
       }
       stopifnot(inherits(x, "trans_preds_t"))
@@ -364,7 +381,7 @@ evoland_db <- R6::R6Class(
     #' object to assign. Assigning is an upsert operation.
     intrv_meta_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from intrv_meta_t")
+        x <- self$fetch("intrv_meta_t")
 
         x[["params"]] <- lapply(
           x[["params"]],
@@ -405,7 +422,7 @@ evoland_db <- R6::R6Class(
     #' object to assign. Assigning is an upsert operation.
     intrv_masks_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from intrv_masks_t")
+        x <- self$fetch("intrv_masks_t")
         return(as_intrv_masks_t(x))
       }
       stopifnot(inherits(x, "intrv_masks_t"))
@@ -416,7 +433,7 @@ evoland_db <- R6::R6Class(
     #' of object to assign. Assigning is an upsert operation.
     trans_models_t = function(x) {
       if (missing(x)) {
-        x <- DBI::dbGetQuery(self$connection, "from trans_models_t")
+        x <- self$fetch("trans_models_t")
 
         x[["model_params"]] <- lapply(
           x[["model_params"]],
@@ -467,7 +484,7 @@ evoland_db <- R6::R6Class(
     alloc_params_t = function(x) {
       if (missing(x)) {
         x <-
-          DBI::dbGetQuery(self$connection, "from alloc_params_t") |>
+          self$fetch("alloc_params_t") |>
           data.table::as.data.table()
 
         x[["alloc_params"]] <- lapply(

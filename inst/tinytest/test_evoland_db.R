@@ -11,6 +11,7 @@ expected_tables <- c(
   "intrv_masks_t",
   "intrv_meta_t",
   "lulc_data_t",
+  "lulc_meta_long_v",
   "lulc_meta_t",
   "periods_t",
   "pred_data_t_bool",

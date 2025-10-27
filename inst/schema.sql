@@ -39,6 +39,15 @@ CREATE TABLE lulc_meta_t (
     src_classes INTEGER[]
 );
 
+CREATE VIEW lulc_meta_long_v as (
+    select
+        id_lulc,
+        name,
+        unnest(src_classes) as src_class
+    from 
+        lulc_meta_t
+);
+
 -- Land Use/Land Cover data
 CREATE TABLE lulc_data_t (
     id_coord INTEGER NOT NULL,
