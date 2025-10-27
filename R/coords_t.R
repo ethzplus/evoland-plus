@@ -8,7 +8,7 @@
 #'
 #' @param epsg An integerish scalar representing an EPSG CRS code
 #' @param extent A [terra::SpatExtent] object describing the extent of a desired
-#'               `corods_t`
+#'               `coords_t`
 #' @param resolution A numeric scalar, describing the required resolution of your
 #' `coords_t` object. The unit is that of the epsg.
 #'
