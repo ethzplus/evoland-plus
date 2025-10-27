@@ -1,10 +1,15 @@
-#' Create Intervention Masks Table from Configuration
+#' Create Intervention Masks Table
 #'
-#' Creates an intrv_masks_t table based on the intervention data specification in an
-#' evoland_config object. This function creates empty tables with proper structure
-#' for intervention masks.
+#' Construct and validate (part of) an `intrv_masks_t` object. This is used to
+#' positively link interventions []
 #'
 #' @name intrv_masks_t
+#'
+#' @param x An object that is accepted by [data.table::setDT()]
+#'
+#' @return A data.table-inheriting object with the columns `id_intrv` and `id_coord`,
+#' creating a relation between coordinates to apply a
+#'
 #' @export
 as_intrv_masks_t <- function(x) {
   new_evoland_table(

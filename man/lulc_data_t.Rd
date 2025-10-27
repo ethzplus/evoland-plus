@@ -4,18 +4,18 @@
 \alias{lulc_data_t}
 \alias{as_lulc_data_t}
 \alias{print.lulc_data_t}
-\title{Create LULC Data Table from Configuration}
+\title{Create LULC Data Table}
 \usage{
 as_lulc_data_t(x)
 
 \method{print}{lulc_data_t}(x, nrow = 10, ...)
 }
 \arguments{
+\item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
+
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
-
-\item{config}{An \link{evoland_config} instance}
 }
 \value{
 A data.table of class "lulc_data_t" with columns:
@@ -27,9 +27,7 @@ A data.table of class "lulc_data_t" with columns:
 }
 }
 \description{
-Creates an lulc_data_t table based on the LULC data specification in an
-evoland_config object. This function processes LULC data files and creates
-data entries linking coordinates, LULC classes, and time periods.
+Creates an \code{lulc_data_t} table and validates that it matches the schema.
 }
 \section{Methods (by generic)}{
 \itemize{

@@ -3,7 +3,6 @@
 \name{util_download}
 \alias{util_download}
 \alias{download_and_verify}
-\alias{get_sources_dt}
 \title{Utilities to download and manage files}
 \usage{
 download_and_verify(
@@ -11,8 +10,6 @@ download_and_verify(
   target_dir = getOption("evoland.cachedir"),
   overwrite = FALSE
 )
-
-get_sources_dt(config)
 }
 \arguments{
 \item{df_in}{Data frame with 'url' and 'md5sum' columns}
@@ -21,14 +18,10 @@ get_sources_dt(config)
 \code{evoland.cachedir}}
 
 \item{overwrite}{Whether to overwrite existing files (default: FALSE)}
-
-\item{config}{A configuration as constructed by \link{evoland_config}}
 }
 \value{
 df_out, Same as df_in but with added column "local_filename", the full path
 of which can be constructed
-
-A data table with url, md5sum, and config_section
 }
 \description{
 In order to maintain a clean set of raw data files, these functions help with
@@ -38,7 +31,5 @@ retrieving the raw data from an online source and caching it.
 \itemize{
 \item \code{download_and_verify()}: Download a set of files and check their integrity against
 their md5 checksum
-
-\item \code{get_sources_dt()}: Retrieve sources from an \code{evoland_config} object.
 
 }}

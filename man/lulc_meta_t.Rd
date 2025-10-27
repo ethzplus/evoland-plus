@@ -3,19 +3,22 @@
 \name{lulc_meta_t}
 \alias{lulc_meta_t}
 \alias{as_lulc_meta_t}
+\alias{create_lulc_meta_t}
 \alias{print.lulc_meta_t}
-\title{Create LULC Metadata Table from Configuration}
+\title{Create LULC Metadata Table}
 \usage{
 as_lulc_meta_t(x)
+
+create_lulc_meta_t(lulc_class_spec)
 
 \method{print}{lulc_meta_t}(x, nrow = 10, ...)
 }
 \arguments{
+\item{lulc_class_spec}{A list of intervention specifications, see examples}
+
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
-
-\item{config}{An \link{evoland_config} instance}
 }
 \value{
 A data.table of class "lulc_meta_t" with columns:
@@ -27,12 +30,30 @@ A data.table of class "lulc_meta_t" with columns:
 }
 }
 \description{
-Creates an lulc_meta_t table based on the LULC classes specification in an
-evoland_config object. This function uses the lulc_classes field to create
-metadata entries for each land use/land cover class.
+Create a \code{lulc_meta_t} table or rows thereof that meet the schema requirements. These
+metadata describe the characteristics of land use classes.
 }
 \section{Methods (by generic)}{
 \itemize{
 \item \code{print(lulc_meta_t)}: Print an lulc_meta_t object, passing params to data.table print
 
 }}
+\section{Functions}{
+\itemize{
+\item \code{create_lulc_meta_t()}: Creates a lulc_meta_t table from intervention specifications
+
+}}
+\examples{
+create_lulc_meta_t(list(
+  forest = list(
+    pretty_name = "Dense Forest",
+    description = "Mature, dense forest cover",
+    src_classes = c(1L, 2L)
+  ),
+  arable = list(
+    pretty_name = "Arable land",
+    description = "Non-permanent cropland",
+    src_classes = 3:6
+  )
+))
+}

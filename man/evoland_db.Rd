@@ -15,17 +15,13 @@ fetching operations.
 
 \item{\code{path}}{Character string path to the database file}
 
-\item{\code{write_mode}}{Logical indicating if database is opened in write mode
-Initialize a new evoland_db object}
+\item{\code{write_mode}}{Logical indicating if database is opened in write mode}
 }
 \if{html}{\out{</div>}}
 }
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
-\item{\code{config}}{Retrieve \link{evoland_config}; may be assigned a config
-(\code{\link[=read_evoland_config]{read_evoland_config()}}) only if no other config is present}
-
 \item{\code{coords_t}}{A \code{coords_t} instance; see \code{\link[=create_coords_t]{create_coords_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
 
@@ -34,6 +30,8 @@ object to assign. Assigning is an upsert operation.}
 
 \item{\code{lulc_meta_t}}{A \code{lulc_meta_t} instance; see \code{\link[=create_lulc_meta_t]{create_lulc_meta_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
+
+\item{\code{lulc_meta_long_v}}{Return a \code{lulc_meta_long_v} instance, i.e. unrolled \code{lulc_meta_t}.}
 
 \item{\code{lulc_data_t}}{A \code{lulc_data_t} instance; see \code{\link[=as_lulc_data_t]{as_lulc_data_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
@@ -87,6 +85,7 @@ of object to assign. Assigning is an upsert operation.}
 \item \href{#method-evoland_db-row_count}{\code{evoland_db$row_count()}}
 \item \href{#method-evoland_db-delete_from}{\code{evoland_db$delete_from()}}
 \item \href{#method-evoland_db-copy_db}{\code{evoland_db$copy_db()}}
+\item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -94,8 +93,16 @@ of object to assign. Assigning is an upsert operation.}
 \if{html}{\out{<a id="method-evoland_db-new"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-new}{}}}
 \subsection{Method \code{new()}}{
+Initialize a new evoland_db object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, write = TRUE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(
+  path,
+  write = TRUE,
+  report_name = "evoland_scenario",
+  report_name_pretty = "Default Evoland Scenario",
+  report_include_date = FALSE,
+  report_username = Sys.getenv("USER", unset = "unknown")
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -105,18 +112,27 @@ of object to assign. Assigning is an upsert operation.}
 
 \item{\code{write}}{Logical. Whether to open the database in write mode. Default is TRUE.
 If FALSE, the database file must already exist.}
+
+\item{\code{report_name}}{Character string. Name of the report scenario.}
+
+\item{\code{report_name_pretty}}{Character string. Pretty name of the report scenario.}
+
+\item{\code{report_include_date}}{Logical. Whether to include the date in the report scenario.}
+
+\item{\code{report_username}}{Character string. Username for the report scenario,
+defaults to $USER env var}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
 A new \code{evoland_db} object
-Commit data to the database
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-commit"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-commit}{}}}
 \subsection{Method \code{commit()}}{
+Commit data to the database
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit(x, table_name, mode = "upsert")}\if{html}{\out{</div>}}
 }
@@ -134,13 +150,13 @@ Commit data to the database
 }
 \subsection{Returns}{
 NULL (called for side effects)
-Fetch data from the database
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-fetch"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-fetch}{}}}
 \subsection{Method \code{fetch()}}{
+Fetch data from the database
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$fetch(table_name, where = NULL, limit = NULL)}\if{html}{\out{</div>}}
 }
@@ -158,26 +174,26 @@ Fetch data from the database
 }
 \subsection{Returns}{
 A table of the original class
-List all tables in the database
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-list_tables"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-list_tables}{}}}
 \subsection{Method \code{list_tables()}}{
+List all tables in the database
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$list_tables()}\if{html}{\out{</div>}}
 }
 
 \subsection{Returns}{
 Character vector of table names
-Execute statement
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-execute"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-execute}{}}}
 \subsection{Method \code{execute()}}{
+Execute statement
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$execute(statement)}\if{html}{\out{</div>}}
 }
@@ -191,13 +207,13 @@ Execute statement
 }
 \subsection{Returns}{
 No. of rows affected by statement
-Get table row count
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-row_count"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-row_count}{}}}
 \subsection{Method \code{row_count()}}{
+Get table row count
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$row_count(table_name)}\if{html}{\out{</div>}}
 }
@@ -211,13 +227,13 @@ Get table row count
 }
 \subsection{Returns}{
 No. of rows affected by statement
-Empty a table
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-delete_from"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-delete_from}{}}}
 \subsection{Method \code{delete_from()}}{
+Empty a table
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$delete_from(table_name, where = NULL)}\if{html}{\out{</div>}}
 }
@@ -233,13 +249,13 @@ Empty a table
 }
 \subsection{Returns}{
 No. of rows affected by statement
-Copy full DB to a different one
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-copy_db"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-copy_db}{}}}
 \subsection{Method \code{copy_db()}}{
+Copy full DB to a different one
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$copy_db(target_path, source_db)}\if{html}{\out{</div>}}
 }
@@ -251,6 +267,25 @@ Copy full DB to a different one
 
 \item{\code{source_db}}{Character string. Name of the database to copy from. Defaults to
 this object's DB path}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-set_coords"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-set_coords}{}}}
+\subsection{Method \code{set_coords()}}{
+Set coordinates for DB; overwrites on repeated call
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_coords(type = c("square"), ...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{type}}{string; which type of coordinates to set, see \link{coords_t}}
+
+\item{\code{...}}{named arguments are passed to the appropriate coordinate creator function}
 }
 \if{html}{\out{</div>}}
 }

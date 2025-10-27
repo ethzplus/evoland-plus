@@ -21,11 +21,7 @@ as_trans_preds_t <- function(x) {
 }
 
 #' @export
-create_trans_preds_t <- function(db) {
-  if (!inherits(db, "evoland_db")) {
-    stop("db must be an evoland_db instance")
-  }
-
+create_trans_preds_t <- function() {
   # For now, create an empty table with proper structure
   # Full implementation would perform feature selection to determine
   # which predictors are useful for each transition

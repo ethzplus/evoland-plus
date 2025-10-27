@@ -3,17 +3,50 @@
 \name{intrv_meta_t}
 \alias{intrv_meta_t}
 \alias{as_intrv_meta_t}
+\alias{create_intrv_meta_t}
+\alias{create_intrv_meta_t_row}
 \alias{print.intrv_meta_t}
-\title{Create Intervention Metadata Table from Configuration}
+\title{Create Intervention Metadata Table / Entries}
 \usage{
 as_intrv_meta_t(x)
+
+create_intrv_meta_t(intrv_spec)
+
+create_intrv_meta_t_row(
+  name = character(),
+  pretty_name = character(),
+  description = NA_character_,
+  id_period_list = integer(),
+  id_trans_list = integer(),
+  pre_allocation = logical(),
+  sources = data.frame(url = character(), md5sum = character()),
+  params
+)
 
 \method{print}{intrv_meta_t}(x, ...)
 }
 \arguments{
-\item{...}{passed to \code{\link[yaml:as.yaml]{yaml::as.yaml()}}}
+\item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
 
-\item{config}{An \link{evoland_config} instance}
+\item{intrv_spec}{A list of intervention specifications, schema: see examples}
+
+\item{name}{Name for use in code and queries}
+
+\item{pretty_name}{Name for plots/output}
+
+\item{description}{Long description / operationalisation}
+
+\item{id_period_list}{Array of associated period IDs}
+
+\item{id_trans_list}{Array of associated transition IDs}
+
+\item{pre_allocation}{Boolean indicating if intervention is pre-allocation}
+
+\item{sources}{Data frame of sources with columns \code{url} and `md5sum}
+
+\item{params}{A list of parameters, depth 1; children can only have length 1}
+
+\item{...}{passed to \code{\link[data.table:print.data.table]{data.table::print.data.table()}}}
 }
 \value{
 A data.table of class "intrv_meta_t" with columns:
@@ -30,12 +63,42 @@ A data.table of class "intrv_meta_t" with columns:
 }
 }
 \description{
-Creates an intrv_meta_t table based on the intervention specification in an
-evoland_config object. This function uses the interventions field to create
-metadata entries for each intervention type.
+Creates an \code{intrv_meta_t} table or rows therein based on intervention specifications.
 }
 \section{Methods (by generic)}{
 \itemize{
 \item \code{print(intrv_meta_t)}: Print an intrv_meta_t object, passing params to data.table print
 
 }}
+\section{Functions}{
+\itemize{
+\item \code{create_intrv_meta_t()}: Creates an intrv_meta_t table from intervention specifications
+
+\item \code{create_intrv_meta_t_row()}: Creates an metadata entry / row
+
+}}
+\examples{
+create_intrv_meta_t(list(
+  protected_areas = list(
+    pre_allocation = TRUE,
+    pretty_name = "Nature protection areas",
+    description = "introduces additional protected areas (PAs",
+    periods = c(7, 8),
+    transitions = c(1, 2),
+    sources = list(
+      list(
+        url = "file:///somedir/protected_areas.gpkg",
+        md5sum = "something"
+      )
+    )
+  ),
+  hydro_predictors = list(
+    pre_allocation = TRUE,
+    pretty_name = "Hydrological predictor variables",
+    description = "Provide dynamic predictor vars",
+    params = list(
+      tmpdir = "/mnt/ramdisk"
+    )
+  )
+))
+}

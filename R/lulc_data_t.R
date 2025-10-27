@@ -1,12 +1,10 @@
-#' Create LULC Data Table from Configuration
+#' Create LULC Data Table
 #'
-#' Creates an lulc_data_t table based on the LULC data specification in an
-#' evoland_config object. This function processes LULC data files and creates
-#' data entries linking coordinates, LULC classes, and time periods.
+#' Creates an `lulc_data_t` table and validates that it matches the schema.
 #'
 #' @name lulc_data_t
 #'
-#' @param config An [evoland_config] instance
+#' @param x An object that can be passed to [data.table::setDT()]
 #'
 #' @return A data.table of class "lulc_data_t" with columns:
 #'   - `id_coord`: Foreign key to coords_t

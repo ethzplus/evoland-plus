@@ -3,17 +3,22 @@
 \name{pred_meta_t}
 \alias{pred_meta_t}
 \alias{as_pred_meta_t}
+\alias{create_pred_meta_t}
 \alias{print.pred_meta_t}
-\title{Create Predictor Metadata Table from Configuration}
+\title{Create Predictor Metadata Table}
 \usage{
 as_pred_meta_t(x)
+
+create_pred_meta_t(pred_spec)
 
 \method{print}{pred_meta_t}(x, ...)
 }
 \arguments{
-\item{...}{passed to \code{\link[yaml:as.yaml]{yaml::as.yaml()}}}
+\item{x}{An object that is accepted by \code{\link[data.table:setDT]{data.table::setDT()}}}
 
-\item{config}{An \link{evoland_config} instance}
+\item{pred_spec}{A list of predictor specifications, schema: see examples}
+
+\item{...}{passed to \code{\link[data.table:print.data.table]{data.table::print.data.table()}}}
 }
 \value{
 A data.table of class "pred_meta_t" with columns:
@@ -29,12 +34,46 @@ A data.table of class "pred_meta_t" with columns:
 }
 }
 \description{
-Creates a pred_meta_t table based on the predictor specification in an
-evoland_config object. This function uses the pred_data field to create
-metadata entries for each predictor variable.
+Construct and validate \code{pred_meta_t} objects, which are used to store predictor
+metadata.
 }
 \section{Methods (by generic)}{
 \itemize{
-\item \code{print(pred_meta_t)}: Print a pred_meta_t object, passing params to data.table print
+\item \code{print(pred_meta_t)}: Print an \code{pred_meta_t} object, passing params to data.table print
 
 }}
+\section{Functions}{
+\itemize{
+\item \code{create_pred_meta_t()}: Creates a \code{pred_meta_t} table from intervention specifications
+
+}}
+\examples{
+create_pred_meta_t(list(
+   noise = list(
+     unit = "dBa",
+     pretty_name = "Maximum noise exposure",
+     orig_format = "10m*10m raster",
+     description = "daytime & nighttime road & rail noise exposure",
+     sources = list(
+       list(
+         url = "https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_tag/laerm-strassenlaerm_tag/laerm-strassenlaerm_tag_2056.tif",
+         md5sum = "a4b9f1c04ee63824f18852bfd1eecbdd"
+       ),
+       list(
+         url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
+         md5sum = "4b782128495b5af8467e2259bd57def2"
+       )
+     )
+   ),
+   distance_to_lake = list(
+     unit = "m",
+     pretty_name = "Distance to closest lake",
+     format = "vector",
+     description = "Derived from swissTLM3D",
+     sources = list(list(
+       url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
+       md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
+     ))
+   )
+ ))
+}

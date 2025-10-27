@@ -4,7 +4,7 @@
 \alias{pred_data_t}
 \alias{as_pred_data_t}
 \alias{print.pred_data_t}
-\title{Create Predictor Data Table from Configuration}
+\title{Create Predictor Data Table}
 \usage{
 as_pred_data_t(x, type)
 
@@ -29,9 +29,9 @@ A data.table of class "pred_data_t_\if{html}{\out{<type>}}" and "pred_data_t" wi
 }
 }
 \description{
-Creates pred_data_t tables based on the predictor data specification in an
-evoland_config object. This function creates empty tables with proper structure
-for different data types (float, int, bool).
+Construct and validate a \code{pred_data_t} objects, which are used to store predictor
+data. Different data types (float, int, bool) have different subclasses
+(pred_data_t_float, ...)
 }
 \section{Methods (by generic)}{
 \itemize{

@@ -26,21 +26,7 @@ as_trans_meta_t <- function(x) {
 }
 
 #' @export
-create_trans_meta_t <- function(db) {
-  if (!inherits(db, "evoland_db")) {
-    stop("db must be an evoland_db instance")
-  }
-
-  # Call internal implementation
-  .create_trans_meta_t(
-    db$config,
-    db$lulc_data_t
-  )
-}
-
-# Internal implementation uses R objects, but for consistency, this should only
-# be called on a database object
-.create_trans_meta_t <- function(config, lulc_data_t) {
+create_trans_meta_t <- function() {
   # For now, create an empty table with proper structure
   # Full implementation would analyze transitions in lulc_data_t
   # and compute frequency statistics

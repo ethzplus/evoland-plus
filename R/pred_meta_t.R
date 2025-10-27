@@ -1,12 +1,11 @@
-#' Create Predictor Metadata Table from Configuration
+#' Create Predictor Metadata Table
 #'
-#' Creates a pred_meta_t table based on the predictor specification in an
-#' evoland_config object. This function uses the pred_data field to create
-#' metadata entries for each predictor variable.
+#' Construct and validate `pred_meta_t` objects, which are used to store predictor
+#' metadata.
 #'
 #' @name pred_meta_t
 #'
-#' @param config An [evoland_config] instance
+#' @param x An object that is accepted by [data.table::setDT()]
 #'
 #' @return A data.table of class "pred_meta_t" with columns:
 #'   - `id_pred`: Unique ID for each predictor
@@ -26,36 +25,63 @@ as_pred_meta_t <- function(x) {
   )
 }
 
+
+#' @describeIn pred_meta_t Creates a `pred_meta_t` table from intervention specifications
+#' @param pred_spec A list of predictor specifications, schema: see examples
+# nolint start
+#' @examples create_pred_meta_t(list(
+#'    noise = list(
+#'      unit = "dBa",
+#'      pretty_name = "Maximum noise exposure",
+#'      orig_format = "10m*10m raster",
+#'      description = "daytime & nighttime road & rail noise exposure",
+#'      sources = list(
+#'        list(
+#'          url = "https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_tag/laerm-strassenlaerm_tag/laerm-strassenlaerm_tag_2056.tif",
+#'          md5sum = "a4b9f1c04ee63824f18852bfd1eecbdd"
+#'        ),
+#'        list(
+#'          url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
+#'          md5sum = "4b782128495b5af8467e2259bd57def2"
+#'        )
+#'      )
+#'    ),
+#'    distance_to_lake = list(
+#'      unit = "m",
+#'      pretty_name = "Distance to closest lake",
+#'      format = "vector",
+#'      description = "Derived from swissTLM3D",
+#'      sources = list(list(
+#'        url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
+#'        md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
+#'      ))
+#'    )
+#'  ))
+# nolint end
 #' @export
-create_pred_meta_t <- function(config) {
-  pred_data_spec <- config[["pred_data"]]
-
-  if (!is.list(pred_data_spec) || length(pred_data_spec) == 0) {
-    stop("pred_data must be a non-empty list")
-  }
-
+create_pred_meta_t <- function(pred_spec) {
   # Extract predictor names
-  pred_names <- names(pred_data_spec)
+  pred_names <- names(pred_spec)
   if (is.null(pred_names) || any(pred_names == "")) {
-    stop("All pred_data entries must have names")
+    stop("All pred_data_spec entries must have names")
   }
 
   x <- data.table::data.table(
     id_pred = seq_along(pred_names),
     name = pred_names,
-    # path is config > pred_data > pred_name > leaf_name
+    # path is pred_spec > pred_name > leaf_name
     pretty_name = unlist(
-      pluck_wildcard(pred_data_spec, NA, "pretty_name") %||% pred_names
+      pluck_wildcard(pred_spec, NA, "pretty_name") %||% pred_names
     ),
     description = unlist(
-      pluck_wildcard(pred_data_spec, NA, "description") %||% NA_character_
+      pluck_wildcard(pred_spec, NA, "description") %||% NA_character_
     ),
     orig_format = unlist(
-      pluck_wildcard(pred_data_spec, NA, "orig_format") %||% NA_character_
+      pluck_wildcard(pred_spec, NA, "orig_format") %||% NA_character_
     ),
     sources = lapply(
-      pred_data_spec,
-      # path is config > pred_data > pred_name > sources > listelement > url/md5sum
+      pred_spec,
+      # path is pred_spec > pred_name > sources > listelement > url/md5sum
       function(pred) {
         data.frame(
           url = unlist(pluck_wildcard(pred, "sources", NA, "url")),
@@ -64,12 +90,10 @@ create_pred_meta_t <- function(config) {
       }
     ),
     unit = unlist(
-      pluck_wildcard(pred_data_spec, NA, "unit") %||% NA_character_
+      pluck_wildcard(pred_spec, NA, "unit") %||% NA_character_
     ),
-    factor_levels = pluck_wildcard(pred_data_spec, NA, "factor_levels")
+    factor_levels = pluck_wildcard(pred_spec, NA, "factor_levels")
   )
-
-  data.table::setkey(x, "id_pred")
 
   as_pred_meta_t(x)
 }
@@ -113,8 +137,8 @@ validate.pred_meta_t <- function(x, ...) {
 }
 
 #' @export
-#' @describeIn pred_meta_t Print a pred_meta_t object, passing params to data.table print
-#' @param ... passed to [yaml::as.yaml()]
+#' @describeIn pred_meta_t Print an `pred_meta_t` object, passing params to data.table print
+#' @param ... passed to [data.table::print.data.table()]
 print.pred_meta_t <- function(x, ...) {
   if (nrow(x) > 0) {
     cat(glue::glue(
@@ -126,21 +150,7 @@ print.pred_meta_t <- function(x, ...) {
     return(invisible(x))
   }
 
-  # try to serialize as close as possible to config file
-  # but print info about id_pred
-  as_list <- list()
-  as_list[["pred_data"]] <-
-    x |>
-    split(by = "name") |>
-    lapply(as.list) |>
-    lapply(function(y) {
-      y[["name"]] <- NULL
-      y[["sources"]] <- y[["sources"]][[1]]
-      y[["factor_levels"]] <- y[["factor_levels"]][[1]]
-      return(y)
-    })
-
-  cat(yaml::as.yaml(as_list, column.major = FALSE))
+  NextMethod(trunc.cols = TRUE, ...)
 
   invisible(x)
 }

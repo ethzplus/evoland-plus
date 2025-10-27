@@ -3,19 +3,36 @@
 \name{periods_t}
 \alias{periods_t}
 \alias{as_periods_t}
+\alias{create_periods_t}
 \alias{print.periods_t}
-\title{Create Period Table from Configuration}
+\title{Create Period Table}
 \usage{
 as_periods_t(x)
+
+create_periods_t(
+  period_length_str = "P10Y",
+  start_observed = "1985-01-01",
+  end_observed = "2020-01-01",
+  end_extrapolated = "2060-01-01"
+)
 
 \method{print}{periods_t}(x, nrow = 10, ...)
 }
 \arguments{
+\item{x}{A list or data.frame coercible to a data.table}
+
+\item{period_length_str}{ISO 8601 duration string specifying the length of each period (currently
+only accepting years, e.g., "P5Y" for 5 years)}
+
+\item{start_observed}{Start date of the observed data (YYYY-MM-DD)}
+
+\item{end_observed}{End date of the observed data (YYYY-MM-DD)}
+
+\item{end_extrapolated}{End date for extrapolation time range (YYYY-MM-DD)}
+
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
-
-\item{config}{An \link{evoland_config} instance}
 }
 \value{
 A data.table of class "periods_t" with columns:
@@ -28,11 +45,19 @@ for extrapolation?
 }
 }
 \description{
-Creates a period table, i.e. a description of discrete periods during which land use
-can transition, based on the specification in an \link{evoland_config} object.
+Creates a period table, i.e. a description of discrete periods during which land use can
+transition. This is necessary because a) land use data may not be available as regular time
+series and need to be assigned to such a form, and b) because this normalization helps
+consistency.
 }
 \section{Methods (by generic)}{
 \itemize{
 \item \code{print(periods_t)}: Print a periods_t object, passing params to data.table print
+
+}}
+\section{Functions}{
+\itemize{
+\item \code{create_periods_t()}: Creates a periods_t table from specifications; periods that start after
+\code{end_observed} are marked as extrapolated
 
 }}
