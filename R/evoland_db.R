@@ -63,6 +63,8 @@ evoland_db <- R6::R6Class(
       # If file doesn't exist and we're in write mode, create schema
       if (!file_exists && write) {
         private$create_schema()
+      } else {
+        self$execute("install spatial; load spatial;")
       }
 
       # Upsert report metadata
