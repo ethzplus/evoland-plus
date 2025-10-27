@@ -67,7 +67,15 @@ lulc_files <-
   ) |>
   download_and_verify()
 
-stopifnot(nrow(lulc_files) == 1L) # just making sure - this shouldn't be more than 1 file for AS
+db$commit(
+  data.frame(
+    key = c("lulc_data_url", "lulc_data_md5sum", "lulc_data_provider"),
+    value = c(lulc_files$url, lulc_files$md5sum, "BFS Arealstatistik")
+  ),
+  table_name = "reporting_t",
+  mode = "append"
+)
+
 zippath <- file.path(
   getOption("evoland.cachedir"),
   lulc_files$md5sum,
