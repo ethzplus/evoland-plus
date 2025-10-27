@@ -205,15 +205,9 @@ evoland_db <- R6::R6Class(
     #' @param type string; which type of coordinates to set, see [coords_t]
     #' @param ... named arguments are passed to the appropriate coordinate creator function
     set_coords = function(type = c("square"), ...) {
-      if (self$row_count("coords_t") > 0L && interactive()) {
-        choice <- utils::menu(
-          choices = c("Yes, overwrite coordinates", "No, cancel operation"),
-          title = "Coordinates table already exists. Overwriting will drop all dependent relations. Continue?"
-        )
-        if (choice != 1) {
-          message("Operation cancelled.")
-          return(invisible(NULL))
-        }
+      if (self$row_count("coords_t") > 0L) {
+        warning("coords_t is not empty! Refusing to overwrite; start with fresh DB")
+        return(invisible(NULL))
       }
       create_fun <- switch(
         type,
