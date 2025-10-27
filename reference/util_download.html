@@ -49,9 +49,7 @@ retrieving the raw data from an online source and caching it.</p>
 <span>  <span class="va">df_in</span>,</span>
 <span>  target_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"evoland.cachedir"</span><span class="op">)</span>,</span>
 <span>  overwrite <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu">get_sources_dt</span><span class="op">(</span><span class="va">config</span><span class="op">)</span></span></code></pre></div>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -70,23 +68,17 @@ retrieving the raw data from an online source and caching it.</p>
 <dt id="arg-overwrite">overwrite<a class="anchor" aria-label="anchor" href="#arg-overwrite"></a></dt>
 <dd><p>Whether to overwrite existing files (default: FALSE)</p></dd>
 
-
-<dt id="arg-config">config<a class="anchor" aria-label="anchor" href="#arg-config"></a></dt>
-<dd><p>A configuration as constructed by <a href="evoland_config.html">evoland_config</a></p></dd>
-
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>df_out, Same as df_in but with added column "local_filename", the full path
 of which can be constructed</p>
-<p>A data table with url, md5sum, and config_section</p>
     </div>
     <div class="section level2">
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
 <ul><li><p><code>download_and_verify()</code>: Download a set of files and check their integrity against
 their md5 checksum</p></li>
-<li><p><code>get_sources_dt()</code>: Retrieve sources from an <code>evoland_config</code> object.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

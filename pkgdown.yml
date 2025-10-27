@@ -3,7 +3,7 @@ pkgdown: 2.1.3
 pkgdown_sha: ~
 articles:
   ingest-arealstatistik: ingest-arealstatistik.html
-last_built: 2025-10-20T14:55Z
+last_built: 2025-10-27T09:09Z
 urls:
   reference: https://ethzplus.github.io/evoland-plus/reference
   article: https://ethzplus.github.io/evoland-plus/articles
