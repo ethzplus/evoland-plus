@@ -1,5 +1,6 @@
 #' R6 Class for DuckDB Database Interface
 #'
+#' @description
 #' An R6 class that provides an interface to a DuckDB database for the evoland
 #' package. This class handles database initialization, data commits, and data
 #' fetching operations.
@@ -21,8 +22,8 @@ evoland_db <- R6::R6Class(
     #' @field write_mode Logical indicating if database is opened in write mode
     write_mode = NULL,
 
+    #' @description
     #' Initialize a new evoland_db object
-    #'
     #' @param path Character string. Path to the DuckDB database file. May also be ":memory:".
     #' @param write Logical. Whether to open the database in write mode. Default is TRUE.
     #'   If FALSE, the database file must already exist.
@@ -79,8 +80,8 @@ evoland_db <- R6::R6Class(
       invisible(self)
     },
 
+    #' @description
     #' Commit data to the database
-    #'
     #' @param x Data object to commit.
     #' @param table_name Table to target
     #' @param mode Character string. One of "upsert" (default), "append", or "overwrite".
@@ -110,8 +111,8 @@ evoland_db <- R6::R6Class(
       invisible(NULL)
     },
 
+    #' @description
     #' Fetch data from the database
-    #'
     #' @param table_name Character string. Name of the database table or view to query.
     #' @param where Character string. Optional WHERE clause for the SQL query.
     #' @param limit integerish, limit the amount of rows to return
@@ -132,13 +133,14 @@ evoland_db <- R6::R6Class(
         data.table::as.data.table()
     },
 
+    #' @description
     #' List all tables in the database
-    #'
     #' @return Character vector of table names
     list_tables = function() {
       DBI::dbListTables(self$connection)
     },
 
+    #' @description
     #' Execute statement
     #' @param statement A SQL statement
     #' @return No. of rows affected by statement
@@ -146,6 +148,7 @@ evoland_db <- R6::R6Class(
       DBI::dbExecute(self$connection, statement)
     },
 
+    #' @description
     #' Get table row count
     #' @param table_name Character string. Name of the database table or view to query.
     #' @return No. of rows affected by statement
@@ -154,6 +157,7 @@ evoland_db <- R6::R6Class(
       DBI::dbGetQuery(self$connection, qry)[[1]]
     },
 
+    #' @description
     #' Empty a table
     #' @param table_name Character string. Name of the database table or view to delete.
     #' @param where Character string, defaults to NULL: delete everything in table.
@@ -166,6 +170,7 @@ evoland_db <- R6::R6Class(
       DBI::dbExecute(self$connection, qry)
     },
 
+    #' @description
     #' Copy full DB to a different one
     #' @param target_path Character string. Name of the database file to copy to
     #' @param source_db Character string. Name of the database to copy from. Defaults to
@@ -193,6 +198,7 @@ evoland_db <- R6::R6Class(
       )
     },
 
+    #' @description
     #' Set coordinates for DB; overwrites on repeated call
     #' @param type string; which type of coordinates to set, see [coords_t]
     #' @param ... named arguments are passed to the appropriate coordinate creator function
@@ -255,8 +261,7 @@ evoland_db <- R6::R6Class(
       self$commit(x, "lulc_meta_t", mode = "upsert")
     },
 
-    #' @field lulc_meta_long_v A `lulc_meta_long_v` instance; see [create_lulc_meta_long_v()] for the type of
-    #' object to assign. Assigning is an upsert operation.
+    #' @field lulc_meta_long_v Return a `lulc_meta_long_v` instance, i.e. unrolled `lulc_meta_t`.
     lulc_meta_long_v = function() {
       self$fetch("lulc_meta_long_v") |>
         new_evoland_table("lulc_meta_long_v", keycols = NULL)
