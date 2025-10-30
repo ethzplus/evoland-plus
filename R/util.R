@@ -115,3 +115,16 @@ ensure_dir <- function(dir) {
   )
   invisible(dir)
 }
+
+#' @describeIn util Print a dataframe in a row-wise yaml style
+#' @export
+print_rowwise_yaml <- function(df) {
+  for (i in seq_len(nrow(df))) {
+    cat(sprintf("- row %d:\n", i))
+    for (col in names(df)) {
+      value <- df[[col]][i]
+      cat(sprintf("  %s: %s\n", col, value))
+    }
+    cat("\n")
+  }
+}
