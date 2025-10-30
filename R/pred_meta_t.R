@@ -67,7 +67,6 @@ create_pred_meta_t <- function(pred_spec) {
   }
 
   x <- data.table::data.table(
-    id_pred = seq_along(pred_names),
     name = pred_names,
     # path is pred_spec > pred_name > leaf_name
     pretty_name = unlist(
@@ -105,7 +104,6 @@ validate.pred_meta_t <- function(x, ...) {
   data.table::setcolorder(
     x,
     c(
-      "id_pred",
       "name",
       "pretty_name",
       "description",
@@ -115,11 +113,12 @@ validate.pred_meta_t <- function(x, ...) {
       "factor_levels"
     )
   )
+  # we don't know if there's an id_pred
+  data.table::setcolorder(x, "id_pred", before = "name", skip_absent = TRUE)
 
   sources_dt <- unique(data.table::rbindlist(x[["sources"]]))
 
   stopifnot(
-    is.integer(x[["id_pred"]]),
     is.character(x[["name"]]),
     is.character(x[["pretty_name"]]),
     is.character(x[["description"]]),
@@ -127,7 +126,6 @@ validate.pred_meta_t <- function(x, ...) {
     is.list(x[["sources"]]),
     is.character(x[["unit"]]),
     is.list(x[["factor_levels"]]),
-    !anyDuplicated(x[["id_pred"]]),
     !anyDuplicated(x[["name"]]),
     !any(x[["name"]] == ""),
     !anyDuplicated(sources_dt[["url"]])

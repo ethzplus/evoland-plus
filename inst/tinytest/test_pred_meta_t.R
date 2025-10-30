@@ -37,7 +37,6 @@ expect_true(nrow(pred_meta_t) == 2L)
 expect_true(inherits(pred_meta_t, "pred_meta_t"))
 expect_true(all(
   c(
-    "id_pred",
     "name",
     "pretty_name",
     "description",

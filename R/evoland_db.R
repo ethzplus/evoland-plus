@@ -173,7 +173,8 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Copy full DB to a different one
+    #' Copy full DB to a different one.
+    #' Note, this may fail due to <https://github.com/duckdb/duckdb/issues/16785>
     #' @param target_path Character string. Name of the database file to copy to
     #' @param source_db Character string. Name of the database to copy from. Defaults to
     #' this object's DB path
@@ -201,7 +202,7 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Set coordinates for DB; overwrites on repeated call
+    #' Set coordinates for DB. Cannot overwrite existing table (would mean cascading deletion)
     #' @param type string; which type of coordinates to set, see [coords_t]
     #' @param ... named arguments are passed to the appropriate coordinate creator function
     set_coords = function(type = c("square"), ...) {
@@ -216,6 +217,55 @@ evoland_db <- R6::R6Class(
       )
 
       self$commit(as_coords_t(create_fun(...)), "coords_t", mode = "overwrite")
+    },
+
+    #' @description
+    #' Set periods for DB. See [`periods_t`]
+    #' @param period_length_str ISO 8601 duration string specifying the length of each period (currently
+    #' only accepting years, e.g., "P5Y" for 5 years)
+    #' @param start_observed Start date of the observed data (YYYY-MM-DD)
+    #' @param end_observed End date of the observed data (YYYY-MM-DD)
+    #' @param end_extrapolated End date for extrapolation time range (YYYY-MM-DD)
+    set_periods = function(
+      period_length_str = "P10Y",
+      start_observed = "1985-01-01",
+      end_observed = "2020-01-01",
+      end_extrapolated = "2060-01-01"
+    ) {
+      if (self$row_count("periods_t") > 0L) {
+        warning("periods_t is not empty! Refusing to overwrite; start with fresh DB")
+        return(invisible(NULL))
+      }
+
+      self$commit(
+        do.call(create_periods_t, as.list(environment())),
+        "periods_t",
+        mode = "append"
+      )
+    },
+
+    #' @description
+    #' Add a predictor to the database
+    #' @param pred_spec List of predictor specification; see [create_pred_meta_t()]
+    #' @param pred_data An object that can be coerced to [`pred_data_t`], but doesn't have an
+    #' `id_pred`
+    #' @param pred_type Passed to [as_pred_data_t()]; one of float, int, bool
+    add_predictor = function(pred_spec, pred_data, pred_type) {
+      stopifnot(length(pred_spec) == 1)
+      self$pred_meta_t <- create_pred_meta_t(pred_spec)
+
+      id_pred <-
+        DBI::dbGetQuery(
+          self$connection,
+          glue::glue("select id_pred from pred_meta_t where name = '{names(pred_spec)}'")
+        ) |>
+        purrr::pluck("id_pred") |>
+        as.integer()
+      data.table::set(pred_data, j = "id_pred", value = id_pred)
+      data.table::setcolorder(pred_data, c("id_pred", "id_coord", "id_period", "value"))
+      pred_data_t <- as_pred_data_t(pred_data, pred_type)
+
+      self$commit(pred_data_t, paste0("pred_data_t_", pred_type), mode = "upsert")
     }
   ),
 
@@ -233,6 +283,30 @@ evoland_db <- R6::R6Class(
       }
       stopifnot(inherits(x, "coords_t"))
       self$commit(x, "coords_t", mode = "upsert")
+    },
+
+    #' @field extent Return a terra SpatExtent based on coords_t
+    extent = function() {
+      DBI::dbGetQuery(
+        self$connection,
+        r"{
+        select 
+          min(lon) as xmin,
+          max(lon) as xmax,
+          min(lat) as ymin,
+          max(lat) as ymax
+        from
+          coords_t;
+        }"
+      ) |>
+        unlist() |>
+        terra::ext()
+    },
+
+    #' @field coords_minimal data.table with only (id_coord, lon, lat)
+    coords_minimal = function() {
+      DBI::dbGetQuery(self$connection, r"{select id_coord, lon, lat from coords_t;}") |>
+        data.table::as.data.table()
     },
 
     #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
@@ -592,8 +666,9 @@ evoland_db <- R6::R6Class(
       ))
 
       # Build INSERT OR REPLACE query
+      colnames <- paste(names(x), collapse = ", ")
       sql <- glue::glue(
-        "INSERT OR REPLACE INTO {table_name} SELECT * FROM temporary_data_table"
+        "INSERT OR REPLACE INTO {table_name} ({colnames}) SELECT * FROM temporary_data_table"
       )
       DBI::dbExecute(self$connection, sql)
     }

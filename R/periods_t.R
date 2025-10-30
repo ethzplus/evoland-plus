@@ -25,7 +25,8 @@ as_periods_t <- function(x) {
 }
 
 #' @describeIn periods_t Creates a periods_t table from specifications; periods that start after
-#' `end_observed` are marked as extrapolated
+#' `end_observed` are marked as extrapolated. The special period with ID 0 is used for static
+#' phenomena that are presumed to be instantaneous at the end of the observed period.
 #' @param period_length_str ISO 8601 duration string specifying the length of each period (currently
 #' only accepting years, e.g., "P5Y" for 5 years)
 #' @param start_observed Start date of the observed data (YYYY-MM-DD)
@@ -68,11 +69,19 @@ create_periods_t <- function(
   is_extrapolated <- start_dates > end_observed
 
   # Create the data.table
-  x <- data.table::data.table(
-    id_period = seq_along(start_dates),
-    start_date = start_dates,
-    end_date = end_dates,
-    is_extrapolated = is_extrapolated
+  x <- rbind(
+    data.table::data.table(
+      id_period = 0L,
+      start_date = end_observed,
+      end_date = end_observed,
+      is_extrapolated = FALSE
+    ),
+    data.table::data.table(
+      id_period = seq_along(start_dates),
+      start_date = start_dates,
+      end_date = end_dates,
+      is_extrapolated = is_extrapolated
+    )
   )
 
   as_periods_t(x)

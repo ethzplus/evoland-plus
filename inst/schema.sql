@@ -59,9 +59,10 @@ CREATE TABLE lulc_data_t (
     FOREIGN KEY (id_period) REFERENCES periods_t(id_period)
 );
 
+CREATE SEQUENCE seq_id_pred START 1;
 -- Predictor metadata
 CREATE TABLE pred_meta_t (
-    id_pred INTEGER PRIMARY KEY,
+    id_pred INTEGER PRIMARY KEY default nextval('seq_id_pred'),
     name VARCHAR NOT NULL,
     pretty_name VARCHAR NOT NULL,
     description TEXT,
