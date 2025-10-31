@@ -219,6 +219,9 @@ expect_silent(db$periods_t <- periods_t)
 expect_identical(db$periods_t, periods_t)
 
 expect_silent(db$pred_meta_t <- pred_meta_t)
+pred_meta_t$id_pred <- 1:2
+data.table::setkeyv(pred_meta_t, "id_pred")
+data.table::setcolorder(pred_meta_t, "id_pred", "name")
 expect_identical(db$pred_meta_t, pred_meta_t)
 
 expect_silent(db$intrv_meta_t <- intrv_meta_t)
@@ -273,8 +276,7 @@ expect_error(
   db$lulc_data_t <- lulc_data_dt <- data.table::data.table(
     id_coord = c(1L, 2L, 1L),
     id_lulc = c(1L, 2L, 3L),
-    id_period = c(1L, 1L, 2L),
-    date = as.Date(c("2000-01-01", "2000-01-01", "2010-01-01"))
+    id_period = c(1L, 1L, 2L)
   ),
   r"(^inherits.* is not TRUE$)"
 )

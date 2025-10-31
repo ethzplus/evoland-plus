@@ -58,6 +58,7 @@ consistency.
 \section{Functions}{
 \itemize{
 \item \code{create_periods_t()}: Creates a periods_t table from specifications; periods that start after
-\code{end_observed} are marked as extrapolated
+\code{end_observed} are marked as extrapolated. The special period with ID 0 is used for static
+phenomena that are presumed to be instantaneous at the end of the observed period.
 
 }}

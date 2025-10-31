@@ -21,7 +21,7 @@ create_coords_t_square(epsg, extent, resolution, ...)
 \item{epsg}{An integerish scalar representing an EPSG CRS code}
 
 \item{extent}{A \link[terra:SpatExtent-class]{terra::SpatExtent} object describing the extent of a desired
-\code{corods_t}}
+\code{coords_t}}
 
 \item{resolution}{A numeric scalar, describing the required resolution of your
 \code{coords_t} object. The unit is that of the epsg.}

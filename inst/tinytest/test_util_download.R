@@ -106,7 +106,7 @@ expect_message(
 )
 expect_message(
   df_out2 <- download_and_verify(df_in = df_in, target_dir = dir),
-  "^Found file"
+  "^Found "
 )
 expect_equal(df_out1, df_out2)
 unlink(
