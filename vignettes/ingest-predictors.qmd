@@ -126,20 +126,3 @@ db$pred_data_t_float
 We see that there's currently a single predictor in our table at 100 coordinate points.
 As expected, once the metadata was inserted into the database, we used the allotted identifier to label our inserted `sonbase_max` data.
 
-# Bonus: Getting rid of unused coords
-
-Now that we know which coordinates we have fundamental data for, let's use that information to reduce the amount of coordinates we'll go forward with:
-
-```{r}
-DBI::dbExecute(
-  db$connection,
-  r"{
-  DELETE FROM
-    coords_t
-  WHERE
-    id_coord NOT IN (
-    SELECT DISTINCT id_coord FROM lulc_data_t
-  );
-  }"
-)
-```

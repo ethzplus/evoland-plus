@@ -312,7 +312,28 @@ An upsert is a database operation that either in*serts* new data or *up*dates ex
 ```{r}
 #| label: ingest-close
 db$lulc_data_t <- lulc_data_t
-rm(db)
-gc() # close out the database connection / file lock
 ```
 https://teams.microsoft.com/meet/3978282171181?p=bNrHOJUpa9xYyLwrQc
+
+# Bonus: Getting rid of unused coords
+
+Now that we know which coordinates we have fundamental data for, let's use that information to reduce the amount of coordinates we'll go forward with:
+
+```{r}
+#| label: pare-down-coords
+DBI::dbExecute(
+  db$connection,
+  r"{
+  DELETE FROM
+    coords_t
+  WHERE
+    id_coord NOT IN (
+    SELECT DISTINCT id_coord FROM lulc_data_t
+  );
+  }"
+)
+```
+
+Which lets us know how many row were affected, i.e. deleted: _7_. 
+For this domain in the middle of Switzerland, then, this represents a small amount of savings.
+As the sparsity of the domain grows - e.g. by omission of adjacent administrative areas, or by omission of certain land use classes - the advantage of the tabular representation becomes clearer.
