@@ -5,13 +5,22 @@
 \alias{extract_using_coords_t}
 \title{evoland utility functions to work with terra objects}
 \usage{
-extract_using_coords_t(x, coords_t)
+extract_using_coords_t(x, coords_t, na_omit = TRUE)
+}
+\arguments{
+\item{x}{The object to extract from; use "simple" extraction for rasters, i.e. no resampling is done.}
+
+\item{coords_t}{The coordinates to extract at}
+}
+\value{
+A long data.table with \code{id_coord}, a \code{layer}/\code{attribute} column, and a \code{value} column.
+NAs are omitted
 }
 \description{
-Useful to coax terra raster and vector data into evoland tabular form, and vice versa.
+Useful to coax terra raster and vector data into evoland tabular form.
 }
 \section{Functions}{
 \itemize{
-\item \code{extract_using_coords_t()}: Extract values from a SpatRaster object using a (minimal) \code{coords_t}
+\item \code{extract_using_coords_t()}: Extract values from a SpatRaster or SpatVector object using a (minimal) \code{coords_t}
 
 }}
