@@ -25,7 +25,8 @@ download_and_verify <- function(
   check_missing_names(df_in, c("url", "md5sum"))
   ensure_dir(target_dir)
 
-  data.table::setDT(df_in)
+  # makes a copy while ensuring DT semantics
+  df_in <- data.table::as.data.table(df_in)
   # find pre-existing files
   all_dt <- df_in[,
     .(
@@ -112,7 +113,7 @@ download_and_verify <- function(
     )
   }
 
-  df_out
+  df_in[df_out, on = c("url", "md5sum")]
 }
 
 # parse a curl::curl_fetch_disk result and return a filename indicated by

@@ -98,7 +98,8 @@ expect_null(
 dir <- tempdir()
 df_in <- data.frame(
   url = file.path("file:/", system.file("schema.sql", package = "evoland")),
-  md5sum = tools::md5sum(system.file("schema.sql", package = "evoland"))
+  md5sum = tools::md5sum(system.file("schema.sql", package = "evoland")),
+  additional_data = "this data should pass through"
 )
 expect_message(
   df_out1 <- download_and_verify(df_in = df_in, target_dir = dir),
