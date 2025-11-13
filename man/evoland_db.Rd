@@ -106,7 +106,7 @@ Initialize a new evoland_db object
   write = TRUE,
   report_name = "evoland_scenario",
   report_name_pretty = "Default Evoland Scenario",
-  report_include_date = FALSE,
+  report_include_date = TRUE,
   report_username = Sys.getenv("USER", unset = "unknown")
 )}\if{html}{\out{</div>}}
 }
