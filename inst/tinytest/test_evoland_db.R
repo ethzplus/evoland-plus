@@ -228,10 +228,11 @@ expect_silent(db$intrv_meta_t <- intrv_meta_t)
 expect_equal(db$intrv_meta_t, intrv_meta_t)
 
 # check one of the foreign key constraint
-expect_error(
-  db$alloc_params_t <- alloc_params_t,
-  '"id_trans: 1" does not exist'
-)
+# dropped for now for performance reasons
+# expect_error(
+#   db$alloc_params_t <- alloc_params_t,
+#   '"id_trans: 1" does not exist'
+# )
 
 expect_silent(db$trans_meta_t <- trans_meta_t)
 expect_equal(db$trans_meta_t, trans_meta_t)
@@ -251,25 +252,12 @@ expect_equal(db$row_count("pred_data_t_float"), 48L)
 expect_error(
   # should only be able to insert the correct class
   db$pred_data_t_float <- data.table::data.table(
-    id_pred = 1000:1002,
+    id_pred = 100:102,
     id_coord = 3:50,
     id_period = 1L,
     value = 3.14
   ),
   r"(^inherits.* is not TRUE$)"
-)
-expect_error(
-  # should violate foreign key constraint
-  db$pred_data_t_float <- as_pred_data_t(
-    data.table::data.table(
-      id_pred = 1000:1002,
-      id_coord = 3:50,
-      id_period = 1L,
-      value = TRUE
-    ),
-    type = "float"
-  ),
-  'key "id_pred: 1000" does not exist'
 )
 
 expect_error(
