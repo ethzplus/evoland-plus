@@ -63,7 +63,7 @@ CREATE SEQUENCE seq_id_pred START 1;
 -- Predictor metadata
 CREATE TABLE pred_meta_t (
     id_pred INTEGER PRIMARY KEY default nextval('seq_id_pred'),
-    name VARCHAR NOT NULL,
+    name VARCHAR NOT NULL UNIQUE,
     pretty_name VARCHAR NOT NULL,
     description TEXT,
     orig_format VARCHAR,

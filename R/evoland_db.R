@@ -252,7 +252,15 @@ evoland_db <- R6::R6Class(
     #' @param pred_type Passed to [as_pred_data_t()]; one of float, int, bool
     add_predictor = function(pred_spec, pred_data, pred_type) {
       stopifnot(length(pred_spec) == 1)
-      self$pred_meta_t <- create_pred_meta_t(pred_spec)
+      tryCatch(
+        self$pred_meta_t <- create_pred_meta_t(pred_spec),
+        error = function(e) {
+          warning(
+            glue::glue("Spec `{names(pred_spec)}` already in DB. Not altering metadata"),
+            call. = FALSE
+          )
+        }
+      )
 
       id_pred <-
         DBI::dbGetQuery(
@@ -356,7 +364,10 @@ evoland_db <- R6::R6Class(
         return(as_pred_meta_t(x))
       }
       stopifnot(inherits(x, "pred_meta_t"))
-      self$commit(x, "pred_meta_t", mode = "upsert")
+      # upserts or updates don't work on columns that cannot be updated in place, e.g. sources or
+      # factor_levels - appending a row with the same "name" column will throw an error for safety
+      # https://duckdb.org/docs/stable/sql/indexes#constraint-checking-in-update-statements
+      self$commit(x, "pred_meta_t", mode = "append")
     },
 
     #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
