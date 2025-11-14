@@ -29,7 +29,14 @@ validate.evoland_t <- function(x, ...) {
 #' @param class_name The class name to attach before "evoland_t"
 #' @param keycols The columns to be set as key, see [data.table::setkey()]
 new_evoland_table <- function(x, class_name, keycols) {
-  data.table::setDT(x, key = keycols)
+  data.table::setDT(x)
+
+  # key cols may be missing if identities are not yet known
+  if (!missing(keycols)) {
+    keycols_present <- intersect(keycols, names(x))
+    if (length(keycols_present) > 0) data.table::setkeyv(x, keycols_present)
+  }
+
   class(x) <- unique(c(
     class_name,
     "evoland_t",
@@ -114,4 +121,17 @@ ensure_dir <- function(dir) {
     error = function(e) stop(e$message)
   )
   invisible(dir)
+}
+
+#' @describeIn util Print a dataframe in a row-wise yaml style
+#' @export
+print_rowwise_yaml <- function(df) {
+  for (i in seq_len(nrow(df))) {
+    cat(sprintf("- row %d:\n", i))
+    for (col in names(df)) {
+      value <- df[[col]][i]
+      cat(sprintf("  %s: %s\n", col, value))
+    }
+    cat("\n")
+  }
 }

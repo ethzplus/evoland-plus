@@ -23,7 +23,6 @@ A data.table of class "lulc_data_t" with columns:
 \item \code{id_coord}: Foreign key to coords_t
 \item \code{id_lulc}: Foreign key to lulc_meta_t
 \item \code{id_period}: Foreign key to periods_t
-\item \code{date}: Exact date if available (nullable)
 }
 }
 \description{

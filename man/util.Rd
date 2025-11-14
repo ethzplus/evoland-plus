@@ -8,6 +8,7 @@
 \alias{\%||\%}
 \alias{pluck_wildcard}
 \alias{ensure_dir}
+\alias{print_rowwise_yaml}
 \title{evoland utility functions}
 \usage{
 validate(x, ...)
@@ -21,6 +22,8 @@ x \%||\% y
 pluck_wildcard(lst, ...)
 
 ensure_dir(dir)
+
+print_rowwise_yaml(df)
 }
 \arguments{
 \item{x}{Left-hand side value}
@@ -58,5 +61,7 @@ These are mostly used to validate evoland S3 objects.
 \item \code{pluck_wildcard()}: Pluck with wildcard support
 
 \item \code{ensure_dir()}: Ensure that a directory exists; return its argument for pipeability
+
+\item \code{print_rowwise_yaml()}: Print a dataframe in a row-wise yaml style
 
 }}

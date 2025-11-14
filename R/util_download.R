@@ -24,60 +24,96 @@ download_and_verify <- function(
 ) {
   check_missing_names(df_in, c("url", "md5sum"))
   ensure_dir(target_dir)
-  df_out <- df_in
-  df_out[["local_filename"]] <- NA_character_
 
-  for (i in seq_len(nrow(df_in))) {
-    url <- df_in[["url"]][i]
-    expected_md5 <- df_in[["md5sum"]][i]
+  # makes a copy while ensuring DT semantics
+  df_in <- data.table::as.data.table(df_in)
+  # find pre-existing files
+  all_dt <- df_in[,
+    .(
+      url,
+      md5sum,
+      found_files = purrr::map(file.path(target_dir, md5sum), list.files, full.names = TRUE)
+    )
+  ]
 
-    md5dir <- ensure_dir(file.path(target_dir, expected_md5))
-    present <- list.files(md5dir)
-
-    if (length(present) > 1L) {
-      stop("Investigate: found more than one file in ", md5dir)
-    } else if (length(present) == 1L && !overwrite) {
-      message(glue::glue(
-        "Found file `{present}`
-        for {url}
-         - skipping download"
-      ))
-      filename_final <- df_out[["local_filename"]][i] <-
-        present
-    } else {
-      message("Downloading: ", url)
-      temp_file <- tempfile(tmpdir = md5dir)
-      res <- curl::curl_fetch_disk(url, temp_file)
-      filename_cd <- filename_cd_header(res)
-      if (is.null(filename_cd)) {
-        filename_final <- basename(url)
-      } else {
-        filename_final <- filename_cd
-      }
-      file.rename(
-        temp_file,
-        file.path(md5dir, filename_final)
-      )
-
-      df_out[["local_filename"]][i] <- filename_final
-    }
-
-    # Verify MD5
-    filepath <- df_out[["local_path"]][i] <-
-      file.path(md5dir, filename_final)
-    actual_md5 <- tools::md5sum(filepath)
-    if (actual_md5 != expected_md5) {
-      stop(glue::glue(
-        "Hash mismatch for {url}
-        Expected: {expected_md5},
-        Got: {actual_md5}
-        Stopping for safety, please verify file integrity at
-        {filepath}"
-      ))
-    }
+  # can only handle one file per md5 folder
+  all_dt[, no_found_files := purrr::map_int(found_files, length)]
+  if (nrow(too_many_files <- all_dt[no_found_files > 1])) {
+    stop(
+      "Investigate: found more than one file for \n ",
+      too_many_files[, "url"]
+    )
   }
 
-  return(df_out)
+  # only where no file is found should we download, unless overwrite
+  if (overwrite) {
+    all_dt[, to_download := TRUE]
+  } else {
+    all_dt[, to_download := (no_found_files == 0)]
+  }
+
+  # if download, fetch to temp file in target_dir, then move to md5 folder once known
+  # if not download, just return details on existing file, not rechecking md5sum
+  downloaded_dt <- data.table::rbindlist(purrr::pmap(
+    .l = all_dt,
+    .f = function(url, found_files, to_download, md5sum, ...) {
+      if (to_download) {
+        message("Downloading: ", url)
+        temp_file <- tempfile(tmpdir = target_dir)
+        res <- curl::curl_fetch_disk(url, temp_file)
+        md5sum_actual <- tools::md5sum(temp_file)
+
+        # the content-disposition header might contain a filename; else use basename
+        filename_final <- filename_cd_header(res) %||% basename(url)
+        md5dir <- ensure_dir(file.path(target_dir, md5sum_actual))
+        target_path <- file.path(md5dir, filename_final)
+
+        # move the file into place
+        file.rename(temp_file, target_path)
+      } else {
+        message("Found ", found_files, "\nfor ", url)
+        # we already checked that found_files is length 1
+        filename_final <- basename(found_files)
+        target_path <- found_files
+        md5sum_actual <- md5sum
+      }
+
+      list(
+        url = url,
+        md5sum_actual = md5sum_actual,
+        local_filename = filename_final,
+        local_path = target_path
+      )
+    }
+  ))
+
+  # join initial assumptions about url/md5 to actual data
+  df_out <- downloaded_dt[
+    all_dt,
+    .(
+      url,
+      md5sum,
+      md5sum_actual,
+      local_filename,
+      local_path
+    ),
+    on = "url"
+  ]
+
+  # throw warning on mismatch (most likely file has changed but is still usable)
+  if (nrow(mismatches <- df_out[md5sum != md5sum_actual])) {
+    o <- options(datatable.prettyprint.char = 32L)
+    on.exit(options(o))
+    warning(
+      "Hash mismatch for \n",
+      paste(
+        utils::capture.output(print_rowwise_yaml(mismatches)),
+        collapse = "\n"
+      )
+    )
+  }
+
+  df_in[df_out, on = c("url", "md5sum")]
 }
 
 # parse a curl::curl_fetch_disk result and return a filename indicated by

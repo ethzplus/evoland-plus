@@ -25,6 +25,10 @@ fetching operations.
 \item{\code{coords_t}}{A \code{coords_t} instance; see \code{\link[=create_coords_t]{create_coords_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
 
+\item{\code{extent}}{Return a terra SpatExtent based on coords_t}
+
+\item{\code{coords_minimal}}{data.table with only (id_coord, lon, lat)}
+
 \item{\code{periods_t}}{A \code{periods_t} instance; see \code{\link[=create_periods_t]{create_periods_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
 
@@ -86,6 +90,8 @@ of object to assign. Assigning is an upsert operation.}
 \item \href{#method-evoland_db-delete_from}{\code{evoland_db$delete_from()}}
 \item \href{#method-evoland_db-copy_db}{\code{evoland_db$copy_db()}}
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
+\item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
+\item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -100,7 +106,7 @@ Initialize a new evoland_db object
   write = TRUE,
   report_name = "evoland_scenario",
   report_name_pretty = "Default Evoland Scenario",
-  report_include_date = FALSE,
+  report_include_date = TRUE,
   report_username = Sys.getenv("USER", unset = "unknown")
 )}\if{html}{\out{</div>}}
 }
@@ -255,7 +261,8 @@ No. of rows affected by statement
 \if{html}{\out{<a id="method-evoland_db-copy_db"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-copy_db}{}}}
 \subsection{Method \code{copy_db()}}{
-Copy full DB to a different one
+Copy full DB to a different one.
+Note, this may fail due to \url{https://github.com/duckdb/duckdb/issues/16785}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$copy_db(target_path, source_db)}\if{html}{\out{</div>}}
 }
@@ -275,7 +282,7 @@ this object's DB path}
 \if{html}{\out{<a id="method-evoland_db-set_coords"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-set_coords}{}}}
 \subsection{Method \code{set_coords()}}{
-Set coordinates for DB; overwrites on repeated call
+Set coordinates for DB. Cannot overwrite existing table (would mean cascading deletion)
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_coords(type = c("square"), ...)}\if{html}{\out{</div>}}
 }
@@ -286,6 +293,57 @@ Set coordinates for DB; overwrites on repeated call
 \item{\code{type}}{string; which type of coordinates to set, see \link{coords_t}}
 
 \item{\code{...}}{named arguments are passed to the appropriate coordinate creator function}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-set_periods"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-set_periods}{}}}
+\subsection{Method \code{set_periods()}}{
+Set periods for DB. See \code{\link{periods_t}}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_periods(
+  period_length_str = "P10Y",
+  start_observed = "1985-01-01",
+  end_observed = "2020-01-01",
+  end_extrapolated = "2060-01-01"
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{period_length_str}}{ISO 8601 duration string specifying the length of each period (currently
+only accepting years, e.g., "P5Y" for 5 years)}
+
+\item{\code{start_observed}}{Start date of the observed data (YYYY-MM-DD)}
+
+\item{\code{end_observed}}{End date of the observed data (YYYY-MM-DD)}
+
+\item{\code{end_extrapolated}}{End date for extrapolation time range (YYYY-MM-DD)}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-add_predictor"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-add_predictor}{}}}
+\subsection{Method \code{add_predictor()}}{
+Add a predictor to the database
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$add_predictor(pred_spec, pred_data, pred_type)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{pred_spec}}{List of predictor specification; see \code{\link[=create_pred_meta_t]{create_pred_meta_t()}}}
+
+\item{\code{pred_data}}{An object that can be coerced to \code{\link{pred_data_t}}, but doesn't have an
+\code{id_pred}}
+
+\item{\code{pred_type}}{Passed to \code{\link[=as_pred_data_t]{as_pred_data_t()}}; one of float, int, bool}
 }
 \if{html}{\out{</div>}}
 }

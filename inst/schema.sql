@@ -15,7 +15,7 @@ CREATE TABLE reporting_t (
 -- region column could be added to this table as enum, but only using ALTER TABLE
 -- we first need to know which regions exist to declare the enum
 CREATE TABLE coords_t (
-    id_coord INTEGER PRIMARY KEY,
+    id_coord UINT32 PRIMARY KEY,
     lon DOUBLE NOT NULL,
     lat DOUBLE NOT NULL,
     elevation DOUBLE,
@@ -24,7 +24,7 @@ CREATE TABLE coords_t (
 
 -- Time periods metadata
 CREATE TABLE periods_t (
-    id_period INTEGER PRIMARY KEY,
+    id_period UINT8 PRIMARY KEY,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     is_extrapolated BOOLEAN NOT NULL DEFAULT FALSE
@@ -32,7 +32,7 @@ CREATE TABLE periods_t (
 
 -- Land Use/Land Cover metadata
 CREATE TABLE lulc_meta_t (
-    id_lulc INTEGER PRIMARY KEY,
+    id_lulc UINT8 PRIMARY KEY,
     name VARCHAR NOT NULL,
     pretty_name VARCHAR NOT NULL,
     description TEXT,
@@ -50,19 +50,20 @@ CREATE VIEW lulc_meta_long_v as (
 
 -- Land Use/Land Cover data
 CREATE TABLE lulc_data_t (
-    id_coord INTEGER NOT NULL,
-    id_lulc INTEGER NOT NULL,
-    id_period INTEGER NOT NULL,
+    id_coord UINT32 NOT NULL,
+    id_lulc UINT8 NOT NULL,
+    id_period UINT8 NOT NULL,
     PRIMARY KEY (id_coord, id_lulc, id_period),
     FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord),
     FOREIGN KEY (id_lulc) REFERENCES lulc_meta_t(id_lulc),
     FOREIGN KEY (id_period) REFERENCES periods_t(id_period)
 );
 
+CREATE SEQUENCE seq_id_pred START 1;
 -- Predictor metadata
 CREATE TABLE pred_meta_t (
-    id_pred INTEGER PRIMARY KEY,
-    name VARCHAR NOT NULL,
+    id_pred UINT8 PRIMARY KEY default nextval('seq_id_pred'),
+    name VARCHAR NOT NULL UNIQUE,
     pretty_name VARCHAR NOT NULL,
     description TEXT,
     orig_format VARCHAR,
@@ -81,10 +82,10 @@ WHERE sources IS NOT NULL;
 
 -- Predictor data tables for different data types
 CREATE TABLE pred_data_t_float (
-    id_pred INTEGER NOT NULL,
-    id_coord INTEGER NOT NULL,
-    id_period INTEGER NOT NULL,
-    value DOUBLE NOT NULL,
+    id_pred UINT8 NOT NULL,
+    id_coord UINT32 NOT NULL,
+    id_period UINT8 NOT NULL,
+    value FLOAT NOT NULL,
     PRIMARY KEY (id_pred, id_coord, id_period),
     FOREIGN KEY (id_pred) REFERENCES pred_meta_t(id_pred),
     FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord),
@@ -92,9 +93,9 @@ CREATE TABLE pred_data_t_float (
 );
 
 CREATE TABLE pred_data_t_int (
-    id_pred INTEGER NOT NULL,
-    id_coord INTEGER NOT NULL,
-    id_period INTEGER NOT NULL,
+    id_pred UINT8 NOT NULL,
+    id_coord UINT32 NOT NULL,
+    id_period UINT8 NOT NULL,
     value INTEGER NOT NULL,
     PRIMARY KEY (id_pred, id_coord, id_period),
     FOREIGN KEY (id_pred) REFERENCES pred_meta_t(id_pred),
@@ -103,9 +104,9 @@ CREATE TABLE pred_data_t_int (
 );
 
 CREATE TABLE pred_data_t_bool (
-    id_pred INTEGER NOT NULL,
-    id_coord INTEGER NOT NULL,
-    id_period INTEGER NOT NULL,
+    id_pred UINT8 NOT NULL,
+    id_coord UINT32 NOT NULL,
+    id_period UINT8 NOT NULL,
     value BOOLEAN NOT NULL,
     PRIMARY KEY (id_pred, id_coord, id_period),
     FOREIGN KEY (id_pred) REFERENCES pred_meta_t(id_pred),
@@ -115,9 +116,9 @@ CREATE TABLE pred_data_t_bool (
 
 -- Transition metadata
 CREATE TABLE trans_meta_t (
-    id_trans INTEGER PRIMARY KEY,
-    id_lulc_anterior INTEGER NOT NULL,
-    id_lulc_posterior INTEGER NOT NULL,
+    id_trans UINT8 PRIMARY KEY,
+    id_lulc_anterior UINT8 NOT NULL,
+    id_lulc_posterior UINT8 NOT NULL,
     cardinality INTEGER NOT NULL,
     frequency_rel DOUBLE NOT NULL,
     frequency_abs DOUBLE NOT NULL,
@@ -129,8 +130,8 @@ CREATE TABLE trans_meta_t (
 
 -- Transition-predictor relationships (many-to-many)
 CREATE TABLE trans_preds_t (
-    id_pred INTEGER NOT NULL,
-    id_trans INTEGER NOT NULL,
+    id_pred UINT8 NOT NULL,
+    id_trans UINT8 NOT NULL,
     PRIMARY KEY (id_pred, id_trans),
     FOREIGN KEY (id_pred) REFERENCES pred_meta_t(id_pred),
     FOREIGN KEY (id_trans) REFERENCES trans_meta_t(id_trans)
@@ -138,9 +139,9 @@ CREATE TABLE trans_preds_t (
 
 -- Intervention metadata
 CREATE TABLE intrv_meta_t (
-    id_intrv INTEGER PRIMARY KEY,
-    id_period_list INTEGER[],
-    id_trans_list INTEGER[],
+    id_intrv UINT8 PRIMARY KEY,
+    id_period_list UINT8[],
+    id_trans_list UINT8[],
     pre_allocation BOOLEAN NOT NULL,
     name VARCHAR NOT NULL,
     pretty_name VARCHAR NOT NULL,
@@ -151,8 +152,8 @@ CREATE TABLE intrv_meta_t (
 
 -- Intervention masks
 CREATE TABLE intrv_masks_t (
-    id_intrv INTEGER NOT NULL,
-    id_coord INTEGER NOT NULL,
+    id_intrv UINT8 NOT NULL,
+    id_coord UINT32 NOT NULL,
     PRIMARY KEY (id_intrv, id_coord),
     FOREIGN KEY (id_intrv) REFERENCES intrv_meta_t(id_intrv),
     FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord)
@@ -160,8 +161,8 @@ CREATE TABLE intrv_masks_t (
 
 -- Transition models storage
 CREATE TABLE trans_models_t (
-    id_trans INTEGER NOT NULL,
-    id_period INTEGER NOT NULL,
+    id_trans UINT8 NOT NULL,
+    id_period UINT8 NOT NULL,
     model_family VARCHAR NOT NULL,
     model_params MAP(VARCHAR, VARCHAR) NOT NULL,
     goodness_of_fit MAP(VARCHAR, DOUBLE) NOT NULL,
@@ -174,8 +175,8 @@ CREATE TABLE trans_models_t (
 
 -- Allocation parameters
 CREATE TABLE alloc_params_t (
-    id_trans INTEGER NOT NULL,
-    id_period INTEGER NOT NULL,
+    id_trans UINT8 NOT NULL,
+    id_period UINT8 NOT NULL,
     alloc_params MAP(VARCHAR, DOUBLE) NOT NULL,
     goodness_of_fit MAP(VARCHAR, DOUBLE) NOT NULL,
     PRIMARY KEY (id_trans, id_period),

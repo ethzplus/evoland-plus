@@ -39,7 +39,7 @@ evoland_db <- R6::R6Class(
       write = TRUE,
       report_name = "evoland_scenario",
       report_name_pretty = "Default Evoland Scenario",
-      report_include_date = FALSE,
+      report_include_date = TRUE,
       report_username = Sys.getenv("USER", unset = "unknown")
     ) {
       self$path <- path
@@ -173,7 +173,8 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Copy full DB to a different one
+    #' Copy full DB to a different one.
+    #' Note, this may fail due to <https://github.com/duckdb/duckdb/issues/16785>
     #' @param target_path Character string. Name of the database file to copy to
     #' @param source_db Character string. Name of the database to copy from. Defaults to
     #' this object's DB path
@@ -201,19 +202,13 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Set coordinates for DB; overwrites on repeated call
+    #' Set coordinates for DB. Cannot overwrite existing table (would mean cascading deletion)
     #' @param type string; which type of coordinates to set, see [coords_t]
     #' @param ... named arguments are passed to the appropriate coordinate creator function
     set_coords = function(type = c("square"), ...) {
-      if (self$row_count("coords_t") > 0L && interactive()) {
-        choice <- utils::menu(
-          choices = c("Yes, overwrite coordinates", "No, cancel operation"),
-          title = "Coordinates table already exists. Overwriting will drop all dependent relations. Continue?"
-        )
-        if (choice != 1) {
-          message("Operation cancelled.")
-          return(invisible(NULL))
-        }
+      if (self$row_count("coords_t") > 0L) {
+        warning("coords_t is not empty! Refusing to overwrite; start with fresh DB")
+        return(invisible(NULL))
       }
       create_fun <- switch(
         type,
@@ -222,6 +217,63 @@ evoland_db <- R6::R6Class(
       )
 
       self$commit(as_coords_t(create_fun(...)), "coords_t", mode = "overwrite")
+    },
+
+    #' @description
+    #' Set periods for DB. See [`periods_t`]
+    #' @param period_length_str ISO 8601 duration string specifying the length of each period (currently
+    #' only accepting years, e.g., "P5Y" for 5 years)
+    #' @param start_observed Start date of the observed data (YYYY-MM-DD)
+    #' @param end_observed End date of the observed data (YYYY-MM-DD)
+    #' @param end_extrapolated End date for extrapolation time range (YYYY-MM-DD)
+    set_periods = function(
+      period_length_str = "P10Y",
+      start_observed = "1985-01-01",
+      end_observed = "2020-01-01",
+      end_extrapolated = "2060-01-01"
+    ) {
+      if (self$row_count("periods_t") > 0L) {
+        warning("periods_t is not empty! Refusing to overwrite; start with fresh DB")
+        return(invisible(NULL))
+      }
+
+      self$commit(
+        do.call(create_periods_t, as.list(environment())),
+        "periods_t",
+        mode = "append"
+      )
+    },
+
+    #' @description
+    #' Add a predictor to the database
+    #' @param pred_spec List of predictor specification; see [create_pred_meta_t()]
+    #' @param pred_data An object that can be coerced to [`pred_data_t`], but doesn't have an
+    #' `id_pred`
+    #' @param pred_type Passed to [as_pred_data_t()]; one of float, int, bool
+    add_predictor = function(pred_spec, pred_data, pred_type) {
+      stopifnot(length(pred_spec) == 1)
+      tryCatch(
+        self$pred_meta_t <- create_pred_meta_t(pred_spec),
+        error = function(e) {
+          warning(
+            glue::glue("Spec `{names(pred_spec)}` already in DB. Not altering metadata"),
+            call. = FALSE
+          )
+        }
+      )
+
+      id_pred <-
+        DBI::dbGetQuery(
+          self$connection,
+          glue::glue("select id_pred from pred_meta_t where name = '{names(pred_spec)}'")
+        ) |>
+        purrr::pluck("id_pred") |>
+        as.integer()
+      data.table::set(pred_data, j = "id_pred", value = id_pred)
+      data.table::setcolorder(pred_data, c("id_pred", "id_coord", "id_period", "value"))
+      pred_data_t <- as_pred_data_t(pred_data, pred_type)
+
+      self$commit(pred_data_t, paste0("pred_data_t_", pred_type), mode = "upsert")
     }
   ),
 
@@ -239,6 +291,32 @@ evoland_db <- R6::R6Class(
       }
       stopifnot(inherits(x, "coords_t"))
       self$commit(x, "coords_t", mode = "upsert")
+    },
+
+    #' @field extent Return a terra SpatExtent based on coords_t
+    extent = function() {
+      DBI::dbGetQuery(
+        self$connection,
+        r"{
+        select 
+          min(lon) as xmin,
+          max(lon) as xmax,
+          min(lat) as ymin,
+          max(lat) as ymax
+        from
+          coords_t;
+        }"
+      ) |>
+        unlist() |>
+        terra::ext()
+    },
+
+    #' @field coords_minimal data.table with only (id_coord, lon, lat)
+    coords_minimal = function() {
+      x <-
+        DBI::dbGetQuery(self$connection, r"{select id_coord, lon, lat from coords_t;}") |>
+        data.table::as.data.table()
+      data.table::set(x, j = "id_coord", value = as.integer(x[["id_coord"]]))
     },
 
     #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
@@ -288,7 +366,10 @@ evoland_db <- R6::R6Class(
         return(as_pred_meta_t(x))
       }
       stopifnot(inherits(x, "pred_meta_t"))
-      self$commit(x, "pred_meta_t", mode = "upsert")
+      # upserts or updates don't work on columns that cannot be updated in place, e.g. sources or
+      # factor_levels - appending a row with the same "name" column will throw an error for safety
+      # https://duckdb.org/docs/stable/sql/indexes#constraint-checking-in-update-statements
+      self$commit(x, "pred_meta_t", mode = "append")
     },
 
     #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
@@ -598,8 +679,9 @@ evoland_db <- R6::R6Class(
       ))
 
       # Build INSERT OR REPLACE query
+      colnames <- paste(names(x), collapse = ", ")
       sql <- glue::glue(
-        "INSERT OR REPLACE INTO {table_name} SELECT * FROM temporary_data_table"
+        "INSERT OR REPLACE INTO {table_name} ({colnames}) SELECT * FROM temporary_data_table"
       )
       DBI::dbExecute(self$connection, sql)
     }
