@@ -12,6 +12,8 @@
 #'
 #' @export
 as_intrv_masks_t <- function(x) {
+  cast_dt_col(x, "id_coord", as.integer)
+  cast_dt_col(x, "id_coord", as.integer)
   new_evoland_table(
     x,
     "intrv_masks_t",

@@ -285,7 +285,7 @@ evoland_db <- R6::R6Class(
       if (missing(x)) {
         x <- self$fetch("coords_t")
         if (rlang::has_name(x, "region")) {
-          data.table::set(x, j = "region", value = as.factor(x[["region"]]))
+          cast_dt_col(x, "region", as.factor)
         }
         return(as_coords_t(x))
       }
@@ -315,8 +315,8 @@ evoland_db <- R6::R6Class(
     coords_minimal = function() {
       x <-
         DBI::dbGetQuery(self$connection, r"{select id_coord, lon, lat from coords_t;}") |>
-        data.table::as.data.table()
-      data.table::set(x, j = "id_coord", value = as.integer(x[["id_coord"]]))
+        data.table::as.data.table() |>
+        cast_dt_col("id_coord", as.integer)
     },
 
     #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
@@ -609,6 +609,7 @@ evoland_db <- R6::R6Class(
       # Use INSERT OR REPLACE with MAP conversion for params field
       sql <- "
         INSERT OR REPLACE INTO alloc_params_t
+        
         SELECT
           id_trans, id_period,
           map_from_entries(alloc_params) as model_params,

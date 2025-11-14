@@ -24,7 +24,7 @@ NULL
 #'   - `geom_polygon`: Geometry polygon object (for grid cells)
 #' @export
 as_coords_t <- function(x) {
-  data.table::set(x, j = "id_coord", value = as.integer(x[["id_coord"]]))
+  cast_dt_col(x, "id_coord", as.integer)
   new_evoland_table(
     x,
     "coords_t",

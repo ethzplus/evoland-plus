@@ -135,3 +135,13 @@ print_rowwise_yaml <- function(df) {
     cat("\n")
   }
 }
+
+#' @describeIn util Cast a data.table column; invisibly returns x
+cast_dt_col <- function(x, colname, castfun) {
+  data.table::set(
+    x = x,
+    j = colname,
+    value = castfun(x[[colname]])
+  )
+  invisible(x)
+}

@@ -9,6 +9,7 @@
 \alias{pluck_wildcard}
 \alias{ensure_dir}
 \alias{print_rowwise_yaml}
+\alias{cast_dt_col}
 \title{evoland utility functions}
 \usage{
 validate(x, ...)
@@ -24,6 +25,8 @@ pluck_wildcard(lst, ...)
 ensure_dir(dir)
 
 print_rowwise_yaml(df)
+
+cast_dt_col(x, colname, castfun)
 }
 \arguments{
 \item{x}{Left-hand side value}
@@ -63,5 +66,7 @@ These are mostly used to validate evoland S3 objects.
 \item \code{ensure_dir()}: Ensure that a directory exists; return its argument for pipeability
 
 \item \code{print_rowwise_yaml()}: Print a dataframe in a row-wise yaml style
+
+\item \code{cast_dt_col()}: Cast a data.table column; invisibly returns x
 
 }}
