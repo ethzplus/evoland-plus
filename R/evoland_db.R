@@ -313,8 +313,10 @@ evoland_db <- R6::R6Class(
 
     #' @field coords_minimal data.table with only (id_coord, lon, lat)
     coords_minimal = function() {
-      DBI::dbGetQuery(self$connection, r"{select id_coord, lon, lat from coords_t;}") |>
+      x <-
+        DBI::dbGetQuery(self$connection, r"{select id_coord, lon, lat from coords_t;}") |>
         data.table::as.data.table()
+      data.table::set(x, j = "id_coord", value = as.integer(x[["id_coord"]]))
     },
 
     #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
