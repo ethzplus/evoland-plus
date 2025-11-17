@@ -374,23 +374,13 @@ evoland_db <- R6::R6Class(
     #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     periods_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("periods_t")
-        return(as_periods_t(x))
-      }
-      stopifnot(inherits(x, "periods_t"))
-      self$commit(x, "periods_t", mode = "upsert")
+      create_active_binding(self, "periods_t", as_periods_t)(x)
     },
 
     #' @field lulc_meta_t A `lulc_meta_t` instance; see [create_lulc_meta_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     lulc_meta_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("lulc_meta_t")
-        return(as_lulc_meta_t(x))
-      }
-      stopifnot(inherits(x, "lulc_meta_t"))
-      self$commit(x, "lulc_meta_t", mode = "upsert")
+      create_active_binding(self, "lulc_meta_t", as_lulc_meta_t)(x)
     },
 
     #' @field lulc_meta_long_v Return a `lulc_meta_long_v` instance, i.e. unrolled `lulc_meta_t`.
@@ -402,12 +392,7 @@ evoland_db <- R6::R6Class(
     #' @field lulc_data_t A `lulc_data_t` instance; see [as_lulc_data_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     lulc_data_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("lulc_data_t")
-        return(as_lulc_data_t(x))
-      }
-      stopifnot(inherits(x, "lulc_data_t"))
-      self$commit(x, "lulc_data_t", mode = "upsert")
+      create_active_binding(self, "lulc_data_t", as_lulc_data_t)(x)
     },
 
     #' @field pred_meta_t A `pred_meta_t` instance; see [create_pred_meta_t()] for the type of
@@ -474,36 +459,36 @@ evoland_db <- R6::R6Class(
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
     pred_data_t_float = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("pred_data_t_float")
-        return(as_pred_data_t(x, "float"))
-      }
-      stopifnot(inherits(x, c("pred_data_t_float", "pred_data_t")))
-      self$commit(x, "pred_data_t_float", mode = "upsert")
+      create_active_binding(
+        self,
+        "pred_data_t_float",
+        as_pred_data_t,
+        type = "float"
+      )(x)
     },
 
     #' @field pred_data_t_int A `pred_data_t_int` instance; see
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
     pred_data_t_int = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("pred_data_t_int")
-        return(as_pred_data_t(x, "int"))
-      }
-      stopifnot(inherits(x, c("pred_data_t_int", "pred_data_t")))
-      self$commit(x, "pred_data_t_int", mode = "upsert")
+      create_active_binding(
+        self,
+        "pred_data_t_int",
+        as_pred_data_t,
+        type = "int"
+      )(x)
     },
 
     #' @field pred_data_t_bool A `pred_data_t_bool` instance; see
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
     pred_data_t_bool = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("pred_data_t_bool")
-        return(as_pred_data_t(x, "bool"))
-      }
-      stopifnot(inherits(x, c("pred_data_t_bool", "pred_data_t")))
-      self$commit(x, "pred_data_t_bool", mode = "upsert")
+      create_active_binding(
+        self,
+        "pred_data_t_bool",
+        as_pred_data_t,
+        type = "bool"
+      )(x)
     },
 
     #' @field trans_meta_t A `trans_meta_t` instance; see [create_trans_meta_t()] for the type of
@@ -567,12 +552,7 @@ evoland_db <- R6::R6Class(
     #' @field trans_preds_t A `trans_preds_t` instance; see [create_trans_preds_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     trans_preds_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("trans_preds_t")
-        return(as_trans_preds_t(x))
-      }
-      stopifnot(inherits(x, "trans_preds_t"))
-      self$commit(x, "trans_preds_t", mode = "upsert")
+      create_active_binding(self, "trans_preds_t", as_trans_preds_t)(x)
     },
 
     #' @field intrv_meta_t A `intrv_meta_t` instance; see [create_intrv_meta_t()] for the type of
@@ -655,12 +635,7 @@ evoland_db <- R6::R6Class(
     #' @field intrv_masks_t A `intrv_masks_t` instance; see [as_intrv_masks_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     intrv_masks_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("intrv_masks_t")
-        return(as_intrv_masks_t(x))
-      }
-      stopifnot(inherits(x, "intrv_masks_t"))
-      self$commit(x, "intrv_masks_t", mode = "upsert")
+      create_active_binding(self, "intrv_masks_t", as_intrv_masks_t)(x)
     },
 
     #' @field trans_models_t A `trans_models_t` instance; see [create_trans_models_t()] for the type
@@ -1129,6 +1104,25 @@ evoland_db <- R6::R6Class(
     }
   )
 )
+
+# Helper function to create simple active bindings with standard fetch/commit pattern
+# param self The R6 instance (self).
+# param table_name Character string. Name of the table.
+# param as_fn Function to convert fetched data to the appropriate type.
+# param ... Additional arguments passed to as_fn.
+# return A function suitable for use as an active binding.
+create_active_binding <- function(self, table_name, as_fn, ...) {
+  extra_args <- list(...)
+  function(x) {
+    if (missing(x)) {
+      x <- self$fetch(table_name)
+      return(do.call(as_fn, c(list(x), extra_args)))
+    }
+    stopifnot(inherits(x, table_name))
+    self$commit(x, table_name, mode = "upsert")
+  }
+}
+
 
 # Helper functions for converting between list and data.frame formats for DuckDB MAPs
 
