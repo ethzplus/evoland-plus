@@ -897,18 +897,8 @@ evoland_db <- R6::R6Class(
     # param format File format
     # param autoincrement_cols Character vector of column names to auto-increment
     commit_overwrite = function(x, table_name, format, autoincrement_cols = character(0)) {
-      file_info <- private$get_file_path(table_name)
-
-      for (col in autoincrement_cols) {
-        seq_start <- suppressWarnings(max(x[[col]], na.rm = TRUE)) + 1L
-        if (is.finite(seq_start)) {
-          new_seq <- seq.int(from = seq_start, length.out = sum(is.na(x[[col]])))
-          data.table::set(x, i = which(is.na(x[[col]])), j = col, value = new_seq)
-        } else {
-          new_seq <- seq.int(from = 1L, length.out = nrow(x))
-          data.table::set(x, j = col, value = new_seq)
-        }
-      }
+      # Assign auto-increment IDs
+      assign_autoincrement_ids(x, autoincrement_cols)
 
       # Simply write the file (overwriting if it exists)
       private$write_file(x, table_name, format)
@@ -923,130 +913,42 @@ evoland_db <- R6::R6Class(
     commit_append = function(x, table_name, format, autoincrement_cols = character(0)) {
       file_info <- private$get_file_path(table_name)
 
-      # Register new data
-      duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
-
-      on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
-
       if (file_info$exists) {
-        # Get column info from existing table
-        existing_cols_sql <- glue::glue(
-          "SELECT * FROM read_{file_info$format}('{file_info$path}') LIMIT 0"
-        )
-        existing_schema <- DBI::dbGetQuery(self$connection, existing_cols_sql)
-        existing_col_names <- names(existing_schema)
-
-        # Build SELECT clause with auto-increment handling
-        if (length(autoincrement_cols) > 0) {
-          # Get max values and create sequences
-          max_vals <- private$get_max_ids(file_info, autoincrement_cols)
-
-          seq_names <- paste0("seq_", autoincrement_cols)
-          create_seqs <- sprintf(
-            "CREATE SEQUENCE %s START %d;",
-            seq_names,
-            max_vals + 1L
-          )
-
-          # Build column list for SELECT in existing column order
-          # Handle both existing columns and autoincrement columns
-          select_cols <- sapply(existing_col_names, function(col) {
-            if (col %in% autoincrement_cols) {
-              idx <- which(autoincrement_cols == col)
-              # If column exists in new_data, use COALESCE, otherwise just nextval
-              if (hasName(x, col)) {
-                sprintf("COALESCE(new_data.%s, nextval('%s')) AS %s", col, seq_names[idx], col)
-              } else {
-                sprintf("nextval('%s') AS %s", seq_names[idx], col)
-              }
-            } else if (hasName(x, col)) {
-              sprintf("new_data.%s", col)
-            } else {
-              sprintf("NULL AS %s", col)
-            }
-          })
-
-          sql <- glue::glue(
-            r"{
-            CREATE TEMP TABLE old_data AS
-            SELECT * FROM read_{file_info$format}('{file_info$path}');
-
-            {paste(create_seqs, collapse = '\n            ')}
-
-            INSERT INTO old_data
-            SELECT {paste(select_cols, collapse = ', ')}
-            FROM new_data;
-
-            COPY old_data
-            TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd);
-
-            DROP TABLE old_data;
-            {paste(sprintf('DROP SEQUENCE %s;', seq_names), collapse = '\n            ')}
-            }"
-          )
+        # Get max IDs from existing table
+        existing_max_ids <- if (length(autoincrement_cols) > 0) {
+          private$get_max_ids(file_info, autoincrement_cols)
         } else {
-          # No auto-increment, standard append
-          sql <- glue::glue(
-            r"{
-            CREATE TEMP TABLE old_data AS
-            SELECT * FROM read_{file_info$format}('{file_info$path}');
-
-            INSERT INTO old_data
-            SELECT * FROM new_data;
-
-            COPY old_data
-            TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd);
-
-            DROP TABLE old_data;
-            }"
-          )
+          NULL
         }
+
+        # Assign auto-increment IDs to new data
+        assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
+
+        # Register new data and concatenate with existing data using DuckDB
+        duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
+        on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
+
+        sql <- glue::glue(
+          r"{
+          COPY (
+            SELECT
+              {paste(names(x), collapse = ",")}
+            FROM
+              read_{file_info$format}('{file_info$path}')
+            UNION ALL
+            SELECT
+              {paste(names(x), collapse = ",")}
+            FROM
+              new_data
+          )
+          TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd)
+          }"
+        )
 
         DBI::dbExecute(self$connection, sql)
       } else {
-        # No existing file
-        if (length(autoincrement_cols) > 0) {
-          # Create sequences starting from 1
-          seq_names <- paste0("seq_", autoincrement_cols)
-          create_seqs <- sprintf("CREATE SEQUENCE %s START 1;", seq_names)
-
-          # Build column list for SELECT - separate existing and autoincrement
-          existing_cols <- setdiff(names(x), autoincrement_cols)
-
-          # Columns from new_data
-          existing_select <- sprintf("new_data.%s", existing_cols)
-
-          # Auto-increment columns using COALESCE to preserve existing values
-          autoinc_select <- sapply(seq_along(autoincrement_cols), function(i) {
-            col <- autoincrement_cols[i]
-            if (hasName(x, col)) {
-              sprintf("COALESCE(new_data.%s, nextval('%s')) AS %s", col, seq_names[i], col)
-            } else {
-              sprintf("nextval('%s') AS %s", seq_names[i], col)
-            }
-          })
-
-          select_cols <- c(existing_select, autoinc_select)
-
-          sql <- glue::glue(
-            r"{
-            {paste(create_seqs, collapse = '\n            ')}
-
-            COPY (
-              SELECT {paste(select_cols, collapse = ', ')}
-              FROM new_data
-            )
-            TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd);
-
-            {paste(sprintf('DROP SEQUENCE %s;', seq_names), collapse = '\n            ')}
-            }"
-          )
-
-          DBI::dbExecute(self$connection, sql)
-        } else {
-          # No auto-increment, just write
-          private$write_file(x, table_name, format)
-        }
+        # No existing file - use overwrite logic
+        private$commit_overwrite(x, table_name, format, autoincrement_cols)
       }
     },
 
@@ -1073,121 +975,61 @@ evoland_db <- R6::R6Class(
         return(private$commit_append(x, table_name, format, autoincrement_cols))
       }
 
-      duckdb::duckdb_register(
-        conn = self$connection,
-        "new_data",
-        df = x
-      )
+      # Get max IDs from existing table
+      existing_max_ids <- if (length(autoincrement_cols) > 0) {
+        private$get_max_ids(file_info, autoincrement_cols)
+      } else {
+        NULL
+      }
 
-      on.exit(duckdb::duckdb_unregister(
-        self$connection,
-        "new_data"
-      ))
+      # Assign auto-increment IDs to new data
+      assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
 
-      # basic pattern:
+      # Register new data
+      duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
+
+      # Basic pattern:
       # load existing table into temporary table in memory,
       # full join of new data to existing data
       # coalesce (take first non-null value), thereby replacing old with new values
       non_key_cols <- setdiff(names(x), key_cols)
 
-      # Handle auto-increment columns in upsert
-      if (length(autoincrement_cols) > 0) {
-        # Get max values and create sequences
-        max_vals <- private$get_max_ids(file_info, autoincrement_cols)
-        seq_names <- paste0("seq_", autoincrement_cols)
-        create_seqs <- sprintf("CREATE SEQUENCE %s START %d;", seq_names, max_vals + 1L)
-
-        # Build COALESCE expressions with sequence-based auto-increment
-        autoincrement_exprs <- sapply(seq_along(autoincrement_cols), function(i) {
-          col <- autoincrement_cols[i]
-          seq_name <- seq_names[i]
+      # Build COALESCE expressions for all non-key columns
+      coalesce_exprs <-
+        c(
+          # Key columns from existing table
+          sprintf("%s", key_cols),
+          # Non-key columns with COALESCE to prefer new values
           sprintf(
-            "COALESCE(old_data.%s, new_data.%s, nextval('%s')) AS %s",
-            col,
-            col,
-            seq_name,
-            col
+            "COALESCE(new_data.%s, old_data.%s) AS %s",
+            non_key_cols,
+            non_key_cols,
+            non_key_cols
           )
-        })
-
-        # Separate auto-increment cols from other non-key cols
-        other_non_key_cols <- setdiff(non_key_cols, autoincrement_cols)
-
-        coalesce_exprs <- c(
-          # Key columns from either source (excluding autoincrement ones)
-          sprintf(
-            "COALESCE(old_data.%s, new_data.%s) AS %s",
-            setdiff(key_cols, autoincrement_cols),
-            setdiff(key_cols, autoincrement_cols),
-            setdiff(key_cols, autoincrement_cols)
-          ),
-          # Auto-increment columns with sequence handling
-          autoincrement_exprs,
-          # Other non-key columns with COALESCE to prefer new values
-          if (length(other_non_key_cols) > 0) {
-            sprintf(
-              "COALESCE(new_data.%s, old_data.%s) AS %s",
-              other_non_key_cols,
-              other_non_key_cols,
-              other_non_key_cols
-            )
-          }
         ) |>
-          paste(collapse = ",\n ")
+        paste(collapse = ",\n ")
 
-        sql <- glue::glue(
-          r"{CREATE TEMP TABLE old_data AS
-             SELECT * FROM read_{file_info$format}('{file_info$path}');
+      sql <- glue::glue(
+        r"{
+        CREATE TEMP TABLE old_data AS
+        SELECT * FROM read_{file_info$format}('{file_info$path}');
 
-             {paste(create_seqs, collapse = '\n             ')}
-
-             COPY (
-               SELECT
-                 {coalesce_exprs}
-               FROM
-                 old_data
-               FULL OUTER JOIN new_data
-               USING ({paste(key_cols, collapse = ", ")})
-             )
-             TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd);
-
-             DROP TABLE old_data;
-             {paste(sprintf('DROP SEQUENCE %s;', seq_names), collapse = '\n             ')}
-             }"
+        COPY (
+          SELECT
+            {coalesce_exprs}
+          FROM
+            old_data
+          FULL OUTER JOIN
+            new_data
+          USING
+            ({paste(key_cols, collapse = ", ")})
         )
-      } else {
-        # Build COALESCE expressions for all non-key columns (original logic)
-        coalesce_exprs <-
-          c(
-            # Key columns from existing table
-            sprintf("%s", key_cols),
-            # Non-key columns with COALESCE to prefer new values
-            sprintf(
-              "COALESCE(new_data.%s, old_data.%s) AS %s",
-              non_key_cols,
-              non_key_cols,
-              non_key_cols
-            )
-          ) |>
-          paste(collapse = ",\n ")
+        TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd);
 
-        sql <- glue::glue(
-          r"{CREATE TEMP TABLE old_data AS
-             SELECT * FROM read_{file_info$format}('{file_info$path}');
-
-             COPY (
-               SELECT
-                 {coalesce_exprs}
-               FROM
-                 old_data
-               FULL OUTER JOIN new_data
-               USING ({paste(key_cols, collapse = ", ")})
-             )
-             TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd);
-
-             DROP TABLE old_data;}"
-        )
-      }
+        DROP TABLE old_data;
+        }"
+      )
 
       DBI::dbExecute(self$connection, sql)
     },
@@ -1298,25 +1140,86 @@ evoland_db <- R6::R6Class(
     # param id_cols Character vector of ID column names
     # return Named integer vector of max values for each column
     get_max_ids = function(file_info, id_cols) {
-      # Build SQL to get max of each ID column
-      max_exprs <- sprintf("MAX(%s) as %s", id_cols, id_cols)
-      sql <- glue::glue(
-        "SELECT {paste(max_exprs, collapse = ', ')}
-         FROM read_{file_info$format}('{file_info$path}')"
-      )
+      # First check which columns exist in the file
 
-      result <- DBI::dbGetQuery(self$connection, sql)
+      existing_cols <-
+        glue::glue("SELECT * FROM read_{file_info$format}('{file_info$path}') LIMIT 0") |>
+        DBI::dbGetQuery(self$connection, statement = _) |>
+        names()
 
-      # Convert to named vector, handling NULLs (empty tables)
-      max_vals <- sapply(id_cols, function(col) {
-        val <- result[[col]]
-        if (is.na(val)) 0L else as.integer(val)
-      })
+      # Filter to only columns that exist
+      cols_to_query <- intersect(id_cols, existing_cols)
+
+      # Initialize result with 0L for all requested columns
+      max_vals <- stats::setNames(rep(0L, length(id_cols)), id_cols)
+
+      # Only query for columns that exist
+      if (length(cols_to_query) > 0) {
+        max_exprs <- sprintf("MAX(%s) as %s", cols_to_query, cols_to_query)
+        sql <- glue::glue(
+          "SELECT {paste(max_exprs, collapse = ', ')}
+           FROM read_{file_info$format}('{file_info$path}')"
+        )
+
+        result <- DBI::dbGetQuery(self$connection, sql)
+
+        # Update max_vals for columns that exist
+        for (col in cols_to_query) {
+          val <- result[[col]]
+          max_vals[[col]] <- if (is.na(val)) 0L else as.integer(val)
+        }
+      }
 
       return(max_vals)
     }
   )
 )
+
+# Utility function to assign auto-increment IDs to a data.table by reference
+#
+# param x data.table to update by reference
+# param autoincrement_cols Character vector of column names to auto-increment
+# param existing_max_ids Optional named integer vector of max IDs from existing table
+# return x invisibly (modified by reference)
+assign_autoincrement_ids <- function(x, autoincrement_cols, existing_max_ids = NULL) {
+  if (length(autoincrement_cols) == 0L) {
+    return(invisible(x))
+  }
+
+  stopifnot(inherits(x, "data.table")) # better safe than sorry
+
+  for (col in autoincrement_cols) {
+    # Determine starting point from existing table (i.e. read from file)
+    if (!is.null(existing_max_ids) && col %in% names(existing_max_ids)) {
+      existing_max <- existing_max_ids[[col]]
+    } else {
+      existing_max <- 0L
+    }
+
+    # Get max from current data (i.e. object x, if column exists and has non-NA values)
+    if (hasName(x, col)) {
+      data_max <- suppressWarnings(max(x[[col]], na.rm = TRUE))
+      if (!is.finite(data_max)) data_max <- 0L
+    } else {
+      data_max <- 0L
+      # Add column if it doesn't exist - use set() for by-reference modification
+      data.table::set(x, j = col, value = NA_integer_)
+    }
+
+    # Start from the higher of the two
+    start_id <- max(existing_max, data_max) + 1L
+
+    # Count how many NAs need to be filled
+    na_count <- sum(is.na(x[[col]]))
+
+    if (na_count > 0L) {
+      new_seq <- seq.int(from = start_id, length.out = na_count)
+      data.table::set(x, i = which(is.na(x[[col]])), j = col, value = new_seq)
+    }
+  }
+
+  invisible(x)
+}
 
 # Helper function to create simple active bindings with standard fetch/commit pattern
 # param self The R6 instance (self).
