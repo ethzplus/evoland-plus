@@ -1,37 +1,37 @@
 # Test that a new database can be set up using evoland_db$new()
 library(tinytest)
 
-expect_silent(db <- evoland_db$new(":memory:"))
+# Create temporary directory for testing
+test_dir <- tempfile("evoland_test_")
+on.exit(unlink(test_dir, recursive = TRUE), add = TRUE)
+
+expect_silent(db <- evoland_db$new(test_dir))
 expect_true(inherits(db, "evoland_db"))
 
-# TODO this should be a harness iterating over different valid and some invalid examples
-expected_tables <- c(
+# In folder-based storage, only reporting_t exists initially
+# Other tables are created on demand
+expected_tables_initial <- c("reporting_t")
+expect_identical(db$list_tables(), expected_tables_initial)
+
+# Check that accessing non-existent tables returns empty data.tables
+# (these tables don't appear in list_tables() until they have data)
+empty_tables <- c(
   "alloc_params_t",
   "coords_t",
   "intrv_masks_t",
   "intrv_meta_t",
   "lulc_data_t",
-  "lulc_meta_long_v",
   "lulc_meta_t",
   "periods_t",
   "pred_data_t_bool",
   "pred_data_t_float",
   "pred_data_t_int",
   "pred_meta_t",
-  "pred_sources_v",
-  "reporting_t",
   "trans_meta_t",
   "trans_models_t",
   "trans_preds_t"
 )
-expect_identical(db$list_tables(), expected_tables)
-
-# check active bindings on empty tables
-for (table in expected_tables) {
-  # exception for tables that are already populated at DB inception
-  if (table %in% c("reporting_t")) {
-    next
-  }
+for (table in empty_tables) {
   expect_equal(nrow(db[[table]]), 0L)
 }
 
@@ -74,7 +74,7 @@ lulc_meta_t <- create_lulc_meta_t(list(
 ))
 
 # Predictor metadata
-pred_meta_t <- create_pred_meta_t(list(
+pred_spec <- list(
   noise = list(
     unit = "dBa",
     pretty_name = "Maximum noise exposure",
@@ -94,14 +94,15 @@ pred_meta_t <- create_pred_meta_t(list(
   distance_to_lake = list(
     unit = "m",
     pretty_name = "Distance to closest lake",
-    format = "vector",
+    orig_format = "vector",
     description = "Derived from swissTLM3D",
     sources = list(list(
       url = "https://example.com/swisstlm3d_2025-03_2056_5728.gpkg.zip",
       md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
     ))
   )
-))
+)
+pred_meta_t <- create_pred_meta_t(pred_spec)
 
 pred_data_t <- as_pred_data_t(
   data.table::data.table(
@@ -208,7 +209,9 @@ intrv_masks_t <- as_intrv_masks_t(
   )
 )
 
-# Test DB roundtrips & integrity checks
+# Test DB roundtrips & integrity checks, repeated assignments (~upserts)
+# TODO make this into a testing harness that iterates over a list of sample data
+expect_silent(db$coords_t <- coords_t)
 expect_silent(db$coords_t <- coords_t)
 expect_identical(db$coords_t, coords_t)
 
@@ -218,21 +221,15 @@ expect_identical(db$lulc_meta_t, lulc_meta_t)
 expect_silent(db$periods_t <- periods_t)
 expect_identical(db$periods_t, periods_t)
 
+expect_silent(db$pred_meta_t <- pred_meta_t[1, ])
 expect_silent(db$pred_meta_t <- pred_meta_t)
-pred_meta_t$id_pred <- 1:2
-data.table::setkeyv(pred_meta_t, "id_pred")
-data.table::setcolorder(pred_meta_t, "id_pred", "name")
-expect_identical(db$pred_meta_t, pred_meta_t)
+# After committing, id_pred should be assigned (1:2 in this case)
+retrieved_pred_meta <- db$pred_meta_t
+expect_equal(retrieved_pred_meta[["id_pred"]], 1:2)
+expect_equal(retrieved_pred_meta[["name"]], c("noise", "distance_to_lake"))
 
 expect_silent(db$intrv_meta_t <- intrv_meta_t)
 expect_equal(db$intrv_meta_t, intrv_meta_t)
-
-# check one of the foreign key constraint
-# dropped for now for performance reasons
-# expect_error(
-#   db$alloc_params_t <- alloc_params_t,
-#   '"id_trans: 1" does not exist'
-# )
 
 expect_silent(db$trans_meta_t <- trans_meta_t)
 expect_equal(db$trans_meta_t, trans_meta_t)
@@ -245,6 +242,23 @@ expect_silent(db$alloc_params_t <- alloc_params_t)
 expect_equal(db$alloc_params_t, alloc_params_t)
 
 # repeated upsert should be idempotent
+expect_silent(
+  db$add_predictor(
+    pred_spec = pred_spec["noise"],
+    pred_data = pred_data_t[id_pred == 1],
+    pred_type = "float"
+  )
+)
+expect_equal(db$row_count("pred_data_t_float"), 24L)
+
+expect_silent(
+  db$add_predictor(
+    pred_spec = pred_spec["distance_to_lake"],
+    pred_data = pred_data_t[id_pred == 2],
+    pred_type = "float"
+  )
+)
+expect_equal(db$row_count("pred_data_t_float"), 48L)
 expect_silent(db$pred_data_t_float <- pred_data_t)
 expect_equal(db$row_count("pred_data_t_float"), 48L)
 expect_silent(db$pred_data_t_float <- pred_data_t)
@@ -271,13 +285,3 @@ expect_error(
 expect_silent(
   db$lulc_data_t <- as_lulc_data_t(lulc_data_dt)
 )
-
-# TODO once duckdb has fixed the "FK does not exist" bug, we can enable this test
-# https://github.com/duckdb/duckdb/issues/16785
-# Test copy DB and clean up
-# test_db_path <- tempfile(fileext = ".duckdb")
-# db$copy_db(test_db_path)
-# expect_true(file.exists(test_db_path))
-# rm(db)
-# gc() # need to call gc for finalizer
-# file.remove(test_db_path)
