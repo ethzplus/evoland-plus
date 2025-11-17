@@ -68,7 +68,7 @@ create_pred_meta_t(list(
    distance_to_lake = list(
      unit = "m",
      pretty_name = "Distance to closest lake",
-     format = "vector",
+     orig_format = "vector",
      description = "Derived from swissTLM3D",
      sources = list(list(
        url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",

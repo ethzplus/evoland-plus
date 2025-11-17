@@ -21,7 +21,7 @@ pred_spec <- list(
   distance_to_lake = list(
     unit = "m",
     pretty_name = "Distance to closest lake",
-    format = "vector",
+    orig_format = "vector",
     description = "Derived from swissTLM3D",
     sources = list(list(
       url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
@@ -48,3 +48,9 @@ expect_true(all(
     names(pred_meta_t)
 ))
 expect_stdout(print(pred_meta_t), "Number of predictors")
+
+expect_equal(
+  # should also work with unpopulated data fields
+  create_pred_meta_t(list(test_pred = list()))[["pretty_name"]],
+  "test_pred"
+)
