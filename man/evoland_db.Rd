@@ -2,20 +2,21 @@
 % Please edit documentation in R/evoland_db.R
 \name{evoland_db}
 \alias{evoland_db}
-\title{R6 Class for DuckDB Database Interface}
+\title{R6 Class for Folder-Based Data Storage Interface}
 \description{
-An R6 class that provides an interface to a DuckDB database for the evoland
-package. This class handles database initialization, data commits, and data
-fetching operations.
+An R6 class that provides an interface to a folder-based data storage system
+for the evoland package. Each table is stored as a parquet (or CSV) file.
+This class uses DuckDB for in-memory SQL operations while persisting data
+to disk in parquet format for better compression.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{connection}}{DBI connection object to the DuckDB database}
+\item{\code{connection}}{DBI connection object to an in-memory DuckDB database}
 
-\item{\code{path}}{Character string path to the database file}
+\item{\code{path}}{Character string path to the data folder}
 
-\item{\code{write_mode}}{Logical indicating if database is opened in write mode}
+\item{\code{default_format}}{Default file format for new tables}
 }
 \if{html}{\out{</div>}}
 }
@@ -88,7 +89,6 @@ of object to assign. Assigning is an upsert operation.}
 \item \href{#method-evoland_db-execute}{\code{evoland_db$execute()}}
 \item \href{#method-evoland_db-row_count}{\code{evoland_db$row_count()}}
 \item \href{#method-evoland_db-delete_from}{\code{evoland_db$delete_from()}}
-\item \href{#method-evoland_db-copy_db}{\code{evoland_db$copy_db()}}
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
 \item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
 \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
@@ -103,7 +103,7 @@ Initialize a new evoland_db object
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(
   path,
-  write = TRUE,
+  default_format = c("parquet", "csv"),
   report_name = "evoland_scenario",
   report_name_pretty = "Default Evoland Scenario",
   report_include_date = TRUE,
@@ -114,10 +114,10 @@ Initialize a new evoland_db object
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{path}}{Character string. Path to the DuckDB database file. May also be ":memory:".}
+\item{\code{path}}{Character string. Path to the data folder.}
 
-\item{\code{write}}{Logical. Whether to open the database in write mode. Default is TRUE.
-If FALSE, the database file must already exist.}
+\item{\code{default_format}}{Character. Default file format ("parquet" or "csv").
+Default is "parquet".}
 
 \item{\code{report_name}}{Character string. Name of the report scenario.}
 
@@ -138,9 +138,9 @@ A new \code{evoland_db} object
 \if{html}{\out{<a id="method-evoland_db-commit"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-commit}{}}}
 \subsection{Method \code{commit()}}{
-Commit data to the database
+Commit data to storage
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit(x, table_name, mode = "upsert")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit(x, table_name, mode = "upsert", format = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -151,6 +151,9 @@ Commit data to the database
 \item{\code{table_name}}{Table to target}
 
 \item{\code{mode}}{Character string. One of "upsert" (default), "append", or "overwrite".}
+
+\item{\code{format}}{Character string. File format: "parquet" or "csv". Defaults to
+object's default_format.}
 }
 \if{html}{\out{</div>}}
 }
@@ -162,7 +165,7 @@ NULL (called for side effects)
 \if{html}{\out{<a id="method-evoland_db-fetch"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-fetch}{}}}
 \subsection{Method \code{fetch()}}{
-Fetch data from the database
+Fetch data from storage
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$fetch(table_name, where = NULL, limit = NULL)}\if{html}{\out{</div>}}
 }
@@ -170,7 +173,7 @@ Fetch data from the database
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{table_name}}{Character string. Name of the database table or view to query.}
+\item{\code{table_name}}{Character string. Name of the table to query.}
 
 \item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
 
@@ -179,14 +182,14 @@ Fetch data from the database
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-A table of the original class
+A data.table
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-list_tables"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-list_tables}{}}}
 \subsection{Method \code{list_tables()}}{
-List all tables in the database
+List all tables (files) in storage
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$list_tables()}\if{html}{\out{</div>}}
 }
@@ -227,19 +230,19 @@ Get table row count
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{table_name}}{Character string. Name of the database table or view to query.}
+\item{\code{table_name}}{Character string. Name of the table to query.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-No. of rows affected by statement
+No. of rows
 }
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-delete_from"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-delete_from}{}}}
 \subsection{Method \code{delete_from()}}{
-Empty a table
+Delete rows from a table
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$delete_from(table_name, where = NULL)}\if{html}{\out{</div>}}
 }
@@ -247,35 +250,14 @@ Empty a table
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{table_name}}{Character string. Name of the database table or view to delete.}
+\item{\code{table_name}}{Character string. Name of the table to delete from.}
 
 \item{\code{where}}{Character string, defaults to NULL: delete everything in table.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-No. of rows affected by statement
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-copy_db"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-copy_db}{}}}
-\subsection{Method \code{copy_db()}}{
-Copy full DB to a different one.
-Note, this may fail due to \url{https://github.com/duckdb/duckdb/issues/16785}
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$copy_db(target_path, source_db)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{target_path}}{Character string. Name of the database file to copy to}
-
-\item{\code{source_db}}{Character string. Name of the database to copy from. Defaults to
-this object's DB path}
-}
-\if{html}{\out{</div>}}
+No. of rows affected
 }
 }
 \if{html}{\out{<hr>}}
@@ -314,8 +296,8 @@ Set periods for DB. See \code{\link{periods_t}}
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{period_length_str}}{ISO 8601 duration string specifying the length of each period (currently
-only accepting years, e.g., "P5Y" for 5 years)}
+\item{\code{period_length_str}}{ISO 8601 duration string specifying the length of each
+period (currently only accepting years, e.g., "P5Y" for 5 years)}
 
 \item{\code{start_observed}}{Start date of the observed data (YYYY-MM-DD)}
 
