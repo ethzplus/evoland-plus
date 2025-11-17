@@ -15,10 +15,11 @@
     </button>
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
-      <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+      <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/evoland.html">Get started</a></li>
+<li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/ingest-arealstatistik.html">Ingest Swiss Arealstatistik LULC Data</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/ingest-predictors.html">Ingest GeoTIFFs as Predictors</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -39,8 +40,7 @@
 
 
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -51,90 +51,111 @@
 
         </dt>
         <dd>Create Allocation Parameters Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="coords_t.html">as_coords_t()</a></code> <code><a href="coords_t.html">print(<i>&lt;coords_t&gt;</i>)</a></code> <code><a href="coords_t.html">create_coords_t_square()</a></code>
 
         </dt>
         <dd>Coordinate Tables</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="evoland_db.html">evoland_db</a></code>
 
         </dt>
-        <dd>R6 Class for DuckDB Database Interface</dd>
-      </dl><dl><dt>
+        <dd>R6 Class for Folder-Based Data Storage Interface</dd>
+
+        <dt>
 
           <code><a href="intrv_masks_t.html">as_intrv_masks_t()</a></code> <code><a href="intrv_masks_t.html">print(<i>&lt;intrv_masks_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Intervention Masks Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="intrv_meta_t.html">as_intrv_meta_t()</a></code> <code><a href="intrv_meta_t.html">create_intrv_meta_t()</a></code> <code><a href="intrv_meta_t.html">create_intrv_meta_t_row()</a></code> <code><a href="intrv_meta_t.html">print(<i>&lt;intrv_meta_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Intervention Metadata Table / Entries</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="lulc_data_t.html">as_lulc_data_t()</a></code> <code><a href="lulc_data_t.html">print(<i>&lt;lulc_data_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create LULC Data Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="lulc_meta_t.html">as_lulc_meta_t()</a></code> <code><a href="lulc_meta_t.html">create_lulc_meta_t()</a></code> <code><a href="lulc_meta_t.html">print(<i>&lt;lulc_meta_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create LULC Metadata Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="periods_t.html">as_periods_t()</a></code> <code><a href="periods_t.html">create_periods_t()</a></code> <code><a href="periods_t.html">print(<i>&lt;periods_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Period Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="pred_data_t.html">as_pred_data_t()</a></code> <code><a href="pred_data_t.html">print(<i>&lt;pred_data_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Predictor Data Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="pred_meta_t.html">as_pred_meta_t()</a></code> <code><a href="pred_meta_t.html">create_pred_meta_t()</a></code> <code><a href="pred_meta_t.html">print(<i>&lt;pred_meta_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Predictor Metadata Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="trans_meta_t.html">as_trans_meta_t()</a></code> <code><a href="trans_meta_t.html">print(<i>&lt;trans_meta_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Transition Metadata Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="trans_models_t.html">as_trans_models_t()</a></code> <code><a href="trans_models_t.html">print(<i>&lt;trans_models_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Transition Models Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="trans_preds_t.html">as_trans_preds_t()</a></code> <code><a href="trans_preds_t.html">print(<i>&lt;trans_preds_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Transition-Predictor Relationship Table</dd>
-      </dl><dl><dt>
 
-          <code><a href="util.html">validate()</a></code> <code><a href="util.html">new_evoland_table()</a></code> <code><a href="util.html">check_missing_names()</a></code> <code><a href="util.html">`%||%`</a></code> <code><a href="util.html">pluck_wildcard()</a></code> <code><a href="util.html">ensure_dir()</a></code>
+        <dt>
+
+          <code><a href="util.html">validate()</a></code> <code><a href="util.html">new_evoland_table()</a></code> <code><a href="util.html">check_missing_names()</a></code> <code><a href="util.html">`%||%`</a></code> <code><a href="util.html">pluck_wildcard()</a></code> <code><a href="util.html">ensure_dir()</a></code> <code><a href="util.html">print_rowwise_yaml()</a></code> <code><a href="util.html">cast_dt_col()</a></code>
 
         </dt>
         <dd>evoland utility functions</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="util_download.html">download_and_verify()</a></code>
 
         </dt>
         <dd>Utilities to download and manage files</dd>
+
+        <dt>
+
+          <code><a href="util_terra.html">extract_using_coords_t()</a></code>
+
+        </dt>
+        <dd>evoland utility functions to work with terra objects</dd>
       </dl></div>
   </main></div>
 
@@ -144,7 +165,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>

@@ -17,10 +17,11 @@ metadata."></head><body>
     </button>
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
-      <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+      <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/evoland.html">Get started</a></li>
+<li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/ingest-arealstatistik.html">Ingest Swiss Arealstatistik LULC Data</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/ingest-predictors.html">Ingest GeoTIFFs as Predictors</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -113,7 +114,7 @@ metadata.</p>
 <span class="r-in"><span>   distance_to_lake <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>     unit <span class="op">=</span> <span class="st">"m"</span>,</span></span>
 <span class="r-in"><span>     pretty_name <span class="op">=</span> <span class="st">"Distance to closest lake"</span>,</span></span>
-<span class="r-in"><span>     format <span class="op">=</span> <span class="st">"vector"</span>,</span></span>
+<span class="r-in"><span>     orig_format <span class="op">=</span> <span class="st">"vector"</span>,</span></span>
 <span class="r-in"><span>     description <span class="op">=</span> <span class="st">"Derived from swissTLM3D"</span>,</span></span>
 <span class="r-in"><span>     sources <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>       url <span class="op">=</span> <span class="st">"https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip"</span>,</span></span>
@@ -123,11 +124,10 @@ metadata.</p>
 <span class="r-in"><span> <span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Predictor Metadata Table</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Number of predictors: 2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Key: &lt;id_pred&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    id_pred             name              pretty_name</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>      &lt;int&gt;           &lt;char&gt;                   &lt;char&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1:       1            noise   Maximum noise exposure</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:       2 distance_to_lake Distance to closest lake</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>                name              pretty_name</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>              &lt;char&gt;                   &lt;char&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1:            noise   Maximum noise exposure</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2: distance_to_lake Distance to closest lake</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 5 variables not shown: [description &lt;char&gt;, orig_format &lt;char&gt;, sources &lt;list&gt;, unit &lt;char&gt;, factor_levels &lt;list&gt;]</span>
 </code></pre></div>
     </div>
@@ -140,7 +140,7 @@ metadata.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>
