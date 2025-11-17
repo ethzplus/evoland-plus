@@ -111,6 +111,7 @@ expect_equal(
 rast_with_na <- rast_template
 values_with_na <- seq_len(terra::ncell(rast_with_na))
 # introduce NA for 30% of cells
+set.seed(124555)
 values_with_na[sample(seq_along(values_with_na), 210^2 * 0.3)] <- NA_integer_
 terra::values(rast_with_na) <- values_with_na
 names(rast_with_na) <- "with_na"
@@ -118,7 +119,8 @@ names(rast_with_na) <- "with_na"
 # Test with na_omit = TRUE (default)
 result_na_omit_true <- extract_using_coords_t(rast_with_na, coords_t, na_omit = TRUE)
 expect_true(all(!is.na(result_na_omit_true$value)))
-expect_true(nrow(result_na_omit_true) < 80L) #
+# can test for equality given that we set the seed
+expect_equal(nrow(result_na_omit_true), 67)
 
 # Test with na_omit = FALSE
 result_na_omit_false <- extract_using_coords_t(rast_with_na, coords_t, na_omit = FALSE)
