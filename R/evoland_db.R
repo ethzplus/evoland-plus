@@ -1,9 +1,10 @@
-#' R6 Class for DuckDB Database Interface
+#' R6 Class for Folder-Based Data Storage Interface
 #'
 #' @description
-#' An R6 class that provides an interface to a DuckDB database for the evoland
-#' package. This class handles database initialization, data commits, and data
-#' fetching operations.
+#' An R6 class that provides an interface to a folder-based data storage system
+#' for the evoland package. Each table is stored as a parquet (or CSV) file.
+#' This class uses DuckDB for in-memory SQL operations while persisting data
+#' to disk in parquet format for better compression.
 #'
 #' @import R6 duckdb
 #' @export
@@ -13,20 +14,20 @@ evoland_db <- R6::R6Class(
 
   ## Public Methods ----
   public = list(
-    #' @field connection DBI connection object to the DuckDB database
+    #' @field connection DBI connection object to an in-memory DuckDB database
     connection = NULL,
 
-    #' @field path Character string path to the database file
+    #' @field path Character string path to the data folder
     path = NULL,
 
-    #' @field write_mode Logical indicating if database is opened in write mode
-    write_mode = NULL,
+    #' @field default_format Default file format for new tables
+    default_format = NULL,
 
     #' @description
     #' Initialize a new evoland_db object
-    #' @param path Character string. Path to the DuckDB database file. May also be ":memory:".
-    #' @param write Logical. Whether to open the database in write mode. Default is TRUE.
-    #'   If FALSE, the database file must already exist.
+    #' @param path Character string. Path to the data folder.
+    #' @param default_format Character. Default file format ("parquet" or "csv").
+    #' Default is "parquet".
     #' @param report_name Character string. Name of the report scenario.
     #' @param report_name_pretty Character string. Pretty name of the report scenario.
     #' @param report_include_date Logical. Whether to include the date in the report scenario.
@@ -36,43 +37,34 @@ evoland_db <- R6::R6Class(
     #' @return A new `evoland_db` object
     initialize = function(
       path,
-      write = TRUE,
+      default_format = c("parquet", "csv"),
       report_name = "evoland_scenario",
       report_name_pretty = "Default Evoland Scenario",
       report_include_date = TRUE,
       report_username = Sys.getenv("USER", unset = "unknown")
     ) {
       self$path <- path
-      self$write_mode <- write
+      self$default_format <- match.arg(default_format)
 
-      # Check if file exists
-      file_exists <- file.exists(path)
+      # Create folder if it doesn't exist
+      ensure_dir(path)
 
-      # Validate write mode requirements
-      if (!write && !file_exists) {
-        stop(glue::glue("Database file '{path}' does not exist and write=FALSE"))
-      }
-
-      # Create connection
+      # Create in-memory connection for SQL operations
       self$connection <- DBI::dbConnect(
         duckdb::duckdb(),
-        dbdir = path,
-        read_only = !write
+        dbdir = ":memory:",
+        read_only = FALSE
       )
 
-      # If file doesn't exist and we're in write mode, create schema
-      if (!file_exists && write) {
-        private$create_schema()
-      } else {
-        self$execute("install spatial; load spatial;")
-      }
+      # Load spatial extension
+      self$execute("INSTALL spatial; LOAD spatial;")
 
       # Upsert report metadata
       reporting_t <- data.table::rowwiseDT(
         key=, value=, # nolint
         "report_name", report_name,
         "report_name_pretty", report_name_pretty,
-        "report_include_date", report_include_date,
+        "report_include_date", as.character(report_include_date),
         "report_username", report_username,
         "last_opened", format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
       )
@@ -83,17 +75,23 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Commit data to the database
+    #' Commit data to storage
     #' @param x Data object to commit.
     #' @param table_name Table to target
     #' @param mode Character string. One of "upsert" (default), "append", or "overwrite".
+    #' @param format Character string. File format: "parquet" or "csv". Defaults to
+    #' object's default_format.
+    #' @param autoincrement_cols Character vector of column names that should auto-increment.
+    #' For new rows, these columns will be assigned sequential IDs starting from max(existing) + 1.
     #'
     #' @return NULL (called for side effects)
-    commit = function(x, table_name, mode = "upsert") {
-      if (!self$write_mode) {
-        stop("Database opened in read-only mode. Cannot commit data.")
-      }
-
+    commit = function(
+      x,
+      table_name,
+      mode = "upsert",
+      format = NULL,
+      autoincrement_cols = character(0)
+    ) {
       # Validate mode
       valid_modes <- c("append", "upsert", "overwrite")
       if (!mode %in% valid_modes) {
@@ -102,27 +100,56 @@ evoland_db <- R6::R6Class(
         ))
       }
 
+      # Use default format if not specified
+      if (is.null(format)) {
+        format <- self$default_format
+      }
+
       # Handle different commit modes
       switch(
         mode,
-        overwrite = private$commit_overwrite(x, table_name),
-        upsert = private$commit_upsert(x, table_name),
-        append = private$commit_append(x, table_name)
+        overwrite = private$commit_overwrite(x, table_name, format, autoincrement_cols),
+        upsert = private$commit_upsert(
+          x,
+          table_name,
+          format,
+          autoincrement_cols = autoincrement_cols
+        ),
+        append = private$commit_append(x, table_name, format, autoincrement_cols)
       )
 
       invisible(NULL)
     },
 
     #' @description
-    #' Fetch data from the database
-    #' @param table_name Character string. Name of the database table or view to query.
+    #' Fetch data from storage
+    #' @param table_name Character string. Name of the table to query.
     #' @param where Character string. Optional WHERE clause for the SQL query.
     #' @param limit integerish, limit the amount of rows to return
     #'
-    #' @return A table of the original class
+    #' @return A data.table
     fetch = function(table_name, where = NULL, limit = NULL) {
+      # Check if this is a view that needs special handling
+      view_result <- switch(
+        table_name,
+        lulc_meta_long_v = private$fetch_lulc_meta_long_v(where, limit),
+        pred_sources_v = private$fetch_pred_sources_v(where, limit),
+        NULL
+      )
+
+      if (!is.null(view_result)) {
+        return(view_result)
+      }
+      # Get file path and check if it exists
+      file_info <- private$get_file_path(table_name)
+
+      if (!file_info$exists) {
+        # Return empty data.table with proper structure
+        return(private$get_empty_table(table_name))
+      }
+
       # Build SQL query
-      sql <- glue::glue("FROM {table_name}")
+      sql <- glue::glue("SELECT * FROM read_{file_info$format}('{file_info$path}')")
 
       if (!is.null(where)) {
         sql <- glue::glue("{sql} WHERE {where}")
@@ -136,10 +163,24 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' List all tables in the database
+    #' List all tables (files) in storage
     #' @return Character vector of table names
     list_tables = function() {
-      DBI::dbListTables(self$connection)
+      # List parquet and csv files in directory
+      files <- list.files(self$path, pattern = "\\.(parquet|csv)$", full.names = FALSE)
+
+      # Extract table names (remove extensions)
+      table_names <- tools::file_path_sans_ext(files)
+
+      # Add views
+      if ("lulc_meta_t" %in% table_names) {
+        table_names <- c(table_names, "lulc_meta_long_v")
+      }
+      if ("pred_meta_t" %in% table_names) {
+        table_names <- c(table_names, "pred_sources_v")
+      }
+
+      sort(unique(table_names))
     },
 
     #' @description
@@ -152,53 +193,64 @@ evoland_db <- R6::R6Class(
 
     #' @description
     #' Get table row count
-    #' @param table_name Character string. Name of the database table or view to query.
-    #' @return No. of rows affected by statement
+    #' @param table_name Character string. Name of the table to query.
+    #' @return No. of rows
     row_count = function(table_name) {
-      qry <- glue::glue("select count() from {table_name};")
+      # Check if this is a view
+      if (table_name == "lulc_meta_long_v") {
+        return(nrow(private$fetch_lulc_meta_long_v()))
+      }
+      if (table_name == "pred_sources_v") {
+        return(nrow(private$fetch_pred_sources_v()))
+      }
+
+      file_info <- private$get_file_path(table_name)
+
+      if (!file_info$exists) {
+        return(0L)
+      }
+
+      qry <- glue::glue("SELECT COUNT(*) as n FROM read_{file_info$format}('{file_info$path}')")
       DBI::dbGetQuery(self$connection, qry)[[1]]
     },
 
     #' @description
-    #' Empty a table
-    #' @param table_name Character string. Name of the database table or view to delete.
+    #' Delete rows from a table
+    #' @param table_name Character string. Name of the table to delete from.
     #' @param where Character string, defaults to NULL: delete everything in table.
-    #' @return No. of rows affected by statement
+    #' @return No. of rows affected
     delete_from = function(table_name, where = NULL) {
-      qry <- glue::glue("delete from {table_name}")
-      if (!is.null(where)) {
-        qry <- glue::glue("{qry} where {where}")
-      }
-      DBI::dbExecute(self$connection, qry)
-    },
+      file_info <- private$get_file_path(table_name)
 
-    #' @description
-    #' Copy full DB to a different one.
-    #' Note, this may fail due to <https://github.com/duckdb/duckdb/issues/16785>
-    #' @param target_path Character string. Name of the database file to copy to
-    #' @param source_db Character string. Name of the database to copy from. Defaults to
-    #' this object's DB path
-    copy_db = function(target_path, source_db) {
-      if (missing(source_db)) {
-        # find source_db from attached databases
-        dbs <- DBI::dbGetQuery(self$connection, "pragma database_list;")
-        dbs$file <- ifelse(is.na(dbs$file), ":memory:", dbs$file)
-        source_db <- dbs$name[dbs$file == self$path]
+      if (!file_info$exists) {
+        return(0L)
       }
 
-      target_db <- tools::file_path_sans_ext(basename(target_path))
-      DBI::dbExecute(
-        self$connection,
-        glue::glue("attach '{target_path}';")
+      if (is.null(where)) {
+        # Count rows before deletion
+        count <- self$row_count(table_name)
+        file.remove(file_info$path)
+        return(count)
+      }
+
+      # Get count before deletion
+      count_before <- self$row_count(table_name)
+
+      # Use SQL to filter and rewrite - no need to load into memory
+      sql <- glue::glue(
+        "COPY (
+          SELECT * FROM read_{file_info$format}('{file_info$path}')
+          WHERE NOT ({where})
+        )
+        TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd)"
       )
-      on.exit(DBI::dbExecute(
-        self$connection,
-        glue::glue("detach {target_db};")
-      ))
-      DBI::dbExecute(
-        self$connection,
-        glue::glue("copy from database {source_db} to {target_db};")
-      )
+
+      DBI::dbExecute(self$connection, sql)
+
+      # Get count after deletion
+      count_after <- self$row_count(table_name)
+
+      return(count_before - count_after)
     },
 
     #' @description
@@ -221,8 +273,8 @@ evoland_db <- R6::R6Class(
 
     #' @description
     #' Set periods for DB. See [`periods_t`]
-    #' @param period_length_str ISO 8601 duration string specifying the length of each period (currently
-    #' only accepting years, e.g., "P5Y" for 5 years)
+    #' @param period_length_str ISO 8601 duration string specifying the length of each
+    #' period (currently only accepting years, e.g., "P5Y" for 5 years)
     #' @param start_observed Start date of the observed data (YYYY-MM-DD)
     #' @param end_observed End date of the observed data (YYYY-MM-DD)
     #' @param end_extrapolated End date for extrapolation time range (YYYY-MM-DD)
@@ -252,28 +304,22 @@ evoland_db <- R6::R6Class(
     #' @param pred_type Passed to [as_pred_data_t()]; one of float, int, bool
     add_predictor = function(pred_spec, pred_data, pred_type) {
       stopifnot(length(pred_spec) == 1)
-      tryCatch(
-        self$pred_meta_t <- create_pred_meta_t(pred_spec),
-        error = function(e) {
-          warning(
-            glue::glue("Spec `{names(pred_spec)}` already in DB. Not altering metadata"),
-            call. = FALSE
-          )
-        }
+
+      self$pred_meta_t <- create_pred_meta_t(pred_spec)
+
+      existing_meta <- self$fetch(
+        "pred_meta_t",
+        where = glue::glue("name = '{names(pred_spec)}'")
       )
 
-      id_pred <-
-        DBI::dbGetQuery(
-          self$connection,
-          glue::glue("select id_pred from pred_meta_t where name = '{names(pred_spec)}'")
-        ) |>
-        purrr::pluck("id_pred") |>
-        as.integer()
-      data.table::set(pred_data, j = "id_pred", value = id_pred)
+      data.table::set(pred_data, j = "id_pred", value = existing_meta[["id_pred"]])
       data.table::setcolorder(pred_data, c("id_pred", "id_coord", "id_period", "value"))
-      pred_data_t <- as_pred_data_t(pred_data, pred_type)
 
-      self$commit(pred_data_t, paste0("pred_data_t_", pred_type), mode = "upsert")
+      self$commit(
+        as_pred_data_t(pred_data, pred_type),
+        paste0("pred_data_t_", pred_type),
+        mode = "upsert"
+      )
     }
   ),
 
@@ -285,7 +331,7 @@ evoland_db <- R6::R6Class(
       if (missing(x)) {
         x <- self$fetch("coords_t")
         if (rlang::has_name(x, "region")) {
-          data.table::set(x, j = "region", value = as.factor(x[["region"]]))
+          cast_dt_col(x, "region", as.factor)
         }
         return(as_coords_t(x))
       }
@@ -295,67 +341,72 @@ evoland_db <- R6::R6Class(
 
     #' @field extent Return a terra SpatExtent based on coords_t
     extent = function() {
-      DBI::dbGetQuery(
-        self$connection,
+      file_info <- private$get_file_path("coords_t")
+
+      if (!file_info$exists) {
+        stop("No coords_t found")
+      }
+
+      sql <- glue::glue(
         r"{
-        select 
+        SELECT
           min(lon) as xmin,
           max(lon) as xmax,
           min(lat) as ymin,
           max(lat) as ymax
-        from
-          coords_t;
+        FROM
+          read_{file_info$format}('{file_info$path}')
         }"
-      ) |>
+      )
+
+      DBI::dbGetQuery(self$connection, sql) |>
         unlist() |>
         terra::ext()
     },
 
     #' @field coords_minimal data.table with only (id_coord, lon, lat)
     coords_minimal = function() {
-      x <-
-        DBI::dbGetQuery(self$connection, r"{select id_coord, lon, lat from coords_t;}") |>
-        data.table::as.data.table()
-      data.table::set(x, j = "id_coord", value = as.integer(x[["id_coord"]]))
+      file_info <- private$get_file_path("coords_t")
+
+      if (!file_info$exists) {
+        return(data.table::data.table(
+          id_coord = integer(0),
+          lon = numeric(0),
+          lat = numeric(0)
+        ))
+      }
+
+      sql <- glue::glue(
+        "SELECT id_coord, lon, lat FROM read_{file_info$format}('{file_info$path}')"
+      )
+
+      DBI::dbGetQuery(self$connection, sql) |>
+        data.table::as.data.table() |>
+        cast_dt_col("id_coord", as.integer)
     },
 
     #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     periods_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("periods_t")
-        return(as_periods_t(x))
-      }
-      stopifnot(inherits(x, "periods_t"))
-      self$commit(x, "periods_t", mode = "upsert")
+      create_active_binding(self, "periods_t", as_periods_t)(x)
     },
 
     #' @field lulc_meta_t A `lulc_meta_t` instance; see [create_lulc_meta_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     lulc_meta_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("lulc_meta_t")
-        return(as_lulc_meta_t(x))
-      }
-      stopifnot(inherits(x, "lulc_meta_t"))
-      self$commit(x, "lulc_meta_t", mode = "upsert")
+      create_active_binding(self, "lulc_meta_t", as_lulc_meta_t)(x)
     },
 
     #' @field lulc_meta_long_v Return a `lulc_meta_long_v` instance, i.e. unrolled `lulc_meta_t`.
     lulc_meta_long_v = function() {
-      self$fetch("lulc_meta_long_v") |>
+      private$fetch_lulc_meta_long_v() |>
         new_evoland_table("lulc_meta_long_v", keycols = NULL)
     },
 
     #' @field lulc_data_t A `lulc_data_t` instance; see [as_lulc_data_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     lulc_data_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("lulc_data_t")
-        return(as_lulc_data_t(x))
-      }
-      stopifnot(inherits(x, "lulc_data_t"))
-      self$commit(x, "lulc_data_t", mode = "upsert")
+      create_active_binding(self, "lulc_data_t", as_lulc_data_t)(x)
     },
 
     #' @field pred_meta_t A `pred_meta_t` instance; see [create_pred_meta_t()] for the type of
@@ -366,16 +417,55 @@ evoland_db <- R6::R6Class(
         return(as_pred_meta_t(x))
       }
       stopifnot(inherits(x, "pred_meta_t"))
-      # upserts or updates don't work on columns that cannot be updated in place, e.g. sources or
-      # factor_levels - appending a row with the same "name" column will throw an error for safety
-      # https://duckdb.org/docs/stable/sql/indexes#constraint-checking-in-update-statements
-      self$commit(x, "pred_meta_t", mode = "append")
+
+      # Get existing metadata to determine next id
+      existing_meta <- self$fetch("pred_meta_t")
+      if (nrow(existing_meta) == 0) {
+        start_id <- 1L
+        x[["id_pred"]] <- seq(start_id, length.out = nrow(x))
+        to_commit <- x
+      } else {
+        stopifnot(hasName(existing_meta, c("id_pred", "name")))
+        start_id <- max(existing_meta[["id_pred"]]) + 1L
+        # coalescing full join on name: overwrite all but id_pred and name in existing
+        # this functions as an upsert
+        # TODO see if we can generalize commit_upsert to be flexible enough for a)
+        # different columns than those with id_ (easy) and b) can generate new IDs where
+        # they are missing
+        to_commit <- existing_meta[
+          x,
+          .(
+            id_pred = id_pred,
+            name,
+            pretty_name = data.table::fcoalesce(i.pretty_name, pretty_name),
+            description = data.table::fcoalesce(i.description, description),
+            orig_format = data.table::fcoalesce(i.orig_format, orig_format),
+            sources = purrr::map2(i.sources, sources, \(x, y) if (is.null(x)) y else x),
+            unit = data.table::fcoalesce(i.unit, unit),
+            factor_levels = purrr::map2(i.factor_levels, factor_levels, \(x, y) {
+              if (is.null(x)) y else x
+            })
+          ),
+          on = "name"
+        ]
+
+        existing_meta[x, on = "name", ]
+
+        to_commit[
+          is.na(id_pred),
+          id_pred := seq(start_id, length.out = .N)
+        ]
+      }
+
+      data.table::setcolorder(to_commit, c("id_pred", "name"))
+
+      self$commit(to_commit, "pred_meta_t", mode = "overwrite")
     },
 
     #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
     #' md5sum
     pred_sources_v = function() {
-      self$fetch("pred_sources_v") |>
+      private$fetch_pred_sources_v() |>
         new_evoland_table("pred_sources_v", keycols = NULL)
     },
 
@@ -383,37 +473,36 @@ evoland_db <- R6::R6Class(
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
     pred_data_t_float = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("pred_data_t_float")
-
-        return(as_pred_data_t(x, "float"))
-      }
-      stopifnot(inherits(x, c("pred_data_t_float", "pred_data_t")))
-      self$commit(x, "pred_data_t_float", mode = "upsert")
+      create_active_binding(
+        self,
+        "pred_data_t_float",
+        as_pred_data_t,
+        type = "float"
+      )(x)
     },
 
     #' @field pred_data_t_int A `pred_data_t_int` instance; see
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
     pred_data_t_int = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("pred_data_t_int")
-        return(as_pred_data_t(x, "int"))
-      }
-      stopifnot(inherits(x, c("pred_data_t_int", "pred_data_t")))
-      self$commit(x, "pred_data_t_int", mode = "upsert")
+      create_active_binding(
+        self,
+        "pred_data_t_int",
+        as_pred_data_t,
+        type = "int"
+      )(x)
     },
 
     #' @field pred_data_t_bool A `pred_data_t_bool` instance; see
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
     pred_data_t_bool = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("pred_data_t_bool")
-        return(as_pred_data_t(x, "bool"))
-      }
-      stopifnot(inherits(x, c("pred_data_t_bool", "pred_data_t")))
-      self$commit(x, "pred_data_t_bool", mode = "upsert")
+      create_active_binding(
+        self,
+        "pred_data_t_bool",
+        as_pred_data_t,
+        type = "bool"
+      )(x)
     },
 
     #' @field trans_meta_t A `trans_meta_t` instance; see [create_trans_meta_t()] for the type of
@@ -425,7 +514,7 @@ evoland_db <- R6::R6Class(
       }
       stopifnot(inherits(x, "trans_meta_t"))
 
-      # Custom upsert for trans_meta_t to maintain primary key integrity
+      # Custom upsert for trans_meta_t to maintain unique constraint
       duckdb::duckdb_register(
         conn = self$connection,
         "temporary_trans_data",
@@ -437,32 +526,47 @@ evoland_db <- R6::R6Class(
         "temporary_trans_data"
       ))
 
-      # Use INSERT ... ON CONFLICT DO UPDATE to maintain id_trans relationship
-      sql <- "
-        INSERT INTO trans_meta_t (id_trans, id_lulc_anterior, id_lulc_posterior,
-                                  cardinality, frequency_rel, frequency_abs, is_viable)
-        SELECT id_trans, id_lulc_anterior, id_lulc_posterior,
-               cardinality, frequency_rel, frequency_abs, is_viable
-        FROM temporary_trans_data
-        ON CONFLICT (id_lulc_anterior, id_lulc_posterior)
-        DO UPDATE SET
-          cardinality = EXCLUDED.cardinality,
-          frequency_rel = EXCLUDED.frequency_rel,
-          frequency_abs = EXCLUDED.frequency_abs,
-          is_viable = EXCLUDED.is_viable
-      "
+      # Load existing data if it exists
+      file_info <- private$get_file_path("trans_meta_t")
+
+      if (file_info$exists) {
+        sql <- glue::glue(
+          "
+          CREATE TEMP TABLE existing_trans_meta_t AS
+          SELECT * FROM read_{file_info$format}('{file_info$path}');
+
+          -- Delete rows that will be replaced (based on unique constraint)
+          DELETE FROM existing_trans_meta_t
+          WHERE (id_lulc_anterior, id_lulc_posterior) IN (
+            SELECT id_lulc_anterior, id_lulc_posterior FROM temporary_trans_data
+          );
+
+          -- Insert new/updated rows
+          INSERT INTO existing_trans_meta_t
+          SELECT * FROM temporary_trans_data;
+
+          COPY existing_trans_meta_t
+          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+
+          DROP TABLE existing_trans_meta_t;
+          "
+        )
+      } else {
+        sql <- glue::glue(
+          "
+          COPY temporary_trans_data
+          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd)
+          "
+        )
+      }
+
       DBI::dbExecute(self$connection, sql)
     },
 
     #' @field trans_preds_t A `trans_preds_t` instance; see [create_trans_preds_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     trans_preds_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("trans_preds_t")
-        return(as_trans_preds_t(x))
-      }
-      stopifnot(inherits(x, "trans_preds_t"))
-      self$commit(x, "trans_preds_t", mode = "upsert")
+      create_active_binding(self, "trans_preds_t", as_trans_preds_t)(x)
     },
 
     #' @field intrv_meta_t A `intrv_meta_t` instance; see [create_intrv_meta_t()] for the type of
@@ -481,40 +585,71 @@ evoland_db <- R6::R6Class(
       stopifnot(inherits(x, "intrv_meta_t"))
 
       # Convert params list to data.frame format for DuckDB MAP conversion
-      x[["params"]] <- lapply(
-        x[["params"]],
+      x_copy <- data.table::copy(x)
+      x_copy[["params"]] <- lapply(
+        x_copy[["params"]],
         list_to_kv_df
       )
 
       duckdb::duckdb_register(
         conn = self$connection,
         name = "tmp_table",
-        df = x
+        df = x_copy
       )
 
       on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
 
-      # Use INSERT OR REPLACE with MAP conversion for params field
-      sql <- "
-        INSERT OR REPLACE INTO intrv_meta_t
-        SELECT
-          id_intrv, id_period_list, id_trans_list, pre_allocation,
-          name, pretty_name, description, sources,
-          map_from_entries(params) as params
-        FROM tmp_table
-      "
+      # Get file info
+      file_info <- private$get_file_path("intrv_meta_t")
+
+      # Load existing data and merge
+      if (file_info$exists) {
+        sql <- glue::glue(
+          "
+          CREATE TEMP TABLE existing_intrv_meta_t AS
+          SELECT * FROM read_{file_info$format}('{file_info$path}');
+
+          DELETE FROM existing_intrv_meta_t
+          WHERE id_intrv IN (SELECT id_intrv FROM tmp_table);
+
+          INSERT INTO existing_intrv_meta_t
+          SELECT
+            id_intrv, id_period_list, id_trans_list, pre_allocation,
+            name, pretty_name, description, sources,
+            map_from_entries(params) as params
+          FROM tmp_table;
+
+          COPY existing_intrv_meta_t
+          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+
+          DROP TABLE existing_intrv_meta_t;
+          "
+        )
+      } else {
+        sql <- glue::glue(
+          "
+          CREATE TEMP TABLE new_intrv_meta_t AS
+          SELECT
+            id_intrv, id_period_list, id_trans_list, pre_allocation,
+            name, pretty_name, description, sources,
+            map_from_entries(params) as params
+          FROM tmp_table;
+
+          COPY new_intrv_meta_t
+          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+
+          DROP TABLE new_intrv_meta_t;
+          "
+        )
+      }
+
       DBI::dbExecute(self$connection, sql)
     },
 
     #' @field intrv_masks_t A `intrv_masks_t` instance; see [as_intrv_masks_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     intrv_masks_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("intrv_masks_t")
-        return(as_intrv_masks_t(x))
-      }
-      stopifnot(inherits(x, "intrv_masks_t"))
-      self$commit(x, "intrv_masks_t", mode = "upsert")
+      create_active_binding(self, "intrv_masks_t", as_intrv_masks_t)(x)
     },
 
     #' @field trans_models_t A `trans_models_t` instance; see [create_trans_models_t()] for the type
@@ -537,33 +672,71 @@ evoland_db <- R6::R6Class(
       stopifnot(inherits(x, "trans_models_t"))
 
       # Convert lists to data.frame format for DuckDB MAP conversion
-      x[["model_params"]] <- lapply(
-        x[["model_params"]],
+      x_copy <- data.table::copy(x)
+      x_copy[["model_params"]] <- lapply(
+        x_copy[["model_params"]],
         list_to_kv_df
       )
-      x[["goodness_of_fit"]] <- lapply(
-        x[["goodness_of_fit"]],
+      x_copy[["goodness_of_fit"]] <- lapply(
+        x_copy[["goodness_of_fit"]],
         list_to_kv_df
       )
 
       duckdb::duckdb_register(
         conn = self$connection,
         name = "tmp_table",
-        df = x
+        df = x_copy
       )
 
       on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
 
-      # Use INSERT OR REPLACE with MAP conversion for params field
-      sql <- "
-        INSERT OR REPLACE INTO trans_models_t
-        SELECT
-          id_trans, id_period, model_family,
-          map_from_entries(model_params) as model_params,
-          map_from_entries(goodness_of_fit) as goodness_of_fit,
-          model_obj_part, model_obj_full
-        FROM tmp_table
-      "
+      file_info <- private$get_file_path("trans_models_t")
+
+      # Load existing data and merge
+      if (file_info$exists) {
+        sql <- glue::glue(
+          "
+          CREATE TEMP TABLE existing_trans_models_t AS
+          SELECT * FROM read_{file_info$format}('{file_info$path}');
+
+          DELETE FROM existing_trans_models_t
+          WHERE (id_trans, id_period) IN (
+            SELECT id_trans, id_period FROM tmp_table
+          );
+
+          INSERT INTO existing_trans_models_t
+          SELECT
+            id_trans, id_period, model_family,
+            map_from_entries(model_params) as model_params,
+            map_from_entries(goodness_of_fit) as goodness_of_fit,
+            model_obj_part, model_obj_full
+          FROM tmp_table;
+
+          COPY existing_trans_models_t
+          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+
+          DROP TABLE existing_trans_models_t;
+          "
+        )
+      } else {
+        sql <- glue::glue(
+          "
+          CREATE TEMP TABLE new_trans_models_t AS
+          SELECT
+            id_trans, id_period, model_family,
+            map_from_entries(model_params) as model_params,
+            map_from_entries(goodness_of_fit) as goodness_of_fit,
+            model_obj_part, model_obj_full
+          FROM tmp_table;
+
+          COPY new_trans_models_t
+          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+
+          DROP TABLE new_trans_models_t;
+          "
+        )
+      }
+
       DBI::dbExecute(self$connection, sql)
     },
 
@@ -589,32 +762,69 @@ evoland_db <- R6::R6Class(
       stopifnot(inherits(x, "alloc_params_t"))
 
       # Convert lists to data.frame format for DuckDB MAP conversion
-      x[["alloc_params"]] <- lapply(
-        x[["alloc_params"]],
+      x_copy <- data.table::copy(x)
+      x_copy[["alloc_params"]] <- lapply(
+        x_copy[["alloc_params"]],
         list_to_kv_df
       )
-      x[["goodness_of_fit"]] <- lapply(
-        x[["goodness_of_fit"]],
+      x_copy[["goodness_of_fit"]] <- lapply(
+        x_copy[["goodness_of_fit"]],
         list_to_kv_df
       )
 
       duckdb::duckdb_register(
         conn = self$connection,
         name = "tmp_table",
-        df = x
+        df = x_copy
       )
 
       on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
 
-      # Use INSERT OR REPLACE with MAP conversion for params field
-      sql <- "
-        INSERT OR REPLACE INTO alloc_params_t
-        SELECT
-          id_trans, id_period,
-          map_from_entries(alloc_params) as model_params,
-          map_from_entries(goodness_of_fit) as goodness_of_fit
-        FROM tmp_table
-      "
+      file_info <- private$get_file_path("alloc_params_t")
+
+      # Load existing data and merge
+      if (file_info$exists) {
+        sql <- glue::glue(
+          "
+          CREATE TEMP TABLE existing_alloc_params_t AS
+          SELECT * FROM read_{file_info$format}('{file_info$path}');
+
+          DELETE FROM existing_alloc_params_t
+          WHERE (id_trans, id_period) IN (
+            SELECT id_trans, id_period FROM tmp_table
+          );
+
+          INSERT INTO existing_alloc_params_t
+          SELECT
+            id_trans, id_period,
+            map_from_entries(alloc_params) as alloc_params,
+            map_from_entries(goodness_of_fit) as goodness_of_fit
+          FROM tmp_table;
+
+          COPY existing_alloc_params_t
+          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+
+          DROP TABLE existing_alloc_params_t;
+          "
+        )
+      } else {
+        sql <- glue::glue(
+          "
+          CREATE TEMP TABLE new_alloc_params_t AS
+          SELECT
+            id_trans, id_period,
+            map_from_entries(alloc_params) as alloc_params,
+            map_from_entries(goodness_of_fit) as goodness_of_fit
+          FROM tmp_table;
+
+          COPY new_alloc_params_t
+          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+
+          DROP TABLE new_alloc_params_t;
+          "
+        )
+      }
+
       DBI::dbExecute(self$connection, sql)
     }
   ),
@@ -631,97 +841,441 @@ evoland_db <- R6::R6Class(
       }
     },
 
-    # create the database schema
-    create_schema = function() {
-      # Read schema from inst/schema.sql
-      schema_sql <-
-        system.file("schema.sql", package = "evoland") |>
-        readLines(warn = FALSE) |>
-        paste(collapse = "\n")
+    # Get file path and format for a table
+    #
+    # param table_name Character string table name
+    # return List with path, format, and exists flag
+    get_file_path = function(table_name) {
+      # Check for parquet first, then csv
+      parquet_path <- file.path(self$path, paste0(table_name, ".parquet"))
+      csv_path <- file.path(self$path, paste0(table_name, ".csv"))
 
-      DBI::dbExecute(self$connection, schema_sql)
+      if (file.exists(parquet_path)) {
+        return(list(path = parquet_path, format = "parquet", exists = TRUE))
+      } else if (file.exists(csv_path)) {
+        return(list(path = csv_path, format = "csv", exists = TRUE))
+      } else {
+        # Return default format for new file
+        default_path <- file.path(
+          self$path,
+          paste0(table_name, ".", self$default_format)
+        )
+        return(list(
+          path = default_path,
+          format = self$default_format,
+          exists = FALSE
+        ))
+      }
+    },
+
+    # Write data to file
+    #
+    # param x Data frame to write
+    # param table_name Character string table name
+    # param format File format
+    write_file = function(x, table_name, format) {
+      file_path <- file.path(self$path, paste0(table_name, ".", format))
+
+      duckdb::duckdb_register(self$connection, "temp_write_table", x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "temp_write_table"))
+
+      writeopts <- switch(
+        format,
+        parquet = "FORMAT parquet, COMPRESSION zstd",
+        csv = "FORMAT csv",
+        stop(glue::glue("Unsupported format: {format}"))
+      )
+
+      sql <- glue::glue("COPY temp_write_table TO '{file_path}' ({writeopts})")
+      DBI::dbExecute(self$connection, sql)
     },
 
     # Commit data in overwrite mode
     #
     # param x Data frame to commit
     # param table_name Character string table name
-    commit_overwrite = function(x, table_name) {
-      # Delete existing data without dropping the entity relations.
-      DBI::dbExecute(self$connection, glue::glue("DELETE FROM {table_name}"))
+    # param format File format
+    # param autoincrement_cols Character vector of column names to auto-increment
+    commit_overwrite = function(x, table_name, format, autoincrement_cols = character(0)) {
+      # Assign auto-increment IDs
+      assign_autoincrement_ids(x, autoincrement_cols)
 
-      # Insert new data
-      DBI::dbAppendTable(self$connection, table_name, x)
+      # Simply write the file (overwriting if it exists)
+      private$write_file(x, table_name, format)
     },
 
     # Commit data in append mode
     #
     # param x Data frame to commit
     # param table_name Character string table name
-    commit_append = function(x, table_name) {
-      DBI::dbAppendTable(self$connection, table_name, x)
+    # param format File format
+    # param autoincrement_cols Character vector of column names to auto-increment
+    commit_append = function(x, table_name, format, autoincrement_cols = character(0)) {
+      file_info <- private$get_file_path(table_name)
+
+      if (file_info$exists) {
+        # Get max IDs from existing table
+        existing_max_ids <- if (length(autoincrement_cols) > 0) {
+          private$get_max_ids(file_info, autoincrement_cols)
+        } else {
+          NULL
+        }
+
+        # Assign auto-increment IDs to new data
+        assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
+
+        # Register new data and concatenate with existing data using DuckDB
+        duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
+        on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
+
+        sql <- glue::glue(
+          r"{
+          COPY (
+            SELECT
+              {paste(names(x), collapse = ",")}
+            FROM
+              read_{file_info$format}('{file_info$path}')
+            UNION ALL
+            SELECT
+              {paste(names(x), collapse = ",")}
+            FROM
+              new_data
+          )
+          TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd)
+          }"
+        )
+
+        DBI::dbExecute(self$connection, sql)
+      } else {
+        # No existing file - use overwrite logic
+        private$commit_overwrite(x, table_name, format, autoincrement_cols)
+      }
     },
 
     # Commit data in upsert mode
     #
     # param x Data frame to commit
     # param table_name Character string table name
-    commit_upsert = function(x, table_name) {
-      duckdb::duckdb_register(
-        conn = self$connection,
-        "temporary_data_table",
-        df = x
-      )
+    # param format File format
+    # param key_cols Identify unique columns - heuristic: if prefixed with
+    # id_, the set of all columns designates a uniqueness condition
+    # param autoincrement_cols Character vector of column names to auto-increment
+    commit_upsert = function(
+      x,
+      table_name,
+      format,
+      key_cols = grep("^id_", names(x), value = TRUE),
+      autoincrement_cols = character(0)
+    ) {
+      file_info <- private$get_file_path(table_name)
 
-      on.exit(duckdb::duckdb_unregister(
-        self$connection,
-        "temporary_data_table"
-      ))
+      if (!file_info$exists) {
+        return(private$commit_overwrite(x, table_name, format, autoincrement_cols))
+      } else if (length(key_cols) == 0) {
+        return(private$commit_append(x, table_name, format, autoincrement_cols))
+      }
 
-      # Build INSERT OR REPLACE query
-      colnames <- paste(names(x), collapse = ", ")
+      # Get max IDs from existing table
+      existing_max_ids <- if (length(autoincrement_cols) > 0) {
+        private$get_max_ids(file_info, autoincrement_cols)
+      } else {
+        NULL
+      }
+
+      # Assign auto-increment IDs to new data
+      assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
+
+      # Register new data
+      duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
+
+      # Basic pattern:
+      # load existing table into temporary table in memory,
+      # full join of new data to existing data
+      # coalesce (take first non-null value), thereby replacing old with new values
+      non_key_cols <- setdiff(names(x), key_cols)
+
+      # Build COALESCE expressions for all non-key columns
+      coalesce_exprs <-
+        c(
+          # Key columns from existing table
+          sprintf("%s", key_cols),
+          # Non-key columns with COALESCE to prefer new values
+          sprintf(
+            "COALESCE(new_data.%s, old_data.%s) AS %s",
+            non_key_cols,
+            non_key_cols,
+            non_key_cols
+          )
+        ) |>
+        paste(collapse = ",\n ")
+
       sql <- glue::glue(
-        "INSERT OR REPLACE INTO {table_name} ({colnames}) SELECT * FROM temporary_data_table"
+        r"{
+        CREATE TEMP TABLE old_data AS
+        SELECT * FROM read_{file_info$format}('{file_info$path}');
+
+        COPY (
+          SELECT
+            {coalesce_exprs}
+          FROM
+            old_data
+          FULL OUTER JOIN
+            new_data
+          USING
+            ({paste(key_cols, collapse = ", ")})
+        )
+        TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd);
+
+        DROP TABLE old_data;
+        }"
       )
+
       DBI::dbExecute(self$connection, sql)
+    },
+
+    # Fetch lulc_meta_long_v view
+    fetch_lulc_meta_long_v = function(where = NULL, limit = NULL) {
+      file_info <- private$get_file_path("lulc_meta_t")
+
+      if (!file_info$exists) {
+        return(data.table::data.table(
+          id_lulc = integer(0),
+          name = character(0),
+          src_class = integer(0)
+        ))
+      }
+
+      sql <- glue::glue(
+        "
+        SELECT
+          id_lulc,
+          name,
+          unnest(src_classes) as src_class
+        FROM read_{file_info$format}('{file_info$path}')
+      "
+      )
+
+      if (!is.null(where)) {
+        sql <- glue::glue("{sql} WHERE {where}")
+      }
+      if (!is.null(limit)) {
+        sql <- glue::glue("{sql} LIMIT {limit}")
+      }
+
+      DBI::dbGetQuery(self$connection, sql) |>
+        data.table::as.data.table()
+    },
+
+    # Fetch pred_sources_v view
+    fetch_pred_sources_v = function(where = NULL, limit = NULL) {
+      file_info <- private$get_file_path("pred_meta_t")
+
+      if (!file_info$exists) {
+        return(data.table::data.table(
+          url = character(0),
+          md5sum = character(0)
+        ))
+      }
+
+      sql <- glue::glue(
+        "
+        SELECT DISTINCT
+          unnest(sources).url AS url,
+          unnest(sources).md5sum AS md5sum
+        FROM read_{file_info$format}('{file_info$path}')
+        WHERE sources IS NOT NULL
+      "
+      )
+
+      if (!is.null(where)) {
+        sql <- glue::glue("SELECT * FROM ({sql}) subq WHERE {where}")
+      }
+      if (!is.null(limit)) {
+        sql <- glue::glue("{sql} LIMIT {limit}")
+      }
+
+      DBI::dbGetQuery(self$connection, sql) |>
+        data.table::as.data.table()
+    },
+
+    # Get empty table with proper structure
+    #
+    # param table_name Character string table name
+    # return Empty data.table with correct columns
+    get_empty_table = function(table_name) {
+      # Define empty table structures
+      empty_tables <- list(
+        reporting_t = suppressWarnings(data.table::data.table(
+          key = character(0),
+          value = character(0)
+        )),
+        coords_t = as_coords_t(),
+        periods_t = as_periods_t(),
+        lulc_meta_t = as_lulc_meta_t(),
+        lulc_data_t = as_lulc_data_t(),
+        pred_meta_t = as_pred_meta_t(),
+        pred_data_t_float = as_pred_data_t(type = "float"),
+        pred_data_t_int = as_pred_data_t(type = "int"),
+        pred_data_t_bool = as_pred_data_t(type = "bool"),
+        trans_meta_t = as_trans_meta_t(),
+        trans_preds_t = as_trans_preds_t(),
+        intrv_meta_t = as_intrv_meta_t(),
+        intrv_masks_t = as_intrv_masks_t(),
+        trans_models_t = as_trans_models_t(),
+        alloc_params_t = as_alloc_params_t()
+      )
+
+      if (table_name %in% names(empty_tables)) {
+        return(empty_tables[[table_name]])
+      }
+
+      # Default: return empty data.table
+      data.table::data.table()
+    },
+
+    # Get maximum ID values for auto-increment columns
+    #
+    # param file_info List with path and format information
+    # param id_cols Character vector of ID column names
+    # return Named integer vector of max values for each column
+    get_max_ids = function(file_info, id_cols) {
+      # First check which columns exist in the file
+
+      existing_cols <-
+        glue::glue("SELECT * FROM read_{file_info$format}('{file_info$path}') LIMIT 0") |>
+        DBI::dbGetQuery(self$connection, statement = _) |>
+        names()
+
+      # Filter to only columns that exist
+      cols_to_query <- intersect(id_cols, existing_cols)
+
+      # Initialize result with 0L for all requested columns
+      max_vals <- stats::setNames(rep(0L, length(id_cols)), id_cols)
+
+      # Only query for columns that exist
+      if (length(cols_to_query) > 0) {
+        max_exprs <- sprintf("MAX(%s) as %s", cols_to_query, cols_to_query)
+        sql <- glue::glue(
+          "SELECT {paste(max_exprs, collapse = ', ')}
+           FROM read_{file_info$format}('{file_info$path}')"
+        )
+
+        result <- DBI::dbGetQuery(self$connection, sql)
+
+        # Update max_vals for columns that exist
+        for (col in cols_to_query) {
+          val <- result[[col]]
+          max_vals[[col]] <- if (is.na(val)) 0L else as.integer(val)
+        }
+      }
+
+      return(max_vals)
     }
   )
 )
 
-# utility function to transform a list to DuckDB-compatible k/v dataframe
-list_to_kv_df <- function(param_list) {
-  if (is.null(param_list)) {
-    return(NULL)
+# Utility function to assign auto-increment IDs to a data.table by reference
+#
+# param x data.table to update by reference
+# param autoincrement_cols Character vector of column names to auto-increment
+# param existing_max_ids Optional named integer vector of max IDs from existing table
+# return x invisibly (modified by reference)
+assign_autoincrement_ids <- function(x, autoincrement_cols, existing_max_ids = NULL) {
+  if (length(autoincrement_cols) == 0L) {
+    return(invisible(x))
+  }
+
+  stopifnot(inherits(x, "data.table")) # better safe than sorry
+
+  for (col in autoincrement_cols) {
+    # Determine starting point from existing table (i.e. read from file)
+    if (!is.null(existing_max_ids) && col %in% names(existing_max_ids)) {
+      existing_max <- existing_max_ids[[col]]
+    } else {
+      existing_max <- 0L
+    }
+
+    # Get max from current data (i.e. object x, if column exists and has non-NA values)
+    if (hasName(x, col)) {
+      data_max <- suppressWarnings(max(x[[col]], na.rm = TRUE))
+      if (!is.finite(data_max)) data_max <- 0L
+    } else {
+      data_max <- 0L
+      # Add column if it doesn't exist - use set() for by-reference modification
+      data.table::set(x, j = col, value = NA_integer_)
+    }
+
+    # Start from the higher of the two
+    start_id <- max(existing_max, data_max) + 1L
+
+    # Count how many NAs need to be filled
+    na_count <- sum(is.na(x[[col]]))
+
+    if (na_count > 0L) {
+      new_seq <- seq.int(from = start_id, length.out = na_count)
+      data.table::set(x, i = which(is.na(x[[col]])), j = col, value = new_seq)
+    }
+  }
+
+  invisible(x)
+}
+
+# Helper function to create simple active bindings with standard fetch/commit pattern
+# param self The R6 instance (self).
+# param table_name Character string. Name of the table.
+# param as_fn Function to convert fetched data to the appropriate type.
+# param ... Additional arguments passed to as_fn.
+# return A function suitable for use as an active binding.
+create_active_binding <- function(self, table_name, as_fn, ...) {
+  extra_args <- list(...)
+  function(x) {
+    if (missing(x)) {
+      x <- self$fetch(table_name)
+      return(do.call(as_fn, c(list(x), extra_args)))
+    }
+    stopifnot(inherits(x, table_name))
+    self$commit(x, table_name, mode = "upsert")
+  }
+}
+
+
+# Helper functions for converting between list and data.frame formats for DuckDB MAPs
+
+list_to_kv_df <- function(x) {
+  if (is.null(x) || length(x) == 0) {
+    return(data.frame(
+      key = character(0),
+      value = character(0),
+      stringsAsFactors = FALSE
+    ))
   }
   data.frame(
-    k = names(param_list),
-    v = unlist(param_list)
+    key = names(x),
+    value = as.character(unlist(x)),
+    stringsAsFactors = FALSE
   )
 }
 
-# utility function to transform a DuckDB key/value dataframe to list
 kv_df_to_list <- function(x) {
-  if (is.null(x)) {
+  if (is.null(x) || nrow(x) == 0) {
     return(NULL)
-  } else if (is.list(x[["key"]]) || is.list(x[["value"]])) {
-    stop("cannot work on complex map keys or values")
-  } else if (is.numeric(x[["value"]])) {
-    out <- as.list(x[["value"]])
-    names(out) <- x[["key"]]
-    return(out)
   }
-  # assuming a VARCHAR : VARCHAR map, we want to retrieve numerics
-  nums <- suppressWarnings(as.numeric(x[["value"]]))
+
   out <- list()
+
   for (row in seq_len(nrow(x))) {
-    key <- x[["key"]][[row]]
-    if (is.na(nums[[row]])) {
-      # if as.numeric conversion resulted in NA, keep unaltered string
-      out[[key]] <- x[["value"]][[row]]
-      next
+    key <- x$key[row]
+    val <- x$value[row]
+
+    # Try numeric conversion
+    num_val <- suppressWarnings(as.numeric(val))
+    if (!is.na(num_val)) {
+      out[[key]] <- num_val
+    } else {
+      out[[key]] <- val
     }
-    # if as.numeric conversion resulted in numeric, keep numeric
-    out[[key]] <- nums[[row]]
   }
+
   out
 }

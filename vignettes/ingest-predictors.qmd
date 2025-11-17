@@ -20,7 +20,7 @@ Let's start by attaching a database to work in, and setting some coordinate poin
 #| label: create-db
 library(evoland)
 library(data.table)
-db <- evoland_db$new(path = ":memory:")
+db <- evoland_db$new(path = "noisemodel.evolanddb")
 db$set_coords(
   type = "square",
   epsg = 2056,

@@ -12,6 +12,15 @@
 #'   - `description`: Long description / operationalisation
 #' @export
 as_lulc_meta_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_lulc = integer(0),
+      name = character(0),
+      pretty_name = character(0),
+      description = character(0),
+      src_classes = list()
+    )
+  }
   new_evoland_table(
     x,
     "lulc_meta_t",

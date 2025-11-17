@@ -17,6 +17,14 @@
 #'     for extrapolation?
 #' @export
 as_periods_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_period = integer(0),
+      start_date = as.Date(character(0)),
+      end_date = as.Date(character(0)),
+      is_extrapolated = logical(0)
+    )
+  }
   new_evoland_table(
     x,
     "periods_t",

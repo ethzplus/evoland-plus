@@ -26,8 +26,18 @@ as_pred_data_t <- function(x, type) {
     bool = as.logical
   )
 
-  data.table::setDT(x, key = c("id_pred", "id_coord", "id_period"))
-  data.table::set(x, j = "value", value = coercion_fn(x$value))
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_pred = integer(0),
+      id_coord = integer(0),
+      id_period = integer(0),
+      value = coercion_fn(integer(0))
+    )
+  }
+
+  data.table::setDT(x, key = c("id_pred", "id_coord", "id_period")) |>
+    cast_dt_col("value", coercion_fn) |>
+    cast_dt_col("id_coord", as.integer)
 
   class_name <- paste0("pred_data_t_", type)
   new_evoland_table(x, c(class_name, "pred_data_t"))

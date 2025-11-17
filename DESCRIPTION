@@ -20,7 +20,7 @@ Imports:
     duckdb,
     glue,
     purrr,
-    qs,
+    qs2,
     R6,
     rlang,
     stringi,

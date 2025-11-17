@@ -111,15 +111,21 @@ pluck_wildcard <- function(lst, ...) {
 
 #' @describeIn util Ensure that a directory exists; return its argument for pipeability
 ensure_dir <- function(dir) {
-  tryCatch(
+  if (dir.exists(dir)) {
+    return(invisible(dir))
+  }
+  if (file.exists(dir)) {
+    # dir.exists only returns true if there is a directory
+    stop("There is already a file")
+  }
+
+  withCallingHandlers(
     dir.create(dir, recursive = TRUE),
     warning = function(w) {
-      if (!stringi::stri_detect_fixed(w$message, "already exists")) {
-        stop(w$message)
-      }
-    },
-    error = function(e) stop(e$message)
+      stop(w$message, call. = FALSE)
+    }
   )
+
   invisible(dir)
 }
 
@@ -134,4 +140,14 @@ print_rowwise_yaml <- function(df) {
     }
     cat("\n")
   }
+}
+
+#' @describeIn util Cast a data.table column; invisibly returns x
+cast_dt_col <- function(x, colname, castfun) {
+  data.table::set(
+    x = x,
+    j = colname,
+    value = castfun(x[[colname]])
+  )
+  invisible(x)
 }

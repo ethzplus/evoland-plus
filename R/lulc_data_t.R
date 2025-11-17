@@ -12,6 +12,14 @@
 #'   - `id_period`: Foreign key to periods_t
 #' @export
 as_lulc_data_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_coord = integer(0),
+      id_lulc = integer(0),
+      id_period = integer(0)
+    )
+  }
+  cast_dt_col(x, "id_coord", as.integer)
   new_evoland_table(
     x,
     "lulc_data_t",

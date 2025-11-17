@@ -54,9 +54,6 @@ CREATE TABLE lulc_data_t (
     id_lulc UINT8 NOT NULL,
     id_period UINT8 NOT NULL,
     PRIMARY KEY (id_coord, id_lulc, id_period),
-    FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord),
-    FOREIGN KEY (id_lulc) REFERENCES lulc_meta_t(id_lulc),
-    FOREIGN KEY (id_period) REFERENCES periods_t(id_period)
 );
 
 CREATE SEQUENCE seq_id_pred START 1;
@@ -87,9 +84,6 @@ CREATE TABLE pred_data_t_float (
     id_period UINT8 NOT NULL,
     value FLOAT NOT NULL,
     PRIMARY KEY (id_pred, id_coord, id_period),
-    FOREIGN KEY (id_pred) REFERENCES pred_meta_t(id_pred),
-    FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord),
-    FOREIGN KEY (id_period) REFERENCES periods_t(id_period)
 );
 
 CREATE TABLE pred_data_t_int (
@@ -98,9 +92,6 @@ CREATE TABLE pred_data_t_int (
     id_period UINT8 NOT NULL,
     value INTEGER NOT NULL,
     PRIMARY KEY (id_pred, id_coord, id_period),
-    FOREIGN KEY (id_pred) REFERENCES pred_meta_t(id_pred),
-    FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord),
-    FOREIGN KEY (id_period) REFERENCES periods_t(id_period)
 );
 
 CREATE TABLE pred_data_t_bool (
@@ -109,14 +100,12 @@ CREATE TABLE pred_data_t_bool (
     id_period UINT8 NOT NULL,
     value BOOLEAN NOT NULL,
     PRIMARY KEY (id_pred, id_coord, id_period),
-    FOREIGN KEY (id_pred) REFERENCES pred_meta_t(id_pred),
-    FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord),
-    FOREIGN KEY (id_period) REFERENCES periods_t(id_period)
 );
 
 -- Transition metadata
+CREATE SEQUENCE seq_id_trans START 1;
 CREATE TABLE trans_meta_t (
-    id_trans UINT8 PRIMARY KEY,
+    id_trans UINT8 PRIMARY KEY default nextval('seq_id_trans'),
     id_lulc_anterior UINT8 NOT NULL,
     id_lulc_posterior UINT8 NOT NULL,
     cardinality INTEGER NOT NULL,
@@ -124,17 +113,12 @@ CREATE TABLE trans_meta_t (
     frequency_abs DOUBLE NOT NULL,
     is_viable BOOLEAN NOT NULL DEFAULT TRUE,
     UNIQUE (id_lulc_anterior, id_lulc_posterior),
-    FOREIGN KEY (id_lulc_anterior) REFERENCES lulc_meta_t(id_lulc),
-    FOREIGN KEY (id_lulc_posterior) REFERENCES lulc_meta_t(id_lulc)
 );
 
 -- Transition-predictor relationships (many-to-many)
 CREATE TABLE trans_preds_t (
     id_pred UINT8 NOT NULL,
     id_trans UINT8 NOT NULL,
-    PRIMARY KEY (id_pred, id_trans),
-    FOREIGN KEY (id_pred) REFERENCES pred_meta_t(id_pred),
-    FOREIGN KEY (id_trans) REFERENCES trans_meta_t(id_trans)
 );
 
 -- Intervention metadata
@@ -154,9 +138,6 @@ CREATE TABLE intrv_meta_t (
 CREATE TABLE intrv_masks_t (
     id_intrv UINT8 NOT NULL,
     id_coord UINT32 NOT NULL,
-    PRIMARY KEY (id_intrv, id_coord),
-    FOREIGN KEY (id_intrv) REFERENCES intrv_meta_t(id_intrv),
-    FOREIGN KEY (id_coord) REFERENCES coords_t(id_coord)
 );
 
 -- Transition models storage
@@ -169,8 +150,6 @@ CREATE TABLE trans_models_t (
     model_obj_part BLOB,
     model_obj_full BLOB,
     PRIMARY KEY (id_trans, id_period),
-    FOREIGN KEY (id_trans) REFERENCES trans_meta_t(id_trans),
-    FOREIGN KEY (id_period) REFERENCES periods_t(id_period)
 );
 
 -- Allocation parameters
@@ -180,17 +159,5 @@ CREATE TABLE alloc_params_t (
     alloc_params MAP(VARCHAR, DOUBLE) NOT NULL,
     goodness_of_fit MAP(VARCHAR, DOUBLE) NOT NULL,
     PRIMARY KEY (id_trans, id_period),
-    FOREIGN KEY (id_trans) REFERENCES trans_meta_t(id_trans),
-    FOREIGN KEY (id_period) REFERENCES periods_t(id_period)
 );
 
--- Create indexes for common query patterns
-CREATE INDEX idx_lulc_data_coord ON lulc_data_t(id_coord);
-CREATE INDEX idx_lulc_data_period ON lulc_data_t(id_period);
-CREATE INDEX idx_pred_data_float_coord ON pred_data_t_float(id_coord);
-CREATE INDEX idx_pred_data_float_period ON pred_data_t_float(id_period);
-CREATE INDEX idx_pred_data_int_coord ON pred_data_t_int(id_coord);
-CREATE INDEX idx_pred_data_int_period ON pred_data_t_int(id_period);
-CREATE INDEX idx_pred_data_bool_coord ON pred_data_t_bool(id_coord);
-CREATE INDEX idx_pred_data_bool_period ON pred_data_t_bool(id_period);
-CREATE INDEX idx_coords_geom_polygon ON coords_t USING RTREE(geom_polygon);

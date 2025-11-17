@@ -13,6 +13,12 @@
 #'   - `id_trans`: Foreign key to trans_meta_t
 #' @export
 as_trans_preds_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_pred = integer(0),
+      id_trans = integer(0)
+    )
+  }
   new_evoland_table(
     x,
     "trans_preds_t",

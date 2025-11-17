@@ -18,6 +18,18 @@
 #'   - `factor_levels`: Map of factor levels (nullable)
 #' @export
 as_pred_meta_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_pred = integer(0),
+      name = character(0),
+      pretty_name = character(0),
+      description = character(0),
+      orig_format = character(0),
+      sources = list(),
+      unit = character(0),
+      factor_levels = list()
+    )
+  }
   new_evoland_table(
     x,
     "pred_meta_t",
@@ -49,7 +61,7 @@ as_pred_meta_t <- function(x) {
 #'    distance_to_lake = list(
 #'      unit = "m",
 #'      pretty_name = "Distance to closest lake",
-#'      format = "vector",
+#'      orig_format = "vector",
 #'      description = "Derived from swissTLM3D",
 #'      sources = list(list(
 #'        url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
@@ -69,14 +81,15 @@ create_pred_meta_t <- function(pred_spec) {
   x <- data.table::data.table(
     name = pred_names,
     # path is pred_spec > pred_name > leaf_name
+    # we pluck each element, then replace potential null using %||%
     pretty_name = unlist(
-      pluck_wildcard(pred_spec, NA, "pretty_name") %||% pred_names
+      purrr::map2(pluck_wildcard(pred_spec, NA, "pretty_name"), pred_names, ~ .x %||% .y)
     ),
     description = unlist(
-      pluck_wildcard(pred_spec, NA, "description") %||% NA_character_
+      purrr::map(pluck_wildcard(pred_spec, NA, "description"), ~ .x %||% NA_character_)
     ),
     orig_format = unlist(
-      pluck_wildcard(pred_spec, NA, "orig_format") %||% NA_character_
+      purrr::map(pluck_wildcard(pred_spec, NA, "orig_format"), ~ .x %||% NA_character_)
     ),
     sources = lapply(
       pred_spec,
@@ -89,7 +102,7 @@ create_pred_meta_t <- function(pred_spec) {
       }
     ),
     unit = unlist(
-      pluck_wildcard(pred_spec, NA, "unit") %||% NA_character_
+      purrr::map(pluck_wildcard(pred_spec, NA, "unit"), ~ .x %||% NA_character_)
     ),
     factor_levels = pluck_wildcard(pred_spec, NA, "factor_levels")
   )

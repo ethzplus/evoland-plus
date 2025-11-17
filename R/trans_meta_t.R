@@ -18,6 +18,17 @@
 #'   - `is_viable`: Whether this transition is viable for modelling
 #' @export
 as_trans_meta_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_trans = integer(0),
+      id_lulc_anterior = integer(0),
+      id_lulc_posterior = integer(0),
+      cardinality = integer(0),
+      frequency_rel = numeric(0),
+      frequency_abs = numeric(0),
+      is_viable = logical(0)
+    )
+  }
   new_evoland_table(
     x,
     "trans_meta_t",
