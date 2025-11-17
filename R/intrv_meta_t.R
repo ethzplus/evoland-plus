@@ -18,6 +18,19 @@
 #'   - `params`: Map of parameters
 #' @export
 as_intrv_meta_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_intrv = integer(0),
+      id_period_list = list(),
+      id_trans_list = list(),
+      pre_allocation = logical(0),
+      name = character(0),
+      pretty_name = character(0),
+      description = character(0),
+      sources = list(),
+      params = list()
+    )
+  }
   new_evoland_table(
     x,
     "intrv_meta_t",

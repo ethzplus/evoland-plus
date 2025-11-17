@@ -18,6 +18,17 @@
 #'   - `model_obj_full`: BLOB of serialized model object for extrapolation
 #' @export
 as_trans_models_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_trans = integer(0),
+      id_period = integer(0),
+      model_family = character(0),
+      model_params = list(),
+      goodness_of_fit = list(),
+      model_obj_part = list(),
+      model_obj_full = list()
+    )
+  }
   new_evoland_table(
     x,
     "trans_models_t",

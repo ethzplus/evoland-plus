@@ -15,6 +15,14 @@
 #'   - `goodness_of_fit`: Map of various measures of fit (e.g., ROC AUC)
 #' @export
 as_alloc_params_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_trans = integer(0),
+      id_period = integer(0),
+      alloc_params = list(),
+      goodness_of_fit = list()
+    )
+  }
   new_evoland_table(
     x,
     "alloc_params_t",

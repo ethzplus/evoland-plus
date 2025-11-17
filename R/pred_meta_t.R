@@ -18,6 +18,18 @@
 #'   - `factor_levels`: Map of factor levels (nullable)
 #' @export
 as_pred_meta_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_pred = integer(0),
+      name = character(0),
+      pretty_name = character(0),
+      description = character(0),
+      orig_format = character(0),
+      sources = list(),
+      unit = character(0),
+      factor_levels = list()
+    )
+  }
   new_evoland_table(
     x,
     "pred_meta_t",
