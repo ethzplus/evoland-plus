@@ -1,5 +1,5 @@
 ---
-title: Ingest Swiss Arealstatistik LULC Data
+title: Getting Started - Ingest Swiss Arealstatistik LULC Data
 author: Jan Hartman
 date: 2025-10-16
 vignette: >
@@ -18,7 +18,7 @@ unlink("arealstatistik-model.evolanddb", recursive = TRUE)
 ```
 
 
-This file shows how to ingest [Arealstatistik (AS)](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/boden-nutzung-bedeckung-eignung/arealstatistik-schweiz.html) data into an evoland database.
+This file introduces `evoland-plus`, or `evoland` for short, using the the example of ingesting the [Arealstatistik (AS)](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/boden-nutzung-bedeckung-eignung/arealstatistik-schweiz.html) land use land cover data into a database.
 
 In order to read in land use data, we first must create a database with the following metadata:
 
