@@ -285,3 +285,153 @@ expect_error(
 expect_silent(
   db$lulc_data_t <- as_lulc_data_t(lulc_data_dt)
 )
+
+# Test delete_from functionality
+# Setup: we already have pred_data_t_float with 48 rows (id_pred 1:2, id_coord 3:50, id_period 1)
+expect_equal(db$row_count("pred_data_t_float"), 48L)
+
+# Test 1: Delete with WHERE clause - delete specific predictor
+deleted_count <- db$delete_from("pred_data_t_float", where = "id_pred = 1")
+expect_equal(deleted_count, 24L)
+expect_equal(db$row_count("pred_data_t_float"), 24L)
+
+# Verify only id_pred = 2 remains
+remaining <- db$pred_data_t_float
+expect_equal(unique(remaining$id_pred), 2L)
+expect_equal(nrow(remaining), 24L)
+
+# Test 2: Delete with complex WHERE clause
+# Add back some data first
+db$pred_data_t_float <- pred_data_t
+expect_equal(db$row_count("pred_data_t_float"), 48L)
+
+# Delete only specific coordinates
+deleted_count <- db$delete_from("pred_data_t_float", where = "id_coord < 10")
+expect_true(deleted_count > 0L)
+remaining <- db$pred_data_t_float
+expect_true(all(remaining$id_coord >= 10))
+
+# Test 3: Delete all rows (NULL where clause)
+count_before_delete <- db$row_count("pred_data_t_float")
+deleted_count <- db$delete_from("pred_data_t_float", where = NULL)
+expect_equal(deleted_count, count_before_delete)
+expect_equal(db$row_count("pred_data_t_float"), 0L)
+
+# Test 4: Delete from non-existent table returns 0
+deleted_count <- db$delete_from("nonexistent_table", where = "id = 1")
+expect_equal(deleted_count, 0L)
+
+# Test 5: Delete with WHERE that matches nothing
+db$pred_data_t_float <- pred_data_t
+initial_count <- db$row_count("pred_data_t_float")
+deleted_count <- db$delete_from("pred_data_t_float", where = "id_pred = 999")
+expect_equal(deleted_count, 0L)
+expect_equal(db$row_count("pred_data_t_float"), initial_count)
+
+# Test auto-increment functionality
+# Create a new test database for auto-increment tests
+test_dir_autoinc <- tempfile("evoland_autoinc_")
+on.exit(unlink(test_dir_autoinc, recursive = TRUE), add = TRUE)
+db_autoinc <- evoland_db$new(test_dir_autoinc)
+
+# Test 1: Auto-increment on overwrite mode (new table)
+test_data_1 <- data.table::data.table(
+  name = c("predictor_a", "predictor_b", "predictor_c"),
+  unit = c("m", "kg", "s")
+)
+db_autoinc$commit(
+  test_data_1,
+  "test_autoinc_t",
+  mode = "overwrite",
+  autoincrement_cols = "id_test"
+)
+result_1 <- db_autoinc$fetch("test_autoinc_t")
+expect_equal(result_1$id_test, 1:3)
+expect_equal(result_1$name, c("predictor_a", "predictor_b", "predictor_c"))
+
+# Test 2: Auto-increment on append mode
+test_data_2 <- data.table::data.table(
+  name = c("predictor_d", "predictor_e"),
+  unit = c("A", "V")
+)
+db_autoinc$commit(
+  test_data_2,
+  "test_autoinc_t",
+  mode = "append",
+  autoincrement_cols = "id_test"
+)
+result_2 <- db_autoinc$fetch("test_autoinc_t")
+expect_equal(nrow(result_2), 5L)
+expect_equal(result_2$id_test, 1:5)
+expect_equal(result_2$name[4:5], c("predictor_d", "predictor_e"))
+
+# Test 3: Auto-increment on upsert mode with new rows
+test_data_3 <- data.table::data.table(
+  name = c("predictor_f", "predictor_g"),
+  unit = c("W", "J")
+)
+db_autoinc$commit(
+  test_data_3,
+  "test_autoinc_t",
+  mode = "upsert",
+  autoincrement_cols = "id_test"
+)
+result_3 <- db_autoinc$fetch("test_autoinc_t")
+expect_equal(nrow(result_3), 7L)
+expect_equal(result_3$id_test, 1:7)
+
+# Test 4: Auto-increment preserves existing IDs in data
+test_data_4 <- data.table::data.table(
+  id_test = c(NA, 100L, NA),
+  name = c("new_a", "existing", "new_b"),
+  unit = c("x", "y", "z")
+)
+db_autoinc$commit(
+  test_data_4,
+  "test_autoinc2_t",
+  mode = "overwrite",
+  autoincrement_cols = "id_test"
+)
+result_4 <- db_autoinc$fetch("test_autoinc2_t")
+expect_equal(result_4$id_test[2], 100L)
+expect_equal(result_4$id_test[1], 101L)
+expect_equal(result_4$id_test[3], 102L)
+
+# Test 5: Multiple auto-increment columns
+test_data_5 <- data.table::data.table(
+  name = c("item1", "item2"),
+  value = c(10, 20)
+)
+db_autoinc$commit(
+  test_data_5,
+  "test_multi_autoinc_t",
+  mode = "overwrite",
+  autoincrement_cols = c("id_a", "id_b")
+)
+result_5 <- db_autoinc$fetch("test_multi_autoinc_t")
+expect_equal(result_5$id_a, 1:2)
+expect_equal(result_5$id_b, 1:2)
+
+# Test 6: Auto-increment continues from max in append
+test_data_6a <- data.table::data.table(
+  id_seq = c(5L, 10L, 15L),
+  value = c(100, 200, 300)
+)
+db_autoinc$commit(
+  test_data_6a,
+  "test_continue_t",
+  mode = "overwrite"
+)
+test_data_6b <- data.table::data.table(
+  value = c(400, 500)
+)
+db_autoinc$commit(
+  test_data_6b,
+  "test_continue_t",
+  mode = "append",
+  autoincrement_cols = "id_seq"
+)
+result_6 <- db_autoinc$fetch("test_continue_t")
+expect_equal(nrow(result_6), 5L)
+expect_equal(result_6$id_seq[4:5], c(16L, 17L))
+expect_equal(result_6$value[4:5], c(400, 500))
