@@ -432,24 +432,24 @@ evoland_db <- R6::R6Class(
         # TODO see if we can generalize commit_upsert to be flexible enough for a)
         # different columns than those with id_ (easy) and b) can generate new IDs where
         # they are missing
-        to_commit <- existing_meta[
+        to_commit <- merge(
           x,
-          .(
-            id_pred = id_pred,
-            name,
-            pretty_name = data.table::fcoalesce(i.pretty_name, pretty_name),
-            description = data.table::fcoalesce(i.description, description),
-            orig_format = data.table::fcoalesce(i.orig_format, orig_format),
-            sources = purrr::map2(i.sources, sources, \(x, y) if (is.null(x)) y else x),
-            unit = data.table::fcoalesce(i.unit, unit),
-            factor_levels = purrr::map2(i.factor_levels, factor_levels, \(x, y) {
-              if (is.null(x)) y else x
-            })
-          ),
-          on = "name"
-        ]
-
-        existing_meta[x, on = "name", ]
+          existing_meta,
+          by = "name",
+          all = TRUE,
+          suffixes = c("", ".existing")
+        )[, .(
+          id_pred,
+          name,
+          pretty_name = data.table::fcoalesce(pretty_name, pretty_name.existing),
+          description = data.table::fcoalesce(description, description.existing),
+          orig_format = data.table::fcoalesce(orig_format, orig_format.existing),
+          sources = purrr::map2(sources, sources.existing, \(x, y) if (is.null(x)) y else x),
+          unit = data.table::fcoalesce(unit, unit.existing),
+          factor_levels = purrr::map2(factor_levels, factor_levels.existing, \(x, y) {
+            if (is.null(x)) y else x
+          })
+        )]
 
         to_commit[
           is.na(id_pred),

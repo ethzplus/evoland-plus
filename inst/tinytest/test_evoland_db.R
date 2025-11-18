@@ -227,6 +227,7 @@ expect_silent(db$pred_meta_t <- pred_meta_t)
 retrieved_pred_meta <- db$pred_meta_t
 expect_equal(retrieved_pred_meta[["id_pred"]], 1:2)
 expect_equal(retrieved_pred_meta[["name"]], c("noise", "distance_to_lake"))
+db$delete_from("pred_meta_t") # clear up, we want to ensure this works with add_predictor
 
 expect_silent(db$intrv_meta_t <- intrv_meta_t)
 expect_equal(db$intrv_meta_t, intrv_meta_t)
@@ -258,6 +259,12 @@ expect_silent(
     pred_type = "float"
   )
 )
+# check that add_predictor works for metadata
+retrieved_pred_meta <- db$pred_meta_t
+expect_equal(retrieved_pred_meta[["id_pred"]], 1:2)
+expect_equal(retrieved_pred_meta[["name"]], c("noise", "distance_to_lake"))
+
+# check that add_predictor works for data
 expect_equal(db$row_count("pred_data_t_float"), 48L)
 expect_silent(db$pred_data_t_float <- pred_data_t)
 expect_equal(db$row_count("pred_data_t_float"), 48L)
