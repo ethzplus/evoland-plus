@@ -7,7 +7,7 @@ NULL
 
 #' @describeIn util_terra Extract values from a SpatRaster or SpatVector object using a (minimal) `coords_t`
 #' @param x The object to extract from; use "simple" extraction for rasters, i.e. no resampling is done.
-#' @param coords_t The coordinates to extract at
+#' @param coords_t A coords_t object containing coordinate points
 #' @return A long data.table with `id_coord`, a `layer`/`attribute` column, and a `value` column.
 #' NAs are omitted
 #' @export
@@ -87,4 +87,54 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
   }
 
   out
+}
+
+#' @describeIn util_terra Compute neighboring coordinates within specified distances
+#' @param max_distance Maximum distance to search for neighbors (in same units as coordinates)
+#' @param distance_breaks Optional numeric vector defining distance class boundaries.
+#'   If NULL, computes exact distances without classification.
+#'   If provided, must have at least 2 elements defining interval breaks.
+#' @param resolution Grid cell size for rasterization (default: 100.0, in same units as coordinates)
+#' @return A data.table with columns:
+#'   - id_coord_origin: ID of the origin coordinate
+#'   - id_coord_neighbor: ID of the neighboring coordinate
+#'   - distance: Distance between origin and neighbor
+#'   - distance_class: Factor indicating distance class (if distance_breaks provided)
+#' @export
+compute_neighbors <- function(
+  coords_t,
+  max_distance,
+  distance_breaks = c(0, max_distance),
+  resolution = 100.0
+) {
+  # Validate inputs
+  if (!inherits(coords_t, "coords_t")) {
+    stop("coords_t must be a coords_t object")
+  }
+
+  if (!is.numeric(max_distance) || length(max_distance) != 1 || max_distance <= 0) {
+    stop("max_distance must be a positive scalar numeric")
+  }
+
+  # Call C++ function
+  dt <- distance_neighbors_cpp(
+    coords_t = coords_t,
+    max_distance = max_distance,
+    breaks = distance_breaks,
+    resolution = resolution
+  )
+
+  # Set data.table allocation
+  dt <- data.table::setalloccol(dt)
+
+  # Rename distance_approx to distance
+  data.table::setnames(dt, "distance_approx", "distance")
+
+  # Reorder columns
+  data.table::setcolorder(
+    dt,
+    c("id_coord_origin", "id_coord_neighbor", "distance", "distance_class")
+  )
+
+  return(dt)
 }
