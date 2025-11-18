@@ -62,6 +62,16 @@ List distance_neighbors_cpp(DataFrame coords_t,
     }
   }
 
+  // 2. Count cells within circular search area for pre-allocation
+  int cells_in_circle = 0;
+  for (int i = 0; i < kernel_size; i++) {
+    for (int j = 0; j < kernel_size; j++) {
+      if (distance_kernel[i][j] <= max_distance) {
+        cells_in_circle++;
+      }
+    }
+  }
+  
   // 2. Create classification matrices
   int n_classes = breaks.size() - 1;
   std::vector<std::vector<std::vector<int>>> class_matrices(n_classes);
@@ -110,13 +120,28 @@ List distance_neighbors_cpp(DataFrame coords_t,
 
   if (duplicate_count > 0) {
     double pct = 100.0 * duplicate_count / n_points;
-    Rcpp::warning("%.0f points fell into cells already occupied (%.1f%% of total).",
+    Rcpp::warning("%.0f points fell into cells already occupied (%.1f%% of total).", 
                   duplicate_count, pct);
   }
 
-  // 4. Convolve to find neighbors
+  // 4. Pre-allocate result vectors based on density estimate
+  // Calculate density: occupied cells / total cells
+  int occupied_cells = n_points - duplicate_count;
+  double density = (double)occupied_cells / (n_rows * n_cols);
+  
+  // Estimate total neighbors: points × classes × circular area × density × safety margin
+  // Safety margin of 1.3 accounts for spatial clustering and edge effects
+  size_t estimated_total = (size_t)(n_points * n_classes * cells_in_circle * density * 1.3);
+  
   std::vector<int> origin_ids, neighbor_ids, distance_classes;
   std::vector<double> distances_approx;
+  
+  origin_ids.reserve(estimated_total);
+  neighbor_ids.reserve(estimated_total);
+  distance_classes.reserve(estimated_total);
+  distances_approx.reserve(estimated_total);
+  
+  // 5. Convolve to find neighbors
 
   for (int pt_idx = 0; pt_idx < n_points; pt_idx++) {
     int origin_id = id_coord[pt_idx];

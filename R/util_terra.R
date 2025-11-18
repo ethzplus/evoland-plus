@@ -104,7 +104,7 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
 compute_neighbors <- function(
   coords_t,
   max_distance,
-  distance_breaks = c(0, max_distance),
+  distance_breaks = NULL,
   resolution = 100.0
 ) {
   # Validate inputs
@@ -116,11 +116,25 @@ compute_neighbors <- function(
     stop("max_distance must be a positive scalar numeric")
   }
 
+  if (!is.null(distance_breaks)) {
+    if (!is.numeric(distance_breaks) || length(distance_breaks) < 2) {
+      stop("distance_breaks must be NULL or a numeric vector with at least 2 elements")
+    }
+  }
+
+  # Create breaks for C++ function
+  # If no breaks provided, create a single interval [0, max_distance]
+  if (is.null(distance_breaks)) {
+    cpp_breaks <- c(0, max_distance)
+  } else {
+    cpp_breaks <- distance_breaks
+  }
+
   # Call C++ function
   dt <- distance_neighbors_cpp(
     coords_t = coords_t,
     max_distance = max_distance,
-    breaks = distance_breaks,
+    breaks = cpp_breaks,
     resolution = resolution
   )
 
