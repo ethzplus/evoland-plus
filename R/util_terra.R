@@ -95,17 +95,20 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
 #'   If NULL, computes exact distances without classification.
 #'   If provided, must have at least 2 elements defining interval breaks.
 #' @param resolution Grid cell size for rasterization (default: 100.0, in same units as coordinates)
+#' @param calculate_distance Logical indicating whether to calculate actual distances (default: TRUE).
+#'   If FALSE, only distance classes are returned, which is much faster.
 #' @return A data.table with columns:
 #'   - id_coord_origin: ID of the origin coordinate
 #'   - id_coord_neighbor: ID of the neighboring coordinate
-#'   - distance: Distance between origin and neighbor
 #'   - distance_class: Factor indicating distance class (if distance_breaks provided)
+#'   - distance: Distance between origin and neighbor (only if calculate_distance = TRUE)
 #' @export
 compute_neighbors <- function(
   coords_t,
   max_distance,
   distance_breaks = NULL,
-  resolution = 100.0
+  resolution = 100.0,
+  calculate_distance = TRUE
 ) {
   # Validate inputs
   if (!inherits(coords_t, "coords_t")) {
@@ -135,20 +138,29 @@ compute_neighbors <- function(
     coords_t = coords_t,
     max_distance = max_distance,
     breaks = cpp_breaks,
-    resolution = resolution
+    resolution = resolution,
+    calculate_distance = calculate_distance
   )
 
   # Set data.table allocation
   dt <- data.table::setalloccol(dt)
 
-  # Rename distance_approx to distance
-  data.table::setnames(dt, "distance_approx", "distance")
+  # Rename distance_approx to distance (if it exists)
+  if (calculate_distance) {
+    data.table::setnames(dt, "distance_approx", "distance")
 
-  # Reorder columns
-  data.table::setcolorder(
-    dt,
-    c("id_coord_origin", "id_coord_neighbor", "distance", "distance_class")
-  )
+    # Reorder columns with distance
+    data.table::setcolorder(
+      dt,
+      c("id_coord_origin", "id_coord_neighbor", "distance_class", "distance")
+    )
+  } else {
+    # Reorder columns without distance
+    data.table::setcolorder(
+      dt,
+      c("id_coord_origin", "id_coord_neighbor", "distance_class")
+    )
+  }
 
   return(dt)
 }

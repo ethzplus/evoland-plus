@@ -11,8 +11,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // distance_neighbors_cpp
-List distance_neighbors_cpp(DataFrame coords_t, double max_distance, NumericVector breaks, double resolution);
-RcppExport SEXP _evoland_distance_neighbors_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP breaksSEXP, SEXP resolutionSEXP) {
+List distance_neighbors_cpp(DataFrame coords_t, double max_distance, NumericVector breaks, double resolution, bool calculate_distance);
+RcppExport SEXP _evoland_distance_neighbors_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP breaksSEXP, SEXP resolutionSEXP, SEXP calculate_distanceSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -20,13 +20,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type max_distance(max_distanceSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type breaks(breaksSEXP);
     Rcpp::traits::input_parameter< double >::type resolution(resolutionSEXP);
-    rcpp_result_gen = Rcpp::wrap(distance_neighbors_cpp(coords_t, max_distance, breaks, resolution));
+    Rcpp::traits::input_parameter< bool >::type calculate_distance(calculate_distanceSEXP);
+    rcpp_result_gen = Rcpp::wrap(distance_neighbors_cpp(coords_t, max_distance, breaks, resolution, calculate_distance));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 4},
+    {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 5},
     {NULL, NULL, 0}
 };
 

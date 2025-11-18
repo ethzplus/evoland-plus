@@ -158,7 +158,7 @@ neighbors <- compute_neighbors(test_coords, max_distance = 150)
 expect_true(data.table::is.data.table(neighbors))
 expect_equal(
   names(neighbors),
-  c("id_coord_origin", "id_coord_neighbor", "distance", "distance_class")
+  c("id_coord_origin", "id_coord_neighbor", "distance_class", "distance")
 )
 
 # Check that distances are correct

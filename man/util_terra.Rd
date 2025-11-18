@@ -12,7 +12,8 @@ compute_neighbors(
   coords_t,
   max_distance,
   distance_breaks = NULL,
-  resolution = 100
+  resolution = 100,
+  calculate_distance = TRUE
 )
 }
 \arguments{
@@ -27,6 +28,9 @@ If NULL, computes exact distances without classification.
 If provided, must have at least 2 elements defining interval breaks.}
 
 \item{resolution}{Grid cell size for rasterization (default: 100.0, in same units as coordinates)}
+
+\item{calculate_distance}{Logical indicating whether to calculate actual distances (default: TRUE).
+If FALSE, only distance classes are returned, which is much faster.}
 }
 \value{
 A long data.table with \code{id_coord}, a \code{layer}/\code{attribute} column, and a \code{value} column.
@@ -36,8 +40,8 @@ A data.table with columns:
 \itemize{
 \item id_coord_origin: ID of the origin coordinate
 \item id_coord_neighbor: ID of the neighboring coordinate
-\item distance: Distance between origin and neighbor
 \item distance_class: Factor indicating distance class (if distance_breaks provided)
+\item distance: Distance between origin and neighbor (only if calculate_distance = TRUE)
 }
 }
 \description{

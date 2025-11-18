@@ -1,5 +1,6 @@
 #include <Rcpp.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <cmath>
 
@@ -21,12 +22,14 @@ using namespace Rcpp;
  * @param breaks Numeric vector defining distance class boundaries (must have at least 2 elements)
  *   Distance classes are defined as [breaks[i], breaks[i+1]) intervals
  * @param resolution Grid cell size for rasterization (default: 100.0, in same units as coordinates)
+ * @param calculate_distance Whether to calculate actual distances (default: true)
+ *   If false, only distance classes are returned, which is much faster
  *
  * @return List (data.table) with columns:
  *   - id_coord_origin: ID of the origin coordinate
  *   - id_coord_neighbor: ID of the neighboring coordinate
  *   - distance_class: Character label of distance class (e.g., "[0,100)")
- *   - distance_approx: Approximate distance between origin and neighbor
+ *   - distance_approx: Approximate distance between origin and neighbor (only if calculate_distance = true)
  *
  * @note The function uses an approximate distance calculation based on grid cells.
  *   If multiple points fall into the same cell, a warning is issued and only the first
@@ -39,7 +42,8 @@ using namespace Rcpp;
 List distance_neighbors_cpp(DataFrame coords_t,
                                  double max_distance,
                                  NumericVector breaks,
-                                 double resolution = 100.0) {
+                                 double resolution = 100.0,
+                                 bool calculate_distance = true) {
 
   // Extract columns
   IntegerVector id_coord = coords_t["id_coord"];
@@ -139,7 +143,9 @@ List distance_neighbors_cpp(DataFrame coords_t,
   origin_ids.reserve(estimated_total);
   neighbor_ids.reserve(estimated_total);
   distance_classes.reserve(estimated_total);
-  distances_approx.reserve(estimated_total);
+  if (calculate_distance) {
+    distances_approx.reserve(estimated_total);
+  }
   
   // 5. Convolve to find neighbors
 
@@ -158,34 +164,59 @@ List distance_neighbors_cpp(DataFrame coords_t,
       int kernel_row_start = radius_cells - (origin_row - row_start);
       int kernel_col_start = radius_cells - (origin_col - col_start);
 
-      std::unordered_map<int, double> found_neighbors;
+      if (calculate_distance) {
+        std::unordered_map<int, double> found_neighbors;
 
-      for (int r = row_start; r <= row_end; r++) {
-        for (int c = col_start; c <= col_end; c++) {
-          int kr = kernel_row_start + (r - row_start);
-          int kc = kernel_col_start + (c - col_start);
+        for (int r = row_start; r <= row_end; r++) {
+          for (int c = col_start; c <= col_end; c++) {
+            int kr = kernel_row_start + (r - row_start);
+            int kc = kernel_col_start + (c - col_start);
 
-          if (class_matrices[class_idx][kr][kc] == 1 &&
-              raster_ids[r][c] != NA_INTEGER) {
+            if (class_matrices[class_idx][kr][kc] == 1 &&
+                raster_ids[r][c] != NA_INTEGER) {
 
-            int neighbor_id = raster_ids[r][c];
+              int neighbor_id = raster_ids[r][c];
 
-            // Calculate approximate distance
-            double row_offset = (r - origin_row) * resolution;
-            double col_offset = (c - origin_col) * resolution;
-            double dist = std::sqrt(row_offset * row_offset + col_offset * col_offset);
+              // Calculate approximate distance
+              double row_offset = (r - origin_row) * resolution;
+              double col_offset = (c - origin_col) * resolution;
+              double dist = std::sqrt(row_offset * row_offset + col_offset * col_offset);
 
-            found_neighbors[neighbor_id] = dist;
+              found_neighbors[neighbor_id] = dist;
+            }
           }
         }
-      }
 
-      // Add to results
-      for (const auto& pair : found_neighbors) {
-        origin_ids.push_back(origin_id);
-        neighbor_ids.push_back(pair.first);
-        distance_classes.push_back(class_idx + 1); // 1-indexed for R
-        distances_approx.push_back(pair.second);
+        // Add to results
+        for (const auto& pair : found_neighbors) {
+          origin_ids.push_back(origin_id);
+          neighbor_ids.push_back(pair.first);
+          distance_classes.push_back(class_idx + 1); // 1-indexed for R
+          distances_approx.push_back(pair.second);
+        }
+      } else {
+        std::unordered_set<int> found_neighbors;
+
+        for (int r = row_start; r <= row_end; r++) {
+          for (int c = col_start; c <= col_end; c++) {
+            int kr = kernel_row_start + (r - row_start);
+            int kc = kernel_col_start + (c - col_start);
+
+            if (class_matrices[class_idx][kr][kc] == 1 &&
+                raster_ids[r][c] != NA_INTEGER) {
+
+              int neighbor_id = raster_ids[r][c];
+              found_neighbors.insert(neighbor_id);
+            }
+          }
+        }
+
+        // Add to results
+        for (const auto& neighbor_id : found_neighbors) {
+          origin_ids.push_back(origin_id);
+          neighbor_ids.push_back(neighbor_id);
+          distance_classes.push_back(class_idx + 1); // 1-indexed for R
+        }
       }
     }
   }
@@ -210,12 +241,21 @@ List distance_neighbors_cpp(DataFrame coords_t,
   distance_class_factor.attr("levels") = factor_levels;
   distance_class_factor.attr("class") = "factor";
 
-  List res = List::create(
-    Named("id_coord_origin") = origin_ids,
-    Named("id_coord_neighbor") = neighbor_ids,
-    Named("distance_class") = distance_class_factor,
-    Named("distance_approx") = distances_approx
-  );
+  List res;
+  if (calculate_distance) {
+    res = List::create(
+      Named("id_coord_origin") = origin_ids,
+      Named("id_coord_neighbor") = neighbor_ids,
+      Named("distance_class") = distance_class_factor,
+      Named("distance_approx") = distances_approx
+    );
+  } else {
+    res = List::create(
+      Named("id_coord_origin") = origin_ids,
+      Named("id_coord_neighbor") = neighbor_ids,
+      Named("distance_class") = distance_class_factor
+    );
+  }
 
   res.attr("class") = CharacterVector::create("data.table", "data.frame");
 
