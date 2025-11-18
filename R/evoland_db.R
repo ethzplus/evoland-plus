@@ -62,6 +62,7 @@ evoland_db <- R6::R6Class(
       # Upsert report metadata
       reporting_t <- data.table::rowwiseDT(
         key=, value=, # nolint
+        # TODO this should only overwrite if not default arg values
         "report_name", report_name,
         "report_name_pretty", report_name_pretty,
         "report_include_date", as.character(report_include_date),
@@ -189,6 +190,14 @@ evoland_db <- R6::R6Class(
     #' @return No. of rows affected by statement
     execute = function(statement) {
       DBI::dbExecute(self$connection, statement)
+    },
+
+    #' @description
+    #' Get Query
+    #' @param statement A SQL statement
+    #' @return No. of rows affected by statement
+    get_query = function(statement) {
+      DBI::dbGetQuery(self$connection, statement)
     },
 
     #' @description

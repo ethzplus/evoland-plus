@@ -87,6 +87,7 @@ of object to assign. Assigning is an upsert operation.}
 \item \href{#method-evoland_db-fetch}{\code{evoland_db$fetch()}}
 \item \href{#method-evoland_db-list_tables}{\code{evoland_db$list_tables()}}
 \item \href{#method-evoland_db-execute}{\code{evoland_db$execute()}}
+\item \href{#method-evoland_db-get_query}{\code{evoland_db$get_query()}}
 \item \href{#method-evoland_db-row_count}{\code{evoland_db$row_count()}}
 \item \href{#method-evoland_db-delete_from}{\code{evoland_db$delete_from()}}
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
@@ -140,7 +141,13 @@ A new \code{evoland_db} object
 \subsection{Method \code{commit()}}{
 Commit data to storage
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit(x, table_name, mode = "upsert", format = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit(
+  x,
+  table_name,
+  mode = "upsert",
+  format = NULL,
+  autoincrement_cols = character(0)
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -154,6 +161,9 @@ Commit data to storage
 
 \item{\code{format}}{Character string. File format: "parquet" or "csv". Defaults to
 object's default_format.}
+
+\item{\code{autoincrement_cols}}{Character vector of column names that should auto-increment.
+For new rows, these columns will be assigned sequential IDs starting from max(existing) + 1.}
 }
 \if{html}{\out{</div>}}
 }
@@ -205,6 +215,26 @@ Character vector of table names
 Execute statement
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$execute(statement)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{statement}}{A SQL statement}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+No. of rows affected by statement
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-get_query"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-get_query}{}}}
+\subsection{Method \code{get_query()}}{
+Get Query
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_query(statement)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
