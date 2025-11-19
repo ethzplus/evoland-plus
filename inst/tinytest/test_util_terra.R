@@ -158,7 +158,7 @@ neighbors <- compute_neighbors(test_coords, max_distance = 150)
 expect_true(data.table::is.data.table(neighbors))
 expect_equal(
   names(neighbors),
-  c("id_coord_origin", "id_coord_neighbor", "distance_class", "distance")
+  c("id_coord_origin", "id_coord_neighbor", "distance")
 )
 
 # Check that distances are correct
@@ -276,7 +276,9 @@ expect_true(all(real_neighbors$distance > 0))
 expect_true(all(real_neighbors$distance <= 300))
 
 # Check symmetry: if A is neighbor of B, B should be neighbor of A
-for (i in 1:min(10, nrow(real_neighbors))) {
+for (i in seq_len(
+  min(10, nrow(real_neighbors))
+)) {
   origin <- real_neighbors$id_coord_origin[i]
   neighbor <- real_neighbors$id_coord_neighbor[i]
   dist <- real_neighbors$distance[i]

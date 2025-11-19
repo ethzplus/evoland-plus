@@ -1,35 +1,28 @@
 #include <Rcpp.h>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 #include <cmath>
 
 using namespace Rcpp;
 
 /**
- * @brief Find neighboring coordinates within specified distance classes using raster-based spatial indexing
+ * @brief Find neighboring coordinates within specified distance using raster-based spatial indexing
  *
- * This function identifies neighboring points for each coordinate within specified distance ranges
+ * This function identifies neighboring points for each coordinate within a specified maximum distance
  * using a rasterization and convolution approach. It divides the spatial extent into a grid,
- * places coordinates into cells, and uses distance kernels to efficiently find neighbors within
- * specified distance classes.
+ * places coordinates into cells, and uses distance kernels to efficiently find neighbors.
  *
  * @param coords_t DataFrame containing coordinate data with columns:
  *   - id_coord: Integer vector of unique coordinate identifiers
  *   - lon: Numeric vector of longitude values
  *   - lat: Numeric vector of latitude values
  * @param max_distance Maximum distance to search for neighbors (in same units as coordinates)
- * @param breaks Numeric vector defining distance class boundaries (must have at least 2 elements)
- *   Distance classes are defined as [breaks[i], breaks[i+1]) intervals
  * @param resolution Grid cell size for rasterization (default: 100.0, in same units as coordinates)
- * @param calculate_distance Whether to calculate actual distances (default: true)
- *   If false, only distance classes are returned, which is much faster
  *
  * @return List (data.table) with columns:
  *   - id_coord_origin: ID of the origin coordinate
  *   - id_coord_neighbor: ID of the neighboring coordinate
- *   - distance_class: Character label of distance class (e.g., "[0,100)")
- *   - distance_approx: Approximate distance between origin and neighbor (only if calculate_distance = true)
+ *   - distance_approx: Approximate distance between origin and neighbor
  *
  * @note The function uses an approximate distance calculation based on grid cells.
  *   If multiple points fall into the same cell, a warning is issued and only the first
@@ -41,9 +34,7 @@ using namespace Rcpp;
 // [[Rcpp::export]]
 List distance_neighbors_cpp(DataFrame coords_t,
                                  double max_distance,
-                                 NumericVector breaks,
-                                 double resolution = 100.0,
-                                 bool calculate_distance = true) {
+                                 double resolution = 100.0) {
 
   // Extract columns
   IntegerVector id_coord = coords_t["id_coord"];
@@ -55,40 +46,15 @@ List distance_neighbors_cpp(DataFrame coords_t,
   int radius_cells = (int)std::ceil(max_distance / resolution);
   int kernel_size = 2 * radius_cells + 1;
 
-  std::vector<std::vector<double>> distance_kernel(kernel_size,
-                                                   std::vector<double>(kernel_size));
-
-  for (int i = 0; i < kernel_size; i++) {
-    for (int j = 0; j < kernel_size; j++) {
-      double x = (j - radius_cells) * resolution;
-      double y = (i - radius_cells) * resolution;
-      distance_kernel[i][j] = std::sqrt(x * x + y * y);
-    }
-  }
-
   // 2. Count cells within circular search area for pre-allocation
   int cells_in_circle = 0;
   for (int i = 0; i < kernel_size; i++) {
     for (int j = 0; j < kernel_size; j++) {
-      if (distance_kernel[i][j] <= max_distance) {
+      double x = (j - radius_cells) * resolution;
+      double y = (i - radius_cells) * resolution;
+      double dist = std::sqrt(x * x + y * y);
+      if (dist <= max_distance) {
         cells_in_circle++;
-      }
-    }
-  }
-  
-  // 2. Create classification matrices
-  int n_classes = breaks.size() - 1;
-  std::vector<std::vector<std::vector<int>>> class_matrices(n_classes);
-
-  for (int c = 0; c < n_classes; c++) {
-    class_matrices[c].resize(kernel_size, std::vector<int>(kernel_size, 0));
-
-    for (int i = 0; i < kernel_size; i++) {
-      for (int j = 0; j < kernel_size; j++) {
-        double dist = distance_kernel[i][j];
-        if (dist >= breaks[c] && dist < breaks[c + 1] && dist > 0) {
-          class_matrices[c][i][j] = 1;
-        }
       }
     }
   }
@@ -133,129 +99,67 @@ List distance_neighbors_cpp(DataFrame coords_t,
   int occupied_cells = n_points - duplicate_count;
   double density = (double)occupied_cells / (n_rows * n_cols);
   
-  // Estimate total neighbors: points × classes × circular area × density × safety margin
+  // Estimate total neighbors: points × circular area × density × safety margin
   // Safety margin of 1.3 accounts for spatial clustering and edge effects
-  size_t estimated_total = (size_t)(n_points * n_classes * cells_in_circle * density * 1.3);
+  size_t estimated_total = (size_t)(n_points * cells_in_circle * density * 1.3);
   
-  std::vector<int> origin_ids, neighbor_ids, distance_classes;
+  std::vector<int> origin_ids, neighbor_ids;
   std::vector<double> distances_approx;
   
   origin_ids.reserve(estimated_total);
   neighbor_ids.reserve(estimated_total);
-  distance_classes.reserve(estimated_total);
-  if (calculate_distance) {
-    distances_approx.reserve(estimated_total);
-  }
+  distances_approx.reserve(estimated_total);
   
-  // 5. Convolve to find neighbors
+  // 5. Find neighbors within max_distance
 
   for (int pt_idx = 0; pt_idx < n_points; pt_idx++) {
     int origin_id = id_coord[pt_idx];
     int origin_row = row_indices[pt_idx];
     int origin_col = col_indices[pt_idx];
 
-    for (int class_idx = 0; class_idx < n_classes; class_idx++) {
+    int row_start = std::max(0, origin_row - radius_cells);
+    int row_end = std::min(n_rows - 1, origin_row + radius_cells);
+    int col_start = std::max(0, origin_col - radius_cells);
+    int col_end = std::min(n_cols - 1, origin_col + radius_cells);
 
-      int row_start = std::max(0, origin_row - radius_cells);
-      int row_end = std::min(n_rows - 1, origin_row + radius_cells);
-      int col_start = std::max(0, origin_col - radius_cells);
-      int col_end = std::min(n_cols - 1, origin_col + radius_cells);
+    std::unordered_map<int, double> found_neighbors;
 
-      int kernel_row_start = radius_cells - (origin_row - row_start);
-      int kernel_col_start = radius_cells - (origin_col - col_start);
-
-      if (calculate_distance) {
-        std::unordered_map<int, double> found_neighbors;
-
-        for (int r = row_start; r <= row_end; r++) {
-          for (int c = col_start; c <= col_end; c++) {
-            int kr = kernel_row_start + (r - row_start);
-            int kc = kernel_col_start + (c - col_start);
-
-            if (class_matrices[class_idx][kr][kc] == 1 &&
-                raster_ids[r][c] != NA_INTEGER) {
-
-              int neighbor_id = raster_ids[r][c];
-
-              // Calculate approximate distance
-              double row_offset = (r - origin_row) * resolution;
-              double col_offset = (c - origin_col) * resolution;
-              double dist = std::sqrt(row_offset * row_offset + col_offset * col_offset);
-
-              found_neighbors[neighbor_id] = dist;
-            }
+    for (int r = row_start; r <= row_end; r++) {
+      for (int c = col_start; c <= col_end; c++) {
+        if (raster_ids[r][c] != NA_INTEGER) {
+          int neighbor_id = raster_ids[r][c];
+          
+          // Skip self
+          if (neighbor_id == origin_id) {
+            continue;
           }
-        }
 
-        // Add to results
-        for (const auto& pair : found_neighbors) {
-          origin_ids.push_back(origin_id);
-          neighbor_ids.push_back(pair.first);
-          distance_classes.push_back(class_idx + 1); // 1-indexed for R
-          distances_approx.push_back(pair.second);
-        }
-      } else {
-        std::unordered_set<int> found_neighbors;
+          // Calculate approximate distance
+          double row_offset = (r - origin_row) * resolution;
+          double col_offset = (c - origin_col) * resolution;
+          double dist = std::sqrt(row_offset * row_offset + col_offset * col_offset);
 
-        for (int r = row_start; r <= row_end; r++) {
-          for (int c = col_start; c <= col_end; c++) {
-            int kr = kernel_row_start + (r - row_start);
-            int kc = kernel_col_start + (c - col_start);
-
-            if (class_matrices[class_idx][kr][kc] == 1 &&
-                raster_ids[r][c] != NA_INTEGER) {
-
-              int neighbor_id = raster_ids[r][c];
-              found_neighbors.insert(neighbor_id);
-            }
+          // Only include if within max_distance
+          if (dist <= max_distance) {
+            found_neighbors[neighbor_id] = dist;
           }
-        }
-
-        // Add to results
-        for (const auto& neighbor_id : found_neighbors) {
-          origin_ids.push_back(origin_id);
-          neighbor_ids.push_back(neighbor_id);
-          distance_classes.push_back(class_idx + 1); // 1-indexed for R
         }
       }
     }
-  }
 
-  // Create factor levels for distance classes
-  CharacterVector factor_levels(n_classes);
-  for (int i = 0; i < n_classes; i++) {
-    std::string label = "[" + std::to_string((int)breaks[i]) + ",";
-    // Last interval is closed on both ends (like cut with include.lowest=TRUE)
-    if (i == n_classes - 1) {
-      label += std::to_string((int)breaks[i + 1]) + "]";
-    } else {
-      label += std::to_string((int)breaks[i + 1]) + ")";
+    // Add to results
+    for (const auto& pair : found_neighbors) {
+      origin_ids.push_back(origin_id);
+      neighbor_ids.push_back(pair.first);
+      distances_approx.push_back(pair.second);
     }
-    factor_levels[i] = label;
   }
 
-  // Create integer vector for factor (1-indexed, matching distance_classes)
-  IntegerVector distance_class_factor(distance_classes.begin(), distance_classes.end());
-
-  // Set factor attributes
-  distance_class_factor.attr("levels") = factor_levels;
-  distance_class_factor.attr("class") = "factor";
-
-  List res;
-  if (calculate_distance) {
-    res = List::create(
-      Named("id_coord_origin") = origin_ids,
-      Named("id_coord_neighbor") = neighbor_ids,
-      Named("distance_class") = distance_class_factor,
-      Named("distance_approx") = distances_approx
-    );
-  } else {
-    res = List::create(
-      Named("id_coord_origin") = origin_ids,
-      Named("id_coord_neighbor") = neighbor_ids,
-      Named("distance_class") = distance_class_factor
-    );
-  }
+  List res = List::create(
+    Named("id_coord_origin") = origin_ids,
+    Named("id_coord_neighbor") = neighbor_ids,
+    Named("distance_approx") = distances_approx
+  );
 
   res.attr("class") = CharacterVector::create("data.table", "data.frame");
 

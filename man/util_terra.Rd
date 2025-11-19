@@ -12,8 +12,7 @@ compute_neighbors(
   coords_t,
   max_distance,
   distance_breaks = NULL,
-  resolution = 100,
-  calculate_distance = TRUE
+  resolution = 100
 )
 }
 \arguments{
@@ -21,16 +20,14 @@ compute_neighbors(
 
 \item{coords_t}{A coords_t object containing coordinate points}
 
-\item{max_distance}{Maximum distance to search for neighbors (in same units as coordinates)}
+\item{max_distance}{Maximum distance to search for neighbors (in same units as
+coordinates and resolution)}
 
 \item{distance_breaks}{Optional numeric vector defining distance class boundaries.
-If NULL, computes exact distances without classification.
+If NULL, no distance classification is performed.
 If provided, must have at least 2 elements defining interval breaks.}
 
 \item{resolution}{Grid cell size for rasterization (default: 100.0, in same units as coordinates)}
-
-\item{calculate_distance}{Logical indicating whether to calculate actual distances (default: TRUE).
-If FALSE, only distance classes are returned, which is much faster.}
 }
 \value{
 A long data.table with \code{id_coord}, a \code{layer}/\code{attribute} column, and a \code{value} column.
@@ -40,8 +37,8 @@ A data.table with columns:
 \itemize{
 \item id_coord_origin: ID of the origin coordinate
 \item id_coord_neighbor: ID of the neighboring coordinate
+\item distance: Distance between origin and neighbor
 \item distance_class: Factor indicating distance class (if distance_breaks provided)
-\item distance: Distance between origin and neighbor (only if calculate_distance = TRUE)
 }
 }
 \description{
@@ -51,6 +48,10 @@ Useful to coax terra raster and vector data into evoland tabular form.
 \itemize{
 \item \code{extract_using_coords_t()}: Extract values from a SpatRaster or SpatVector object using a (minimal) \code{coords_t}
 
-\item \code{compute_neighbors()}: Compute neighboring coordinates within specified distances
+\item \code{compute_neighbors()}: Compute neighboring coordinates within specified distances. In
+order to be computationally feasible, the coordinates' IDs are rasterized before
+their actual Euclidean distance is calculated. If coordinates are so close that they
+get rasterized to the same cell, the first one is used and a warning is emitted. If
+this happens, try again using a lower resolution.
 
 }}

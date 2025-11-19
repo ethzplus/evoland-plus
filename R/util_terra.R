@@ -89,26 +89,28 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
   out
 }
 
-#' @describeIn util_terra Compute neighboring coordinates within specified distances
-#' @param max_distance Maximum distance to search for neighbors (in same units as coordinates)
+#' @describeIn util_terra Compute neighboring coordinates within specified distances. In
+#' order to be computationally feasible, the coordinates' IDs are rasterized before
+#' their actual Euclidean distance is calculated. If coordinates are so close that they
+#' get rasterized to the same cell, the first one is used and a warning is emitted. If
+#' this happens, try again using a lower resolution.
+#' @param max_distance Maximum distance to search for neighbors (in same units as
+#' coordinates and resolution)
 #' @param distance_breaks Optional numeric vector defining distance class boundaries.
-#'   If NULL, computes exact distances without classification.
+#'   If NULL, no distance classification is performed.
 #'   If provided, must have at least 2 elements defining interval breaks.
 #' @param resolution Grid cell size for rasterization (default: 100.0, in same units as coordinates)
-#' @param calculate_distance Logical indicating whether to calculate actual distances (default: TRUE).
-#'   If FALSE, only distance classes are returned, which is much faster.
 #' @return A data.table with columns:
 #'   - id_coord_origin: ID of the origin coordinate
 #'   - id_coord_neighbor: ID of the neighboring coordinate
+#'   - distance: Distance between origin and neighbor
 #'   - distance_class: Factor indicating distance class (if distance_breaks provided)
-#'   - distance: Distance between origin and neighbor (only if calculate_distance = TRUE)
 #' @export
 compute_neighbors <- function(
   coords_t,
   max_distance,
   distance_breaks = NULL,
-  resolution = 100.0,
-  calculate_distance = TRUE
+  resolution = 100.0
 ) {
   # Validate inputs
   if (!inherits(coords_t, "coords_t")) {
@@ -125,40 +127,41 @@ compute_neighbors <- function(
     }
   }
 
-  # Create breaks for C++ function
-  # If no breaks provided, create a single interval [0, max_distance]
-  if (is.null(distance_breaks)) {
-    cpp_breaks <- c(0, max_distance)
-  } else {
-    cpp_breaks <- distance_breaks
-  }
-
   # Call C++ function
   dt <- distance_neighbors_cpp(
     coords_t = coords_t,
     max_distance = max_distance,
-    breaks = cpp_breaks,
-    resolution = resolution,
-    calculate_distance = calculate_distance
+    resolution = resolution
   )
 
   # Set data.table allocation
   dt <- data.table::setalloccol(dt)
 
-  # Rename distance_approx to distance (if it exists)
-  if (calculate_distance) {
-    data.table::setnames(dt, "distance_approx", "distance")
+  # Rename distance_approx to distance
+  data.table::setnames(dt, "distance_approx", "distance")
 
-    # Reorder columns with distance
+  # Add distance class if breaks provided
+  if (!is.null(distance_breaks)) {
+    dt[,
+      distance_class := cut(
+        distance,
+        breaks = distance_breaks,
+        right = FALSE,
+        include.lowest = TRUE
+      )
+    ]
+  }
+
+  # Reorder columns
+  if (!is.null(distance_breaks)) {
     data.table::setcolorder(
       dt,
       c("id_coord_origin", "id_coord_neighbor", "distance_class", "distance")
     )
   } else {
-    # Reorder columns without distance
     data.table::setcolorder(
       dt,
-      c("id_coord_origin", "id_coord_neighbor", "distance_class")
+      c("id_coord_origin", "id_coord_neighbor", "distance")
     )
   }
 
