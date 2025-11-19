@@ -19,8 +19,7 @@ expect_true(inherits(db, "evoland_db"))
 expected_tables_initial <- c("reporting_t")
 expect_identical(db$list_tables(), expected_tables_initial)
 
-db$attach_table("reporting_t")
-reporting1 <- db$get_query("from reporting_t;")
+reporting1 <- db$fetch("reporting_t")
 rm(db)
 gc()
 db <- evoland_db$new(
@@ -28,9 +27,12 @@ db <- evoland_db$new(
   report_name = "tinytest",
   report_username = "testuser"
 )
-db$attach_table("reporting_t")
-reporting2 <- db$get_query("from reporting_t;")
-expect_equal(reporting1[1:4], reporting2[1:4])
+reporting2 <- db$fetch("reporting_t")
+expect_equal(
+  # upsert reorders rows
+  sort(reporting1$key),
+  sort(reporting2$key)
+)
 
 
 # Check that accessing non-existent tables returns empty data.tables

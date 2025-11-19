@@ -31,22 +31,18 @@ evoland_db <- R6::R6Class(
     #' @param path Character string. Path to the data folder.
     #' @param default_format Character. Default file format ("parquet" or "csv").
     #' Default is "parquet".
-    #' @param report_name Character string. Name of the report scenario.
-    #' @param report_name_pretty Character string. Pretty name of the report scenario.
-    #' @param report_include_date Logical. Whether to include the date in the report scenario.
-    #' @param report_username Character string. Username for the report scenario,
-    #' defaults to $USER env var
+    #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
     initialize = function(
       path,
       default_format = c("parquet", "csv"),
-      report_name = "evoland_scenario",
-      report_name_pretty = "Default Evoland Scenario",
-      report_include_date = TRUE,
-      report_username = Sys.getenv("USER", unset = "unknown")
+      ...
     ) {
-      self$path <- path
+      # Create folder if it doesn't exist
+      self$path <- ensure_dir(path)
+
+      # set format / writeopts
       self$default_format <- match.arg(default_format)
       self$writeopts <- switch(
         self$default_format,
@@ -55,31 +51,15 @@ evoland_db <- R6::R6Class(
         stop(glue::glue("Unsupported format: {format}"))
       )
 
-      # Create folder if it doesn't exist
-      ensure_dir(path)
-
       # Create in-memory connection for SQL operations
       self$connection <- DBI::dbConnect(
         duckdb::duckdb(),
         dbdir = ":memory:",
         read_only = FALSE
       )
-
-      # Load spatial extension
       self$execute("INSTALL spatial; LOAD spatial;")
 
-      # Upsert report metadata
-      reporting_t <- data.table::rowwiseDT(
-        key=, value=, # nolint
-        # TODO this should only overwrite if not default arg values
-        "report_name", report_name,
-        "report_name_pretty", report_name_pretty,
-        "report_include_date", as.character(report_include_date),
-        "report_username", report_username,
-        "last_opened", format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-      )
-
-      private$commit_upsert(reporting_t, "reporting_t", key_cols = "key")
+      self$set_report(...)
 
       invisible(self)
     },
@@ -276,6 +256,31 @@ evoland_db <- R6::R6Class(
       count_after <- self$row_count(table_name)
 
       return(count_before - count_after)
+    },
+
+    #' @description
+    #' Set reporting metadata
+    #' @param ... each named argument is entered into the table with the argument name
+    #' as its key
+    set_report = function(...) {
+      params <- list(...)
+      if (self$row_count("reporting_t") == 0L) {
+        params[["report_name"]] <- "evoland_scenario"
+        params[["report_name_pretty"]] <- "Default Evoland Scenario"
+        params[["report_include_date"]] <- "TRUE"
+        params[["creator_username"]] <- Sys.getenv("USER", unset = "unknown")
+      }
+      params[["last_opened"]] <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+      params[["last_opened_username"]] <- Sys.getenv("USER", unset = "unknown")
+
+      private$commit_upsert(
+        data.table::as.data.table(list(
+          key = names(params), # cannot name a column "key" in data.table()
+          value = unlist(params)
+        )),
+        table_name = "reporting_t",
+        key_cols = "key"
+      )
     },
 
     #' @description
@@ -897,7 +902,6 @@ evoland_db <- R6::R6Class(
     #
     # param x Data frame to write
     # param table_name Character string table name
-    # param format File format
     write_file = function(x, table_name) {
       file_path <- file.path(self$path, paste0(table_name, ".", self$default_format))
 
@@ -912,7 +916,6 @@ evoland_db <- R6::R6Class(
     #
     # param x Data frame to commit
     # param table_name Character string table name
-    # param format File format
     # param autoincrement_cols Character vector of column names to auto-increment
     commit_overwrite = function(x, table_name, autoincrement_cols = character(0)) {
       # Assign auto-increment IDs
@@ -926,7 +929,6 @@ evoland_db <- R6::R6Class(
     #
     # param x Data frame to commit
     # param table_name Character string table name
-    # param format File format
     # param autoincrement_cols Character vector of column names to auto-increment
     commit_append = function(x, table_name, autoincrement_cols = character(0)) {
       file_info <- private$get_file_path(table_name)
@@ -974,14 +976,12 @@ evoland_db <- R6::R6Class(
     #
     # param x Data frame to commit
     # param table_name Character string table name
-    # param format File format
     # param key_cols Identify unique columns - heuristic: if prefixed with
     # id_, the set of all columns designates a uniqueness condition
     # param autoincrement_cols Character vector of column names to auto-increment
     commit_upsert = function(
       x,
       table_name,
-      format,
       key_cols = grep("^id_", names(x), value = TRUE),
       autoincrement_cols = character(0)
     ) {
