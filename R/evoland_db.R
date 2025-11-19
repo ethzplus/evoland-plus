@@ -204,6 +204,30 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
+    #' Attach one or more tables from the database folder as temporary tables in DuckDB.
+    #' This is useful for working with multiple tables in SQL queries without loading
+    #' them into R memory.
+    #' @param table_name Character vector. Names of table to attach.
+    #' @param columns Character vector. Optional sql column selection, defaults to "*"
+    attach_table = function(table_name, columns = "*") {
+      file_info <- private$get_file_path(table_name)
+
+      # Build and execute SQL
+      self$execute(glue::glue(
+        "CREATE TEMP TABLE {table_name} AS ",
+        "SELECT {paste(columns, collapse = ', ')} ",
+        "FROM read_{file_info$format}('{file_info$path}')"
+      ))
+    },
+
+    #' @description
+    #' Detach one or more tables from the database.
+    #' @param table_name Character. Name of table to drop.
+    detach_table = function(table_name) {
+      self$execute(paste0("drop table ", table_name, ";"))
+    },
+
+    #' @description
     #' Get table row count
     #' @param table_name Character string. Name of the table to query.
     #' @return No. of rows
