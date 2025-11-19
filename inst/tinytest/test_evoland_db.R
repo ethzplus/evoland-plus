@@ -5,13 +5,33 @@ library(tinytest)
 test_dir <- tempfile("evoland_test_")
 on.exit(unlink(test_dir, recursive = TRUE), add = TRUE)
 
-expect_silent(db <- evoland_db$new(test_dir))
+expect_silent(
+  db <- evoland_db$new(
+    path = test_dir,
+    report_name = "tinytest",
+    report_username = "testuser"
+  )
+)
 expect_true(inherits(db, "evoland_db"))
 
 # In folder-based storage, only reporting_t exists initially
 # Other tables are created on demand
 expected_tables_initial <- c("reporting_t")
 expect_identical(db$list_tables(), expected_tables_initial)
+
+db$attach_table("reporting_t")
+reporting1 <- db$get_query("from reporting_t;")
+rm(db)
+gc()
+db <- evoland_db$new(
+  path = test_dir,
+  report_name = "tinytest",
+  report_username = "testuser"
+)
+db$attach_table("reporting_t")
+reporting2 <- db$get_query("from reporting_t;")
+expect_equal(reporting1[1:4], reporting2[1:4])
+
 
 # Check that accessing non-existent tables returns empty data.tables
 # (these tables don't appear in list_tables() until they have data)

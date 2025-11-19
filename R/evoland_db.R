@@ -23,6 +23,9 @@ evoland_db <- R6::R6Class(
     #' @field default_format Default file format for new tables
     default_format = NULL,
 
+    #' @field writeopts Default write options for DuckDB, see
+    writeopts = NULL,
+
     #' @description
     #' Initialize a new evoland_db object
     #' @param path Character string. Path to the data folder.
@@ -45,6 +48,12 @@ evoland_db <- R6::R6Class(
     ) {
       self$path <- path
       self$default_format <- match.arg(default_format)
+      self$writeopts <- switch(
+        self$default_format,
+        parquet = "FORMAT parquet, COMPRESSION zstd",
+        csv = "FORMAT csv",
+        stop(glue::glue("Unsupported format: {format}"))
+      )
 
       # Create folder if it doesn't exist
       ensure_dir(path)
@@ -70,7 +79,7 @@ evoland_db <- R6::R6Class(
         "last_opened", format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
       )
 
-      self$commit(reporting_t, "reporting_t", mode = "upsert")
+      private$commit_upsert(reporting_t, "reporting_t", key_cols = "key")
 
       invisible(self)
     },
@@ -90,7 +99,6 @@ evoland_db <- R6::R6Class(
       x,
       table_name,
       mode = "upsert",
-      format = NULL,
       autoincrement_cols = character(0)
     ) {
       # Validate mode
@@ -101,22 +109,16 @@ evoland_db <- R6::R6Class(
         ))
       }
 
-      # Use default format if not specified
-      if (is.null(format)) {
-        format <- self$default_format
-      }
-
       # Handle different commit modes
       switch(
         mode,
-        overwrite = private$commit_overwrite(x, table_name, format, autoincrement_cols),
+        overwrite = private$commit_overwrite(x, table_name, autoincrement_cols),
         upsert = private$commit_upsert(
           x,
           table_name,
-          format,
           autoincrement_cols = autoincrement_cols
         ),
-        append = private$commit_append(x, table_name, format, autoincrement_cols)
+        append = private$commit_append(x, table_name, autoincrement_cols)
       )
 
       invisible(NULL)
@@ -206,22 +208,16 @@ evoland_db <- R6::R6Class(
     #' @param table_name Character string. Name of the table to query.
     #' @return No. of rows
     row_count = function(table_name) {
-      # Check if this is a view
-      if (table_name == "lulc_meta_long_v") {
-        return(nrow(private$fetch_lulc_meta_long_v()))
-      }
-      if (table_name == "pred_sources_v") {
-        return(nrow(private$fetch_pred_sources_v()))
-      }
-
       file_info <- private$get_file_path(table_name)
 
       if (!file_info$exists) {
         return(0L)
       }
 
-      qry <- glue::glue("SELECT COUNT(*) as n FROM read_{file_info$format}('{file_info$path}')")
-      DBI::dbGetQuery(self$connection, qry)[[1]]
+      DBI::dbGetQuery(
+        self$connection,
+        glue::glue("SELECT COUNT(*) as n FROM read_{file_info$format}('{file_info$path}')")
+      )[[1]]
     },
 
     #' @description
@@ -236,26 +232,21 @@ evoland_db <- R6::R6Class(
         return(0L)
       }
 
-      if (is.null(where)) {
-        # Count rows before deletion
-        count <- self$row_count(table_name)
-        file.remove(file_info$path)
-        return(count)
-      }
-
-      # Get count before deletion
       count_before <- self$row_count(table_name)
 
+      if (is.null(where)) {
+        file.remove(file_info$path)
+        return(count_before)
+      }
+
       # Use SQL to filter and rewrite - no need to load into memory
-      sql <- glue::glue(
+      self$execute(glue::glue(
         "COPY (
           SELECT * FROM read_{file_info$format}('{file_info$path}')
           WHERE NOT ({where})
         )
-        TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd)"
-      )
-
-      DBI::dbExecute(self$connection, sql)
+        TO '{file_info$path}' ({self$writeopts})"
+      ))
 
       # Get count after deletion
       count_after <- self$row_count(table_name)
@@ -556,7 +547,7 @@ evoland_db <- R6::R6Class(
           SELECT * FROM temporary_trans_data;
 
           COPY existing_trans_meta_t
-          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+          TO '{file_info$path}' ({self$writeopts});
 
           DROP TABLE existing_trans_meta_t;
           "
@@ -565,7 +556,7 @@ evoland_db <- R6::R6Class(
         sql <- glue::glue(
           "
           COPY temporary_trans_data
-          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd)
+          TO '{file_info$path}' ({self$writeopts})
           "
         )
       }
@@ -630,7 +621,7 @@ evoland_db <- R6::R6Class(
           FROM tmp_table;
 
           COPY existing_intrv_meta_t
-          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+          TO '{file_info$path}' ({self$writeopts});
 
           DROP TABLE existing_intrv_meta_t;
           "
@@ -646,7 +637,7 @@ evoland_db <- R6::R6Class(
           FROM tmp_table;
 
           COPY new_intrv_meta_t
-          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+          TO '{file_info$path}' ({self$writeopts});
 
           DROP TABLE new_intrv_meta_t;
           "
@@ -723,7 +714,7 @@ evoland_db <- R6::R6Class(
           FROM tmp_table;
 
           COPY existing_trans_models_t
-          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+          TO '{file_info$path}' ({self$writeopts});
 
           DROP TABLE existing_trans_models_t;
           "
@@ -740,7 +731,7 @@ evoland_db <- R6::R6Class(
           FROM tmp_table;
 
           COPY new_trans_models_t
-          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+          TO '{file_info$path}' ({self$writeopts});
 
           DROP TABLE new_trans_models_t;
           "
@@ -812,7 +803,7 @@ evoland_db <- R6::R6Class(
           FROM tmp_table;
 
           COPY existing_alloc_params_t
-          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+          TO '{file_info$path}' ({self$writeopts});
 
           DROP TABLE existing_alloc_params_t;
           "
@@ -828,7 +819,7 @@ evoland_db <- R6::R6Class(
           FROM tmp_table;
 
           COPY new_alloc_params_t
-          TO '{file_info$path}' (FORMAT {file_info$format}, COMPRESSION zstd);
+          TO '{file_info$path}' ({self$writeopts});
 
           DROP TABLE new_alloc_params_t;
           "
@@ -883,20 +874,13 @@ evoland_db <- R6::R6Class(
     # param x Data frame to write
     # param table_name Character string table name
     # param format File format
-    write_file = function(x, table_name, format) {
-      file_path <- file.path(self$path, paste0(table_name, ".", format))
+    write_file = function(x, table_name) {
+      file_path <- file.path(self$path, paste0(table_name, ".", self$default_format))
 
       duckdb::duckdb_register(self$connection, "temp_write_table", x)
       on.exit(duckdb::duckdb_unregister(self$connection, "temp_write_table"))
 
-      writeopts <- switch(
-        format,
-        parquet = "FORMAT parquet, COMPRESSION zstd",
-        csv = "FORMAT csv",
-        stop(glue::glue("Unsupported format: {format}"))
-      )
-
-      sql <- glue::glue("COPY temp_write_table TO '{file_path}' ({writeopts})")
+      sql <- glue::glue("COPY temp_write_table TO '{file_path}' ({self$writeopts})")
       DBI::dbExecute(self$connection, sql)
     },
 
@@ -906,12 +890,12 @@ evoland_db <- R6::R6Class(
     # param table_name Character string table name
     # param format File format
     # param autoincrement_cols Character vector of column names to auto-increment
-    commit_overwrite = function(x, table_name, format, autoincrement_cols = character(0)) {
+    commit_overwrite = function(x, table_name, autoincrement_cols = character(0)) {
       # Assign auto-increment IDs
       assign_autoincrement_ids(x, autoincrement_cols)
 
       # Simply write the file (overwriting if it exists)
-      private$write_file(x, table_name, format)
+      private$write_file(x, table_name)
     },
 
     # Commit data in append mode
@@ -920,7 +904,7 @@ evoland_db <- R6::R6Class(
     # param table_name Character string table name
     # param format File format
     # param autoincrement_cols Character vector of column names to auto-increment
-    commit_append = function(x, table_name, format, autoincrement_cols = character(0)) {
+    commit_append = function(x, table_name, autoincrement_cols = character(0)) {
       file_info <- private$get_file_path(table_name)
 
       if (file_info$exists) {
@@ -951,14 +935,14 @@ evoland_db <- R6::R6Class(
             FROM
               new_data
           )
-          TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd)
+          TO '{file_info$path}' ({self$writeopts})
           }"
         )
 
         DBI::dbExecute(self$connection, sql)
       } else {
         # No existing file - use overwrite logic
-        private$commit_overwrite(x, table_name, format, autoincrement_cols)
+        private$commit_overwrite(x, table_name, autoincrement_cols)
       }
     },
 
@@ -980,9 +964,9 @@ evoland_db <- R6::R6Class(
       file_info <- private$get_file_path(table_name)
 
       if (!file_info$exists) {
-        return(private$commit_overwrite(x, table_name, format, autoincrement_cols))
+        return(private$commit_overwrite(x, table_name, autoincrement_cols))
       } else if (length(key_cols) == 0) {
-        return(private$commit_append(x, table_name, format, autoincrement_cols))
+        return(private$commit_append(x, table_name, autoincrement_cols))
       }
 
       # Get max IDs from existing table
@@ -1035,7 +1019,7 @@ evoland_db <- R6::R6Class(
           USING
             ({paste(key_cols, collapse = ", ")})
         )
-        TO '{file_info$path}' (FORMAT {format}, COMPRESSION zstd);
+        TO '{file_info$path}' ({self$writeopts});
 
         DROP TABLE old_data;
         }"
