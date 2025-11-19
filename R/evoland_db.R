@@ -197,7 +197,8 @@ evoland_db <- R6::R6Class(
     #' @param statement A SQL statement
     #' @return No. of rows affected by statement
     get_query = function(statement) {
-      DBI::dbGetQuery(self$connection, statement)
+      DBI::dbGetQuery(self$connection, statement) |>
+        data.table::as.data.table()
     },
 
     #' @description
