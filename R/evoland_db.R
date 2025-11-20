@@ -112,7 +112,7 @@ evoland_db <- R6::R6Class(
                   new_data
               )
               TO '{file_info$path}' ({self$writeopts})
-              }"
+          }"
         )
 
         DBI::dbExecute(self$connection, sql)
@@ -164,19 +164,15 @@ evoland_db <- R6::R6Class(
       non_key_cols <- setdiff(names(x), key_cols)
 
       # Build COALESCE expressions for all non-key columns
-      coalesce_exprs <-
+      select_expr <- glue::glue_collapse(
         c(
           # Key columns from existing table
-          sprintf("%s", key_cols),
+          glue::glue("{key_cols}"),
           # Non-key columns with COALESCE to prefer new values
-          sprintf(
-            "COALESCE(new_data.%s, old_data.%s) AS %s",
-            non_key_cols,
-            non_key_cols,
-            non_key_cols
-          )
-        ) |>
-        paste(collapse = ",\n ")
+          glue::glue("COALESCE(new_data.{non_key_cols}, old_data.{non_key_cols}) AS {non_key_cols}")
+        ),
+        sep = ",\n "
+      )
 
       sql <- glue::glue(
         r"{
@@ -185,7 +181,7 @@ evoland_db <- R6::R6Class(
 
             COPY (
               SELECT
-                {coalesce_exprs}
+                {select_expr}
               FROM
                 old_data
               FULL OUTER JOIN
