@@ -71,8 +71,37 @@ evoland_db <- R6::R6Class(
     #' @param table_name Character string table name
     #' @param autoincrement_cols Character vector of column names to auto-increment
     commit_overwrite = function(x, table_name, autoincrement_cols = character(0)) {
-      assign_autoincrement_ids(x, autoincrement_cols)
-      private$write_file(x, table_name)
+      file_path <- file.path(self$path, paste0(table_name, ".", self$default_format))
+
+      duckdb::duckdb_register(self$connection, "tmp_v", x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_v"))
+
+      # if there are any of these, first get existing max values
+      if (length(intersect(autoincrement_cols, names(x))) > 0) {
+        warning(glue::glue(
+          "Overriding existing IDs ({toString(autoincrement_cols)}) with row numbers;\n",
+          "Assign these IDs manually and do not pass any autoincrement_cols to avoid this warning"
+        ))
+      }
+
+      select_expr <- glue::glue_collapse(
+        c(
+          # autoincrement equal to row index; overwrite existing values
+          glue::glue("row_number() over () as {autoincrement_cols}"),
+          # all other cols are ordinary
+          glue::glue("{setdiff(names(x), autoincrement_cols)}")
+        ),
+        sep = ",\n "
+      )
+
+      self$execute(glue::glue(
+        r"{
+        copy (
+          select {select_expr}
+          from tmp_v
+        ) to '{file_path}' ({self$writeopts})
+        }"
+      ))
     },
 
     #' @description
