@@ -6,6 +6,7 @@
 #' boundaries) or with arbitrary distribution (e.g. square, hexagonal, voronoi, polygon
 #' tesselations).
 #'
+#' @param x A table that can be coerced to a valid `coords_t` object.
 #' @param epsg An integerish scalar representing an EPSG CRS code
 #' @param extent A [terra::SpatExtent] object describing the extent of a desired
 #'               `coords_t`
@@ -34,6 +35,9 @@ as_coords_t <- function(x) {
     )
   }
   cast_dt_col(x, "id_coord", as.integer)
+  if (!is.null(x[["region"]])) {
+    cast_dt_col(x, "region", as.factor)
+  }
   new_evoland_table(
     x,
     "coords_t",

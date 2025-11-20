@@ -64,44 +64,142 @@ evoland_db <- R6::R6Class(
       invisible(self)
     },
 
+    ### DB methods ----
     #' @description
-    #' Commit data to storage
-    #' @param x Data object to commit.
-    #' @param table_name Table to target
-    #' @param mode Character string. One of "upsert" (default), "append", or "overwrite".
-    #' @param format Character string. File format: "parquet" or "csv". Defaults to
-    #' object's default_format.
-    #' @param autoincrement_cols Character vector of column names that should auto-increment.
-    #' For new rows, these columns will be assigned sequential IDs starting from max(existing) + 1.
-    #'
-    #' @return NULL (called for side effects)
-    commit = function(
+    #' Commit data in overwrite mode
+    #' @param x Data frame to commit
+    #' @param table_name Character string table name
+    #' @param autoincrement_cols Character vector of column names to auto-increment
+    commit_overwrite = function(x, table_name, autoincrement_cols = character(0)) {
+      assign_autoincrement_ids(x, autoincrement_cols)
+      private$write_file(x, table_name)
+    },
+
+    #' @description
+    #' Commit data in append mode
+    #' @param x Data frame to commit
+    #' @param table_name Character string table name
+    #' @param autoincrement_cols Character vector of column names to auto-increment
+    commit_append = function(x, table_name, autoincrement_cols = character(0)) {
+      file_info <- private$get_file_path(table_name)
+
+      if (file_info$exists) {
+        # Get max IDs from existing table
+        existing_max_ids <- if (length(autoincrement_cols) > 0) {
+          private$get_max_ids(file_info, autoincrement_cols)
+        } else {
+          NULL
+        }
+
+        # Assign auto-increment IDs to new data
+        assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
+
+        # Register new data and concatenate with existing data using DuckDB
+        duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
+        on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
+
+        sql <- glue::glue(
+          r"{
+              COPY (
+                SELECT
+                  {paste(names(x), collapse = ",")}
+                FROM
+                  read_{file_info$format}('{file_info$path}')
+                UNION ALL
+                SELECT
+                  {paste(names(x), collapse = ",")}
+                FROM
+                  new_data
+              )
+              TO '{file_info$path}' ({self$writeopts})
+              }"
+        )
+
+        DBI::dbExecute(self$connection, sql)
+      } else {
+        # No existing file - use overwrite logic
+        self$commit_overwrite(x, table_name, autoincrement_cols)
+      }
+    },
+
+    #' @description
+    #' Commit data in upsert mode
+    #' @param x Data frame to commit
+    #' @param table_name Character string table name
+    #' @param key_cols Identify unique columns - heuristic: if prefixed with
+    #' id_, the set of all columns designates a uniqueness condition
+    #' @param autoincrement_cols Character vector of column names to auto-increment
+    commit_upsert = function(
       x,
       table_name,
-      mode = "upsert",
+      key_cols = grep("^id_", names(x), value = TRUE),
       autoincrement_cols = character(0)
     ) {
-      # Validate mode
-      valid_modes <- c("append", "upsert", "overwrite")
-      if (!mode %in% valid_modes) {
-        stop(glue::glue(
-          "Invalid mode '{mode}'. Must be one of: {paste(valid_modes, collapse = ', ')}"
-        ))
+      file_info <- private$get_file_path(table_name)
+
+      if (!file_info$exists) {
+        return(self$commit_overwrite(x, table_name, autoincrement_cols))
+      } else if (length(key_cols) == 0) {
+        return(self$commit_append(x, table_name, autoincrement_cols))
       }
 
-      # Handle different commit modes
-      switch(
-        mode,
-        overwrite = private$commit_overwrite(x, table_name, autoincrement_cols),
-        upsert = private$commit_upsert(
-          x,
-          table_name,
-          autoincrement_cols = autoincrement_cols
-        ),
-        append = private$commit_append(x, table_name, autoincrement_cols)
+      # Get max IDs from existing table
+      existing_max_ids <- if (length(autoincrement_cols) > 0) {
+        private$get_max_ids(file_info, autoincrement_cols)
+      } else {
+        NULL
+      }
+
+      # Assign auto-increment IDs to new data
+      assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
+
+      # Register new data
+      duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
+
+      # Basic pattern:
+      # load existing table into temporary table in memory,
+      # full join of new data to existing data
+      # coalesce (take first non-null value), thereby replacing old with new values
+      non_key_cols <- setdiff(names(x), key_cols)
+
+      # Build COALESCE expressions for all non-key columns
+      coalesce_exprs <-
+        c(
+          # Key columns from existing table
+          sprintf("%s", key_cols),
+          # Non-key columns with COALESCE to prefer new values
+          sprintf(
+            "COALESCE(new_data.%s, old_data.%s) AS %s",
+            non_key_cols,
+            non_key_cols,
+            non_key_cols
+          )
+        ) |>
+        paste(collapse = ",\n ")
+
+      sql <- glue::glue(
+        r"{
+            CREATE TEMP TABLE old_data AS
+            SELECT * FROM read_{file_info$format}('{file_info$path}');
+
+            COPY (
+              SELECT
+                {coalesce_exprs}
+              FROM
+                old_data
+              FULL OUTER JOIN
+                new_data
+              USING
+                ({paste(key_cols, collapse = ", ")})
+            )
+            TO '{file_info$path}' ({self$writeopts});
+
+            DROP TABLE old_data;
+            }"
       )
 
-      invisible(NULL)
+      DBI::dbExecute(self$connection, sql)
     },
 
     #' @description
@@ -149,21 +247,10 @@ evoland_db <- R6::R6Class(
     #' List all tables (files) in storage
     #' @return Character vector of table names
     list_tables = function() {
-      # List parquet and csv files in directory
-      files <- list.files(self$path, pattern = "\\.(parquet|csv)$", full.names = FALSE)
-
-      # Extract table names (remove extensions)
-      table_names <- tools::file_path_sans_ext(files)
-
-      # Add views
-      if ("lulc_meta_t" %in% table_names) {
-        table_names <- c(table_names, "lulc_meta_long_v")
-      }
-      if ("pred_meta_t" %in% table_names) {
-        table_names <- c(table_names, "pred_sources_v")
-      }
-
-      sort(unique(table_names))
+      list.files(self$path, pattern = "\\.(parquet|csv)$", full.names = FALSE) |>
+        tools::file_path_sans_ext() |>
+        unique() |>
+        sort()
     },
 
     #' @description
@@ -243,21 +330,22 @@ evoland_db <- R6::R6Class(
         return(count_before)
       }
 
-      # Use SQL to filter and rewrite - no need to load into memory
       self$execute(glue::glue(
-        "COPY (
+        r"{
+        COPY (
           SELECT * FROM read_{file_info$format}('{file_info$path}')
           WHERE NOT ({where})
         )
-        TO '{file_info$path}' ({self$writeopts})"
+        TO '{file_info$path}' ({self$writeopts})
+        }"
       ))
 
-      # Get count after deletion
       count_after <- self$row_count(table_name)
 
       return(count_before - count_after)
     },
 
+    ### Setter methods ----
     #' @description
     #' Set reporting metadata
     #' @param ... each named argument is entered into the table with the argument name
@@ -273,7 +361,7 @@ evoland_db <- R6::R6Class(
       params[["last_opened"]] <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
       params[["last_opened_username"]] <- Sys.getenv("USER", unset = "unknown")
 
-      private$commit_upsert(
+      self$commit_upsert(
         data.table::as.data.table(list(
           key = names(params), # cannot name a column "key" in data.table()
           value = unlist(params)
@@ -298,7 +386,7 @@ evoland_db <- R6::R6Class(
         function(x) stop("Unsupported coordinate type specified.")
       )
 
-      self$commit(as_coords_t(create_fun(...)), "coords_t", mode = "overwrite")
+      self$commit_overwrite(as_coords_t(create_fun(...)), "coords_t")
     },
 
     #' @description
@@ -319,13 +407,13 @@ evoland_db <- R6::R6Class(
         return(invisible(NULL))
       }
 
-      self$commit(
+      self$commit_append(
         do.call(create_periods_t, as.list(environment())),
-        "periods_t",
-        mode = "append"
+        "periods_t"
       )
     },
 
+    ### Adder methods ----
     #' @description
     #' Add a predictor to the database
     #' @param pred_spec List of predictor specification; see [create_pred_meta_t()]
@@ -345,74 +433,20 @@ evoland_db <- R6::R6Class(
       data.table::set(pred_data, j = "id_pred", value = existing_meta[["id_pred"]])
       data.table::setcolorder(pred_data, c("id_pred", "id_coord", "id_period", "value"))
 
-      self$commit(
+      self$commit_upsert(
         as_pred_data_t(pred_data, pred_type),
-        paste0("pred_data_t_", pred_type),
-        mode = "upsert"
+        paste0("pred_data_t_", pred_type)
       )
     }
   ),
 
   ## Active Bindings ----
   active = list(
+    ### Bindings for tables ----
     #' @field coords_t A `coords_t` instance; see [create_coords_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     coords_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("coords_t")
-        if (rlang::has_name(x, "region")) {
-          cast_dt_col(x, "region", as.factor)
-        }
-        return(as_coords_t(x))
-      }
-      stopifnot(inherits(x, "coords_t"))
-      self$commit(x, "coords_t", mode = "upsert")
-    },
-
-    #' @field extent Return a terra SpatExtent based on coords_t
-    extent = function() {
-      file_info <- private$get_file_path("coords_t")
-
-      if (!file_info$exists) {
-        stop("No coords_t found")
-      }
-
-      sql <- glue::glue(
-        r"{
-        SELECT
-          min(lon) as xmin,
-          max(lon) as xmax,
-          min(lat) as ymin,
-          max(lat) as ymax
-        FROM
-          read_{file_info$format}('{file_info$path}')
-        }"
-      )
-
-      DBI::dbGetQuery(self$connection, sql) |>
-        unlist() |>
-        terra::ext()
-    },
-
-    #' @field coords_minimal data.table with only (id_coord, lon, lat)
-    coords_minimal = function() {
-      file_info <- private$get_file_path("coords_t")
-
-      if (!file_info$exists) {
-        return(data.table::data.table(
-          id_coord = integer(0),
-          lon = numeric(0),
-          lat = numeric(0)
-        ))
-      }
-
-      sql <- glue::glue(
-        "SELECT id_coord, lon, lat FROM read_{file_info$format}('{file_info$path}')"
-      )
-
-      DBI::dbGetQuery(self$connection, sql) |>
-        data.table::as.data.table() |>
-        cast_dt_col("id_coord", as.integer)
+      create_active_binding(self, "coords_t", as_coords_t)(x)
     },
 
     #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
@@ -439,6 +473,83 @@ evoland_db <- R6::R6Class(
       create_active_binding(self, "lulc_data_t", as_lulc_data_t)(x)
     },
 
+    #' @field pred_data_t_float A `pred_data_t_float` instance; see
+    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
+    #' upsert operation.
+    pred_data_t_float = function(x) {
+      create_active_binding(
+        self,
+        "pred_data_t_float",
+        as_pred_data_t,
+        type = "float"
+      )(x)
+    },
+
+    #' @field pred_data_t_int A `pred_data_t_int` instance; see
+    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
+    #' upsert operation.
+    pred_data_t_int = function(x) {
+      create_active_binding(
+        self,
+        "pred_data_t_int",
+        as_pred_data_t,
+        type = "int"
+      )(x)
+    },
+
+    #' @field pred_data_t_bool A `pred_data_t_bool` instance; see
+    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
+    #' upsert operation.
+    pred_data_t_bool = function(x) {
+      create_active_binding(
+        self,
+        "pred_data_t_bool",
+        as_pred_data_t,
+        type = "bool"
+      )(x)
+    },
+
+    ### Bindings for descriptions, views, etc. ----
+    #' @field extent Return a terra SpatExtent based on coords_t
+    extent = function() {
+      file_info <- private$get_file_path("coords_t")
+
+      self$get_query(glue::glue(
+        r"{
+        SELECT
+          min(lon) as xmin,
+          max(lon) as xmax,
+          min(lat) as ymin,
+          max(lat) as ymax
+        FROM
+          read_{file_info$format}('{file_info$path}')
+        }"
+      )) |>
+        unlist() |>
+        terra::ext()
+    },
+
+    #' @field coords_minimal data.table with only (id_coord, lon, lat)
+    coords_minimal = function() {
+      file_info <- private$get_file_path("coords_t")
+
+      if (!file_info$exists) {
+        return(data.table::data.table(
+          id_coord = integer(0),
+          lon = numeric(0),
+          lat = numeric(0)
+        ))
+      }
+
+      sql <- glue::glue(
+        "SELECT id_coord, lon, lat FROM read_{file_info$format}('{file_info$path}')"
+      )
+
+      DBI::dbGetQuery(self$connection, sql) |>
+        data.table::as.data.table() |>
+        cast_dt_col("id_coord", as.integer)
+    },
+
     #' @field pred_meta_t A `pred_meta_t` instance; see [create_pred_meta_t()] for the type of
     #' object to assign. Assigning is an upsert operation.
     pred_meta_t = function(x) {
@@ -450,6 +561,12 @@ evoland_db <- R6::R6Class(
 
       # Get existing metadata to determine next id
       existing_meta <- self$fetch("pred_meta_t")
+      # self$commit_upsert(
+      #   x,
+      #   table_name = "pred_meta_t",
+      #   key_cols = "name",
+      #   autoincrement_cols = "id_pred"
+      # )
       if (nrow(existing_meta) == 0) {
         start_id <- 1L
         x[["id_pred"]] <- seq(start_id, length.out = nrow(x))
@@ -489,7 +606,7 @@ evoland_db <- R6::R6Class(
 
       data.table::setcolorder(to_commit, c("id_pred", "name"))
 
-      self$commit(to_commit, "pred_meta_t", mode = "overwrite")
+      self$commit_overwrite(to_commit, "pred_meta_t")
     },
 
     #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
@@ -497,42 +614,6 @@ evoland_db <- R6::R6Class(
     pred_sources_v = function() {
       private$fetch_pred_sources_v() |>
         new_evoland_table("pred_sources_v", keycols = NULL)
-    },
-
-    #' @field pred_data_t_float A `pred_data_t_float` instance; see
-    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
-    #' upsert operation.
-    pred_data_t_float = function(x) {
-      create_active_binding(
-        self,
-        "pred_data_t_float",
-        as_pred_data_t,
-        type = "float"
-      )(x)
-    },
-
-    #' @field pred_data_t_int A `pred_data_t_int` instance; see
-    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
-    #' upsert operation.
-    pred_data_t_int = function(x) {
-      create_active_binding(
-        self,
-        "pred_data_t_int",
-        as_pred_data_t,
-        type = "int"
-      )(x)
-    },
-
-    #' @field pred_data_t_bool A `pred_data_t_bool` instance; see
-    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
-    #' upsert operation.
-    pred_data_t_bool = function(x) {
-      create_active_binding(
-        self,
-        "pred_data_t_bool",
-        as_pred_data_t,
-        type = "bool"
-      )(x)
     },
 
     #' @field trans_meta_t A `trans_meta_t` instance; see [create_trans_meta_t()] for the type of
@@ -912,146 +993,6 @@ evoland_db <- R6::R6Class(
       DBI::dbExecute(self$connection, sql)
     },
 
-    # Commit data in overwrite mode
-    #
-    # param x Data frame to commit
-    # param table_name Character string table name
-    # param autoincrement_cols Character vector of column names to auto-increment
-    commit_overwrite = function(x, table_name, autoincrement_cols = character(0)) {
-      # Assign auto-increment IDs
-      assign_autoincrement_ids(x, autoincrement_cols)
-
-      # Simply write the file (overwriting if it exists)
-      private$write_file(x, table_name)
-    },
-
-    # Commit data in append mode
-    #
-    # param x Data frame to commit
-    # param table_name Character string table name
-    # param autoincrement_cols Character vector of column names to auto-increment
-    commit_append = function(x, table_name, autoincrement_cols = character(0)) {
-      file_info <- private$get_file_path(table_name)
-
-      if (file_info$exists) {
-        # Get max IDs from existing table
-        existing_max_ids <- if (length(autoincrement_cols) > 0) {
-          private$get_max_ids(file_info, autoincrement_cols)
-        } else {
-          NULL
-        }
-
-        # Assign auto-increment IDs to new data
-        assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
-
-        # Register new data and concatenate with existing data using DuckDB
-        duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
-        on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
-
-        sql <- glue::glue(
-          r"{
-          COPY (
-            SELECT
-              {paste(names(x), collapse = ",")}
-            FROM
-              read_{file_info$format}('{file_info$path}')
-            UNION ALL
-            SELECT
-              {paste(names(x), collapse = ",")}
-            FROM
-              new_data
-          )
-          TO '{file_info$path}' ({self$writeopts})
-          }"
-        )
-
-        DBI::dbExecute(self$connection, sql)
-      } else {
-        # No existing file - use overwrite logic
-        private$commit_overwrite(x, table_name, autoincrement_cols)
-      }
-    },
-
-    # Commit data in upsert mode
-    #
-    # param x Data frame to commit
-    # param table_name Character string table name
-    # param key_cols Identify unique columns - heuristic: if prefixed with
-    # id_, the set of all columns designates a uniqueness condition
-    # param autoincrement_cols Character vector of column names to auto-increment
-    commit_upsert = function(
-      x,
-      table_name,
-      key_cols = grep("^id_", names(x), value = TRUE),
-      autoincrement_cols = character(0)
-    ) {
-      file_info <- private$get_file_path(table_name)
-
-      if (!file_info$exists) {
-        return(private$commit_overwrite(x, table_name, autoincrement_cols))
-      } else if (length(key_cols) == 0) {
-        return(private$commit_append(x, table_name, autoincrement_cols))
-      }
-
-      # Get max IDs from existing table
-      existing_max_ids <- if (length(autoincrement_cols) > 0) {
-        private$get_max_ids(file_info, autoincrement_cols)
-      } else {
-        NULL
-      }
-
-      # Assign auto-increment IDs to new data
-      assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
-
-      # Register new data
-      duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
-      on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
-
-      # Basic pattern:
-      # load existing table into temporary table in memory,
-      # full join of new data to existing data
-      # coalesce (take first non-null value), thereby replacing old with new values
-      non_key_cols <- setdiff(names(x), key_cols)
-
-      # Build COALESCE expressions for all non-key columns
-      coalesce_exprs <-
-        c(
-          # Key columns from existing table
-          sprintf("%s", key_cols),
-          # Non-key columns with COALESCE to prefer new values
-          sprintf(
-            "COALESCE(new_data.%s, old_data.%s) AS %s",
-            non_key_cols,
-            non_key_cols,
-            non_key_cols
-          )
-        ) |>
-        paste(collapse = ",\n ")
-
-      sql <- glue::glue(
-        r"{
-        CREATE TEMP TABLE old_data AS
-        SELECT * FROM read_{file_info$format}('{file_info$path}');
-
-        COPY (
-          SELECT
-            {coalesce_exprs}
-          FROM
-            old_data
-          FULL OUTER JOIN
-            new_data
-          USING
-            ({paste(key_cols, collapse = ", ")})
-        )
-        TO '{file_info$path}' ({self$writeopts});
-
-        DROP TABLE old_data;
-        }"
-      )
-
-      DBI::dbExecute(self$connection, sql)
-    },
-
     # Fetch lulc_meta_long_v view
     fetch_lulc_meta_long_v = function(where = NULL, limit = NULL) {
       file_info <- private$get_file_path("lulc_meta_t")
@@ -1239,7 +1180,7 @@ assign_autoincrement_ids <- function(x, autoincrement_cols, existing_max_ids = N
   invisible(x)
 }
 
-# Helper function to create simple active bindings with standard fetch/commit pattern
+# Helper function to create simple Bindings with standard fetch/commit pattern
 # param self The R6 instance (self).
 # param table_name Character string. Name of the table.
 # param as_fn Function to convert fetched data to the appropriate type.
@@ -1253,13 +1194,12 @@ create_active_binding <- function(self, table_name, as_fn, ...) {
       return(do.call(as_fn, c(list(x), extra_args)))
     }
     stopifnot(inherits(x, table_name))
-    self$commit(x, table_name, mode = "upsert")
+    self$commit_upsert(x, table_name)
   }
 }
 
 
 # Helper functions for converting between list and data.frame formats for DuckDB MAPs
-
 list_to_kv_df <- function(x) {
   if (is.null(x) || length(x) == 0) {
     return(data.frame(

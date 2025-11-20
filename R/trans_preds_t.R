@@ -26,20 +26,11 @@ as_trans_preds_t <- function(x) {
   )
 }
 
+#' @describeIn trans_preds_t Create a transition-predictor relation, i.e. records the
+#' result of a predictor selection step.
 #' @export
 create_trans_preds_t <- function() {
-  # For now, create an empty table with proper structure
-  # Full implementation would perform feature selection to determine
-  # which predictors are useful for each transition
-
-  x <- data.table::data.table(
-    id_pred = integer(0),
-    id_trans = integer(0)
-  )
-
-  data.table::setkeyv(x, c("id_pred", "id_trans"))
-
-  as_trans_preds_t(x)
+  as_trans_preds_t()
 }
 
 #' @export

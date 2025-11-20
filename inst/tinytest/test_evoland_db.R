@@ -368,10 +368,9 @@ test_data_1 <- data.table::data.table(
   name = c("predictor_a", "predictor_b", "predictor_c"),
   unit = c("m", "kg", "s")
 )
-db_autoinc$commit(
+db_autoinc$commit_overwrite(
   test_data_1,
   "test_autoinc_t",
-  mode = "overwrite",
   autoincrement_cols = "id_test"
 )
 result_1 <- db_autoinc$fetch("test_autoinc_t")
@@ -383,10 +382,9 @@ test_data_2 <- data.table::data.table(
   name = c("predictor_d", "predictor_e"),
   unit = c("A", "V")
 )
-db_autoinc$commit(
+db_autoinc$commit_append(
   test_data_2,
   "test_autoinc_t",
-  mode = "append",
   autoincrement_cols = "id_test"
 )
 result_2 <- db_autoinc$fetch("test_autoinc_t")
@@ -399,10 +397,9 @@ test_data_3 <- data.table::data.table(
   name = c("predictor_f", "predictor_g"),
   unit = c("W", "J")
 )
-db_autoinc$commit(
+db_autoinc$commit_upsert(
   test_data_3,
   "test_autoinc_t",
-  mode = "upsert",
   autoincrement_cols = "id_test"
 )
 result_3 <- db_autoinc$fetch("test_autoinc_t")
@@ -415,10 +412,9 @@ test_data_4 <- data.table::data.table(
   name = c("new_a", "existing", "new_b"),
   unit = c("x", "y", "z")
 )
-db_autoinc$commit(
+db_autoinc$commit_overwrite(
   test_data_4,
   "test_autoinc2_t",
-  mode = "overwrite",
   autoincrement_cols = "id_test"
 )
 result_4 <- db_autoinc$fetch("test_autoinc2_t")
@@ -431,10 +427,9 @@ test_data_5 <- data.table::data.table(
   name = c("item1", "item2"),
   value = c(10, 20)
 )
-db_autoinc$commit(
+db_autoinc$commit_overwrite(
   test_data_5,
   "test_multi_autoinc_t",
-  mode = "overwrite",
   autoincrement_cols = c("id_a", "id_b")
 )
 result_5 <- db_autoinc$fetch("test_multi_autoinc_t")
@@ -446,18 +441,16 @@ test_data_6a <- data.table::data.table(
   id_seq = c(5L, 10L, 15L),
   value = c(100, 200, 300)
 )
-db_autoinc$commit(
+db_autoinc$commit_overwrite(
   test_data_6a,
-  "test_continue_t",
-  mode = "overwrite"
+  "test_continue_t"
 )
 test_data_6b <- data.table::data.table(
   value = c(400, 500)
 )
-db_autoinc$commit(
+db_autoinc$commit_append(
   test_data_6b,
   "test_continue_t",
-  mode = "append",
   autoincrement_cols = "id_seq"
 )
 result_6 <- db_autoinc$fetch("test_continue_t")

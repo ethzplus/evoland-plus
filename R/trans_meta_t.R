@@ -40,6 +40,7 @@ as_trans_meta_t <- function(x) {
   )
 }
 
+#' @describeIn trans_meta_t Calculate the transition metadata and mark for modelling feasibility
 #' @export
 create_trans_meta_t <- function(
   lulc_data,
