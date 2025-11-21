@@ -412,15 +412,16 @@ test_data_4 <- data.table::data.table(
   name = c("new_a", "existing", "new_b"),
   unit = c("x", "y", "z")
 )
-db_autoinc$commit_overwrite(
-  test_data_4,
-  "test_autoinc2_t",
-  autoincrement_cols = "id_test"
+expect_warning(
+  db_autoinc$commit_overwrite(
+    test_data_4,
+    "test_autoinc2_t",
+    autoincrement_cols = "id_test"
+  ),
+  "Overriding existing IDs"
 )
 result_4 <- db_autoinc$fetch("test_autoinc2_t")
-expect_equal(result_4$id_test[2], 100L)
-expect_equal(result_4$id_test[1], 101L)
-expect_equal(result_4$id_test[3], 102L)
+expect_equal(result_4$id_test, 1:3)
 
 # Test 5: Multiple auto-increment columns
 test_data_5 <- data.table::data.table(

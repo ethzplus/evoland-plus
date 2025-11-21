@@ -52,11 +52,7 @@ evoland_db <- R6::R6Class(
       )
 
       # Create in-memory connection for SQL operations
-      self$connection <- DBI::dbConnect(
-        duckdb::duckdb(),
-        dbdir = ":memory:",
-        read_only = FALSE
-      )
+      self$connection <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
       self$execute("INSTALL spatial; LOAD spatial;")
 
       self$set_report(...)
@@ -84,14 +80,9 @@ evoland_db <- R6::R6Class(
         ))
       }
 
-      select_expr <- glue::glue_collapse(
-        c(
-          # autoincrement equal to row index; overwrite existing values
-          glue::glue("row_number() over () as {autoincrement_cols}"),
-          # all other cols are ordinary
-          glue::glue("{setdiff(names(x), autoincrement_cols)}")
-        ),
-        sep = ",\n "
+      select_expr <- make_commit_select(
+        all_cols = names(x),
+        row_num_cols = autoincrement_cols
       )
 
       self$execute(glue::glue(
@@ -112,43 +103,36 @@ evoland_db <- R6::R6Class(
     commit_append = function(x, table_name, autoincrement_cols = character(0)) {
       file_info <- private$get_file_path(table_name)
 
-      if (file_info$exists) {
-        # Get max IDs from existing table
-        existing_max_ids <- if (length(autoincrement_cols) > 0) {
-          private$get_max_ids(file_info, autoincrement_cols)
-        } else {
-          NULL
-        }
-
-        # Assign auto-increment IDs to new data
-        assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
-
-        # Register new data and concatenate with existing data using DuckDB
-        duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
-        on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
-
-        sql <- glue::glue(
-          r"{
-              COPY (
-                SELECT
-                  {paste(names(x), collapse = ",")}
-                FROM
-                  read_{file_info$format}('{file_info$path}')
-                UNION ALL
-                SELECT
-                  {paste(names(x), collapse = ",")}
-                FROM
-                  new_data
-              )
-              TO '{file_info$path}' ({self$writeopts})
-          }"
-        )
-
-        DBI::dbExecute(self$connection, sql)
-      } else {
-        # No existing file - use overwrite logic
+      if (!file_info$exists) {
         self$commit_overwrite(x, table_name, autoincrement_cols)
       }
+
+      self$attach_table(table_name)
+      on.exit(self$detach_table(table_name))
+      private$set_autoincrement_vars(table_name, autoincrement_cols)
+
+      # Register new data and concatenate with existing data using DuckDB
+      duckdb::duckdb_register(conn = self$connection, "tmp_v", df = x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_v"), add = TRUE)
+
+      select_new <- make_commit_select(names(x), from_max_cols = autoincrement_cols)
+
+      self$execute(glue::glue(
+        r"{
+          copy (
+            select
+              *
+            from
+              {table_name}
+            union all by name
+            select
+              {select_new}
+            from
+              tmp_v
+          )
+          to '{file_info$path}' ({self$writeopts})
+          }"
+      ))
     },
 
     #' @description
@@ -183,8 +167,8 @@ evoland_db <- R6::R6Class(
       assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
 
       # Register new data
-      duckdb::duckdb_register(conn = self$connection, "new_data", df = x)
-      on.exit(duckdb::duckdb_unregister(self$connection, "new_data"))
+      duckdb::duckdb_register(conn = self$connection, "tmp_v", df = x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_v"))
 
       # Basic pattern:
       # load existing table into temporary table in memory,
@@ -198,7 +182,7 @@ evoland_db <- R6::R6Class(
           # Key columns from existing table
           glue::glue("{key_cols}"),
           # Non-key columns with COALESCE to prefer new values
-          glue::glue("COALESCE(new_data.{non_key_cols}, old_data.{non_key_cols}) AS {non_key_cols}")
+          glue::glue("COALESCE(tmp_v.{non_key_cols}, old_data.{non_key_cols}) AS {non_key_cols}")
         ),
         sep = ",\n "
       )
@@ -214,7 +198,7 @@ evoland_db <- R6::R6Class(
               FROM
                 old_data
               FULL OUTER JOIN
-                new_data
+                tmp_v
               USING
                 ({paste(key_cols, collapse = ", ")})
             )
@@ -1018,6 +1002,38 @@ evoland_db <- R6::R6Class(
       DBI::dbExecute(self$connection, sql)
     },
 
+    # Set one duckdb variable name max_{colname} to the maximum found for each
+    # autoincrement_col in table_name. if column is missing from table_name, set to 0.
+    set_autoincrement_vars = function(table_name, autoincrement_cols) {
+      if (!DBI::dbExistsTable(self$connection, table_name)) {
+        # attach / detach unless it was already there
+        self$attach_table(table_name)
+        on.exit(self$detach_table(table_name))
+      }
+
+      existing_cols <-
+        glue::glue("select column_name from (describe {table_name})") |>
+        self$get_query() |>
+        purrr::pluck(1) |>
+        intersect(autoincrement_cols)
+
+      missing_cols <- setdiff(autoincrement_cols, existing_cols)
+
+      set_exprs <- glue::glue_collapse(
+        c(
+          glue::glue(
+            "set variable max_{existing_cols} = (select coalesce(max({existing_cols}), 0) from {table_name});"
+          ),
+          glue::glue(
+            "set variable max_{missing_cols} = 0;"
+          )
+        ),
+        sep = "\n"
+      )
+
+      self$execute(set_exprs)
+    },
+
     # Fetch lulc_meta_long_v view
     fetch_lulc_meta_long_v = function(where = NULL, limit = NULL) {
       file_info <- private$get_file_path("lulc_meta_t")
@@ -1261,4 +1277,29 @@ kv_df_to_list <- function(x) {
   }
 
   out
+}
+
+# Compose a SQL select expression for use in commits
+# param all_cols: char vector of all column names
+# param row_num_cols: char vector of those columns that should be set to their row number
+# param from_max_cols: char vector of those columns that should increment from a
+# previously set max_{colname} duckdb variable
+make_commit_select <- function(
+  all_cols,
+  row_num_cols = character(),
+  from_max_cols = character()
+) {
+  # find those columns that aren't auto-incrementing
+  ordinary_cols <- setdiff(
+    all_cols,
+    union(row_num_cols, from_max_cols) # assuming these aren't overlapping
+  )
+  glue::glue_collapse(
+    c(
+      glue::glue("row_number() over () as {row_num_cols}"),
+      glue::glue("row_number() over () + getvariable('max_{from_max_cols}') as {from_max_cols}"),
+      ordinary_cols
+    ),
+    sep = ",\n "
+  )
 }
