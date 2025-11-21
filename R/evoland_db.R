@@ -69,8 +69,8 @@ evoland_db <- R6::R6Class(
     commit_overwrite = function(x, table_name, autoincrement_cols = character(0)) {
       file_path <- file.path(self$path, paste0(table_name, ".", self$default_format))
 
-      duckdb::duckdb_register(self$connection, "tmp_v", x)
-      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_v"))
+      duckdb::duckdb_register(self$connection, "new_data_v", x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "new_data_v"))
 
       # if there are any of these, first get existing max values
       if (length(intersect(autoincrement_cols, names(x))) > 0) {
@@ -80,7 +80,7 @@ evoland_db <- R6::R6Class(
         ))
       }
 
-      select_expr <- make_commit_select(
+      select_expr <- compose_select_expr(
         all_cols = names(x),
         row_num_cols = autoincrement_cols
       )
@@ -89,7 +89,7 @@ evoland_db <- R6::R6Class(
         r"{
         copy (
           select {select_expr}
-          from tmp_v
+          from new_data_v
         ) to '{file_path}' ({self$writeopts})
         }"
       ))
@@ -111,12 +111,13 @@ evoland_db <- R6::R6Class(
       on.exit(self$detach_table(table_name))
       private$set_autoincrement_vars(table_name, autoincrement_cols)
 
-      # Register new data and concatenate with existing data using DuckDB
-      duckdb::duckdb_register(conn = self$connection, "tmp_v", df = x)
-      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_v"), add = TRUE)
+      duckdb::duckdb_register(conn = self$connection, "new_data_v", df = x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "new_data_v"), add = TRUE)
 
-      select_new <- make_commit_select(names(x), from_max_cols = autoincrement_cols)
+      select_new <- compose_select_expr(names(x), from_max_cols = autoincrement_cols)
 
+      # concatenation using union all; the "by name" option inserts NULLs if a column is
+      # missing in one of the queries. also makes it robust against differing col orders.
       self$execute(glue::glue(
         r"{
           copy (
@@ -128,7 +129,7 @@ evoland_db <- R6::R6Class(
             select
               {select_new}
             from
-              tmp_v
+              new_data_v
           )
           to '{file_info$path}' ({self$writeopts})
           }"
@@ -156,59 +157,68 @@ evoland_db <- R6::R6Class(
         return(self$commit_append(x, table_name, autoincrement_cols))
       }
 
-      # Get max IDs from existing table
-      existing_max_ids <- if (length(autoincrement_cols) > 0) {
-        private$get_max_ids(file_info, autoincrement_cols)
-      } else {
-        NULL
-      }
+      self$attach_table(table_name)
+      on.exit(self$detach_table(table_name))
 
-      # Assign auto-increment IDs to new data
-      assign_autoincrement_ids(x, autoincrement_cols, existing_max_ids)
+      private$set_autoincrement_vars(table_name, autoincrement_cols)
 
-      # Register new data
-      duckdb::duckdb_register(conn = self$connection, "tmp_v", df = x)
-      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_v"))
+      duckdb::duckdb_register(conn = self$connection, "new_data_v", df = x)
+      on.exit(duckdb::duckdb_unregister(self$connection, "new_data_v"), add = TRUE)
 
-      # Basic pattern:
-      # load existing table into temporary table in memory,
-      # full join of new data to existing data
-      # coalesce (take first non-null value), thereby replacing old with new values
-      non_key_cols <- setdiff(names(x), key_cols)
+      # Update existing data without touching key_cols or autoincrement_cols
+      ordinary_cols <- setdiff(names(x), union(key_cols, autoincrement_cols))
+      update_select_expr <- glue::glue_collapse(
+        glue::glue("{ordinary_cols} = new_data_v.{ordinary_cols}"),
+        sep = ",\n "
+      )
+      update_join_condition <- glue::glue_collapse(
+        glue::glue("{table_name}.{key_cols} = new_data_v.{key_cols}"),
+        sep = "\nand "
+      )
 
-      # Build COALESCE expressions for all non-key columns
-      select_expr <- glue::glue_collapse(
+      self$execute(glue::glue(
+        r"{
+        update {table_name} set
+          {update_select_expr}
+        from new_data_v
+        where 
+          {update_join_condition};
+        }"
+      ))
+
+      # Insert new data with incrementing autoincrement_cols
+      insert_select_expr <- glue::glue_collapse(
         c(
-          # Key columns from existing table
-          glue::glue("{key_cols}"),
-          # Non-key columns with COALESCE to prefer new values
-          glue::glue("COALESCE(tmp_v.{non_key_cols}, old_data.{non_key_cols}) AS {non_key_cols}")
+          glue::glue(
+            "row_number() over () + getvariable('max_{autoincrement_cols}') as {autoincrement_cols}"
+          ),
+          glue::glue("new_data_v.{setdiff(names(x), autoincrement_cols)}")
         ),
         sep = ",\n "
       )
-
-      sql <- glue::glue(
-        r"{
-            CREATE TEMP TABLE old_data AS
-            SELECT * FROM read_{file_info$format}('{file_info$path}');
-
-            COPY (
-              SELECT
-                {select_expr}
-              FROM
-                old_data
-              FULL OUTER JOIN
-                tmp_v
-              USING
-                ({paste(key_cols, collapse = ", ")})
-            )
-            TO '{file_info$path}' ({self$writeopts});
-
-            DROP TABLE old_data;
-            }"
+      null_condition <- glue::glue_collapse(
+        glue::glue("{table_name}.{key_cols} is null"),
+        sep = "\nand "
       )
 
-      DBI::dbExecute(self$connection, sql)
+      self$execute(glue::glue(
+        r"{
+        insert into {table_name}
+        select
+          {insert_select_expr}
+        from 
+          new_data_v
+        left join 
+          {table_name}
+        on 
+          {update_join_condition}
+        where
+          {null_condition}
+        ;
+        }"
+      ))
+
+      self$execute(glue::glue("copy {table_name} to '{file_info$path}' ({self$writeopts})"))
     },
 
     #' @description
@@ -567,55 +577,12 @@ evoland_db <- R6::R6Class(
         return(as_pred_meta_t(x))
       }
       stopifnot(inherits(x, "pred_meta_t"))
-
-      # Get existing metadata to determine next id
-      existing_meta <- self$fetch("pred_meta_t")
-      # self$commit_upsert(
-      #   x,
-      #   table_name = "pred_meta_t",
-      #   key_cols = "name",
-      #   autoincrement_cols = "id_pred"
-      # )
-      if (nrow(existing_meta) == 0) {
-        start_id <- 1L
-        x[["id_pred"]] <- seq(start_id, length.out = nrow(x))
-        to_commit <- x
-      } else {
-        stopifnot(hasName(existing_meta, c("id_pred", "name")))
-        start_id <- max(existing_meta[["id_pred"]]) + 1L
-        # coalescing full join on name: overwrite all but id_pred and name in existing
-        # this functions as an upsert
-        # TODO see if we can generalize commit_upsert to be flexible enough for a)
-        # different columns than those with id_ (easy) and b) can generate new IDs where
-        # they are missing
-        to_commit <- merge(
-          x,
-          existing_meta,
-          by = "name",
-          all = TRUE,
-          suffixes = c("", ".existing")
-        )[, .(
-          id_pred,
-          name,
-          pretty_name = data.table::fcoalesce(pretty_name, pretty_name.existing),
-          description = data.table::fcoalesce(description, description.existing),
-          orig_format = data.table::fcoalesce(orig_format, orig_format.existing),
-          sources = purrr::map2(sources, sources.existing, \(x, y) if (is.null(x)) y else x),
-          unit = data.table::fcoalesce(unit, unit.existing),
-          factor_levels = purrr::map2(factor_levels, factor_levels.existing, \(x, y) {
-            if (is.null(x)) y else x
-          })
-        )]
-
-        to_commit[
-          is.na(id_pred),
-          id_pred := seq(start_id, length.out = .N)
-        ]
-      }
-
-      data.table::setcolorder(to_commit, c("id_pred", "name"))
-
-      self$commit_overwrite(to_commit, "pred_meta_t")
+      self$commit_upsert(
+        x,
+        table_name = "pred_meta_t",
+        key_cols = "name",
+        autoincrement_cols = "id_pred"
+      )
     },
 
     #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
@@ -1005,6 +972,9 @@ evoland_db <- R6::R6Class(
     # Set one duckdb variable name max_{colname} to the maximum found for each
     # autoincrement_col in table_name. if column is missing from table_name, set to 0.
     set_autoincrement_vars = function(table_name, autoincrement_cols) {
+      if (length(autoincrement_cols) == 0L) {
+        return(NULL)
+      }
       if (!DBI::dbExistsTable(self$connection, table_name)) {
         # attach / detach unless it was already there
         self$attach_table(table_name)
@@ -1284,7 +1254,7 @@ kv_df_to_list <- function(x) {
 # param row_num_cols: char vector of those columns that should be set to their row number
 # param from_max_cols: char vector of those columns that should increment from a
 # previously set max_{colname} duckdb variable
-make_commit_select <- function(
+compose_select_expr <- function(
   all_cols,
   row_num_cols = character(),
   from_max_cols = character()
