@@ -235,6 +235,10 @@ intrv_masks_t <- as_intrv_masks_t(
 expect_silent(db$coords_t <- coords_t)
 expect_silent(db$coords_t <- coords_t)
 expect_identical(db$coords_t, coords_t)
+expect_identical(
+  db$coords_minimal,
+  data.table::as.data.table(coords_t[, 1:3])
+)
 
 expect_silent(db$lulc_meta_t <- lulc_meta_t)
 expect_identical(db$lulc_meta_t, lulc_meta_t)

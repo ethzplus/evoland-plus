@@ -493,25 +493,7 @@ evoland_db <- R6::R6Class(
 
     #' @field lulc_meta_long_v Return a `lulc_meta_long_v` instance, i.e. unrolled `lulc_meta_t`.
     lulc_meta_long_v = function() {
-      file_info <- private$get_file_path("lulc_meta_t")
-
-      if (!file_info$exists) {
-        return(data.table::data.table(
-          id_lulc = integer(0),
-          name = character(0),
-          src_class = integer(0)
-        ))
-      }
-
-      self$get_query(glue::glue(
-        r"{
-          select
-            id_lulc,
-            name,
-            unnest(src_classes) as src_class
-          from read_{file_info$format}('{file_info$path}')
-          }"
-      ))
+      make_lulc_meta_long_v(self, private)
     },
 
     #' @field lulc_data_t A `lulc_data_t` instance; see [as_lulc_data_t()] for the type of
@@ -578,22 +560,7 @@ evoland_db <- R6::R6Class(
 
     #' @field coords_minimal data.table with only (id_coord, lon, lat)
     coords_minimal = function() {
-      file_info <- private$get_file_path("coords_t")
-
-      if (!file_info$exists) {
-        return(data.table::data.table(
-          id_coord = integer(0),
-          lon = numeric(0),
-          lat = numeric(0)
-        ))
-      }
-
-      sql <- glue::glue(
-        "SELECT id_coord, lon, lat FROM read_{file_info$format}('{file_info$path}')"
-      )
-
-      self$get_query(sql) |>
-        cast_dt_col("id_coord", as.integer)
+      make_coords_minimal(self, private)
     },
 
     #' @field pred_meta_t A `pred_meta_t` instance; see [create_pred_meta_t()] for the type of
@@ -615,24 +582,7 @@ evoland_db <- R6::R6Class(
     #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
     #' md5sum
     pred_sources_v = function() {
-      file_info <- private$get_file_path("pred_meta_t")
-
-      if (!file_info$exists) {
-        return(data.table::data.table(
-          url = character(0),
-          md5sum = character(0)
-        ))
-      }
-
-      self$get_query(glue::glue(
-        r"{
-        select distinct
-          unnest(sources).url as url,
-          unnest(sources).md5sum as md5sum
-        from read_{file_info$format}('{file_info$path}')
-        where sources is not null
-        }"
-      ))
+      make_pred_sources_v(self, private)
     },
 
     #' @field trans_meta_t A `trans_meta_t` instance; see [create_trans_meta_t()] for the type of
@@ -762,10 +712,16 @@ evoland_db <- R6::R6Class(
 
     # Register new_data_v table, optionally converting MAP columns
     #
-    # param x Data to register
+    # param x Data to register or character name of existing table/view
     # param map_cols Character vector of columns to convert to MAP format
     # return NULL (called for side effects)
     register_new_data_v = function(x, map_cols = character(0)) {
+      # If x is a table name, create alias to new_data_v
+      if (is.character(x) && length(x) == 1) {
+        self$execute(glue::glue("create view new_data_v as select * from {x}"))
+        return(invisible(NULL))
+      }
+
       if (length(map_cols) == 0) {
         # No MAP conversion needed - register directly
         duckdb::duckdb_register(self$connection, "new_data_v", x)
@@ -801,7 +757,10 @@ evoland_db <- R6::R6Class(
       if (length(map_cols) == 0) {
         duckdb::duckdb_unregister(self$connection, "new_data_v")
       } else {
-        self$execute("drop table if exists new_data_v")
+        self$execute(
+          "drop table if exists new_data_v;
+          drop view if exists new_data_v"
+        )
         duckdb::duckdb_unregister(self$connection, "new_data_raw")
       }
 
