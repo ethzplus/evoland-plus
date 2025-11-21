@@ -254,22 +254,11 @@ evoland_db <- R6::R6Class(
     #'
     #' @return A data.table
     fetch = function(table_name, where = NULL, limit = NULL) {
-      # Check if this is a view that needs special handling
-      view_result <- switch(
-        table_name,
-        lulc_meta_long_v = private$fetch_lulc_meta_long_v(where, limit),
-        pred_sources_v = private$fetch_pred_sources_v(where, limit),
-        NULL
-      )
+      stopifnot(grepl("_t$", table_name))
 
-      if (!is.null(view_result)) {
-        return(view_result)
-      }
-      # Get file path and check if it exists
       file_info <- private$get_file_path(table_name)
 
       if (!file_info$exists) {
-        # Return empty data.table with proper structure
         return(private$get_empty_table(table_name))
       }
 
@@ -505,8 +494,25 @@ evoland_db <- R6::R6Class(
 
     #' @field lulc_meta_long_v Return a `lulc_meta_long_v` instance, i.e. unrolled `lulc_meta_t`.
     lulc_meta_long_v = function() {
-      private$fetch_lulc_meta_long_v() |>
-        new_evoland_table("lulc_meta_long_v", keycols = NULL)
+      file_info <- private$get_file_path("lulc_meta_t")
+
+      if (!file_info$exists) {
+        return(data.table::data.table(
+          id_lulc = integer(0),
+          name = character(0),
+          src_class = integer(0)
+        ))
+      }
+
+      self$get_query(glue::glue(
+        r"{
+          select
+            id_lulc,
+            name,
+            unnest(src_classes) as src_class
+          from read_{file_info$format}('{file_info$path}')
+          }"
+      ))
     },
 
     #' @field lulc_data_t A `lulc_data_t` instance; see [as_lulc_data_t()] for the type of
@@ -610,8 +616,24 @@ evoland_db <- R6::R6Class(
     #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
     #' md5sum
     pred_sources_v = function() {
-      private$fetch_pred_sources_v() |>
-        new_evoland_table("pred_sources_v", keycols = NULL)
+      file_info <- private$get_file_path("pred_meta_t")
+
+      if (!file_info$exists) {
+        return(data.table::data.table(
+          url = character(0),
+          md5sum = character(0)
+        ))
+      }
+
+      self$get_query(glue::glue(
+        r"{
+        select distinct
+          unnest(sources).url as url,
+          unnest(sources).md5sum as md5sum
+        from read_{file_info$format}('{file_info$path}')
+        where sources is not null
+        }"
+      ))
     },
 
     #' @field trans_meta_t A `trans_meta_t` instance; see [create_trans_meta_t()] for the type of
@@ -834,69 +856,6 @@ evoland_db <- R6::R6Class(
       )
 
       self$execute(set_exprs)
-    },
-
-    # Fetch lulc_meta_long_v view
-    fetch_lulc_meta_long_v = function(where = NULL, limit = NULL) {
-      file_info <- private$get_file_path("lulc_meta_t")
-
-      if (!file_info$exists) {
-        return(data.table::data.table(
-          id_lulc = integer(0),
-          name = character(0),
-          src_class = integer(0)
-        ))
-      }
-
-      sql <- glue::glue(
-        "
-        SELECT
-          id_lulc,
-          name,
-          unnest(src_classes) as src_class
-        FROM read_{file_info$format}('{file_info$path}')
-      "
-      )
-
-      if (!is.null(where)) {
-        sql <- glue::glue("{sql} WHERE {where}")
-      }
-      if (!is.null(limit)) {
-        sql <- glue::glue("{sql} LIMIT {limit}")
-      }
-
-      self$get_query(sql)
-    },
-
-    # Fetch pred_sources_v view
-    fetch_pred_sources_v = function(where = NULL, limit = NULL) {
-      file_info <- private$get_file_path("pred_meta_t")
-
-      if (!file_info$exists) {
-        return(data.table::data.table(
-          url = character(0),
-          md5sum = character(0)
-        ))
-      }
-
-      sql <- glue::glue(
-        "
-        SELECT DISTINCT
-          unnest(sources).url AS url,
-          unnest(sources).md5sum AS md5sum
-        FROM read_{file_info$format}('{file_info$path}')
-        WHERE sources IS NOT NULL
-      "
-      )
-
-      if (!is.null(where)) {
-        sql <- glue::glue("SELECT * FROM ({sql}) subq WHERE {where}")
-      }
-      if (!is.null(limit)) {
-        sql <- glue::glue("{sql} LIMIT {limit}")
-      }
-
-      self$get_query(sql)
     },
 
     # Get empty table with proper structure
