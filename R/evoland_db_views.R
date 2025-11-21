@@ -8,7 +8,7 @@ NULL
 
 #' @describeIn evoland_db_views Retrieve a table of distinct predictor urls and their
 #' md5sum
-make_pred_sources_v <- function(self, private) {
+make_pred_sources_v <- function(self, private, where = NULL) {
   file_info <- private$get_file_path("pred_meta_t")
 
   if (!file_info$exists) {
@@ -18,20 +18,22 @@ make_pred_sources_v <- function(self, private) {
     ))
   }
 
+  where_clause <- if (!is.null(where)) paste("AND", where) else ""
+
   self$get_query(glue::glue(
     r"{
     select distinct
       unnest(sources).url as url,
       unnest(sources).md5sum as md5sum
     from read_{file_info$format}('{file_info$path}')
-    where sources is not null
+    where sources is not null {where_clause}
     }"
   ))
 }
 
 
 #' @describeIn evoland_db_views Return a `lulc_meta_long_v` instance, i.e. unrolled `lulc_meta_t`.
-make_lulc_meta_long_v <- function(self, private) {
+make_lulc_meta_long_v <- function(self, private, where = NULL) {
   file_info <- private$get_file_path("lulc_meta_t")
 
   if (!file_info$exists) {
@@ -42,6 +44,8 @@ make_lulc_meta_long_v <- function(self, private) {
     ))
   }
 
+  where_clause <- if (!is.null(where)) paste("WHERE", where) else ""
+
   self$get_query(glue::glue(
     r"{
     select
@@ -49,12 +53,13 @@ make_lulc_meta_long_v <- function(self, private) {
       name,
       unnest(src_classes) as src_class
     from read_{file_info$format}('{file_info$path}')
+    {where_clause}
     }"
   ))
 }
 
 #' @describeIn evoland_db_views Minimal coordinate representation (id_coord, lon, lat)
-make_coords_minimal <- function(self, private) {
+make_coords_minimal <- function(self, private, where = NULL) {
   file_info <- private$get_file_path("coords_t")
 
   if (!file_info$exists) {
@@ -65,11 +70,35 @@ make_coords_minimal <- function(self, private) {
     ))
   }
 
+  where_clause <- if (!is.null(where)) paste("WHERE", where) else ""
+
   sql <- glue::glue(
-    "SELECT id_coord, lon, lat FROM read_{file_info$format}('{file_info$path}')"
+    r"{
+    select id_coord, lon, lat 
+    from read_{file_info$format}('{file_info$path}') {where_clause}
+    }"
   )
 
   self$get_query(sql) |>
     cast_dt_col("id_coord", as.integer) |>
     data.table::setkeyv("id_coord")
+}
+
+#' @describeIn evoland_db_views Returns the extent of the coords_t as terra::SpatExtent
+make_extent_db <- function(self, private) {
+  file_info <- private$get_file_path("coords_t")
+
+  self$get_query(glue::glue(
+    r"{
+        SELECT
+          min(lon) as xmin,
+          max(lon) as xmax,
+          min(lat) as ymin,
+          max(lat) as ymax
+        FROM
+          read_{file_info$format}('{file_info$path}')
+        }"
+  )) |>
+    unlist() |>
+    terra::ext()
 }
