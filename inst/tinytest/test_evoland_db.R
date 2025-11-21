@@ -196,7 +196,6 @@ alloc_params_t <- as_alloc_params_t(list(
 
 trans_meta_t <- as_trans_meta_t(
   data.table::data.table(
-    id_trans = 1:3,
     id_lulc_anterior = 1:3,
     id_lulc_posterior = 2:4,
     cardinality = c(100L, 2000L, 10L),
@@ -253,9 +252,9 @@ db$delete_from("pred_meta_t") # clear up, we want to ensure this works with add_
 
 expect_silent(db$intrv_meta_t <- intrv_meta_t)
 expect_equal(db$intrv_meta_t, intrv_meta_t)
-
+db$delete_from("trans_meta_t")
 expect_silent(db$trans_meta_t <- trans_meta_t)
-expect_equal(db$trans_meta_t, trans_meta_t)
+expect_equal(db$trans_meta_t[, -id_trans], trans_meta_t)
 
 expect_silent(db$trans_models_t <- trans_models_t)
 expect_equal(db$trans_models_t, trans_models_t)

@@ -142,7 +142,6 @@ validate.trans_meta_t <- function(x, ...) {
   data.table::setcolorder(
     x,
     c(
-      "id_trans",
       "id_lulc_anterior",
       "id_lulc_posterior",
       "cardinality",
@@ -152,8 +151,10 @@ validate.trans_meta_t <- function(x, ...) {
     )
   )
 
+  # we don't know if there's an id_trans
+  data.table::setcolorder(x, "id_trans", before = "id_lulc_anterior", skip_absent = TRUE)
+
   stopifnot(
-    is.integer(x[["id_trans"]]),
     is.integer(x[["id_lulc_anterior"]]),
     is.integer(x[["id_lulc_posterior"]]),
     is.integer(x[["cardinality"]]),

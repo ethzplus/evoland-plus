@@ -258,8 +258,7 @@ evoland_db <- R6::R6Class(
         sql <- glue::glue("{sql} LIMIT {limit}")
       }
 
-      DBI::dbGetQuery(self$connection, sql) |>
-        data.table::as.data.table()
+      self$get_query(sql)
     },
 
     #' @description
@@ -324,8 +323,7 @@ evoland_db <- R6::R6Class(
         return(0L)
       }
 
-      DBI::dbGetQuery(
-        self$connection,
+      self$get_query(
         glue::glue("SELECT COUNT(*) as n FROM read_{file_info$format}('{file_info$path}')")
       )[[1]]
     },
@@ -564,8 +562,7 @@ evoland_db <- R6::R6Class(
         "SELECT id_coord, lon, lat FROM read_{file_info$format}('{file_info$path}')"
       )
 
-      DBI::dbGetQuery(self$connection, sql) |>
-        data.table::as.data.table() |>
+      self$get_query(sql) |>
         cast_dt_col("id_coord", as.integer)
     },
 
@@ -600,54 +597,12 @@ evoland_db <- R6::R6Class(
         return(as_trans_meta_t(x))
       }
       stopifnot(inherits(x, "trans_meta_t"))
-
-      # Custom upsert for trans_meta_t to maintain unique constraint
-      duckdb::duckdb_register(
-        conn = self$connection,
-        "temporary_trans_data",
-        df = x
+      self$commit_upsert(
+        x,
+        table_name = "trans_meta_t",
+        key_cols = c("id_lulc_anterior", "id_lulc_posterior"),
+        autoincrement_cols = "id_trans"
       )
-
-      on.exit(duckdb::duckdb_unregister(
-        self$connection,
-        "temporary_trans_data"
-      ))
-
-      # Load existing data if it exists
-      file_info <- private$get_file_path("trans_meta_t")
-
-      if (file_info$exists) {
-        sql <- glue::glue(
-          "
-          CREATE TEMP TABLE existing_trans_meta_t AS
-          SELECT * FROM read_{file_info$format}('{file_info$path}');
-
-          -- Delete rows that will be replaced (based on unique constraint)
-          DELETE FROM existing_trans_meta_t
-          WHERE (id_lulc_anterior, id_lulc_posterior) IN (
-            SELECT id_lulc_anterior, id_lulc_posterior FROM temporary_trans_data
-          );
-
-          -- Insert new/updated rows
-          INSERT INTO existing_trans_meta_t
-          SELECT * FROM temporary_trans_data;
-
-          COPY existing_trans_meta_t
-          TO '{file_info$path}' ({self$writeopts});
-
-          DROP TABLE existing_trans_meta_t;
-          "
-        )
-      } else {
-        sql <- glue::glue(
-          "
-          COPY temporary_trans_data
-          TO '{file_info$path}' ({self$writeopts})
-          "
-        )
-      }
-
-      DBI::dbExecute(self$connection, sql)
     },
 
     #' @field trans_preds_t A `trans_preds_t` instance; see [create_trans_preds_t()] for the type of
@@ -730,7 +685,7 @@ evoland_db <- R6::R6Class(
         )
       }
 
-      DBI::dbExecute(self$connection, sql)
+      self$execute(sql)
     },
 
     #' @field intrv_masks_t A `intrv_masks_t` instance; see [as_intrv_masks_t()] for the type of
@@ -831,9 +786,7 @@ evoland_db <- R6::R6Class(
     #' of object to assign. Assigning is an upsert operation.
     alloc_params_t = function(x) {
       if (missing(x)) {
-        x <-
-          self$fetch("alloc_params_t") |>
-          data.table::as.data.table()
+        x <- self$fetch("alloc_params_t")
 
         x[["alloc_params"]] <- lapply(
           x[["alloc_params"]],
@@ -984,7 +937,7 @@ evoland_db <- R6::R6Class(
       existing_cols <-
         glue::glue("select column_name from (describe {table_name})") |>
         self$get_query() |>
-        purrr::pluck(1) |>
+        (\(x) x[[1]])() |>
         intersect(autoincrement_cols)
 
       missing_cols <- setdiff(autoincrement_cols, existing_cols)
@@ -1033,8 +986,7 @@ evoland_db <- R6::R6Class(
         sql <- glue::glue("{sql} LIMIT {limit}")
       }
 
-      DBI::dbGetQuery(self$connection, sql) |>
-        data.table::as.data.table()
+      self$get_query(sql)
     },
 
     # Fetch pred_sources_v view
@@ -1065,8 +1017,7 @@ evoland_db <- R6::R6Class(
         sql <- glue::glue("{sql} LIMIT {limit}")
       }
 
-      DBI::dbGetQuery(self$connection, sql) |>
-        data.table::as.data.table()
+      self$get_query(sql)
     },
 
     # Get empty table with proper structure
@@ -1114,7 +1065,7 @@ evoland_db <- R6::R6Class(
 
       existing_cols <-
         glue::glue("SELECT * FROM read_{file_info$format}('{file_info$path}') LIMIT 0") |>
-        DBI::dbGetQuery(self$connection, statement = _) |>
+        self$get_query(statement = _) |>
         names()
 
       # Filter to only columns that exist
@@ -1131,7 +1082,7 @@ evoland_db <- R6::R6Class(
            FROM read_{file_info$format}('{file_info$path}')"
         )
 
-        result <- DBI::dbGetQuery(self$connection, sql)
+        result <- self$get_query(sql)
 
         # Update max_vals for columns that exist
         for (col in cols_to_query) {
