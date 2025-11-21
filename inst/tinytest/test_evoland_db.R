@@ -252,9 +252,9 @@ db$delete_from("pred_meta_t") # clear up, we want to ensure this works with add_
 
 expect_silent(db$intrv_meta_t <- intrv_meta_t)
 expect_equal(db$intrv_meta_t, intrv_meta_t)
-db$delete_from("trans_meta_t")
+
 expect_silent(db$trans_meta_t <- trans_meta_t)
-expect_equal(db$trans_meta_t[, -id_trans], trans_meta_t)
+expect_equal(db$trans_meta_t[, c(-1)], trans_meta_t)
 
 expect_silent(db$trans_models_t <- trans_models_t)
 expect_equal(db$trans_models_t, trans_models_t)

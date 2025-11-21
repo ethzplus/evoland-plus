@@ -28,10 +28,6 @@ to disk in parquet format for better compression.
 \item{\code{coords_t}}{A \code{coords_t} instance; see \code{\link[=create_coords_t]{create_coords_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
 
-\item{\code{extent}}{Return a terra SpatExtent based on coords_t}
-
-\item{\code{coords_minimal}}{data.table with only (id_coord, lon, lat)}
-
 \item{\code{periods_t}}{A \code{periods_t} instance; see \code{\link[=create_periods_t]{create_periods_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
 
@@ -42,12 +38,6 @@ object to assign. Assigning is an upsert operation.}
 
 \item{\code{lulc_data_t}}{A \code{lulc_data_t} instance; see \code{\link[=as_lulc_data_t]{as_lulc_data_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
-
-\item{\code{pred_meta_t}}{A \code{pred_meta_t} instance; see \code{\link[=create_pred_meta_t]{create_pred_meta_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{pred_sources_v}}{Retrieve a table of distinct predictor urls and their
-md5sum}
 
 \item{\code{pred_data_t_float}}{A \code{pred_data_t_float} instance; see
 \code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
@@ -60,6 +50,16 @@ upsert operation.}
 \item{\code{pred_data_t_bool}}{A \code{pred_data_t_bool} instance; see
 \code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
 upsert operation.}
+
+\item{\code{extent}}{Return a terra SpatExtent based on coords_t}
+
+\item{\code{coords_minimal}}{data.table with only (id_coord, lon, lat)}
+
+\item{\code{pred_meta_t}}{A \code{pred_meta_t} instance; see \code{\link[=create_pred_meta_t]{create_pred_meta_t()}} for the type of
+object to assign. Assigning is an upsert operation.}
+
+\item{\code{pred_sources_v}}{Retrieve a table of distinct predictor urls and their
+md5sum}
 
 \item{\code{trans_meta_t}}{A \code{trans_meta_t} instance; see \code{\link[=create_trans_meta_t]{create_trans_meta_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
@@ -85,7 +85,9 @@ of object to assign. Assigning is an upsert operation.}
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
-\item \href{#method-evoland_db-commit}{\code{evoland_db$commit()}}
+\item \href{#method-evoland_db-commit_overwrite}{\code{evoland_db$commit_overwrite()}}
+\item \href{#method-evoland_db-commit_append}{\code{evoland_db$commit_append()}}
+\item \href{#method-evoland_db-commit_upsert}{\code{evoland_db$commit_upsert()}}
 \item \href{#method-evoland_db-fetch}{\code{evoland_db$fetch()}}
 \item \href{#method-evoland_db-list_tables}{\code{evoland_db$list_tables()}}
 \item \href{#method-evoland_db-execute}{\code{evoland_db$execute()}}
@@ -127,38 +129,91 @@ A new \code{evoland_db} object
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-commit"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-commit}{}}}
-\subsection{Method \code{commit()}}{
-Commit data to storage
+\if{html}{\out{<a id="method-evoland_db-commit_overwrite"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-commit_overwrite}{}}}
+\subsection{Method \code{commit_overwrite()}}{
+Commit data in overwrite mode
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit(
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit_overwrite(
   x,
   table_name,
-  mode = "upsert",
-  autoincrement_cols = character(0)
+  autoincrement_cols = character(0),
+  map_cols = character(0)
 )}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{x}}{Data object to commit.}
+\item{\code{x}}{Data frame to commit}
 
-\item{\code{table_name}}{Table to target}
+\item{\code{table_name}}{Character string table name}
 
-\item{\code{mode}}{Character string. One of "upsert" (default), "append", or "overwrite".}
+\item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
 
-\item{\code{autoincrement_cols}}{Character vector of column names that should auto-increment.
-For new rows, these columns will be assigned sequential IDs starting from max(existing) + 1.}
-
-\item{\code{format}}{Character string. File format: "parquet" or "csv". Defaults to
-object's default_format.}
+\item{\code{map_cols}}{Character vector of columns to convert to MAP format}
 }
 \if{html}{\out{</div>}}
 }
-\subsection{Returns}{
-NULL (called for side effects)
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-commit_append"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-commit_append}{}}}
+\subsection{Method \code{commit_append()}}{
+Commit data in append mode
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit_append(
+  x,
+  table_name,
+  autoincrement_cols = character(0),
+  map_cols = character(0)
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{x}}{Data frame to commit}
+
+\item{\code{table_name}}{Character string table name}
+
+\item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
+
+\item{\code{map_cols}}{Character vector of columns to convert to MAP format}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-commit_upsert"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-commit_upsert}{}}}
+\subsection{Method \code{commit_upsert()}}{
+Commit data in upsert mode
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit_upsert(
+  x,
+  table_name,
+  key_cols = grep("^id_", names(x), value = TRUE),
+  autoincrement_cols = character(0),
+  map_cols = character(0)
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{x}}{Data frame to commit}
+
+\item{\code{table_name}}{Character string table name}
+
+\item{\code{key_cols}}{Identify unique columns - heuristic: if prefixed with
+id_, the set of all columns designates a uniqueness condition}
+
+\item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
+
+\item{\code{map_cols}}{Character vector of columns to convert to MAP format}
+}
+\if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}

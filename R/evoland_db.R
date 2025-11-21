@@ -66,11 +66,17 @@ evoland_db <- R6::R6Class(
     #' @param x Data frame to commit
     #' @param table_name Character string table name
     #' @param autoincrement_cols Character vector of column names to auto-increment
-    commit_overwrite = function(x, table_name, autoincrement_cols = character(0)) {
+    #' @param map_cols Character vector of columns to convert to MAP format
+    commit_overwrite = function(
+      x,
+      table_name,
+      autoincrement_cols = character(0),
+      map_cols = character(0)
+    ) {
       file_path <- file.path(self$path, paste0(table_name, ".", self$default_format))
 
-      duckdb::duckdb_register(self$connection, "new_data_v", x)
-      on.exit(duckdb::duckdb_unregister(self$connection, "new_data_v"))
+      private$register_new_data_v(x, map_cols)
+      on.exit(private$cleanup_new_data_v(map_cols), add = TRUE)
 
       # if there are any of these, first get existing max values
       if (length(intersect(autoincrement_cols, names(x))) > 0) {
@@ -80,9 +86,11 @@ evoland_db <- R6::R6Class(
         ))
       }
 
-      select_expr <- compose_select_expr(
-        all_cols = names(x),
-        row_num_cols = autoincrement_cols
+      # autoincrement = row number; all other cols treated as ordinary
+      ordinary_cols <- setdiff(names(x), autoincrement_cols)
+      select_expr <- glue::glue_collapse(
+        c(glue::glue("row_number() over () as {autoincrement_cols}"), ordinary_cols),
+        sep = ",\n "
       )
 
       self$execute(glue::glue(
@@ -100,21 +108,36 @@ evoland_db <- R6::R6Class(
     #' @param x Data frame to commit
     #' @param table_name Character string table name
     #' @param autoincrement_cols Character vector of column names to auto-increment
-    commit_append = function(x, table_name, autoincrement_cols = character(0)) {
+    #' @param map_cols Character vector of columns to convert to MAP format
+    commit_append = function(
+      x,
+      table_name,
+      autoincrement_cols = character(0),
+      map_cols = character(0)
+    ) {
       file_info <- private$get_file_path(table_name)
 
       if (!file_info$exists) {
-        self$commit_overwrite(x, table_name, autoincrement_cols)
+        self$commit_overwrite(x, table_name, autoincrement_cols, map_cols)
       }
 
       self$attach_table(table_name)
       on.exit(self$detach_table(table_name))
       private$set_autoincrement_vars(table_name, autoincrement_cols)
 
-      duckdb::duckdb_register(conn = self$connection, "new_data_v", df = x)
-      on.exit(duckdb::duckdb_unregister(self$connection, "new_data_v"), add = TRUE)
+      private$register_new_data_v(x, map_cols)
+      on.exit(private$cleanup_new_data_v(map_cols), add = TRUE)
 
-      select_new <- compose_select_expr(names(x), from_max_cols = autoincrement_cols)
+      ordinary_cols <- setdiff(names(x), autoincrement_cols)
+      select_new <- glue::glue_collapse(
+        c(
+          glue::glue(
+            "row_number() over () + getvariable('max_{autoincrement_cols}') as {autoincrement_cols}"
+          ),
+          ordinary_cols
+        ),
+        sep = ",\n "
+      )
 
       # concatenation using union all; the "by name" option inserts NULLs if a column is
       # missing in one of the queries. also makes it robust against differing col orders.
@@ -143,18 +166,20 @@ evoland_db <- R6::R6Class(
     #' @param key_cols Identify unique columns - heuristic: if prefixed with
     #' id_, the set of all columns designates a uniqueness condition
     #' @param autoincrement_cols Character vector of column names to auto-increment
+    #' @param map_cols Character vector of columns to convert to MAP format
     commit_upsert = function(
       x,
       table_name,
       key_cols = grep("^id_", names(x), value = TRUE),
-      autoincrement_cols = character(0)
+      autoincrement_cols = character(0),
+      map_cols = character(0)
     ) {
       file_info <- private$get_file_path(table_name)
 
       if (!file_info$exists) {
-        return(self$commit_overwrite(x, table_name, autoincrement_cols))
+        return(self$commit_overwrite(x, table_name, autoincrement_cols, map_cols))
       } else if (length(key_cols) == 0) {
-        return(self$commit_append(x, table_name, autoincrement_cols))
+        return(self$commit_append(x, table_name, autoincrement_cols, map_cols))
       }
 
       self$attach_table(table_name)
@@ -162,8 +187,8 @@ evoland_db <- R6::R6Class(
 
       private$set_autoincrement_vars(table_name, autoincrement_cols)
 
-      duckdb::duckdb_register(conn = self$connection, "new_data_v", df = x)
-      on.exit(duckdb::duckdb_unregister(self$connection, "new_data_v"), add = TRUE)
+      private$register_new_data_v(x, map_cols)
+      on.exit(private$cleanup_new_data_v(map_cols), add = TRUE)
 
       # Update existing data without touching key_cols or autoincrement_cols
       ordinary_cols <- setdiff(names(x), union(key_cols, autoincrement_cols))
@@ -181,7 +206,7 @@ evoland_db <- R6::R6Class(
         update {table_name} set
           {update_select_expr}
         from new_data_v
-        where 
+        where
           {update_join_condition};
         }"
       ))
@@ -206,11 +231,11 @@ evoland_db <- R6::R6Class(
         insert into {table_name}
         select
           {insert_select_expr}
-        from 
+        from
           new_data_v
-        left join 
+        left join
           {table_name}
-        on 
+        on
           {update_join_condition}
         where
           {null_condition}
@@ -615,77 +640,13 @@ evoland_db <- R6::R6Class(
     #' object to assign. Assigning is an upsert operation.
     intrv_meta_t = function(x) {
       if (missing(x)) {
-        x <- self$fetch("intrv_meta_t")
-
-        x[["params"]] <- lapply(
-          x[["params"]],
-          kv_df_to_list
-        )
-
-        return(as_intrv_meta_t(x))
+        return(as_intrv_meta_t(
+          convert_list_cols(self$fetch("intrv_meta_t"), "params", kv_df_to_list)
+        ))
       }
       stopifnot(inherits(x, "intrv_meta_t"))
 
-      # Convert params list to data.frame format for DuckDB MAP conversion
-      x_copy <- data.table::copy(x)
-      x_copy[["params"]] <- lapply(
-        x_copy[["params"]],
-        list_to_kv_df
-      )
-
-      duckdb::duckdb_register(
-        conn = self$connection,
-        name = "tmp_table",
-        df = x_copy
-      )
-
-      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
-
-      # Get file info
-      file_info <- private$get_file_path("intrv_meta_t")
-
-      # Load existing data and merge
-      if (file_info$exists) {
-        sql <- glue::glue(
-          "
-          CREATE TEMP TABLE existing_intrv_meta_t AS
-          SELECT * FROM read_{file_info$format}('{file_info$path}');
-
-          DELETE FROM existing_intrv_meta_t
-          WHERE id_intrv IN (SELECT id_intrv FROM tmp_table);
-
-          INSERT INTO existing_intrv_meta_t
-          SELECT
-            id_intrv, id_period_list, id_trans_list, pre_allocation,
-            name, pretty_name, description, sources,
-            map_from_entries(params) as params
-          FROM tmp_table;
-
-          COPY existing_intrv_meta_t
-          TO '{file_info$path}' ({self$writeopts});
-
-          DROP TABLE existing_intrv_meta_t;
-          "
-        )
-      } else {
-        sql <- glue::glue(
-          "
-          CREATE TEMP TABLE new_intrv_meta_t AS
-          SELECT
-            id_intrv, id_period_list, id_trans_list, pre_allocation,
-            name, pretty_name, description, sources,
-            map_from_entries(params) as params
-          FROM tmp_table;
-
-          COPY new_intrv_meta_t
-          TO '{file_info$path}' ({self$writeopts});
-
-          DROP TABLE new_intrv_meta_t;
-          "
-        )
-      }
-
-      self$execute(sql)
+      self$commit_upsert(x, "intrv_meta_t", key_cols = "id_intrv", map_cols = "params")
     },
 
     #' @field intrv_masks_t A `intrv_masks_t` instance; see [as_intrv_masks_t()] for the type of
@@ -698,174 +659,44 @@ evoland_db <- R6::R6Class(
     #' of object to assign. Assigning is an upsert operation.
     trans_models_t = function(x) {
       if (missing(x)) {
-        x <- self$fetch("trans_models_t")
-
-        x[["model_params"]] <- lapply(
-          x[["model_params"]],
-          kv_df_to_list
-        )
-        x[["goodness_of_fit"]] <- lapply(
-          x[["goodness_of_fit"]],
-          kv_df_to_list
-        )
-
-        return(as_trans_models_t(x))
+        return(as_trans_models_t(
+          convert_list_cols(
+            self$fetch("trans_models_t"),
+            c("model_params", "goodness_of_fit"),
+            kv_df_to_list
+          )
+        ))
       }
       stopifnot(inherits(x, "trans_models_t"))
 
-      # Convert lists to data.frame format for DuckDB MAP conversion
-      x_copy <- data.table::copy(x)
-      x_copy[["model_params"]] <- lapply(
-        x_copy[["model_params"]],
-        list_to_kv_df
+      self$commit_upsert(
+        x,
+        "trans_models_t",
+        key_cols = c("id_trans", "id_period"),
+        map_cols = c("model_params", "goodness_of_fit")
       )
-      x_copy[["goodness_of_fit"]] <- lapply(
-        x_copy[["goodness_of_fit"]],
-        list_to_kv_df
-      )
-
-      duckdb::duckdb_register(
-        conn = self$connection,
-        name = "tmp_table",
-        df = x_copy
-      )
-
-      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
-
-      file_info <- private$get_file_path("trans_models_t")
-
-      # Load existing data and merge
-      if (file_info$exists) {
-        sql <- glue::glue(
-          "
-          CREATE TEMP TABLE existing_trans_models_t AS
-          SELECT * FROM read_{file_info$format}('{file_info$path}');
-
-          DELETE FROM existing_trans_models_t
-          WHERE (id_trans, id_period) IN (
-            SELECT id_trans, id_period FROM tmp_table
-          );
-
-          INSERT INTO existing_trans_models_t
-          SELECT
-            id_trans, id_period, model_family,
-            map_from_entries(model_params) as model_params,
-            map_from_entries(goodness_of_fit) as goodness_of_fit,
-            model_obj_part, model_obj_full
-          FROM tmp_table;
-
-          COPY existing_trans_models_t
-          TO '{file_info$path}' ({self$writeopts});
-
-          DROP TABLE existing_trans_models_t;
-          "
-        )
-      } else {
-        sql <- glue::glue(
-          "
-          CREATE TEMP TABLE new_trans_models_t AS
-          SELECT
-            id_trans, id_period, model_family,
-            map_from_entries(model_params) as model_params,
-            map_from_entries(goodness_of_fit) as goodness_of_fit,
-            model_obj_part, model_obj_full
-          FROM tmp_table;
-
-          COPY new_trans_models_t
-          TO '{file_info$path}' ({self$writeopts});
-
-          DROP TABLE new_trans_models_t;
-          "
-        )
-      }
-
-      DBI::dbExecute(self$connection, sql)
     },
 
     #' @field alloc_params_t A `alloc_params_t` instance; see [as_alloc_params_t()] for the type
     #' of object to assign. Assigning is an upsert operation.
     alloc_params_t = function(x) {
       if (missing(x)) {
-        x <- self$fetch("alloc_params_t")
-
-        x[["alloc_params"]] <- lapply(
-          x[["alloc_params"]],
-          kv_df_to_list
-        )
-        x[["goodness_of_fit"]] <- lapply(
-          x[["goodness_of_fit"]],
-          kv_df_to_list
-        )
-
-        return(as_alloc_params_t(x))
+        return(as_alloc_params_t(
+          convert_list_cols(
+            self$fetch("alloc_params_t"),
+            c("alloc_params", "goodness_of_fit"),
+            kv_df_to_list
+          )
+        ))
       }
       stopifnot(inherits(x, "alloc_params_t"))
 
-      # Convert lists to data.frame format for DuckDB MAP conversion
-      x_copy <- data.table::copy(x)
-      x_copy[["alloc_params"]] <- lapply(
-        x_copy[["alloc_params"]],
-        list_to_kv_df
+      self$commit_upsert(
+        x,
+        "alloc_params_t",
+        key_cols = c("id_trans", "id_period"),
+        map_cols = c("alloc_params", "goodness_of_fit")
       )
-      x_copy[["goodness_of_fit"]] <- lapply(
-        x_copy[["goodness_of_fit"]],
-        list_to_kv_df
-      )
-
-      duckdb::duckdb_register(
-        conn = self$connection,
-        name = "tmp_table",
-        df = x_copy
-      )
-
-      on.exit(duckdb::duckdb_unregister(self$connection, "tmp_table"))
-
-      file_info <- private$get_file_path("alloc_params_t")
-
-      # Load existing data and merge
-      if (file_info$exists) {
-        sql <- glue::glue(
-          "
-          CREATE TEMP TABLE existing_alloc_params_t AS
-          SELECT * FROM read_{file_info$format}('{file_info$path}');
-
-          DELETE FROM existing_alloc_params_t
-          WHERE (id_trans, id_period) IN (
-            SELECT id_trans, id_period FROM tmp_table
-          );
-
-          INSERT INTO existing_alloc_params_t
-          SELECT
-            id_trans, id_period,
-            map_from_entries(alloc_params) as alloc_params,
-            map_from_entries(goodness_of_fit) as goodness_of_fit
-          FROM tmp_table;
-
-          COPY existing_alloc_params_t
-          TO '{file_info$path}' ({self$writeopts});
-
-          DROP TABLE existing_alloc_params_t;
-          "
-        )
-      } else {
-        sql <- glue::glue(
-          "
-          CREATE TEMP TABLE new_alloc_params_t AS
-          SELECT
-            id_trans, id_period,
-            map_from_entries(alloc_params) as alloc_params,
-            map_from_entries(goodness_of_fit) as goodness_of_fit
-          FROM tmp_table;
-
-          COPY new_alloc_params_t
-          TO '{file_info$path}' ({self$writeopts});
-
-          DROP TABLE new_alloc_params_t;
-          "
-        )
-      }
-
-      DBI::dbExecute(self$connection, sql)
     }
   ),
 
@@ -906,6 +737,54 @@ evoland_db <- R6::R6Class(
           exists = FALSE
         ))
       }
+    },
+
+    # Register new_data_v table, optionally converting MAP columns
+    #
+    # param x Data to register
+    # param map_cols Character vector of columns to convert to MAP format
+    # return NULL (called for side effects)
+    register_new_data_v = function(x, map_cols = character(0)) {
+      if (length(map_cols) == 0) {
+        # No MAP conversion needed - register directly
+        duckdb::duckdb_register(self$connection, "new_data_v", x)
+      } else {
+        # Convert list columns to key-value dataframes
+        x <-
+          data.table::copy(x) |>
+          convert_list_cols(map_cols, list_to_kv_df)
+
+        # Register as intermediate table
+        duckdb::duckdb_register(self$connection, "new_data_raw", x)
+
+        # Build SELECT expression with map_from_entries for MAP columns
+        map_exprs <- glue::glue("map_from_entries({map_cols}) as {map_cols}")
+        other_cols <- setdiff(names(x), map_cols)
+        all_exprs <- c(other_cols, map_exprs)
+        select_expr <- glue::glue_collapse(all_exprs, sep = ", ")
+
+        # Create new_data_v from new_data_raw
+        self$execute(glue::glue(
+          "create temp table new_data_v as select {select_expr} from new_data_raw"
+        ))
+      }
+
+      invisible(NULL)
+    },
+
+    # Cleanup new_data_v and related tables
+    #
+    # param map_cols Character vector indicating if MAP conversion was used
+    # return NULL (called for side effects)
+    cleanup_new_data_v = function(map_cols = character(0)) {
+      if (length(map_cols) == 0) {
+        duckdb::duckdb_unregister(self$connection, "new_data_v")
+      } else {
+        self$execute("drop table if exists new_data_v")
+        duckdb::duckdb_unregister(self$connection, "new_data_raw")
+      }
+
+      invisible(NULL)
     },
 
     # Write data to file
@@ -1096,52 +975,6 @@ evoland_db <- R6::R6Class(
   )
 )
 
-# Utility function to assign auto-increment IDs to a data.table by reference
-#
-# param x data.table to update by reference
-# param autoincrement_cols Character vector of column names to auto-increment
-# param existing_max_ids Optional named integer vector of max IDs from existing table
-# return x invisibly (modified by reference)
-assign_autoincrement_ids <- function(x, autoincrement_cols, existing_max_ids = NULL) {
-  if (length(autoincrement_cols) == 0L) {
-    return(invisible(x))
-  }
-
-  stopifnot(inherits(x, "data.table")) # better safe than sorry
-
-  for (col in autoincrement_cols) {
-    # Determine starting point from existing table (i.e. read from file)
-    if (!is.null(existing_max_ids) && col %in% names(existing_max_ids)) {
-      existing_max <- existing_max_ids[[col]]
-    } else {
-      existing_max <- 0L
-    }
-
-    # Get max from current data (i.e. object x, if column exists and has non-NA values)
-    if (hasName(x, col)) {
-      data_max <- suppressWarnings(max(x[[col]], na.rm = TRUE))
-      if (!is.finite(data_max)) data_max <- 0L
-    } else {
-      data_max <- 0L
-      # Add column if it doesn't exist - use set() for by-reference modification
-      data.table::set(x, j = col, value = NA_integer_)
-    }
-
-    # Start from the higher of the two
-    start_id <- max(existing_max, data_max) + 1L
-
-    # Count how many NAs need to be filled
-    na_count <- sum(is.na(x[[col]]))
-
-    if (na_count > 0L) {
-      new_seq <- seq.int(from = start_id, length.out = na_count)
-      data.table::set(x, i = which(is.na(x[[col]])), j = col, value = new_seq)
-    }
-  }
-
-  invisible(x)
-}
-
 # Helper function to create simple Bindings with standard fetch/commit pattern
 # param self The R6 instance (self).
 # param table_name Character string. Name of the table.
@@ -1162,6 +995,13 @@ create_active_binding <- function(self, table_name, as_fn, ...) {
 
 
 # Helper functions for converting between list and data.frame formats for DuckDB MAPs
+convert_list_cols <- function(x, cols, fn) {
+  for (col in cols) {
+    x[[col]] <- lapply(x[[col]], fn)
+  }
+  x
+}
+
 list_to_kv_df <- function(x) {
   if (is.null(x) || length(x) == 0) {
     return(data.frame(
@@ -1198,29 +1038,4 @@ kv_df_to_list <- function(x) {
   }
 
   out
-}
-
-# Compose a SQL select expression for use in commits
-# param all_cols: char vector of all column names
-# param row_num_cols: char vector of those columns that should be set to their row number
-# param from_max_cols: char vector of those columns that should increment from a
-# previously set max_{colname} duckdb variable
-compose_select_expr <- function(
-  all_cols,
-  row_num_cols = character(),
-  from_max_cols = character()
-) {
-  # find those columns that aren't auto-incrementing
-  ordinary_cols <- setdiff(
-    all_cols,
-    union(row_num_cols, from_max_cols) # assuming these aren't overlapping
-  )
-  glue::glue_collapse(
-    c(
-      glue::glue("row_number() over () as {row_num_cols}"),
-      glue::glue("row_number() over () + getvariable('max_{from_max_cols}') as {from_max_cols}"),
-      ordinary_cols
-    ),
-    sep = ",\n "
-  )
 }
