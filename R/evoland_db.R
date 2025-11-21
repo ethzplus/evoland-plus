@@ -6,7 +6,6 @@
 #' This class uses DuckDB for in-memory SQL operations while persisting data
 #' to disk in parquet format for better compression.
 #'
-#' @import R6 duckdb
 #' @export
 
 evoland_db <- R6::R6Class(
@@ -254,7 +253,7 @@ evoland_db <- R6::R6Class(
     #'
     #' @return A data.table
     fetch = function(table_name, where = NULL, limit = NULL) {
-      stopifnot(grepl("_t$", table_name))
+      stopifnot(grepl("_t", table_name))
 
       file_info <- private$get_file_path(table_name)
 
@@ -891,45 +890,6 @@ evoland_db <- R6::R6Class(
 
       # Default: return empty data.table
       data.table::data.table()
-    },
-
-    # Get maximum ID values for auto-increment columns
-    #
-    # param file_info List with path and format information
-    # param id_cols Character vector of ID column names
-    # return Named integer vector of max values for each column
-    get_max_ids = function(file_info, id_cols) {
-      # First check which columns exist in the file
-
-      existing_cols <-
-        glue::glue("SELECT * FROM read_{file_info$format}('{file_info$path}') LIMIT 0") |>
-        self$get_query(statement = _) |>
-        names()
-
-      # Filter to only columns that exist
-      cols_to_query <- intersect(id_cols, existing_cols)
-
-      # Initialize result with 0L for all requested columns
-      max_vals <- stats::setNames(rep(0L, length(id_cols)), id_cols)
-
-      # Only query for columns that exist
-      if (length(cols_to_query) > 0) {
-        max_exprs <- sprintf("MAX(%s) as %s", cols_to_query, cols_to_query)
-        sql <- glue::glue(
-          "SELECT {paste(max_exprs, collapse = ', ')}
-           FROM read_{file_info$format}('{file_info$path}')"
-        )
-
-        result <- self$get_query(sql)
-
-        # Update max_vals for columns that exist
-        for (col in cols_to_query) {
-          val <- result[[col]]
-          max_vals[[col]] <- if (is.na(val)) 0L else as.integer(val)
-        }
-      }
-
-      return(max_vals)
     }
   )
 )
