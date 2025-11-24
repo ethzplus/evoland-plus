@@ -17,6 +17,8 @@ to disk in parquet format for better compression.
 \item{\code{path}}{Character string path to the data folder}
 
 \item{\code{default_format}}{Default file format for new tables}
+
+\item{\code{writeopts}}{Default write options for DuckDB, see}
 }
 \if{html}{\out{</div>}}
 }
@@ -25,10 +27,6 @@ to disk in parquet format for better compression.
 \describe{
 \item{\code{coords_t}}{A \code{coords_t} instance; see \code{\link[=create_coords_t]{create_coords_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
-
-\item{\code{extent}}{Return a terra SpatExtent based on coords_t}
-
-\item{\code{coords_minimal}}{data.table with only (id_coord, lon, lat)}
 
 \item{\code{periods_t}}{A \code{periods_t} instance; see \code{\link[=create_periods_t]{create_periods_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
@@ -41,12 +39,6 @@ object to assign. Assigning is an upsert operation.}
 \item{\code{lulc_data_t}}{A \code{lulc_data_t} instance; see \code{\link[=as_lulc_data_t]{as_lulc_data_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
 
-\item{\code{pred_meta_t}}{A \code{pred_meta_t} instance; see \code{\link[=create_pred_meta_t]{create_pred_meta_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{pred_sources_v}}{Retrieve a table of distinct predictor urls and their
-md5sum}
-
 \item{\code{pred_data_t_float}}{A \code{pred_data_t_float} instance; see
 \code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
 upsert operation.}
@@ -58,6 +50,16 @@ upsert operation.}
 \item{\code{pred_data_t_bool}}{A \code{pred_data_t_bool} instance; see
 \code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
 upsert operation.}
+
+\item{\code{extent}}{Return a terra SpatExtent based on coords_t}
+
+\item{\code{coords_minimal}}{data.table with only (id_coord, lon, lat)}
+
+\item{\code{pred_meta_t}}{A \code{pred_meta_t} instance; see \code{\link[=create_pred_meta_t]{create_pred_meta_t()}} for the type of
+object to assign. Assigning is an upsert operation.}
+
+\item{\code{pred_sources_v}}{Retrieve a table of distinct predictor urls and their
+md5sum}
 
 \item{\code{trans_meta_t}}{A \code{trans_meta_t} instance; see \code{\link[=create_trans_meta_t]{create_trans_meta_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
@@ -83,12 +85,18 @@ of object to assign. Assigning is an upsert operation.}
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
-\item \href{#method-evoland_db-commit}{\code{evoland_db$commit()}}
+\item \href{#method-evoland_db-commit_overwrite}{\code{evoland_db$commit_overwrite()}}
+\item \href{#method-evoland_db-commit_append}{\code{evoland_db$commit_append()}}
+\item \href{#method-evoland_db-commit_upsert}{\code{evoland_db$commit_upsert()}}
 \item \href{#method-evoland_db-fetch}{\code{evoland_db$fetch()}}
 \item \href{#method-evoland_db-list_tables}{\code{evoland_db$list_tables()}}
 \item \href{#method-evoland_db-execute}{\code{evoland_db$execute()}}
+\item \href{#method-evoland_db-get_query}{\code{evoland_db$get_query()}}
+\item \href{#method-evoland_db-attach_table}{\code{evoland_db$attach_table()}}
+\item \href{#method-evoland_db-detach_table}{\code{evoland_db$detach_table()}}
 \item \href{#method-evoland_db-row_count}{\code{evoland_db$row_count()}}
 \item \href{#method-evoland_db-delete_from}{\code{evoland_db$delete_from()}}
+\item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
 \item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
 \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
@@ -101,14 +109,7 @@ of object to assign. Assigning is an upsert operation.}
 \subsection{Method \code{new()}}{
 Initialize a new evoland_db object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(
-  path,
-  default_format = c("parquet", "csv"),
-  report_name = "evoland_scenario",
-  report_name_pretty = "Default Evoland Scenario",
-  report_include_date = TRUE,
-  report_username = Sys.getenv("USER", unset = "unknown")
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, default_format = c("parquet", "csv"), ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -119,14 +120,7 @@ Initialize a new evoland_db object
 \item{\code{default_format}}{Character. Default file format ("parquet" or "csv").
 Default is "parquet".}
 
-\item{\code{report_name}}{Character string. Name of the report scenario.}
-
-\item{\code{report_name_pretty}}{Character string. Pretty name of the report scenario.}
-
-\item{\code{report_include_date}}{Logical. Whether to include the date in the report scenario.}
-
-\item{\code{report_username}}{Character string. Username for the report scenario,
-defaults to $USER env var}
+\item{\code{...}}{passed on to \code{set_report}}
 }
 \if{html}{\out{</div>}}
 }
@@ -135,30 +129,91 @@ A new \code{evoland_db} object
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-commit"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-commit}{}}}
-\subsection{Method \code{commit()}}{
-Commit data to storage
+\if{html}{\out{<a id="method-evoland_db-commit_overwrite"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-commit_overwrite}{}}}
+\subsection{Method \code{commit_overwrite()}}{
+Commit data in overwrite mode
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit(x, table_name, mode = "upsert", format = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit_overwrite(
+  x,
+  table_name,
+  autoincrement_cols = character(0),
+  map_cols = character(0)
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{x}}{Data object to commit.}
+\item{\code{x}}{Data frame to commit}
 
-\item{\code{table_name}}{Table to target}
+\item{\code{table_name}}{Character string table name}
 
-\item{\code{mode}}{Character string. One of "upsert" (default), "append", or "overwrite".}
+\item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
 
-\item{\code{format}}{Character string. File format: "parquet" or "csv". Defaults to
-object's default_format.}
+\item{\code{map_cols}}{Character vector of columns to convert to MAP format}
 }
 \if{html}{\out{</div>}}
 }
-\subsection{Returns}{
-NULL (called for side effects)
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-commit_append"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-commit_append}{}}}
+\subsection{Method \code{commit_append()}}{
+Commit data in append mode
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit_append(
+  x,
+  table_name,
+  autoincrement_cols = character(0),
+  map_cols = character(0)
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{x}}{Data frame to commit}
+
+\item{\code{table_name}}{Character string table name}
+
+\item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
+
+\item{\code{map_cols}}{Character vector of columns to convert to MAP format}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-commit_upsert"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-commit_upsert}{}}}
+\subsection{Method \code{commit_upsert()}}{
+Commit data in upsert mode
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$commit_upsert(
+  x,
+  table_name,
+  key_cols = grep("^id_", names(x), value = TRUE),
+  autoincrement_cols = character(0),
+  map_cols = character(0)
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{x}}{Data frame to commit}
+
+\item{\code{table_name}}{Character string table name}
+
+\item{\code{key_cols}}{Identify unique columns - heuristic: if prefixed with
+id_, the set of all columns designates a uniqueness condition}
+
+\item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
+
+\item{\code{map_cols}}{Character vector of columns to convert to MAP format}
+}
+\if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}
@@ -219,6 +274,64 @@ No. of rows affected by statement
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-get_query"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-get_query}{}}}
+\subsection{Method \code{get_query()}}{
+Get Query
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_query(statement)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{statement}}{A SQL statement}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+No. of rows affected by statement
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-attach_table"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-attach_table}{}}}
+\subsection{Method \code{attach_table()}}{
+Attach one or more tables from the database folder as temporary tables in DuckDB.
+This is useful for working with multiple tables in SQL queries without loading
+them into R memory.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$attach_table(table_name, columns = "*")}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character vector. Names of table to attach.}
+
+\item{\code{columns}}{Character vector. Optional sql column selection, defaults to "*"}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-detach_table"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-detach_table}{}}}
+\subsection{Method \code{detach_table()}}{
+Detach one or more tables from the database.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$detach_table(table_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character. Name of table to drop.}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-row_count"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-row_count}{}}}
 \subsection{Method \code{row_count()}}{
@@ -258,6 +371,24 @@ Delete rows from a table
 }
 \subsection{Returns}{
 No. of rows affected
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-set_report"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-set_report}{}}}
+\subsection{Method \code{set_report()}}{
+Set reporting metadata
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_report(...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{each named argument is entered into the table with the argument name
+as its key}
+}
+\if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}

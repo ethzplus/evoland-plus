@@ -3,18 +3,43 @@
 \name{util_terra}
 \alias{util_terra}
 \alias{extract_using_coords_t}
+\alias{compute_neighbors}
 \title{evoland utility functions to work with terra objects}
 \usage{
 extract_using_coords_t(x, coords_t, na_omit = TRUE)
+
+compute_neighbors(
+  coords_t,
+  max_distance,
+  distance_breaks = NULL,
+  resolution = 100
+)
 }
 \arguments{
 \item{x}{The object to extract from; use "simple" extraction for rasters, i.e. no resampling is done.}
 
-\item{coords_t}{The coordinates to extract at}
+\item{coords_t}{A coords_t object containing coordinate points}
+
+\item{max_distance}{Maximum distance to search for neighbors (in same units as
+coordinates and resolution)}
+
+\item{distance_breaks}{Optional numeric vector defining distance class boundaries.
+If NULL, no distance classification is performed.
+If provided, must have at least 2 elements defining interval breaks.}
+
+\item{resolution}{Grid cell size for rasterization (default: 100.0, in same units as coordinates)}
 }
 \value{
 A long data.table with \code{id_coord}, a \code{layer}/\code{attribute} column, and a \code{value} column.
 NAs are omitted
+
+A data.table with columns:
+\itemize{
+\item id_coord_origin: ID of the origin coordinate
+\item id_coord_neighbor: ID of the neighboring coordinate
+\item distance: Distance between origin and neighbor
+\item distance_class: Factor indicating distance class (if distance_breaks provided)
+}
 }
 \description{
 Useful to coax terra raster and vector data into evoland tabular form.
@@ -22,5 +47,11 @@ Useful to coax terra raster and vector data into evoland tabular form.
 \section{Functions}{
 \itemize{
 \item \code{extract_using_coords_t()}: Extract values from a SpatRaster or SpatVector object using a (minimal) \code{coords_t}
+
+\item \code{compute_neighbors()}: Compute neighboring coordinates within specified distances. In
+order to be computationally feasible, the coordinates' IDs are rasterized before
+their actual Euclidean distance is calculated. If coordinates are so close that they
+get rasterized to the same cell, the first one is used and a warning is emitted. If
+this happens, try again using a lower resolution.
 
 }}

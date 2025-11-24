@@ -14,6 +14,8 @@ as_coords_t(x)
 create_coords_t_square(epsg, extent, resolution, ...)
 }
 \arguments{
+\item{x}{A table that can be coerced to a valid \code{coords_t} object.}
+
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}

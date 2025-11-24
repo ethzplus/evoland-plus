@@ -21,7 +21,7 @@ The package follows a three-phase workflow:
 2. **Calibration**: Feature selection, training Markovian transition models, and parameterizing allocation strategies
 3. **Prediction + Allocation**: Recursive model evaluation to generate future land use projections
 
-This represents a re-implementation and enhancement of the land use model originally published at <https://github.com/blenback/LULCC-CH>, building on substantial prior experience while modernizing the technical implementation.
+This represents a re-implementation and enhancement of the land use model published at <https://github.com/ethzplus/evoland-plus-legacy>, building on substantial prior experience while modernizing the technical implementation.
 
 ## Development Environment Setup
 
@@ -33,18 +33,14 @@ This makes it easy to rapidly reload code when you've changed something.
 
 ## Documentation
 
-This package follows the [Diátaxis](https://diataxis.fr/) documentation framework:
+This package uses pkgdown, see <http://ethzplus.github.io/evoland-plus>.
 
-- **Tutorials & How-to Guides**: Available as package vignettes (coming soon)
-- **Reference Documentation**: Function-level documentation via `?function_name`
-- **Explanation & Design Rationale**: See the [project wiki](../../wiki)
-
-For comprehensive information about the package design and implementation rationale, please refer to the **[GitHub Wiki](wiki)**, which contains:
-
-- Detailed explanation of the modeling approach
-- Database schema and architecture decisions
-- Development guidelines and coding standards
-- Background on land use change modeling theory
+- **Tutorials & How-to Guides**: Package vignettes and examples in R man pages
+- **Reference Documentation**: R man pages using the standard `?function_name`
+- **Explanation & Design Rationale**: See the [project wiki](../../wiki) for
+    - Detailed explanation of the modeling approach
+    - Database schema and architecture decisions
+    - Development guidelines and coding standards
 
 ## License
 

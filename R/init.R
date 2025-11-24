@@ -17,3 +17,10 @@
 
 #' @importFrom data.table :=
 .datatable.aware <- TRUE
+
+
+## usethis namespace: start
+#' @importFrom Rcpp sourceCpp
+#' @useDynLib evoland, .registration = TRUE
+## usethis namespace: end
+NULL

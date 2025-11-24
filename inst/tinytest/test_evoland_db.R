@@ -5,13 +5,35 @@ library(tinytest)
 test_dir <- tempfile("evoland_test_")
 on.exit(unlink(test_dir, recursive = TRUE), add = TRUE)
 
-expect_silent(db <- evoland_db$new(test_dir))
+expect_silent(
+  db <- evoland_db$new(
+    path = test_dir,
+    report_name = "tinytest",
+    report_username = "testuser"
+  )
+)
 expect_true(inherits(db, "evoland_db"))
 
 # In folder-based storage, only reporting_t exists initially
 # Other tables are created on demand
 expected_tables_initial <- c("reporting_t")
 expect_identical(db$list_tables(), expected_tables_initial)
+
+reporting1 <- db$fetch("reporting_t")
+rm(db)
+gc()
+db <- evoland_db$new(
+  path = test_dir,
+  report_name = "tinytest",
+  report_username = "testuser"
+)
+reporting2 <- db$fetch("reporting_t")
+expect_equal(
+  # upsert reorders rows
+  sort(reporting1$key),
+  sort(reporting2$key)
+)
+
 
 # Check that accessing non-existent tables returns empty data.tables
 # (these tables don't appear in list_tables() until they have data)
@@ -174,7 +196,6 @@ alloc_params_t <- as_alloc_params_t(list(
 
 trans_meta_t <- as_trans_meta_t(
   data.table::data.table(
-    id_trans = 1:3,
     id_lulc_anterior = 1:3,
     id_lulc_posterior = 2:4,
     cardinality = c(100L, 2000L, 10L),
@@ -214,6 +235,10 @@ intrv_masks_t <- as_intrv_masks_t(
 expect_silent(db$coords_t <- coords_t)
 expect_silent(db$coords_t <- coords_t)
 expect_identical(db$coords_t, coords_t)
+expect_identical(
+  db$coords_minimal,
+  data.table::as.data.table(coords_t[, 1:3])
+)
 
 expect_silent(db$lulc_meta_t <- lulc_meta_t)
 expect_identical(db$lulc_meta_t, lulc_meta_t)
@@ -227,12 +252,13 @@ expect_silent(db$pred_meta_t <- pred_meta_t)
 retrieved_pred_meta <- db$pred_meta_t
 expect_equal(retrieved_pred_meta[["id_pred"]], 1:2)
 expect_equal(retrieved_pred_meta[["name"]], c("noise", "distance_to_lake"))
+db$delete_from("pred_meta_t") # clear up, we want to ensure this works with add_predictor
 
 expect_silent(db$intrv_meta_t <- intrv_meta_t)
 expect_equal(db$intrv_meta_t, intrv_meta_t)
 
 expect_silent(db$trans_meta_t <- trans_meta_t)
-expect_equal(db$trans_meta_t, trans_meta_t)
+expect_equal(db$trans_meta_t[, c(-1)], trans_meta_t)
 
 expect_silent(db$trans_models_t <- trans_models_t)
 expect_equal(db$trans_models_t, trans_models_t)
@@ -258,6 +284,12 @@ expect_silent(
     pred_type = "float"
   )
 )
+# check that add_predictor works for metadata
+retrieved_pred_meta <- db$pred_meta_t
+expect_equal(retrieved_pred_meta[["id_pred"]], 1:2)
+expect_equal(retrieved_pred_meta[["name"]], c("noise", "distance_to_lake"))
+
+# check that add_predictor works for data
 expect_equal(db$row_count("pred_data_t_float"), 48L)
 expect_silent(db$pred_data_t_float <- pred_data_t)
 expect_equal(db$row_count("pred_data_t_float"), 48L)
@@ -339,10 +371,9 @@ test_data_1 <- data.table::data.table(
   name = c("predictor_a", "predictor_b", "predictor_c"),
   unit = c("m", "kg", "s")
 )
-db_autoinc$commit(
+db_autoinc$commit_overwrite(
   test_data_1,
   "test_autoinc_t",
-  mode = "overwrite",
   autoincrement_cols = "id_test"
 )
 result_1 <- db_autoinc$fetch("test_autoinc_t")
@@ -354,10 +385,9 @@ test_data_2 <- data.table::data.table(
   name = c("predictor_d", "predictor_e"),
   unit = c("A", "V")
 )
-db_autoinc$commit(
+db_autoinc$commit_append(
   test_data_2,
   "test_autoinc_t",
-  mode = "append",
   autoincrement_cols = "id_test"
 )
 result_2 <- db_autoinc$fetch("test_autoinc_t")
@@ -370,10 +400,9 @@ test_data_3 <- data.table::data.table(
   name = c("predictor_f", "predictor_g"),
   unit = c("W", "J")
 )
-db_autoinc$commit(
+db_autoinc$commit_upsert(
   test_data_3,
   "test_autoinc_t",
-  mode = "upsert",
   autoincrement_cols = "id_test"
 )
 result_3 <- db_autoinc$fetch("test_autoinc_t")
@@ -386,26 +415,25 @@ test_data_4 <- data.table::data.table(
   name = c("new_a", "existing", "new_b"),
   unit = c("x", "y", "z")
 )
-db_autoinc$commit(
-  test_data_4,
-  "test_autoinc2_t",
-  mode = "overwrite",
-  autoincrement_cols = "id_test"
+expect_warning(
+  db_autoinc$commit_overwrite(
+    test_data_4,
+    "test_autoinc2_t",
+    autoincrement_cols = "id_test"
+  ),
+  "Overriding existing IDs"
 )
 result_4 <- db_autoinc$fetch("test_autoinc2_t")
-expect_equal(result_4$id_test[2], 100L)
-expect_equal(result_4$id_test[1], 101L)
-expect_equal(result_4$id_test[3], 102L)
+expect_equal(result_4$id_test, 1:3)
 
 # Test 5: Multiple auto-increment columns
 test_data_5 <- data.table::data.table(
   name = c("item1", "item2"),
   value = c(10, 20)
 )
-db_autoinc$commit(
+db_autoinc$commit_overwrite(
   test_data_5,
   "test_multi_autoinc_t",
-  mode = "overwrite",
   autoincrement_cols = c("id_a", "id_b")
 )
 result_5 <- db_autoinc$fetch("test_multi_autoinc_t")
@@ -417,18 +445,16 @@ test_data_6a <- data.table::data.table(
   id_seq = c(5L, 10L, 15L),
   value = c(100, 200, 300)
 )
-db_autoinc$commit(
+db_autoinc$commit_overwrite(
   test_data_6a,
-  "test_continue_t",
-  mode = "overwrite"
+  "test_continue_t"
 )
 test_data_6b <- data.table::data.table(
   value = c(400, 500)
 )
-db_autoinc$commit(
+db_autoinc$commit_append(
   test_data_6b,
   "test_continue_t",
-  mode = "append",
   autoincrement_cols = "id_seq"
 )
 result_6 <- db_autoinc$fetch("test_continue_t")
