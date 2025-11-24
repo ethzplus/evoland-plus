@@ -317,15 +317,22 @@ evoland_db <- R6::R6Class(
     #' them into R memory.
     #' @param table_name Character vector. Names of table to attach.
     #' @param columns Character vector. Optional sql column selection, defaults to "*"
-    attach_table = function(table_name, columns = "*") {
+    attach_table = function(table_name, columns = "*", where = NULL) {
       file_info <- private$get_file_path(table_name)
 
-      # Build and execute SQL
-      self$execute(glue::glue(
+      # Build SQL query
+      sql <- glue::glue(
         "CREATE TEMP TABLE {table_name} AS ",
         "SELECT {paste(columns, collapse = ', ')} ",
         "FROM read_{file_info$format}('{file_info$path}')"
-      ))
+      )
+
+      if (!is.null(where)) {
+        sql <- glue::glue("{sql} WHERE {where}")
+      }
+
+      # Execute SQL
+      self$execute(sql)
     },
 
     #' @description
