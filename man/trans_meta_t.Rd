@@ -3,19 +3,36 @@
 \name{trans_meta_t}
 \alias{trans_meta_t}
 \alias{as_trans_meta_t}
+\alias{create_trans_meta_t}
 \alias{print.trans_meta_t}
 \title{Create Transition Metadata Table}
 \usage{
 as_trans_meta_t(x)
 
+create_trans_meta_t(
+  lulc_data,
+  min_cardinality_abs = NULL,
+  min_frequency_rel = NULL,
+  exclude_anterior = NULL,
+  exclude_posterior = NULL
+)
+
 \method{print}{trans_meta_t}(x, nrow = 10, ...)
 }
 \arguments{
+\item{lulc_data}{A \link{lulc_data_t} table with land use observations}
+
+\item{min_cardinality_abs}{Minimum absolute number of transitions for viability (optional)}
+
+\item{min_frequency_rel}{Minimum relative frequency of transitions for viability (optional)}
+
+\item{exclude_anterior}{Vector of id_lulc values to exclude as anterior (source) classes}
+
+\item{exclude_posterior}{Vector of id_lulc values to exclude as posterior (target) classes}
+
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
-
-\item{db}{An \link{evoland_db} instance with populated lulc_data_t and lulc_meta_t tables}
 }
 \value{
 A data.table of class "trans_meta_t" with columns:
@@ -24,8 +41,8 @@ A data.table of class "trans_meta_t" with columns:
 \item \code{id_lulc_anterior}: Foreign key to lulc_meta_t (before transition)
 \item \code{id_lulc_posterior}: Foreign key to lulc_meta_t (after transition)
 \item \code{cardinality}: How many times this transition occurred
-\item \code{frequency_rel}: Frequency relative to all transitions in this timestep
-\item \code{frequency_abs}: Frequency relative to all coordinate pairs with data in this timestep
+\item \code{frequency_rel}: Frequency relative to all transitions
+\item \code{frequency_abs}: Frequency relative to all coordinate pairs
 \item \code{is_viable}: Whether this transition is viable for modelling
 }
 }
@@ -37,5 +54,10 @@ entries for each viable transition type.
 \section{Methods (by generic)}{
 \itemize{
 \item \code{print(trans_meta_t)}: Print a trans_meta_t object, passing params to data.table print
+
+}}
+\section{Functions}{
+\itemize{
+\item \code{create_trans_meta_t()}: Calculate the transition metadata and mark for modelling feasibility
 
 }}
