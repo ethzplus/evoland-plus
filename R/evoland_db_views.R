@@ -83,3 +83,26 @@ make_extent_db <- function(self, private) {
     unlist() |>
     terra::ext()
 }
+
+#' @describeIn evoland_db_views
+make_transitions_v <- function(self, private, where = NULL) {
+  self$attach_table("lulc_data_t")
+  on.exit(self$detach_table("lulc_data_t"))
+
+  self$get_query(glue::glue(
+    r"{
+    SELECT
+      curr.id_period,
+      prev.id_lulc as id_lulc_anterior,
+      curr.id_lulc as id_lulc_posterior,
+      curr.id_coord
+    FROM
+      lulc_data_t as curr
+    INNER JOIN
+      lulc_data_t as prev
+    ON
+      curr.id_coord = prev.id_coord
+      AND curr.id_period = prev.id_period + 1
+    }"
+  ))
+}

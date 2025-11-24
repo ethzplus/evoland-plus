@@ -6,7 +6,8 @@
 #'
 #' @name trans_meta_t
 #'
-#' @param lulc_data A [lulc_data_t] table with land use observations
+#' @param transitions A transitions_v table, with columns id_coord, id_lulc_anterior,
+#' id_lulc_posterior, id_period
 #' @param min_cardinality_abs Minimum absolute number of transitions for viability (optional)
 #' @param min_frequency_rel Minimum relative frequency of transitions for viability (optional)
 #' @param exclude_anterior Vector of id_lulc values to exclude as anterior (source) classes
@@ -43,37 +44,16 @@ as_trans_meta_t <- function(x) {
 #' @describeIn trans_meta_t Calculate the transition metadata and mark for modelling feasibility
 #' @export
 create_trans_meta_t <- function(
-  lulc_data,
+  transitions,
   min_cardinality_abs = NULL,
   min_frequency_rel = NULL,
   exclude_anterior = NULL,
   exclude_posterior = NULL
 ) {
   # Return empty table if no data provided
-  if (missing(lulc_data) || nrow(lulc_data) == 0L) {
+  if (missing(transitions) || nrow(transitions) == 0L) {
     return(as_trans_meta_t())
   }
-
-  # Ensure lulc_data is a data.table
-  lulc_data <- data.table::as.data.table(lulc_data)
-  data.table::setkey(lulc_data, id_coord, id_period)
-
-  # Create transitions by self-joining on id_coord to find consecutive periods
-  # Rename columns to distinguish anterior (i) from posterior (x) states
-  transitions <-
-    lulc_data[,
-      .(id_period = id_period + 1L, id_lulc_posterior = id_lulc, id_coord)
-    ][
-      lulc_data,
-      .(
-        id_lulc_anterior = i.id_lulc,
-        id_lulc_posterior,
-        id_period
-      ),
-      on = .(id_coord, id_period),
-      # exclude e.g. any transition to period 1, or where data point only shows up later
-      nomatch = NULL
-    ]
 
   # Count total coordinate-period pairs that could have transitions
   n_total_pairs <- nrow(transitions)

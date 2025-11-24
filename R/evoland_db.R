@@ -553,6 +553,11 @@ evoland_db <- R6::R6Class(
       create_active_binding(self, "lulc_data_t", as_lulc_data_t)(x)
     },
 
+    #' @field transitions_v Get the transitions from `lulc_data_t`.
+    transitions_v = function() {
+      make_transitions_v(self, private)
+    },
+
     #' @field pred_data_t_float A `pred_data_t_float` instance; see
     #' [create_pred_data_t()] for the type of object to assign. Assigning is an
     #' upsert operation.
