@@ -89,6 +89,8 @@ make_transitions_v <- function(self, private, where = NULL) {
   self$attach_table("lulc_data_t")
   on.exit(self$detach_table("lulc_data_t"))
 
+  where_clause <- if (!is.null(where)) paste("WHERE", where) else ""
+
   self$get_query(glue::glue(
     r"{
     SELECT
@@ -103,6 +105,7 @@ make_transitions_v <- function(self, private, where = NULL) {
     ON
       curr.id_coord = prev.id_coord
       AND curr.id_period = prev.id_period + 1
+    {where_clause}
     }"
   ))
 }
