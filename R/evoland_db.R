@@ -60,6 +60,8 @@ evoland_db <- R6::R6Class(
     },
 
     ### DB methods ----
+    # TODO the database methods should be spun out into a parent class "parquet_db" that is
+    # independent of domain specific logic. the domain logic would then live in evoland_db.
     #' @description
     #' Commit data in overwrite mode
     #' @param x Data frame to commit
@@ -258,6 +260,7 @@ evoland_db <- R6::R6Class(
         table_name,
         lulc_meta_long_v = make_lulc_meta_long_v(self, private, where),
         pred_sources_v = make_pred_sources_v(self, private, where),
+        transitions_v = make_transitions_v(self, private, where),
         NULL
       )
 
@@ -312,12 +315,14 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Attach one or more tables from the database folder as temporary tables in DuckDB.
-    #' This is useful for working with multiple tables in SQL queries without loading
-    #' them into R memory.
+    #' Attach a single table as a temporary table in DuckDB memory. This is
+    #' useful for working with multiple tables in SQL queries instead of loading
+    #' them into R objects.
     #' @param table_name Character vector. Names of table to attach.
     #' @param columns Character vector. Optional sql column selection, defaults to "*"
     attach_table = function(table_name, columns = "*", where = NULL) {
+      # TODO the attach/detach combo should be available in a DB method "with
+      # table"; it should do nothing if the table is already attached
       file_info <- private$get_file_path(table_name)
 
       # Build SQL query
