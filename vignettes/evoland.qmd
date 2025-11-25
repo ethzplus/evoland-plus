@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 execute:
-  enabled: true
+  enabled: false
 ---
 
 ```{r}
@@ -85,8 +85,6 @@ db$set_coords(
   resolution = 100
 )
 minimal_coords_t <- db$coords_minimal
-
-print(minimal_coords_t)
 ```
 
 ## Retrieve Data
@@ -153,8 +151,6 @@ arealstat_dt <-
     )
   )
 close(csv_con)
-
-print(arealstat_dt)
 ```
 
 ## Recode LULC Classes
@@ -330,6 +326,6 @@ db$commit(
 )
 ```
 
-Which lets us know how many row were affected, i.e. deleted: _7_. 
-For this domain in the middle of Switzerland, then, this represents a small amount of savings.
-As the sparsity of the domain grows - e.g. by omission of adjacent administrative areas, or by omission of certain land use classes - the advantage of the tabular representation becomes clearer.
+For this domain in the middle of Switzerland, this represents a small amount of savings -
+but as the sparsity of the domain grows, e.g. by omission of adjacent administrative areas,
+or by omission of certain land use classes - the advantage of the tabular representation becomes clearer.
