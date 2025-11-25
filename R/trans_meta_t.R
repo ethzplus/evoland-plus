@@ -84,26 +84,25 @@ create_trans_meta_t <- function(
     trans_summary[id_lulc_posterior %in% exclude_posterior, is_viable := FALSE]
   }
 
-  # Apply minimum thresholds (OR logic - satisfy at least one if both specified)
+  # Apply minimum thresholds
   if (!is.null(min_cardinality_abs) || !is.null(min_frequency_rel)) {
     if (!is.null(min_cardinality_abs) && !is.null(min_frequency_rel)) {
-      # Both specified: viable if either threshold is met
+      # Both specified: viable if both thresholds are met
       trans_summary[
-        is_viable == TRUE &
-          cardinality < min_cardinality_abs &
+        cardinality < min_cardinality_abs &
           frequency_rel < min_frequency_rel,
         is_viable := FALSE
       ]
     } else if (!is.null(min_cardinality_abs)) {
       # Only absolute threshold specified
       trans_summary[
-        is_viable == TRUE & cardinality < min_cardinality_abs,
+        cardinality < min_cardinality_abs,
         is_viable := FALSE
       ]
     } else {
       # Only relative threshold specified
       trans_summary[
-        is_viable == TRUE & frequency_rel < min_frequency_rel,
+        frequency_rel < min_frequency_rel,
         is_viable := FALSE
       ]
     }
