@@ -32,7 +32,7 @@ The package follows a three-phase workflow:
     future land use projections
 
 This represents a re-implementation and enhancement of the land use
-model originally published at <https://github.com/blenback/LULCC-CH>,
+model published at <https://github.com/ethzplus/evoland-plus-legacy>,
 building on substantial prior experience while modernizing the technical
 implementation.
 
@@ -51,24 +51,17 @@ changed something.
 
 ## Documentation
 
-This package follows the [Diátaxis](https://diataxis.fr/) documentation
-framework:
+This package uses pkgdown, see <http://ethzplus.github.io/evoland-plus>.
 
-- **Tutorials & How-to Guides**: Available as package vignettes (coming
-  soon)
-- **Reference Documentation**: Function-level documentation via
+- **Tutorials & How-to Guides**: Package vignettes and examples in R man
+  pages
+- **Reference Documentation**: R man pages using the standard
   `?function_name`
 - **Explanation & Design Rationale**: See the [project
-  wiki](https://ethzplus.github.io/wiki)
-
-For comprehensive information about the package design and
-implementation rationale, please refer to the **[GitHub
-Wiki](https://ethzplus.github.io/evoland-plus/wiki)**, which contains:
-
-- Detailed explanation of the modeling approach
-- Database schema and architecture decisions
-- Development guidelines and coding standards
-- Background on land use change modeling theory
+  wiki](https://ethzplus.github.io/wiki) for
+  - Detailed explanation of the modeling approach
+  - Database schema and architecture decisions
+  - Development guidelines and coding standards
 
 ## License
 

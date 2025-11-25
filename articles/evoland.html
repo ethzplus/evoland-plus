@@ -116,131 +116,21 @@
 <span>  <span class="op">)</span><span class="op">)</span>,</span>
 <span>  resolution <span class="op">=</span> <span class="fl">100</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">minimal_coords_t</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="va">coords_minimal</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">minimal_coords_t</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>     id_coord     lon     lat
-        &lt;int&gt;   &lt;num&gt;   &lt;num&gt;
-  1:        1 2697050 1252950
-  2:        2 2697150 1252950
-  3:        3 2697250 1252950
-  4:        4 2697350 1252950
-  5:        5 2697450 1252950
-  6:        6 2697550 1252950
-  7:        7 2697650 1252950
-  8:        8 2697750 1252950
-  9:        9 2697850 1252950
- 10:       10 2697950 1252950
- 11:       11 2697050 1252850
- 12:       12 2697150 1252850
- 13:       13 2697250 1252850
- 14:       14 2697350 1252850
- 15:       15 2697450 1252850
- 16:       16 2697550 1252850
- 17:       17 2697650 1252850
- 18:       18 2697750 1252850
- 19:       19 2697850 1252850
- 20:       20 2697950 1252850
- 21:       21 2697050 1252750
- 22:       22 2697150 1252750
- 23:       23 2697250 1252750
- 24:       24 2697350 1252750
- 25:       25 2697450 1252750
- 26:       26 2697550 1252750
- 27:       27 2697650 1252750
- 28:       28 2697750 1252750
- 29:       29 2697850 1252750
- 30:       30 2697950 1252750
- 31:       31 2697050 1252650
- 32:       32 2697150 1252650
- 33:       33 2697250 1252650
- 34:       34 2697350 1252650
- 35:       35 2697450 1252650
- 36:       36 2697550 1252650
- 37:       37 2697650 1252650
- 38:       38 2697750 1252650
- 39:       39 2697850 1252650
- 40:       40 2697950 1252650
- 41:       41 2697050 1252550
- 42:       42 2697150 1252550
- 43:       43 2697250 1252550
- 44:       44 2697350 1252550
- 45:       45 2697450 1252550
- 46:       46 2697550 1252550
- 47:       47 2697650 1252550
- 48:       48 2697750 1252550
- 49:       49 2697850 1252550
- 50:       50 2697950 1252550
- 51:       51 2697050 1252450
- 52:       52 2697150 1252450
- 53:       53 2697250 1252450
- 54:       54 2697350 1252450
- 55:       55 2697450 1252450
- 56:       56 2697550 1252450
- 57:       57 2697650 1252450
- 58:       58 2697750 1252450
- 59:       59 2697850 1252450
- 60:       60 2697950 1252450
- 61:       61 2697050 1252350
- 62:       62 2697150 1252350
- 63:       63 2697250 1252350
- 64:       64 2697350 1252350
- 65:       65 2697450 1252350
- 66:       66 2697550 1252350
- 67:       67 2697650 1252350
- 68:       68 2697750 1252350
- 69:       69 2697850 1252350
- 70:       70 2697950 1252350
- 71:       71 2697050 1252250
- 72:       72 2697150 1252250
- 73:       73 2697250 1252250
- 74:       74 2697350 1252250
- 75:       75 2697450 1252250
- 76:       76 2697550 1252250
- 77:       77 2697650 1252250
- 78:       78 2697750 1252250
- 79:       79 2697850 1252250
- 80:       80 2697950 1252250
- 81:       81 2697050 1252150
- 82:       82 2697150 1252150
- 83:       83 2697250 1252150
- 84:       84 2697350 1252150
- 85:       85 2697450 1252150
- 86:       86 2697550 1252150
- 87:       87 2697650 1252150
- 88:       88 2697750 1252150
- 89:       89 2697850 1252150
- 90:       90 2697950 1252150
- 91:       91 2697050 1252050
- 92:       92 2697150 1252050
- 93:       93 2697250 1252050
- 94:       94 2697350 1252050
- 95:       95 2697450 1252050
- 96:       96 2697550 1252050
- 97:       97 2697650 1252050
- 98:       98 2697750 1252050
- 99:       99 2697850 1252050
-100:      100 2697950 1252050
-     id_coord     lon     lat</code></pre>
-</div>
+<span><span class="va">minimal_coords_t</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="va">coords_minimal</span></span></code></pre></div>
 </div>
 </section><section class="section level3"><h3 id="retrieve-data">Retrieve Data<a class="anchor" aria-label="anchor" href="#retrieve-data"></a>
 </h3>
 <p>Let’s define a data source (along with an MD5 checksum, enabling our future selves to notice when the underlying file is changed) and download them to the directory at <code>getOption("evoland.cachedir")</code>. This option is read on package load from the <code>EVOLAND_CACHEDIR</code> environment variable, defaulting to <code>~/evoland-cache</code>. For reporting purposes, the URL and checksum are written to the reporting table.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lulc_files</span> <span class="op">&lt;-</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>    url <span class="op">=</span> <span class="st">"https://dam-api.bfs.admin.ch/hub/api/dam/assets/32376216/appendix"</span>,</span>
 <span>    md5sum <span class="op">=</span> <span class="st">"c32937eb4a11fc9c5c58c66e9830360a"</span></span>
 <span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="../reference/util_download.html">download_and_verify</a></span><span class="op">(</span>target_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"evoland.cachedir"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Downloading: https://dam-api.bfs.admin.ch/hub/api/dam/assets/32376216/appendix</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="fu">commit</span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/util_download.html">download_and_verify</a></span><span class="op">(</span>target_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"evoland.cachedir"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">db</span><span class="op">$</span><span class="fu">commit</span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>    key <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lulc_data_url"</span>, <span class="st">"lulc_data_md5sum"</span>, <span class="st">"lulc_data_provider"</span><span class="op">)</span>,</span>
 <span>    value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">lulc_files</span><span class="op">$</span><span class="va">url</span>, <span class="va">lulc_files</span><span class="op">$</span><span class="va">md5sum</span>, <span class="st">"BFS Arealstatistik"</span><span class="op">)</span></span>
@@ -269,7 +159,7 @@
 <p>The Arealstatistik provides information on the flight years (columns <code>FJxx</code>) for the orthophotographs from which the classification was derived; we might eventually be able to use this information as an auxiliary predictor of the form “number of years difference between flight year and standardized period start”.</p>
 </blockquote>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">csv_con</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/connections.html" class="external-link">unz</a></span><span class="op">(</span><span class="va">zippath</span>, <span class="va">csv_file</span>, open <span class="op">=</span> <span class="st">"r"</span><span class="op">)</span></span>
 <span><span class="va">arealstat_dt</span> <span class="op">&lt;-</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">csv_con</span><span class="op">)</span> <span class="op">|&gt;</span></span>
@@ -286,30 +176,13 @@
 <span>      <span class="co"># "AS25_72"</span></span>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/connections.html" class="external-link">close</a></span><span class="op">(</span><span class="va">csv_con</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">arealstat_dt</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>         E_COORD N_COORD AS85_72 AS97_72 AS09_72 AS18_72
-           &lt;int&gt;   &lt;int&gt;   &lt;int&gt;   &lt;int&gt;   &lt;int&gt;   &lt;int&gt;
-      1: 2485500 1109700      50      50      50      50
-      2: 2485500 1109800      50      50      50      50
-      3: 2485500 1109900      50      50      50      50
-      4: 2485500 1110000      50      50      50      50
-      5: 2485500 1110100      50      50      50      50
-     ---
-4129067: 2833800 1166800      70      70      70      70
-4129068: 2833800 1166900      70      70      70      70
-4129069: 2833800 1167000      65      65      65      65
-4129070: 2833800 1167100      70      70      70      70
-4129071: 2833800 1167200      65      65      65      65</code></pre>
-</div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/connections.html" class="external-link">close</a></span><span class="op">(</span><span class="va">csv_con</span><span class="op">)</span></span></code></pre></div>
 </div>
 </section><section class="section level3"><h3 id="recode-lulc-classes">Recode LULC Classes<a class="anchor" aria-label="anchor" href="#recode-lulc-classes"></a>
 </h3>
 <p>We can define a table of land use metadata from a list of lists. This allows us to legibly determine a pretty name for reporting purposes and a description that contains a more detailed operationalisation. Each class is assigned a numeric <code>id_lulc</code>, which is used throughout the database. Each class also refers to a vector of <code>src_classes</code>, which we’ll use to recode/aggregate the source material to our internal classification system.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># create metadata lookup table</span></span>
 <span><span class="va">db</span><span class="op">$</span><span class="va">lulc_meta_t</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/lulc_meta_t.html">create_lulc_meta_t</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -373,7 +246,7 @@
 </h3>
 <p>We want to take advantage of the spatial structure of the data to extract the coordinate values of the Arealstatistik at the points where our coordinates are declared. Hence, we rasterize the tabular data into a multilayer <code><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">terra::rast</a></code> object.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">r</span> <span class="op">&lt;-</span></span>
 <span>  <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">rast</a></span><span class="op">(</span></span>
 <span>    <span class="va">lulc_dt</span>,</span>
@@ -384,7 +257,7 @@
 </div>
 <p>Now we have what’s essentially a 3D array with spatial properties, let’s use extract and some pivoting magic to coerce these data into a table with an <code>id_coord, id_lulc</code> tuple for each period.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">id_coord_yr_lulc_dt</span> <span class="op">&lt;-</span></span>
 <span>  <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/extract.html" class="external-link">extract</a></span><span class="op">(</span></span>
 <span>    x <span class="op">=</span> <span class="va">r</span>,</span>
@@ -407,7 +280,7 @@
 </h3>
 <p>Since our land use change model runs in discrete time and our original land use data is not in a regular time series, we here associate each <code>id_coord, id_lulc</code> tuple with a regular discrete <code>id_period</code>. The model will run on 10yr periods, starting in 1985. Periods starting after 2020 are marked as extrapolation periods. For now, the join condition (left closed) is only codified here and in the wiki. Making this canonical will save future modellers headaches.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># setup transition periods</span></span>
 <span><span class="va">db</span><span class="op">$</span><span class="va">periods_t</span> <span class="op">&lt;-</span> <span class="va">periods_t</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/periods_t.html">create_periods_t</a></span><span class="op">(</span></span>
 <span>  period_length_str <span class="op">=</span> <span class="st">"P10Y"</span>,</span>
@@ -444,14 +317,14 @@
 </h3>
 <p>Now that we have the data prepared and validated in the correct format, we upsert them into the database. An upsert is a database operation that either in<em>serts</em> new data or <em>up</em>dates existing entries.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="va">lulc_data_t</span> <span class="op">&lt;-</span> <span class="va">lulc_data_t</span></span></code></pre></div>
 </div>
 </section><section class="section level2"><h2 id="bonus-getting-rid-of-unused-coords">Bonus: Getting rid of unused coords<a class="anchor" aria-label="anchor" href="#bonus-getting-rid-of-unused-coords"></a>
 </h2>
 <p>Now that we know which coordinates we have fundamental data for, let’s use that information to reduce the amount of coordinates we’ll go forward with:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">id_coord_keep</span> <span class="op">&lt;-</span> <span class="va">lulc_data_t</span><span class="op">[</span>, <span class="va">id_coord</span><span class="op">]</span></span>
 <span><span class="va">db</span><span class="op">$</span><span class="fu">commit</span><span class="op">(</span></span>
 <span>  x <span class="op">=</span> <span class="va">db</span><span class="op">$</span><span class="va">coords_t</span><span class="op">[</span><span class="va">id_coord</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">id_coord_keep</span><span class="op">]</span>,</span>
@@ -459,7 +332,7 @@
 <span>  mode <span class="op">=</span> <span class="st">"overwrite"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
-<p>Which lets us know how many row were affected, i.e. deleted: <em>7</em>. For this domain in the middle of Switzerland, then, this represents a small amount of savings. As the sparsity of the domain grows - e.g. by omission of adjacent administrative areas, or by omission of certain land use classes - the advantage of the tabular representation becomes clearer.</p>
+<p>For this domain in the middle of Switzerland, this represents a small amount of savings - but as the sparsity of the domain grows, e.g. by omission of adjacent administrative areas, or by omission of certain land use classes - the advantage of the tabular representation becomes clearer.</p>
 </section><script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);

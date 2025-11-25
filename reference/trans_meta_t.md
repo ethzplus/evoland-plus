@@ -9,11 +9,41 @@ metadata entries for each viable transition type.
 ``` r
 as_trans_meta_t(x)
 
+create_trans_meta_t(
+  lulc_data,
+  min_cardinality_abs = NULL,
+  min_frequency_rel = NULL,
+  exclude_anterior = NULL,
+  exclude_posterior = NULL
+)
+
 # S3 method for class 'trans_meta_t'
 print(x, nrow = 10, ...)
 ```
 
 ## Arguments
+
+- lulc_data:
+
+  A
+  [lulc_data_t](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
+  table with land use observations
+
+- min_cardinality_abs:
+
+  Minimum absolute number of transitions for viability (optional)
+
+- min_frequency_rel:
+
+  Minimum relative frequency of transitions for viability (optional)
+
+- exclude_anterior:
+
+  Vector of id_lulc values to exclude as anterior (source) classes
+
+- exclude_posterior:
+
+  Vector of id_lulc values to exclude as posterior (target) classes
 
 - nrow:
 
@@ -24,12 +54,6 @@ print(x, nrow = 10, ...)
 
   passed to
   [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
-
-- db:
-
-  An
-  [evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
-  instance with populated lulc_data_t and lulc_meta_t tables
 
 ## Value
 
@@ -43,11 +67,9 @@ A data.table of class "trans_meta_t" with columns:
 
 - `cardinality`: How many times this transition occurred
 
-- `frequency_rel`: Frequency relative to all transitions in this
-  timestep
+- `frequency_rel`: Frequency relative to all transitions
 
-- `frequency_abs`: Frequency relative to all coordinate pairs with data
-  in this timestep
+- `frequency_abs`: Frequency relative to all coordinate pairs
 
 - `is_viable`: Whether this transition is viable for modelling
 
@@ -55,3 +77,8 @@ A data.table of class "trans_meta_t" with columns:
 
 - `print(trans_meta_t)`: Print a trans_meta_t object, passing params to
   data.table print
+
+## Functions
+
+- `create_trans_meta_t()`: Calculate the transition metadata and mark
+  for modelling feasibility

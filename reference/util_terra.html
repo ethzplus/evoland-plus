@@ -43,7 +43,14 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">extract_using_coords_t</span><span class="op">(</span><span class="va">x</span>, <span class="va">coords_t</span>, na_omit <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">extract_using_coords_t</span><span class="op">(</span><span class="va">x</span>, <span class="va">coords_t</span>, na_omit <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">compute_neighbors</span><span class="op">(</span></span>
+<span>  <span class="va">coords_t</span>,</span>
+<span>  <span class="va">max_distance</span>,</span>
+<span>  distance_breaks <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  resolution <span class="op">=</span> <span class="fl">100</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -55,18 +62,42 @@
 
 
 <dt id="arg-coords-t">coords_t<a class="anchor" aria-label="anchor" href="#arg-coords-t"></a></dt>
-<dd><p>The coordinates to extract at</p></dd>
+<dd><p>A coords_t object containing coordinate points</p></dd>
+
+
+<dt id="arg-max-distance">max_distance<a class="anchor" aria-label="anchor" href="#arg-max-distance"></a></dt>
+<dd><p>Maximum distance to search for neighbors (in same units as
+coordinates and resolution)</p></dd>
+
+
+<dt id="arg-distance-breaks">distance_breaks<a class="anchor" aria-label="anchor" href="#arg-distance-breaks"></a></dt>
+<dd><p>Optional numeric vector defining distance class boundaries.
+If NULL, no distance classification is performed.
+If provided, must have at least 2 elements defining interval breaks.</p></dd>
+
+
+<dt id="arg-resolution">resolution<a class="anchor" aria-label="anchor" href="#arg-resolution"></a></dt>
+<dd><p>Grid cell size for rasterization (default: 100.0, in same units as coordinates)</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A long data.table with <code>id_coord</code>, a <code>layer</code>/<code>attribute</code> column, and a <code>value</code> column.
 NAs are omitted</p>
-    </div>
+<p>A data.table with columns:</p><ul><li><p>id_coord_origin: ID of the origin coordinate</p></li>
+<li><p>id_coord_neighbor: ID of the neighboring coordinate</p></li>
+<li><p>distance: Distance between origin and neighbor</p></li>
+<li><p>distance_class: Factor indicating distance class (if distance_breaks provided)</p></li>
+</ul></div>
     <div class="section level2">
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
 <ul><li><p><code>extract_using_coords_t()</code>: Extract values from a SpatRaster or SpatVector object using a (minimal) <code>coords_t</code></p></li>
+<li><p><code>compute_neighbors()</code>: Compute neighboring coordinates within specified distances. In
+order to be computationally feasible, the coordinates' IDs are rasterized before
+their actual Euclidean distance is calculated. If coordinates are so close that they
+get rasterized to the same cell, the first one is used and a warning is emitted. If
+this happens, try again using a lower resolution.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -115,15 +115,15 @@
 <span>      <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>        url <span class="op">=</span> <span class="st">"https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_nacht/laerm-strassenlaerm_nacht/laerm-strassenlaerm_nacht_2056.tif"</span>,</span>
 <span>        md5sum <span class="op">=</span> <span class="st">"6e79dc1d353751084e21dc6b61778b99"</span></span>
-<span>      <span class="op">)</span>,</span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>        url <span class="op">=</span> <span class="st">"https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif"</span>,</span>
-<span>        md5sum <span class="op">=</span> <span class="st">"161df62f9a2a29c9120380f965aa19ba"</span></span>
-<span>      <span class="op">)</span>,</span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>        url <span class="op">=</span> <span class="st">"https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_tag/laerm-bahnlaerm_tag/laerm-bahnlaerm_tag_2056.tif"</span>,</span>
-<span>        md5sum <span class="op">=</span> <span class="st">"6016b9ca4c974cb982fbe18112f201fe"</span></span>
 <span>      <span class="op">)</span></span>
+<span>      <span class="co"># list(</span></span>
+<span>      <span class="co">#   url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",</span></span>
+<span>      <span class="co">#   md5sum = "161df62f9a2a29c9120380f965aa19ba"</span></span>
+<span>      <span class="co"># ),</span></span>
+<span>      <span class="co"># list(</span></span>
+<span>      <span class="co">#   url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_tag/laerm-bahnlaerm_tag/laerm-bahnlaerm_tag_2056.tif",</span></span>
+<span>      <span class="co">#   md5sum = "6016b9ca4c974cb982fbe18112f201fe"</span></span>
+<span>      <span class="co"># )</span></span>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span>
@@ -131,21 +131,9 @@
 <span><span class="va">sonbase_sources</span> <span class="op">&lt;-</span></span>
 <span>  <span class="va">sonbase_spec</span><span class="op">$</span><span class="va">noise</span><span class="op">$</span><span class="va">sources</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/rbindlist.html" class="external-link">rbindlist</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="../reference/util_download.html">download_and_verify</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Downloading: https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_tag/laerm-strassenlaerm_tag/laerm-strassenlaerm_tag_2056.tif</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Downloading: https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_nacht/laerm-strassenlaerm_nacht/laerm-strassenlaerm_nacht_2056.tif</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Downloading: https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Downloading: https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_tag/laerm-bahnlaerm_tag/laerm-bahnlaerm_tag_2056.tif</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># data is at 10m</span></span>
+<span>  <span class="fu"><a href="../reference/util_download.html">download_and_verify</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># data is at 10m</span></span>
 <span><span class="co"># extent plus 1km, given metres for unit; enough for all resampling strategies</span></span>
 <span><span class="va">extent_wide</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="va">extent</span> <span class="op">|&gt;</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/extend.html" class="external-link">extend</a></span><span class="op">(</span><span class="fl">1000</span><span class="op">)</span></span>
 <span></span>
@@ -174,41 +162,13 @@
 </h2>
 <p>Let’s see how the data looks in the DB.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="va">pred_meta_t</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Predictor Metadata Table
-Number of predictors: 1
-Key: &lt;id_pred&gt;
-   id_pred   name            pretty_name
-     &lt;int&gt; &lt;char&gt;                 &lt;char&gt;
-1:       1  noise Maximum noise exposure
-5 variables not shown: [description &lt;char&gt;, orig_format &lt;char&gt;, sources &lt;list&gt;, unit &lt;char&gt;, factor_levels &lt;list&gt;]</code></pre>
-</div>
 </div>
 <p>We can see that the <code>noise</code> predictor was assigned <code>id_pred = 1</code>, which makes sense, given that this was the first predictor to be ingested</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="va">pred_data_t_float</span></span></code></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Predictor Data Table (float)
-Observations: 100
-Predictors: 1, Coordinates: 100, Periods: 1
-Key: &lt;id_pred&gt;
-     id_pred id_coord id_period    value
-       &lt;int&gt;    &lt;int&gt;     &lt;int&gt;    &lt;num&gt;
-  1:       1        1         0 37.09188
-  2:       1        2         0 34.46947
-  3:       1        3         0 34.04930
-  4:       1        4         0 33.04930
-  5:       1        5         0 32.97577
- ---
- 96:       1       96         0 39.19714
- 97:       1       97         0 38.97085
- 98:       1       98         0 47.31019
- 99:       1       99         0 56.00335
-100:       1      100         0 52.97599</code></pre>
-</div>
 </div>
 <p>We see that there’s currently a single predictor in our table at 100 coordinate points. As expected, once the metadata was inserted into the database, we used the allotted identifier to label our inserted <code>sonbase_max</code> data.</p>
 </section><script id="quarto-html-after-body" type="application/javascript">

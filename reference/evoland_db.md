@@ -19,20 +19,16 @@ persisting data to disk in parquet format for better compression.
 
   Default file format for new tables
 
+- `writeopts`:
+
+  Default write options for DuckDB, see
+
 ## Active bindings
 
 - `coords_t`:
 
   A `coords_t` instance; see `create_coords_t()` for the type of object
   to assign. Assigning is an upsert operation.
-
-- `extent`:
-
-  Return a terra SpatExtent based on coords_t
-
-- `coords_minimal`:
-
-  data.table with only (id_coord, lon, lat)
 
 - `periods_t`:
 
@@ -56,16 +52,6 @@ persisting data to disk in parquet format for better compression.
   [`as_lulc_data_t()`](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
   for the type of object to assign. Assigning is an upsert operation.
 
-- `pred_meta_t`:
-
-  A `pred_meta_t` instance; see
-  [`create_pred_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
-
-- `pred_sources_v`:
-
-  Retrieve a table of distinct predictor urls and their md5sum
-
 - `pred_data_t_float`:
 
   A `pred_data_t_float` instance; see `create_pred_data_t()` for the
@@ -81,15 +67,35 @@ persisting data to disk in parquet format for better compression.
   A `pred_data_t_bool` instance; see `create_pred_data_t()` for the type
   of object to assign. Assigning is an upsert operation.
 
+- `extent`:
+
+  Return a terra SpatExtent based on coords_t
+
+- `coords_minimal`:
+
+  data.table with only (id_coord, lon, lat)
+
+- `pred_meta_t`:
+
+  A `pred_meta_t` instance; see
+  [`create_pred_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
+  for the type of object to assign. Assigning is an upsert operation.
+
+- `pred_sources_v`:
+
+  Retrieve a table of distinct predictor urls and their md5sum
+
 - `trans_meta_t`:
 
-  A `trans_meta_t` instance; see `create_trans_meta_t()` for the type of
-  object to assign. Assigning is an upsert operation.
+  A `trans_meta_t` instance; see
+  [`create_trans_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
+  for the type of object to assign. Assigning is an upsert operation.
 
 - `trans_preds_t`:
 
-  A `trans_preds_t` instance; see `create_trans_preds_t()` for the type
-  of object to assign. Assigning is an upsert operation.
+  A `trans_preds_t` instance; see
+  [`create_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
+  for the type of object to assign. Assigning is an upsert operation.
 
 - `intrv_meta_t`:
 
@@ -120,7 +126,11 @@ persisting data to disk in parquet format for better compression.
 
 - [`evoland_db$new()`](#method-evoland_db-new)
 
-- [`evoland_db$commit()`](#method-evoland_db-commit)
+- [`evoland_db$commit_overwrite()`](#method-evoland_db-commit_overwrite)
+
+- [`evoland_db$commit_append()`](#method-evoland_db-commit_append)
+
+- [`evoland_db$commit_upsert()`](#method-evoland_db-commit_upsert)
 
 - [`evoland_db$fetch()`](#method-evoland_db-fetch)
 
@@ -128,9 +138,17 @@ persisting data to disk in parquet format for better compression.
 
 - [`evoland_db$execute()`](#method-evoland_db-execute)
 
+- [`evoland_db$get_query()`](#method-evoland_db-get_query)
+
+- [`evoland_db$attach_table()`](#method-evoland_db-attach_table)
+
+- [`evoland_db$detach_table()`](#method-evoland_db-detach_table)
+
 - [`evoland_db$row_count()`](#method-evoland_db-row_count)
 
 - [`evoland_db$delete_from()`](#method-evoland_db-delete_from)
+
+- [`evoland_db$set_report()`](#method-evoland_db-set_report)
 
 - [`evoland_db$set_coords()`](#method-evoland_db-set_coords)
 
@@ -148,14 +166,7 @@ Initialize a new evoland_db object
 
 #### Usage
 
-    evoland_db$new(
-      path,
-      default_format = c("parquet", "csv"),
-      report_name = "evoland_scenario",
-      report_name_pretty = "Default Evoland Scenario",
-      report_include_date = TRUE,
-      report_username = Sys.getenv("USER", unset = "unknown")
-    )
+    evoland_db$new(path, default_format = c("parquet", "csv"), ...)
 
 #### Arguments
 
@@ -168,22 +179,9 @@ Initialize a new evoland_db object
   Character. Default file format ("parquet" or "csv"). Default is
   "parquet".
 
-- `report_name`:
+- `...`:
 
-  Character string. Name of the report scenario.
-
-- `report_name_pretty`:
-
-  Character string. Pretty name of the report scenario.
-
-- `report_include_date`:
-
-  Logical. Whether to include the date in the report scenario.
-
-- `report_username`:
-
-  Character string. Username for the report scenario, defaults to \$USER
-  env var
+  passed on to `set_report`
 
 #### Returns
 
@@ -191,36 +189,108 @@ A new `evoland_db` object
 
 ------------------------------------------------------------------------
 
-### Method `commit()`
+### Method `commit_overwrite()`
 
-Commit data to storage
+Commit data in overwrite mode
 
 #### Usage
 
-    evoland_db$commit(x, table_name, mode = "upsert", format = NULL)
+    evoland_db$commit_overwrite(
+      x,
+      table_name,
+      autoincrement_cols = character(0),
+      map_cols = character(0)
+    )
 
 #### Arguments
 
 - `x`:
 
-  Data object to commit.
+  Data frame to commit
 
 - `table_name`:
 
-  Table to target
+  Character string table name
 
-- `mode`:
+- `autoincrement_cols`:
 
-  Character string. One of "upsert" (default), "append", or "overwrite".
+  Character vector of column names to auto-increment
 
-- `format`:
+- `map_cols`:
 
-  Character string. File format: "parquet" or "csv". Defaults to
-  object's default_format.
+  Character vector of columns to convert to MAP format
 
-#### Returns
+------------------------------------------------------------------------
 
-NULL (called for side effects)
+### Method `commit_append()`
+
+Commit data in append mode
+
+#### Usage
+
+    evoland_db$commit_append(
+      x,
+      table_name,
+      autoincrement_cols = character(0),
+      map_cols = character(0)
+    )
+
+#### Arguments
+
+- `x`:
+
+  Data frame to commit
+
+- `table_name`:
+
+  Character string table name
+
+- `autoincrement_cols`:
+
+  Character vector of column names to auto-increment
+
+- `map_cols`:
+
+  Character vector of columns to convert to MAP format
+
+------------------------------------------------------------------------
+
+### Method `commit_upsert()`
+
+Commit data in upsert mode
+
+#### Usage
+
+    evoland_db$commit_upsert(
+      x,
+      table_name,
+      key_cols = grep("^id_", names(x), value = TRUE),
+      autoincrement_cols = character(0),
+      map_cols = character(0)
+    )
+
+#### Arguments
+
+- `x`:
+
+  Data frame to commit
+
+- `table_name`:
+
+  Character string table name
+
+- `key_cols`:
+
+  Identify unique columns - heuristic: if prefixed with id\_, the set of
+  all columns designates a uniqueness condition
+
+- `autoincrement_cols`:
+
+  Character vector of column names to auto-increment
+
+- `map_cols`:
+
+  Character vector of columns to convert to MAP format
 
 ------------------------------------------------------------------------
 
@@ -286,6 +356,64 @@ No. of rows affected by statement
 
 ------------------------------------------------------------------------
 
+### Method `get_query()`
+
+Get Query
+
+#### Usage
+
+    evoland_db$get_query(statement)
+
+#### Arguments
+
+- `statement`:
+
+  A SQL statement
+
+#### Returns
+
+No. of rows affected by statement
+
+------------------------------------------------------------------------
+
+### Method `attach_table()`
+
+Attach one or more tables from the database folder as temporary tables
+in DuckDB. This is useful for working with multiple tables in SQL
+queries without loading them into R memory.
+
+#### Usage
+
+    evoland_db$attach_table(table_name, columns = "*")
+
+#### Arguments
+
+- `table_name`:
+
+  Character vector. Names of table to attach.
+
+- `columns`:
+
+  Character vector. Optional sql column selection, defaults to "\*"
+
+------------------------------------------------------------------------
+
+### Method `detach_table()`
+
+Detach one or more tables from the database.
+
+#### Usage
+
+    evoland_db$detach_table(table_name)
+
+#### Arguments
+
+- `table_name`:
+
+  Character. Name of table to drop.
+
+------------------------------------------------------------------------
+
 ### Method `row_count()`
 
 Get table row count
@@ -327,6 +455,23 @@ Delete rows from a table
 #### Returns
 
 No. of rows affected
+
+------------------------------------------------------------------------
+
+### Method `set_report()`
+
+Set reporting metadata
+
+#### Usage
+
+    evoland_db$set_report(...)
+
+#### Arguments
+
+- `...`:
+
+  each named argument is entered into the table with the argument name
+  as its key
 
 ------------------------------------------------------------------------
 

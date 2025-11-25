@@ -65,6 +65,10 @@ to disk in parquet format for better compression.</p>
 <dd><p>Default file format for new tables</p></dd>
 
 
+<dt><code>writeopts</code></dt>
+<dd><p>Default write options for DuckDB, see</p></dd>
+
+
 </dl><p></p></div>
     </div>
     <div class="section level2">
@@ -72,14 +76,6 @@ to disk in parquet format for better compression.</p>
     <p></p><div class="r6-active-bindings"><dl><dt><code>coords_t</code></dt>
 <dd><p>A <code>coords_t</code> instance; see <code>create_coords_t()</code> for the type of
 object to assign. Assigning is an upsert operation.</p></dd>
-
-
-<dt><code>extent</code></dt>
-<dd><p>Return a terra SpatExtent based on coords_t</p></dd>
-
-
-<dt><code>coords_minimal</code></dt>
-<dd><p>data.table with only (id_coord, lon, lat)</p></dd>
 
 
 <dt><code>periods_t</code></dt>
@@ -101,16 +97,6 @@ object to assign. Assigning is an upsert operation.</p></dd>
 object to assign. Assigning is an upsert operation.</p></dd>
 
 
-<dt><code>pred_meta_t</code></dt>
-<dd><p>A <code>pred_meta_t</code> instance; see <code><a href="pred_meta_t.html">create_pred_meta_t()</a></code> for the type of
-object to assign. Assigning is an upsert operation.</p></dd>
-
-
-<dt><code>pred_sources_v</code></dt>
-<dd><p>Retrieve a table of distinct predictor urls and their
-md5sum</p></dd>
-
-
 <dt><code>pred_data_t_float</code></dt>
 <dd><p>A <code>pred_data_t_float</code> instance; see
 <code>create_pred_data_t()</code> for the type of object to assign. Assigning is an
@@ -129,13 +115,31 @@ upsert operation.</p></dd>
 upsert operation.</p></dd>
 
 
+<dt><code>extent</code></dt>
+<dd><p>Return a terra SpatExtent based on coords_t</p></dd>
+
+
+<dt><code>coords_minimal</code></dt>
+<dd><p>data.table with only (id_coord, lon, lat)</p></dd>
+
+
+<dt><code>pred_meta_t</code></dt>
+<dd><p>A <code>pred_meta_t</code> instance; see <code><a href="pred_meta_t.html">create_pred_meta_t()</a></code> for the type of
+object to assign. Assigning is an upsert operation.</p></dd>
+
+
+<dt><code>pred_sources_v</code></dt>
+<dd><p>Retrieve a table of distinct predictor urls and their
+md5sum</p></dd>
+
+
 <dt><code>trans_meta_t</code></dt>
-<dd><p>A <code>trans_meta_t</code> instance; see <code>create_trans_meta_t()</code> for the type of
+<dd><p>A <code>trans_meta_t</code> instance; see <code><a href="trans_meta_t.html">create_trans_meta_t()</a></code> for the type of
 object to assign. Assigning is an upsert operation.</p></dd>
 
 
 <dt><code>trans_preds_t</code></dt>
-<dd><p>A <code>trans_preds_t</code> instance; see <code>create_trans_preds_t()</code> for the type of
+<dd><p>A <code>trans_preds_t</code> instance; see <code><a href="trans_preds_t.html">create_trans_preds_t()</a></code> for the type of
 object to assign. Assigning is an upsert operation.</p></dd>
 
 
@@ -168,12 +172,18 @@ of object to assign. Assigning is an upsert operation.</p></dd>
 <h3 id="public-methods">Public methods<a class="anchor" aria-label="anchor" href="#public-methods"></a></h3>
 
 <ul><li><p><a href="#method-evoland_db-new"><code>evoland_db$new()</code></a></p></li>
-<li><p><a href="#method-evoland_db-commit"><code>evoland_db$commit()</code></a></p></li>
+<li><p><a href="#method-evoland_db-commit_overwrite"><code>evoland_db$commit_overwrite()</code></a></p></li>
+<li><p><a href="#method-evoland_db-commit_append"><code>evoland_db$commit_append()</code></a></p></li>
+<li><p><a href="#method-evoland_db-commit_upsert"><code>evoland_db$commit_upsert()</code></a></p></li>
 <li><p><a href="#method-evoland_db-fetch"><code>evoland_db$fetch()</code></a></p></li>
 <li><p><a href="#method-evoland_db-list_tables"><code>evoland_db$list_tables()</code></a></p></li>
 <li><p><a href="#method-evoland_db-execute"><code>evoland_db$execute()</code></a></p></li>
+<li><p><a href="#method-evoland_db-get_query"><code>evoland_db$get_query()</code></a></p></li>
+<li><p><a href="#method-evoland_db-attach_table"><code>evoland_db$attach_table()</code></a></p></li>
+<li><p><a href="#method-evoland_db-detach_table"><code>evoland_db$detach_table()</code></a></p></li>
 <li><p><a href="#method-evoland_db-row_count"><code>evoland_db$row_count()</code></a></p></li>
 <li><p><a href="#method-evoland_db-delete_from"><code>evoland_db$delete_from()</code></a></p></li>
+<li><p><a href="#method-evoland_db-set_report"><code>evoland_db$set_report()</code></a></p></li>
 <li><p><a href="#method-evoland_db-set_coords"><code>evoland_db$set_coords()</code></a></p></li>
 <li><p><a href="#method-evoland_db-set_periods"><code>evoland_db$set_periods()</code></a></p></li>
 <li><p><a href="#method-evoland_db-add_predictor"><code>evoland_db$add_predictor()</code></a></p></li>
@@ -182,14 +192,7 @@ of object to assign. Assigning is an upsert operation.</p></dd>
 <h3 id="method-new-">Method <code>new()</code><a class="anchor" aria-label="anchor" href="#method-new-"></a></h3>
 <p>Initialize a new evoland_db object</p><div class="section">
 <h4 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/evoland_db.html">evoland_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  <span class="va">path</span>,</span>
-<span>  default_format <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"parquet"</span>, <span class="st">"csv"</span><span class="op">)</span>,</span>
-<span>  report_name <span class="op">=</span> <span class="st">"evoland_scenario"</span>,</span>
-<span>  report_name_pretty <span class="op">=</span> <span class="st">"Default Evoland Scenario"</span>,</span>
-<span>  report_include_date <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  report_username <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"USER"</span>, unset <span class="op">=</span> <span class="st">"unknown"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div><p></p></div>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/evoland_db.html">evoland_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="va">path</span>, default_format <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"parquet"</span>, <span class="st">"csv"</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
@@ -203,21 +206,8 @@ of object to assign. Assigning is an upsert operation.</p></dd>
 Default is "parquet".</p></dd>
 
 
-<dt><code>report_name</code></dt>
-<dd><p>Character string. Name of the report scenario.</p></dd>
-
-
-<dt><code>report_name_pretty</code></dt>
-<dd><p>Character string. Pretty name of the report scenario.</p></dd>
-
-
-<dt><code>report_include_date</code></dt>
-<dd><p>Logical. Whether to include the date in the report scenario.</p></dd>
-
-
-<dt><code>report_username</code></dt>
-<dd><p>Character string. Username for the report scenario,
-defaults to $USER env var</p></dd>
+<dt><code>...</code></dt>
+<dd><p>passed on to <code>set_report</code></p></dd>
 
 
 </dl><p></p></div>
@@ -227,48 +217,120 @@ defaults to $USER env var</p></dd>
 <p>A new <code>evoland_db</code> object</p>
 </div>
 
-</div><p></p><hr><a id="method-evoland_db-commit"></a><div class="section">
-<h3 id="method-commit-">Method <code>commit()</code><a class="anchor" aria-label="anchor" href="#method-commit-"></a></h3>
-<p>Commit data to storage</p><div class="section">
+</div><p></p><hr><a id="method-evoland_db-commit_overwrite"></a><div class="section">
+<h3 id="method-commit-overwrite-">Method <code>commit_overwrite()</code><a class="anchor" aria-label="anchor" href="#method-commit-overwrite-"></a></h3>
+<p>Commit data in overwrite mode</p><div class="section">
 <h4 id="usage-1">Usage<a class="anchor" aria-label="anchor" href="#usage-1"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">commit</span><span class="op">(</span><span class="va">x</span>, <span class="va">table_name</span>, mode <span class="op">=</span> <span class="st">"upsert"</span>, format <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">commit_overwrite</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  <span class="va">table_name</span>,</span>
+<span>  autoincrement_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
+<span>  map_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
 <h4 id="arguments-1">Arguments<a class="anchor" aria-label="anchor" href="#arguments-1"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>x</code></dt>
-<dd><p>Data object to commit.</p></dd>
+<dd><p>Data frame to commit</p></dd>
 
 
 <dt><code>table_name</code></dt>
-<dd><p>Table to target</p></dd>
+<dd><p>Character string table name</p></dd>
 
 
-<dt><code>mode</code></dt>
-<dd><p>Character string. One of "upsert" (default), "append", or "overwrite".</p></dd>
+<dt><code>autoincrement_cols</code></dt>
+<dd><p>Character vector of column names to auto-increment</p></dd>
 
 
-<dt><code>format</code></dt>
-<dd><p>Character string. File format: "parquet" or "csv". Defaults to
-object's default_format.</p></dd>
+<dt><code>map_cols</code></dt>
+<dd><p>Character vector of columns to convert to MAP format</p></dd>
 
 
 </dl><p></p></div>
 </div>
+
+</div><p></p><hr><a id="method-evoland_db-commit_append"></a><div class="section">
+<h3 id="method-commit-append-">Method <code>commit_append()</code><a class="anchor" aria-label="anchor" href="#method-commit-append-"></a></h3>
+<p>Commit data in append mode</p><div class="section">
+<h4 id="usage-2">Usage<a class="anchor" aria-label="anchor" href="#usage-2"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">commit_append</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  <span class="va">table_name</span>,</span>
+<span>  autoincrement_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
+<span>  map_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
 <div class="section">
-<h4 id="returns-1">Returns<a class="anchor" aria-label="anchor" href="#returns-1"></a></h4>
-<p>NULL (called for side effects)</p>
+<h4 id="arguments-2">Arguments<a class="anchor" aria-label="anchor" href="#arguments-2"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>x</code></dt>
+<dd><p>Data frame to commit</p></dd>
+
+
+<dt><code>table_name</code></dt>
+<dd><p>Character string table name</p></dd>
+
+
+<dt><code>autoincrement_cols</code></dt>
+<dd><p>Character vector of column names to auto-increment</p></dd>
+
+
+<dt><code>map_cols</code></dt>
+<dd><p>Character vector of columns to convert to MAP format</p></dd>
+
+
+</dl><p></p></div>
+</div>
+
+</div><p></p><hr><a id="method-evoland_db-commit_upsert"></a><div class="section">
+<h3 id="method-commit-upsert-">Method <code>commit_upsert()</code><a class="anchor" aria-label="anchor" href="#method-commit-upsert-"></a></h3>
+<p>Commit data in upsert mode</p><div class="section">
+<h4 id="usage-3">Usage<a class="anchor" aria-label="anchor" href="#usage-3"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">commit_upsert</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  <span class="va">table_name</span>,</span>
+<span>  key_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"^id_"</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, value <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span>
+<span>  autoincrement_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
+<span>  map_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+<div class="section">
+<h4 id="arguments-3">Arguments<a class="anchor" aria-label="anchor" href="#arguments-3"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>x</code></dt>
+<dd><p>Data frame to commit</p></dd>
+
+
+<dt><code>table_name</code></dt>
+<dd><p>Character string table name</p></dd>
+
+
+<dt><code>key_cols</code></dt>
+<dd><p>Identify unique columns - heuristic: if prefixed with
+id_, the set of all columns designates a uniqueness condition</p></dd>
+
+
+<dt><code>autoincrement_cols</code></dt>
+<dd><p>Character vector of column names to auto-increment</p></dd>
+
+
+<dt><code>map_cols</code></dt>
+<dd><p>Character vector of columns to convert to MAP format</p></dd>
+
+
+</dl><p></p></div>
 </div>
 
 </div><p></p><hr><a id="method-evoland_db-fetch"></a><div class="section">
 <h3 id="method-fetch-">Method <code>fetch()</code><a class="anchor" aria-label="anchor" href="#method-fetch-"></a></h3>
 <p>Fetch data from storage</p><div class="section">
-<h4 id="usage-2">Usage<a class="anchor" aria-label="anchor" href="#usage-2"></a></h4>
+<h4 id="usage-4">Usage<a class="anchor" aria-label="anchor" href="#usage-4"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">fetch</span><span class="op">(</span><span class="va">table_name</span>, where <span class="op">=</span> <span class="cn">NULL</span>, limit <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-2">Arguments<a class="anchor" aria-label="anchor" href="#arguments-2"></a></h4>
+<h4 id="arguments-4">Arguments<a class="anchor" aria-label="anchor" href="#arguments-4"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
 <dd><p>Character string. Name of the table to query.</p></dd>
 
@@ -284,31 +346,51 @@ object's default_format.</p></dd>
 </dl><p></p></div>
 </div>
 <div class="section">
-<h4 id="returns-2">Returns<a class="anchor" aria-label="anchor" href="#returns-2"></a></h4>
+<h4 id="returns-1">Returns<a class="anchor" aria-label="anchor" href="#returns-1"></a></h4>
 <p>A data.table</p>
 </div>
 
 </div><p></p><hr><a id="method-evoland_db-list_tables"></a><div class="section">
 <h3 id="method-list-tables-">Method <code>list_tables()</code><a class="anchor" aria-label="anchor" href="#method-list-tables-"></a></h3>
 <p>List all tables (files) in storage</p><div class="section">
-<h4 id="usage-3">Usage<a class="anchor" aria-label="anchor" href="#usage-3"></a></h4>
+<h4 id="usage-5">Usage<a class="anchor" aria-label="anchor" href="#usage-5"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">list_tables</span><span class="op">(</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="returns-3">Returns<a class="anchor" aria-label="anchor" href="#returns-3"></a></h4>
+<h4 id="returns-2">Returns<a class="anchor" aria-label="anchor" href="#returns-2"></a></h4>
 <p>Character vector of table names</p>
 </div>
 
 </div><p></p><hr><a id="method-evoland_db-execute"></a><div class="section">
 <h3 id="method-execute-">Method <code>execute()</code><a class="anchor" aria-label="anchor" href="#method-execute-"></a></h3>
 <p>Execute statement</p><div class="section">
-<h4 id="usage-4">Usage<a class="anchor" aria-label="anchor" href="#usage-4"></a></h4>
+<h4 id="usage-6">Usage<a class="anchor" aria-label="anchor" href="#usage-6"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">execute</span><span class="op">(</span><span class="va">statement</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-3">Arguments<a class="anchor" aria-label="anchor" href="#arguments-3"></a></h4>
+<h4 id="arguments-5">Arguments<a class="anchor" aria-label="anchor" href="#arguments-5"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>statement</code></dt>
+<dd><p>A SQL statement</p></dd>
+
+
+</dl><p></p></div>
+</div>
+<div class="section">
+<h4 id="returns-3">Returns<a class="anchor" aria-label="anchor" href="#returns-3"></a></h4>
+<p>No. of rows affected by statement</p>
+</div>
+
+</div><p></p><hr><a id="method-evoland_db-get_query"></a><div class="section">
+<h3 id="method-get-query-">Method <code>get_query()</code><a class="anchor" aria-label="anchor" href="#method-get-query-"></a></h3>
+<p>Get Query</p><div class="section">
+<h4 id="usage-7">Usage<a class="anchor" aria-label="anchor" href="#usage-7"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">get_query</span><span class="op">(</span><span class="va">statement</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+<div class="section">
+<h4 id="arguments-6">Arguments<a class="anchor" aria-label="anchor" href="#arguments-6"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>statement</code></dt>
 <dd><p>A SQL statement</p></dd>
 
@@ -320,15 +402,53 @@ object's default_format.</p></dd>
 <p>No. of rows affected by statement</p>
 </div>
 
+</div><p></p><hr><a id="method-evoland_db-attach_table"></a><div class="section">
+<h3 id="method-attach-table-">Method <code>attach_table()</code><a class="anchor" aria-label="anchor" href="#method-attach-table-"></a></h3>
+<p>Attach one or more tables from the database folder as temporary tables in DuckDB.
+This is useful for working with multiple tables in SQL queries without loading
+them into R memory.</p><div class="section">
+<h4 id="usage-8">Usage<a class="anchor" aria-label="anchor" href="#usage-8"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">attach_table</span><span class="op">(</span><span class="va">table_name</span>, columns <span class="op">=</span> <span class="st">"*"</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+<div class="section">
+<h4 id="arguments-7">Arguments<a class="anchor" aria-label="anchor" href="#arguments-7"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
+<dd><p>Character vector. Names of table to attach.</p></dd>
+
+
+<dt><code>columns</code></dt>
+<dd><p>Character vector. Optional sql column selection, defaults to "*"</p></dd>
+
+
+</dl><p></p></div>
+</div>
+
+</div><p></p><hr><a id="method-evoland_db-detach_table"></a><div class="section">
+<h3 id="method-detach-table-">Method <code>detach_table()</code><a class="anchor" aria-label="anchor" href="#method-detach-table-"></a></h3>
+<p>Detach one or more tables from the database.</p><div class="section">
+<h4 id="usage-9">Usage<a class="anchor" aria-label="anchor" href="#usage-9"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">detach_table</span><span class="op">(</span><span class="va">table_name</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+<div class="section">
+<h4 id="arguments-8">Arguments<a class="anchor" aria-label="anchor" href="#arguments-8"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
+<dd><p>Character. Name of table to drop.</p></dd>
+
+
+</dl><p></p></div>
+</div>
+
 </div><p></p><hr><a id="method-evoland_db-row_count"></a><div class="section">
 <h3 id="method-row-count-">Method <code>row_count()</code><a class="anchor" aria-label="anchor" href="#method-row-count-"></a></h3>
 <p>Get table row count</p><div class="section">
-<h4 id="usage-5">Usage<a class="anchor" aria-label="anchor" href="#usage-5"></a></h4>
+<h4 id="usage-10">Usage<a class="anchor" aria-label="anchor" href="#usage-10"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">row_count</span><span class="op">(</span><span class="va">table_name</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-4">Arguments<a class="anchor" aria-label="anchor" href="#arguments-4"></a></h4>
+<h4 id="arguments-9">Arguments<a class="anchor" aria-label="anchor" href="#arguments-9"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
 <dd><p>Character string. Name of the table to query.</p></dd>
 
@@ -343,12 +463,12 @@ object's default_format.</p></dd>
 </div><p></p><hr><a id="method-evoland_db-delete_from"></a><div class="section">
 <h3 id="method-delete-from-">Method <code>delete_from()</code><a class="anchor" aria-label="anchor" href="#method-delete-from-"></a></h3>
 <p>Delete rows from a table</p><div class="section">
-<h4 id="usage-6">Usage<a class="anchor" aria-label="anchor" href="#usage-6"></a></h4>
+<h4 id="usage-11">Usage<a class="anchor" aria-label="anchor" href="#usage-11"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">delete_from</span><span class="op">(</span><span class="va">table_name</span>, where <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-5">Arguments<a class="anchor" aria-label="anchor" href="#arguments-5"></a></h4>
+<h4 id="arguments-10">Arguments<a class="anchor" aria-label="anchor" href="#arguments-10"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
 <dd><p>Character string. Name of the table to delete from.</p></dd>
 
@@ -364,15 +484,32 @@ object's default_format.</p></dd>
 <p>No. of rows affected</p>
 </div>
 
+</div><p></p><hr><a id="method-evoland_db-set_report"></a><div class="section">
+<h3 id="method-set-report-">Method <code>set_report()</code><a class="anchor" aria-label="anchor" href="#method-set-report-"></a></h3>
+<p>Set reporting metadata</p><div class="section">
+<h4 id="usage-12">Usage<a class="anchor" aria-label="anchor" href="#usage-12"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">set_report</span><span class="op">(</span><span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+<div class="section">
+<h4 id="arguments-11">Arguments<a class="anchor" aria-label="anchor" href="#arguments-11"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>...</code></dt>
+<dd><p>each named argument is entered into the table with the argument name
+as its key</p></dd>
+
+
+</dl><p></p></div>
+</div>
+
 </div><p></p><hr><a id="method-evoland_db-set_coords"></a><div class="section">
 <h3 id="method-set-coords-">Method <code>set_coords()</code><a class="anchor" aria-label="anchor" href="#method-set-coords-"></a></h3>
 <p>Set coordinates for DB. Cannot overwrite existing table (would mean cascading deletion)</p><div class="section">
-<h4 id="usage-7">Usage<a class="anchor" aria-label="anchor" href="#usage-7"></a></h4>
+<h4 id="usage-13">Usage<a class="anchor" aria-label="anchor" href="#usage-13"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">set_coords</span><span class="op">(</span>type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"square"</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-6">Arguments<a class="anchor" aria-label="anchor" href="#arguments-6"></a></h4>
+<h4 id="arguments-12">Arguments<a class="anchor" aria-label="anchor" href="#arguments-12"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>type</code></dt>
 <dd><p>string; which type of coordinates to set, see <a href="coords_t.html">coords_t</a></p></dd>
 
@@ -387,7 +524,7 @@ object's default_format.</p></dd>
 </div><p></p><hr><a id="method-evoland_db-set_periods"></a><div class="section">
 <h3 id="method-set-periods-">Method <code>set_periods()</code><a class="anchor" aria-label="anchor" href="#method-set-periods-"></a></h3>
 <p>Set periods for DB. See <code><a href="periods_t.html">periods_t</a></code></p><div class="section">
-<h4 id="usage-8">Usage<a class="anchor" aria-label="anchor" href="#usage-8"></a></h4>
+<h4 id="usage-14">Usage<a class="anchor" aria-label="anchor" href="#usage-14"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">set_periods</span><span class="op">(</span></span>
 <span>  period_length_str <span class="op">=</span> <span class="st">"P10Y"</span>,</span>
 <span>  start_observed <span class="op">=</span> <span class="st">"1985-01-01"</span>,</span>
@@ -397,7 +534,7 @@ object's default_format.</p></dd>
 </div>
 
 <div class="section">
-<h4 id="arguments-7">Arguments<a class="anchor" aria-label="anchor" href="#arguments-7"></a></h4>
+<h4 id="arguments-13">Arguments<a class="anchor" aria-label="anchor" href="#arguments-13"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>period_length_str</code></dt>
 <dd><p>ISO 8601 duration string specifying the length of each
 period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
@@ -421,12 +558,12 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 </div><p></p><hr><a id="method-evoland_db-add_predictor"></a><div class="section">
 <h3 id="method-add-predictor-">Method <code>add_predictor()</code><a class="anchor" aria-label="anchor" href="#method-add-predictor-"></a></h3>
 <p>Add a predictor to the database</p><div class="section">
-<h4 id="usage-9">Usage<a class="anchor" aria-label="anchor" href="#usage-9"></a></h4>
+<h4 id="usage-15">Usage<a class="anchor" aria-label="anchor" href="#usage-15"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">add_predictor</span><span class="op">(</span><span class="va">pred_spec</span>, <span class="va">pred_data</span>, <span class="va">pred_type</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-8">Arguments<a class="anchor" aria-label="anchor" href="#arguments-8"></a></h4>
+<h4 id="arguments-14">Arguments<a class="anchor" aria-label="anchor" href="#arguments-14"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>pred_spec</code></dt>
 <dd><p>List of predictor specification; see <code><a href="pred_meta_t.html">create_pred_meta_t()</a></code></p></dd>
 
@@ -446,12 +583,12 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 </div><p></p><hr><a id="method-evoland_db-clone"></a><div class="section">
 <h3 id="method-clone-">Method <code>clone()</code><a class="anchor" aria-label="anchor" href="#method-clone-"></a></h3>
 <p>The objects of this class are cloneable with this method.</p><div class="section">
-<h4 id="usage-10">Usage<a class="anchor" aria-label="anchor" href="#usage-10"></a></h4>
+<h4 id="usage-16">Usage<a class="anchor" aria-label="anchor" href="#usage-16"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">clone</span><span class="op">(</span>deep <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-9">Arguments<a class="anchor" aria-label="anchor" href="#arguments-9"></a></h4>
+<h4 id="arguments-15">Arguments<a class="anchor" aria-label="anchor" href="#arguments-15"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>deep</code></dt>
 <dd><p>Whether to make a deep clone.</p></dd>
 

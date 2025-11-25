@@ -19,6 +19,10 @@ create_coords_t_square(epsg, extent, resolution, ...)
 
 ## Arguments
 
+- x:
+
+  A table that can be coerced to a valid `coords_t` object.
+
 - nrow:
 
   see

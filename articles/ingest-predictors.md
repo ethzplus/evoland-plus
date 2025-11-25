@@ -55,15 +55,15 @@ sonbase_spec <- list(
       list(
         url = "https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_nacht/laerm-strassenlaerm_nacht/laerm-strassenlaerm_nacht_2056.tif",
         md5sum = "6e79dc1d353751084e21dc6b61778b99"
-      ),
-      list(
-        url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
-        md5sum = "161df62f9a2a29c9120380f965aa19ba"
-      ),
-      list(
-        url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_tag/laerm-bahnlaerm_tag/laerm-bahnlaerm_tag_2056.tif",
-        md5sum = "6016b9ca4c974cb982fbe18112f201fe"
       )
+      # list(
+      #   url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
+      #   md5sum = "161df62f9a2a29c9120380f965aa19ba"
+      # ),
+      # list(
+      #   url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_tag/laerm-bahnlaerm_tag/laerm-bahnlaerm_tag_2056.tif",
+      #   md5sum = "6016b9ca4c974cb982fbe18112f201fe"
+      # )
     )
   )
 )
@@ -72,17 +72,7 @@ sonbase_sources <-
   sonbase_spec$noise$sources |>
   data.table::rbindlist() |>
   download_and_verify()
-```
 
-    Downloading: https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_tag/laerm-strassenlaerm_tag/laerm-strassenlaerm_tag_2056.tif
-
-    Downloading: https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_nacht/laerm-strassenlaerm_nacht/laerm-strassenlaerm_nacht_2056.tif
-
-    Downloading: https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif
-
-    Downloading: https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_tag/laerm-bahnlaerm_tag/laerm-bahnlaerm_tag_2056.tif
-
-``` r
 # data is at 10m
 # extent plus 1km, given metres for unit; enough for all resampling strategies
 extent_wide <- db$extent |> terra::extend(1000)
@@ -117,38 +107,12 @@ Let’s see how the data looks in the DB.
 db$pred_meta_t
 ```
 
-    Predictor Metadata Table
-    Number of predictors: 1
-    Key: <id_pred>
-       id_pred   name            pretty_name
-         <int> <char>                 <char>
-    1:       1  noise Maximum noise exposure
-    5 variables not shown: [description <char>, orig_format <char>, sources <list>, unit <char>, factor_levels <list>]
-
 We can see that the `noise` predictor was assigned `id_pred = 1`, which
 makes sense, given that this was the first predictor to be ingested
 
 ``` r
 db$pred_data_t_float
 ```
-
-    Predictor Data Table (float)
-    Observations: 100
-    Predictors: 1, Coordinates: 100, Periods: 1
-    Key: <id_pred>
-         id_pred id_coord id_period    value
-           <int>    <int>     <int>    <num>
-      1:       1        1         0 37.09188
-      2:       1        2         0 34.46947
-      3:       1        3         0 34.04930
-      4:       1        4         0 33.04930
-      5:       1        5         0 32.97577
-     ---
-     96:       1       96         0 39.19714
-     97:       1       97         0 38.97085
-     98:       1       98         0 47.31019
-     99:       1       99         0 56.00335
-    100:       1      100         0 52.97599
 
 We see that there’s currently a single predictor in our table at 100
 coordinate points. As expected, once the metadata was inserted into the

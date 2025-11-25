@@ -51,6 +51,14 @@ entries for each viable transition type.</p>
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">as_trans_meta_t</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span></span>
+<span><span class="fu">create_trans_meta_t</span><span class="op">(</span></span>
+<span>  <span class="va">lulc_data</span>,</span>
+<span>  min_cardinality_abs <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  min_frequency_rel <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  exclude_anterior <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  exclude_posterior <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span>
+<span></span>
 <span><span class="co"># S3 method for class 'trans_meta_t'</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -59,16 +67,32 @@ entries for each viable transition type.</p>
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
+<dl><dt id="arg-lulc-data">lulc_data<a class="anchor" aria-label="anchor" href="#arg-lulc-data"></a></dt>
+<dd><p>A <a href="lulc_data_t.html">lulc_data_t</a> table with land use observations</p></dd>
+
+
+<dt id="arg-min-cardinality-abs">min_cardinality_abs<a class="anchor" aria-label="anchor" href="#arg-min-cardinality-abs"></a></dt>
+<dd><p>Minimum absolute number of transitions for viability (optional)</p></dd>
+
+
+<dt id="arg-min-frequency-rel">min_frequency_rel<a class="anchor" aria-label="anchor" href="#arg-min-frequency-rel"></a></dt>
+<dd><p>Minimum relative frequency of transitions for viability (optional)</p></dd>
+
+
+<dt id="arg-exclude-anterior">exclude_anterior<a class="anchor" aria-label="anchor" href="#arg-exclude-anterior"></a></dt>
+<dd><p>Vector of id_lulc values to exclude as anterior (source) classes</p></dd>
+
+
+<dt id="arg-exclude-posterior">exclude_posterior<a class="anchor" aria-label="anchor" href="#arg-exclude-posterior"></a></dt>
+<dd><p>Vector of id_lulc values to exclude as posterior (target) classes</p></dd>
+
+
+<dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
 <dd><p>see <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>passed to <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
-
-
-<dt id="arg-db">db<a class="anchor" aria-label="anchor" href="#arg-db"></a></dt>
-<dd><p>An <a href="evoland_db.html">evoland_db</a> instance with populated lulc_data_t and lulc_meta_t tables</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -77,14 +101,19 @@ entries for each viable transition type.</p>
 <li><p><code>id_lulc_anterior</code>: Foreign key to lulc_meta_t (before transition)</p></li>
 <li><p><code>id_lulc_posterior</code>: Foreign key to lulc_meta_t (after transition)</p></li>
 <li><p><code>cardinality</code>: How many times this transition occurred</p></li>
-<li><p><code>frequency_rel</code>: Frequency relative to all transitions in this timestep</p></li>
-<li><p><code>frequency_abs</code>: Frequency relative to all coordinate pairs with data in this timestep</p></li>
+<li><p><code>frequency_rel</code>: Frequency relative to all transitions</p></li>
+<li><p><code>frequency_abs</code>: Frequency relative to all coordinate pairs</p></li>
 <li><p><code>is_viable</code>: Whether this transition is viable for modelling</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="methods-by-generic-">Methods (by generic)<a class="anchor" aria-label="anchor" href="#methods-by-generic-"></a></h2>
 
 <ul><li><p><code>print(trans_meta_t)</code>: Print a trans_meta_t object, passing params to data.table print</p></li>
+</ul></div>
+    <div class="section level2">
+    <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
+
+<ul><li><p><code>create_trans_meta_t()</code>: Calculate the transition metadata and mark for modelling feasibility</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
