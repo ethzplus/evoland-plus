@@ -1,7 +1,14 @@
-#' Filter covariates for land use land cover change (LULCC) models
+#' Two stage covariate filtering
 #'
-#' This function filters a set of covariates for land use land cover change (LULCC)
-#' models based on various statistical methods and correlation thresholds.
+#' The `covariance_filter` returns a set of covariates for land use land cover change
+#' (LULCC) models based on a two-stage variable selection: a first statistical fit
+#' estimates a covariate's quality for a given prediction task. A second step selects
+#' all variables below a given correlation threshold: We iterate over a correlation
+#' matrix ordered in the first step. Starting within the leftmost column, all rows (i.e.
+#' candidates) greater than the given threshold are dropped from the full set of
+#' candidates. This candidate selection is retained and used to select the next column,
+#' until no further columns are left to investigate. The columns that were iterated over
+#' are those returned as a character vector of selected variable names.
 #'
 #' @param data A data.table of target variable and candidate covariates to be filtered;
 #'        wide format with one predictor per column.
@@ -21,12 +28,12 @@
 #'
 #' @details
 #' The function first ranks covariates using the provided ranking function (default:
-#' quasibinomial polynomial GLM). Then, it iteratively removes highly correlated variables
-#' based on the correlation cutoff threshold, preserving variables in order of their
-#' ranking. See
+#' quasibinomial polynomial GLM). Then, it iteratively removes highly (Pearson)
+#' correlated variables based on the correlation cutoff threshold, preserving variables
+#' in order of their ranking. See
 #' <https://github.com/ethzplus/evoland-plus-legacy/blob/main/R/lulcc.covfilter.r> for
 #' where the concept came from. The original author was Antoine Adde, with edits by
-#' Benjamin Black.
+#' Benjamin Black. A similar mechanism is found in <https://github.com/antadde/covsel/>.
 #'
 #' @name covariance_filter
 #'
@@ -88,7 +95,6 @@ covariance_filter <- function(
 #' @param x A numeric vector representing a single covariate
 #' @param y A binary outcome vector (0/1)
 #' @param weights Optional weights vector
-#' @param ... Additional arguments (ignored)
 #' @keywords internal
 rank_poly_glm <- function(x, y, weights = NULL, ...) {
   fit <- glm.fit(
@@ -109,7 +115,7 @@ rank_poly_glm <- function(x, y, weights = NULL, ...) {
 #' @describeIn covariance_filter Compute class-balanced weights for imbalanced binary
 #' outcomes; returns a numeric vector
 #' @param trans_result Binary outcome vector (0/1)
-#' @param legacy Bool, use the legacy weighting?
+#' @param legacy Bool, use legacy weighting?
 #' @keywords internal
 compute_balanced_weights <- function(trans_result, legacy = FALSE) {
   n_total <- length(trans_result)
@@ -138,8 +144,7 @@ compute_balanced_weights <- function(trans_result, legacy = FALSE) {
 }
 
 
-#' @describeIn covariance_filter Select variables iteratively based on correlation
-#' threshold; returns a character vector of selected variable names
+#' @describeIn covariance_filter Implements the iterative selection procedure.
 #' @param cor_mat Absolute correlation matrix
 #' @param corcut Correlation cutoff threshold
 #' @keywords internal

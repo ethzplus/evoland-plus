@@ -5,7 +5,7 @@
 \alias{rank_poly_glm}
 \alias{compute_balanced_weights}
 \alias{select_by_correlation}
-\title{Filter covariates for land use land cover change (LULCC) models}
+\title{Two stage covariate filtering}
 \usage{
 covariance_filter(
   data,
@@ -37,7 +37,7 @@ Should take arguments (x, y, weights, ...) and return a single numeric value
 
 \item{corcut}{Correlation cutoff threshold}
 
-\item{...}{Additional arguments (ignored)}
+\item{...}{Additional arguments passed to rank_fun.}
 
 \item{x}{A numeric vector representing a single covariate}
 
@@ -45,7 +45,7 @@ Should take arguments (x, y, weights, ...) and return a single numeric value
 
 \item{trans_result}{Binary outcome vector (0/1)}
 
-\item{legacy}{Bool, use the legacy weighting?}
+\item{legacy}{Bool, use legacy weighting?}
 
 \item{cor_mat}{Absolute correlation matrix}
 }
@@ -54,17 +54,24 @@ A filtered data.table containing only the selected covariates after ranking
 by the specified method and filtering based on correlation threshold.
 }
 \description{
-This function filters a set of covariates for land use land cover change (LULCC)
-models based on various statistical methods and correlation thresholds.
+The \code{covariance_filter} returns a set of covariates for land use land cover change
+(LULCC) models based on a two-stage variable selection: a first statistical fit
+estimates a covariate's quality for a given prediction task. A second step selects
+all variables below a given correlation threshold: We iterate over a correlation
+matrix ordered in the first step. Starting within the leftmost column, all rows (i.e.
+candidates) greater than the given threshold are dropped from the full set of
+candidates. This candidate selection is retained and used to select the next column,
+until no further columns are left to investigate. The columns that were iterated over
+are those returned as a character vector of selected variable names.
 }
 \details{
 The function first ranks covariates using the provided ranking function (default:
-quasibinomial polynomial GLM). Then, it iteratively removes highly correlated variables
-based on the correlation cutoff threshold, preserving variables in order of their
-ranking. See
+quasibinomial polynomial GLM). Then, it iteratively removes highly (Pearson)
+correlated variables based on the correlation cutoff threshold, preserving variables
+in order of their ranking. See
 \url{https://github.com/ethzplus/evoland-plus-legacy/blob/main/R/lulcc.covfilter.r} for
 where the concept came from. The original author was Antoine Adde, with edits by
-Benjamin Black.
+Benjamin Black. A similar mechanism is found in \url{https://github.com/antadde/covsel/}.
 }
 \section{Functions}{
 \itemize{
@@ -74,8 +81,7 @@ the lower p value for each of the polynomial terms
 \item \code{compute_balanced_weights()}: Compute class-balanced weights for imbalanced binary
 outcomes; returns a numeric vector
 
-\item \code{select_by_correlation()}: Select variables iteratively based on correlation
-threshold; returns a character vector of selected variable names
+\item \code{select_by_correlation()}: Implements the iterative selection procedure.
 
 }}
 \keyword{internal}
