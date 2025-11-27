@@ -19,6 +19,8 @@ as_trans_preds_t <- function(x) {
       id_trans = integer(0)
     )
   }
+  cast_dt_col(x, "id_pred", as.integer)
+  cast_dt_col(x, "id_trans", as.integer)
   new_evoland_table(
     x,
     "trans_preds_t",
@@ -27,10 +29,114 @@ as_trans_preds_t <- function(x) {
 }
 
 #' @describeIn trans_preds_t Create a transition-predictor relation, i.e. records the
-#' result of a predictor selection step.
+#' result of a predictor selection step. Runs covariance filtering for each viable
+#' transition and stores the selected predictors.
+#' @param db An [evoland_db] instance with populated tables
+#' @param corcut Numeric threshold (0-1) for correlation filtering passed to [covariance_filter()]
+#' @param rank_fun Optional ranking function passed to [covariance_filter()]
+#' @param weights Optional weights passed to [covariance_filter()]
+#' @param ... Additional arguments passed to rank_fun via [covariance_filter()]
 #' @export
-create_trans_preds_t <- function() {
-  as_trans_preds_t()
+create_trans_preds_t <- function(
+  db,
+  corcut = 0.7,
+  rank_fun = rank_poly_glm,
+  weights = NULL,
+  ...
+) {
+  stopifnot(
+    "db must be an evoland_db instance" = inherits(db, "evoland_db")
+  )
+
+  viable_trans <- db$trans_meta_t[is_viable == TRUE]
+  pred_meta <- db$pred_meta_t
+  stopifnot(
+    "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L,
+    "No predictors found in pred_meta_t" = nrow(pred_meta) > 0L
+  )
+
+  results_list <- list()
+
+  # Iterate over transitions (anterior/posterior pairs)
+  for (i in seq_len(nrow(viable_trans))) {
+    id_trans <- viable_trans$id_trans[i]
+    id_lulc_ant <- viable_trans$id_lulc_anterior[i]
+    id_lulc_post <- viable_trans$id_lulc_posterior[i]
+
+    message(glue::glue(
+      "Processing transition {i}/{nrow(viable_trans)}: ",
+      "id_trans={id_trans} ({id_lulc_ant} -> {id_lulc_post})"
+    ))
+
+    # Get wide transition-predictor data
+    tryCatch(
+      {
+        trans_pred_data <- make_trans_pred_data_v(db, list(), id_trans)
+
+        # Check if we have any data
+        if (nrow(trans_pred_data) == 0L) {
+          warning(glue::glue(
+            "No data for transition {id_trans}, skipping"
+          ))
+          next
+        }
+
+        # Check if we have any predictor columns
+        pred_cols <- grep("^id_pred_", names(trans_pred_data), value = TRUE)
+        if (length(pred_cols) == 0L) {
+          warning(glue::glue(
+            "No predictor columns for transition {id_trans}, skipping"
+          ))
+          next
+        }
+
+        filtered_data <- covariance_filter(
+          data = trans_pred_data,
+          result_col = "result",
+          rank_fun = rank_fun,
+          corcut = corcut,
+          ...
+        )
+
+        # Extract selected predictor IDs from column names
+        selected_cols <- setdiff(names(filtered_data), "result")
+
+        if (length(selected_cols) > 0L) {
+          # Parse id_pred values from column names (e.g., "id_pred_1" -> 1)
+          selected_ids <- as.integer(sub("^id_pred_", "", selected_cols))
+
+          # Create result rows
+          results_list[[length(results_list) + 1]] <- data.table::data.table(
+            id_pred = selected_ids,
+            id_trans = id_trans
+          )
+
+          message(glue::glue(
+            "  Selected {length(selected_ids)} predictor(s) for transition {id_trans}"
+          ))
+        } else {
+          message(glue::glue(
+            "  No predictors selected for transition {id_trans}"
+          ))
+        }
+      },
+      error = function(e) {
+        warning(glue::glue(
+          "Error processing transition {id_trans}: {e$message}"
+        ))
+      }
+    )
+  }
+
+  # Combine all results
+  if (length(results_list) == 0L) {
+    warning("No predictors selected for any transition")
+    return(as_trans_preds_t())
+  }
+
+  result <- data.table::rbindlist(results_list)
+
+  as_trans_preds_t(result)
 }
 
 #' @export
