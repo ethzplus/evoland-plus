@@ -59,6 +59,7 @@ entries for each viable transition type.
 }}
 \section{Functions}{
 \itemize{
-\item \code{create_trans_meta_t()}: Calculate the transition metadata and mark for modelling feasibility
+\item \code{create_trans_meta_t()}: Calculate the transition metadata and mark for modelling
+feasibility. Does not attribute \code{id_trans}; this only makes sense as part of a DB.
 
 }}
