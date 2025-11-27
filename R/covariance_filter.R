@@ -100,7 +100,7 @@ rank_poly_glm <- function(x, y, weights = NULL, ...) {
   fit <- glm.fit(
     x = cbind(1, poly(x, degree = 2, simple = TRUE)),
     y = y,
-    family = binomial(),
+    family = quasibinomial(),
     weights = weights
   )
 
