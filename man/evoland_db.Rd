@@ -39,6 +39,8 @@ object to assign. Assigning is an upsert operation.}
 \item{\code{lulc_data_t}}{A \code{lulc_data_t} instance; see \code{\link[=as_lulc_data_t]{as_lulc_data_t()}} for the type of
 object to assign. Assigning is an upsert operation.}
 
+\item{\code{transitions_v}}{Get the transitions from \code{lulc_data_t}.}
+
 \item{\code{pred_data_t_float}}{A \code{pred_data_t_float} instance; see
 \code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
 upsert operation.}
@@ -100,6 +102,7 @@ of object to assign. Assigning is an upsert operation.}
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
 \item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
 \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
+\item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -297,11 +300,11 @@ No. of rows affected by statement
 \if{html}{\out{<a id="method-evoland_db-attach_table"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-attach_table}{}}}
 \subsection{Method \code{attach_table()}}{
-Attach one or more tables from the database folder as temporary tables in DuckDB.
-This is useful for working with multiple tables in SQL queries without loading
-them into R memory.
+Attach a single table as a temporary table in DuckDB memory. This is
+useful for working with multiple tables in SQL queries instead of loading
+them into R objects.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$attach_table(table_name, columns = "*")}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$attach_table(table_name, columns = "*", where = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -310,6 +313,8 @@ them into R memory.
 \item{\code{table_name}}{Character vector. Names of table to attach.}
 
 \item{\code{columns}}{Character vector. Optional sql column selection, defaults to "*"}
+
+\item{\code{where}}{A SQL where statement to optionally subset the table being attached.}
 }
 \if{html}{\out{</div>}}
 }
@@ -459,6 +464,26 @@ Add a predictor to the database
 \item{\code{pred_type}}{Passed to \code{\link[=as_pred_data_t]{as_pred_data_t()}}; one of float, int, bool}
 }
 \if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-print"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-print}{}}}
+\subsection{Method \code{print()}}{
+Print method for evoland_db
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$print(...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{Not used}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+self (invisibly)
 }
 }
 \if{html}{\out{<hr>}}

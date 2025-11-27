@@ -5,13 +5,19 @@
 \alias{make_pred_sources_v}
 \alias{make_lulc_meta_long_v}
 \alias{make_coords_minimal}
+\alias{make_extent_db}
+\alias{make_transitions_v}
 \title{Views on the evoland-plus data model}
 \usage{
-make_pred_sources_v(self, private)
+make_pred_sources_v(self, private, where = NULL)
 
-make_lulc_meta_long_v(self, private)
+make_lulc_meta_long_v(self, private, where = NULL)
 
-make_coords_minimal(self, private)
+make_coords_minimal(self, private, where = NULL)
+
+make_extent_db(self, private)
+
+make_transitions_v(self, private, where = NULL)
 }
 \description{
 Functions to generate views on the database
@@ -24,5 +30,9 @@ md5sum
 \item \code{make_lulc_meta_long_v()}: Return a \code{lulc_meta_long_v} instance, i.e. unrolled \code{lulc_meta_t}.
 
 \item \code{make_coords_minimal()}: Minimal coordinate representation (id_coord, lon, lat)
+
+\item \code{make_extent_db()}: Returns the extent of the coords_t as terra::SpatExtent
+
+\item \code{make_transitions_v()}: Returns transitions based on lulc_data_t
 
 }}

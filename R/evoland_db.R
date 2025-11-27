@@ -320,6 +320,7 @@ evoland_db <- R6::R6Class(
     #' them into R objects.
     #' @param table_name Character vector. Names of table to attach.
     #' @param columns Character vector. Optional sql column selection, defaults to "*"
+    #' @param where A SQL where statement to optionally subset the table being attached.
     attach_table = function(table_name, columns = "*", where = NULL) {
       # TODO the attach/detach combo should be available in a DB method "with
       # table"; it should do nothing if the table is already attached

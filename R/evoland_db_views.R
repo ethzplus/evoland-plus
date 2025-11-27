@@ -84,7 +84,7 @@ make_extent_db <- function(self, private) {
     terra::ext()
 }
 
-#' @describeIn evoland_db_views
+#' @describeIn evoland_db_views Returns transitions based on lulc_data_t
 make_transitions_v <- function(self, private, where = NULL) {
   self$attach_table("lulc_data_t")
   on.exit(self$detach_table("lulc_data_t"))
