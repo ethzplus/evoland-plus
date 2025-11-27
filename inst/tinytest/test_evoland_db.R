@@ -1,10 +1,12 @@
-# Test that a new database can be set up using evoland_db$new()
+# Test evoland_db domain-specific functionality
+# Generic parquet_duckdb tests are in test_parquet_duckdb.R
 library(tinytest)
 
 # Create temporary directory for testing
 test_dir <- tempfile("evoland_test_")
 on.exit(unlink(test_dir, recursive = TRUE), add = TRUE)
 
+# Test 1: evoland_db initialization with reporting
 expect_silent(
   db <- evoland_db$new(
     path = test_dir,
@@ -13,13 +15,15 @@ expect_silent(
   )
 )
 expect_true(inherits(db, "evoland_db"))
+expect_true(inherits(db, "parquet_duckdb")) # Should inherit from parent
 
-# In folder-based storage, only reporting_t exists initially
-# Other tables are created on demand
-expected_tables_initial <- c("reporting_t")
-expect_identical(db$list_tables(), expected_tables_initial)
-
+# Test 2: Reporting table is created and populated
+expect_identical(db$list_tables(), "reporting_t")
 reporting1 <- db$fetch("reporting_t")
+expect_true("report_name" %in% reporting1$key)
+expect_true("tinytest" %in% reporting1$value)
+
+# Test 3: Persistence of reporting data
 rm(db)
 gc()
 db <- evoland_db$new(
@@ -34,9 +38,7 @@ expect_equal(
   sort(reporting2$key)
 )
 
-
-# Check that accessing non-existent tables returns empty data.tables
-# (these tables don't appear in list_tables() until they have data)
+# Test 4: Domain-specific empty table structures via active bindings
 empty_tables <- c(
   "alloc_params_t",
   "coords_t",
@@ -57,7 +59,7 @@ for (table in empty_tables) {
   expect_equal(nrow(db[[table]]), 0L)
 }
 
-# Create synthetic, minimal test data
+# Test 5: Create synthetic evoland-specific test data
 coords_t <- create_coords_t_square(
   epsg = 2056,
   extent = terra::ext(c(
@@ -230,8 +232,7 @@ intrv_masks_t <- as_intrv_masks_t(
   )
 )
 
-# Test DB roundtrips & integrity checks, repeated assignments (~upserts)
-# TODO make this into a testing harness that iterates over a list of sample data
+# Test 6: Active bindings - coords_t
 expect_silent(db$coords_t <- coords_t)
 expect_silent(db$coords_t <- coords_t)
 expect_identical(db$coords_t, coords_t)
@@ -240,12 +241,15 @@ expect_identical(
   data.table::as.data.table(coords_t[, 1:3])
 )
 
+# Test 7: Active bindings - lulc_meta_t
 expect_silent(db$lulc_meta_t <- lulc_meta_t)
 expect_identical(db$lulc_meta_t, lulc_meta_t)
 
+# Test 8: Active bindings - periods_t
 expect_silent(db$periods_t <- periods_t)
 expect_identical(db$periods_t, periods_t)
 
+# Test 9: Active bindings - pred_meta_t with auto-increment
 expect_silent(db$pred_meta_t <- pred_meta_t[1, ])
 expect_silent(db$pred_meta_t <- pred_meta_t)
 # After committing, id_pred should be assigned (1:2 in this case)
@@ -254,20 +258,24 @@ expect_equal(retrieved_pred_meta[["id_pred"]], 1:2)
 expect_equal(retrieved_pred_meta[["name"]], c("noise", "distance_to_lake"))
 db$delete_from("pred_meta_t") # clear up, we want to ensure this works with add_predictor
 
+# Test 10: Active bindings - intrv_meta_t (with MAP columns)
 expect_silent(db$intrv_meta_t <- intrv_meta_t)
 expect_equal(db$intrv_meta_t, intrv_meta_t)
 
+# Test 11: Active bindings - trans_meta_t
 expect_silent(db$trans_meta_t <- trans_meta_t)
 expect_equal(db$trans_meta_t[, c(-1)], trans_meta_t)
 
+# Test 12: Active bindings - trans_models_t (with MAP and BLOB columns)
 expect_silent(db$trans_models_t <- trans_models_t)
 expect_equal(db$trans_models_t, trans_models_t)
 
-# now that we have the trans_meta we shouldn't be violating the FK anymore
+# Test 13: Active bindings - alloc_params_t (with MAP columns)
 expect_silent(db$alloc_params_t <- alloc_params_t)
 expect_equal(db$alloc_params_t, alloc_params_t)
 
-# repeated upsert should be idempotent
+# Test 14: add_predictor method - first predictor
+# Test 15: add_predictor method - second predictor
 expect_silent(
   db$add_predictor(
     pred_spec = pred_spec["noise"],
@@ -284,17 +292,19 @@ expect_silent(
     pred_type = "float"
   )
 )
-# check that add_predictor works for metadata
+# Test 16: add_predictor correctly updates metadata
 retrieved_pred_meta <- db$pred_meta_t
 expect_equal(retrieved_pred_meta[["id_pred"]], 1:2)
 expect_equal(retrieved_pred_meta[["name"]], c("noise", "distance_to_lake"))
 
-# check that add_predictor works for data
+# Test 17: add_predictor correctly updates data
 expect_equal(db$row_count("pred_data_t_float"), 48L)
+# Test 18: Active bindings - pred_data_t_float upsert is idempotent
 expect_silent(db$pred_data_t_float <- pred_data_t)
 expect_equal(db$row_count("pred_data_t_float"), 48L)
 expect_silent(db$pred_data_t_float <- pred_data_t)
 expect_equal(db$row_count("pred_data_t_float"), 48L)
+# Test 19: Active bindings enforce type validation
 expect_error(
   # should only be able to insert the correct class
   db$pred_data_t_float <- data.table::data.table(
@@ -306,6 +316,7 @@ expect_error(
   r"(^inherits.* is not TRUE$)"
 )
 
+# Test 20: lulc_data_t requires proper type
 expect_error(
   db$lulc_data_t <- lulc_data_dt <- data.table::data.table(
     id_coord = c(1L, 2L, 1L),
@@ -318,146 +329,77 @@ expect_silent(
   db$lulc_data_t <- as_lulc_data_t(lulc_data_dt)
 )
 
-# Test delete_from functionality
-# Setup: we already have pred_data_t_float with 48 rows (id_pred 1:2, id_coord 3:50, id_period 1)
-expect_equal(db$row_count("pred_data_t_float"), 48L)
+# Test 21: Domain-specific view - coords_minimal
+coords_minimal <- db$coords_minimal
+expect_true(inherits(coords_minimal, "data.table"))
+expect_equal(ncol(coords_minimal), 3L)
+expect_true(all(c("id_coord", "lon", "lat") %in% names(coords_minimal)))
+expect_equal(nrow(coords_minimal), nrow(coords_t))
 
-# Test 1: Delete with WHERE clause - delete specific predictor
-deleted_count <- db$delete_from("pred_data_t_float", where = "id_pred = 1")
-expect_equal(deleted_count, 24L)
-expect_equal(db$row_count("pred_data_t_float"), 24L)
+# Test 22: Domain-specific view - extent
+# Set up coords first
+db$coords_t <- coords_t
+extent <- db$extent
+expect_true(inherits(extent, "SpatExtent"))
 
-# Verify only id_pred = 2 remains
-remaining <- db$pred_data_t_float
-expect_equal(unique(remaining$id_pred), 2L)
-expect_equal(nrow(remaining), 24L)
+# Test 23: Domain-specific view - lulc_meta_long_v
+db$lulc_meta_t <- lulc_meta_t
+lulc_long <- db$lulc_meta_long_v
+expect_true(inherits(lulc_long, "data.table"))
+expect_true("src_class" %in% names(lulc_long))
+# Should have one row per src_class
+expect_true(nrow(lulc_long) > nrow(lulc_meta_t))
 
-# Test 2: Delete with complex WHERE clause
-# Add back some data first
-db$pred_data_t_float <- pred_data_t
-expect_equal(db$row_count("pred_data_t_float"), 48L)
+# Test 24: Domain-specific view - pred_sources_v
+db$pred_meta_t <- pred_meta_t
+sources <- db$pred_sources_v
+expect_true(inherits(sources, "data.table"))
+expect_true(all(c("url", "md5sum") %in% names(sources)))
+expect_true(nrow(sources) > 0L)
 
-# Delete only specific coordinates
-deleted_count <- db$delete_from("pred_data_t_float", where = "id_coord < 10")
-expect_true(deleted_count > 0L)
-remaining <- db$pred_data_t_float
-expect_true(all(remaining$id_coord >= 10))
+# Test 25: set_coords method
+test_dir_coords <- tempfile("evoland_coords_")
+on.exit(unlink(test_dir_coords, recursive = TRUE), add = TRUE)
+db_coords <- evoland_db$new(test_dir_coords)
 
-# Test 3: Delete all rows (NULL where clause)
-count_before_delete <- db$row_count("pred_data_t_float")
-deleted_count <- db$delete_from("pred_data_t_float", where = NULL)
-expect_equal(deleted_count, count_before_delete)
-expect_equal(db$row_count("pred_data_t_float"), 0L)
-
-# Test 4: Delete from non-existent table returns 0
-deleted_count <- db$delete_from("nonexistent_table", where = "id = 1")
-expect_equal(deleted_count, 0L)
-
-# Test 5: Delete with WHERE that matches nothing
-db$pred_data_t_float <- pred_data_t
-initial_count <- db$row_count("pred_data_t_float")
-deleted_count <- db$delete_from("pred_data_t_float", where = "id_pred = 999")
-expect_equal(deleted_count, 0L)
-expect_equal(db$row_count("pred_data_t_float"), initial_count)
-
-# Test auto-increment functionality
-# Create a new test database for auto-increment tests
-test_dir_autoinc <- tempfile("evoland_autoinc_")
-on.exit(unlink(test_dir_autoinc, recursive = TRUE), add = TRUE)
-db_autoinc <- evoland_db$new(test_dir_autoinc)
-
-# Test 1: Auto-increment on overwrite mode (new table)
-test_data_1 <- data.table::data.table(
-  name = c("predictor_a", "predictor_b", "predictor_c"),
-  unit = c("m", "kg", "s")
+expect_silent(
+  db_coords$set_coords(
+    type = "square",
+    epsg = 2056,
+    extent = terra::ext(c(xmin = 2697000, xmax = 2698000, ymin = 1252000, ymax = 1253000)),
+    resolution = 100
+  )
 )
-db_autoinc$commit_overwrite(
-  test_data_1,
-  "test_autoinc_t",
-  autoincrement_cols = "id_test"
-)
-result_1 <- db_autoinc$fetch("test_autoinc_t")
-expect_equal(result_1$id_test, 1:3)
-expect_equal(result_1$name, c("predictor_a", "predictor_b", "predictor_c"))
+expect_true(db_coords$row_count("coords_t") > 0L)
 
-# Test 2: Auto-increment on append mode
-test_data_2 <- data.table::data.table(
-  name = c("predictor_d", "predictor_e"),
-  unit = c("A", "V")
-)
-db_autoinc$commit_append(
-  test_data_2,
-  "test_autoinc_t",
-  autoincrement_cols = "id_test"
-)
-result_2 <- db_autoinc$fetch("test_autoinc_t")
-expect_equal(nrow(result_2), 5L)
-expect_equal(result_2$id_test, 1:5)
-expect_equal(result_2$name[4:5], c("predictor_d", "predictor_e"))
-
-# Test 3: Auto-increment on upsert mode with new rows
-test_data_3 <- data.table::data.table(
-  name = c("predictor_f", "predictor_g"),
-  unit = c("W", "J")
-)
-db_autoinc$commit_upsert(
-  test_data_3,
-  "test_autoinc_t",
-  autoincrement_cols = "id_test"
-)
-result_3 <- db_autoinc$fetch("test_autoinc_t")
-expect_equal(nrow(result_3), 7L)
-expect_equal(result_3$id_test, 1:7)
-
-# Test 4: Auto-increment preserves existing IDs in data
-test_data_4 <- data.table::data.table(
-  id_test = c(NA, 100L, NA),
-  name = c("new_a", "existing", "new_b"),
-  unit = c("x", "y", "z")
-)
+# Should refuse to overwrite
 expect_warning(
-  db_autoinc$commit_overwrite(
-    test_data_4,
-    "test_autoinc2_t",
-    autoincrement_cols = "id_test"
+  db_coords$set_coords(
+    type = "square",
+    epsg = 2056,
+    extent = terra::ext(c(xmin = 2697000, xmax = 2698000, ymin = 1252000, ymax = 1253000)),
+    resolution = 100
   ),
-  "Overriding existing IDs"
+  "not empty"
 )
-result_4 <- db_autoinc$fetch("test_autoinc2_t")
-expect_equal(result_4$id_test, 1:3)
 
-# Test 5: Multiple auto-increment columns
-test_data_5 <- data.table::data.table(
-  name = c("item1", "item2"),
-  value = c(10, 20)
-)
-db_autoinc$commit_overwrite(
-  test_data_5,
-  "test_multi_autoinc_t",
-  autoincrement_cols = c("id_a", "id_b")
-)
-result_5 <- db_autoinc$fetch("test_multi_autoinc_t")
-expect_equal(result_5$id_a, 1:2)
-expect_equal(result_5$id_b, 1:2)
+# Test 26: set_periods method
+test_dir_periods <- tempfile("evoland_periods_")
+on.exit(unlink(test_dir_periods, recursive = TRUE), add = TRUE)
+db_periods <- evoland_db$new(test_dir_periods)
 
-# Test 6: Auto-increment continues from max in append
-test_data_6a <- data.table::data.table(
-  id_seq = c(5L, 10L, 15L),
-  value = c(100, 200, 300)
+expect_silent(
+  db_periods$set_periods(
+    period_length_str = "P10Y",
+    start_observed = "1985-01-01",
+    end_observed = "2020-01-01",
+    end_extrapolated = "2060-01-01"
+  )
 )
-db_autoinc$commit_overwrite(
-  test_data_6a,
-  "test_continue_t"
+expect_true(db_periods$row_count("periods_t") > 0L)
+
+# Should refuse to overwrite
+expect_warning(
+  db_periods$set_periods(),
+  "not empty"
 )
-test_data_6b <- data.table::data.table(
-  value = c(400, 500)
-)
-db_autoinc$commit_append(
-  test_data_6b,
-  "test_continue_t",
-  autoincrement_cols = "id_seq"
-)
-result_6 <- db_autoinc$fetch("test_continue_t")
-expect_equal(nrow(result_6), 5L)
-expect_equal(result_6$id_seq[4:5], c(16L, 17L))
-expect_equal(result_6$value[4:5], c(400, 500))

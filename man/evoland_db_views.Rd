@@ -7,6 +7,7 @@
 \alias{make_coords_minimal}
 \alias{make_extent_db}
 \alias{make_transitions_v}
+\alias{make_trans_pred_data_v}
 \title{Views on the evoland-plus data model}
 \usage{
 make_pred_sources_v(self, private, where = NULL)
@@ -18,6 +19,14 @@ make_coords_minimal(self, private, where = NULL)
 make_extent_db(self, private)
 
 make_transitions_v(self, private, where = NULL)
+
+make_trans_pred_data_v(self, private, id_trans)
+}
+\arguments{
+\item{id_trans}{Integer, the transition ID to generate data for}
+}
+\value{
+data.table with columns: result (0/1), id_pred_1, id_pred_2, ..., id_pred_N
 }
 \description{
 Functions to generate views on the database
@@ -34,5 +43,8 @@ md5sum
 \item \code{make_extent_db()}: Returns the extent of the coords_t as terra::SpatExtent
 
 \item \code{make_transitions_v()}: Returns transitions based on lulc_data_t
+
+\item \code{make_trans_pred_data_v()}: Returns wide table of transition results and predictor data
+for a specific transition. Used as input to covariance filtering.
 
 }}
