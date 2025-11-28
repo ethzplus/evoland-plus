@@ -574,3 +574,50 @@ parquet_duckdb <- R6::R6Class(
     }
   )
 )
+
+
+# Helper functions for converting between list and data.frame formats for DuckDB MAPs
+convert_list_cols <- function(x, cols, fn) {
+  for (col in cols) {
+    x[[col]] <- lapply(x[[col]], fn)
+  }
+  x
+}
+
+list_to_kv_df <- function(x) {
+  if (is.null(x) || length(x) == 0) {
+    return(data.frame(
+      key = character(0),
+      value = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+  data.frame(
+    key = names(x),
+    value = as.character(unlist(x)),
+    stringsAsFactors = FALSE
+  )
+}
+
+kv_df_to_list <- function(x) {
+  if (is.null(x) || nrow(x) == 0) {
+    return(NULL)
+  }
+
+  out <- list()
+
+  for (row in seq_len(nrow(x))) {
+    key <- x$key[row]
+    val <- x$value[row]
+
+    # Try numeric conversion
+    num_val <- suppressWarnings(as.numeric(val))
+    if (!is.na(num_val)) {
+      out[[key]] <- num_val
+    } else {
+      out[[key]] <- val
+    }
+  }
+
+  out
+}

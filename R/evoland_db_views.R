@@ -1,35 +1,27 @@
 #' Views on the evoland-plus data model
 #'
 #' @description
-#' Functions to generate views on the database
+#' This file adds view active bindings and methods to the `evoland_db` class using R6's `$set()` method.
+#' These provide computed views on the database without storing additional data.
+#'
+#' @section Active Bindings Added:
+#'
+#' - `lulc_meta_long_v` - Unrolled LULC metadata with one row per source class
+#' - `pred_sources_v` - Distinct predictor URLs and their MD5 checksums
+#' - `transitions_v` - Land use transitions derived from lulc_data_t
+#' - `extent` - Spatial extent of coords_t as terra::SpatExtent
+#' - `coords_minimal` - Minimal coordinate representation (id_coord, lon, lat)
+#'
+#' @section Methods Added:
+#'
+#' - `trans_pred_data_v(id_trans)` - Returns wide table of transition results and predictor data for a specific transition. Used as input to covariance filtering.
 #'
 #' @name evoland_db_views
+#' @include evoland_db.R
 NULL
 
-#' @describeIn evoland_db_views Retrieve a table of distinct predictor urls and their
-#' md5sum
-make_pred_sources_v <- function(self, private, where = NULL) {
-  self$with_tables("pred_meta_t", function() {
-    where_clause <- if (!is.null(where)) paste("AND", where) else ""
-
-    self$get_query(glue::glue(
-      r"{
-      select distinct
-        unnest(sources).url as url,
-        unnest(sources).md5sum as md5sum
-      from pred_meta_t
-      where sources is not null {where_clause}
-      }"
-    ))
-  })
-}
-
-
-#' @describeIn evoland_db_views Return a `lulc_meta_long_v` instance, i.e. unrolled `lulc_meta_t`.
-make_lulc_meta_long_v <- function(self, private, where = NULL) {
+evoland_db$set("active", "lulc_meta_long_v", function() {
   self$with_tables("lulc_meta_t", function() {
-    where_clause <- if (!is.null(where)) paste("WHERE", where) else ""
-
     self$get_query(glue::glue(
       r"{
       select
@@ -38,53 +30,27 @@ make_lulc_meta_long_v <- function(self, private, where = NULL) {
         unnest(src_classes) as src_class
       from
         lulc_meta_t
-      {where_clause}
       }"
     ))
   })
-}
+})
 
-#' @describeIn evoland_db_views Minimal coordinate representation (id_coord, lon, lat)
-make_coords_minimal <- function(self, private, where = NULL) {
-  self$with_tables("coords_t", function() {
-    where_clause <- if (!is.null(where)) paste("WHERE", where) else ""
-
+evoland_db$set("active", "pred_sources_v", function() {
+  self$with_tables("pred_meta_t", function() {
     self$get_query(glue::glue(
       r"{
-      select id_coord, lon, lat
-      from coords_t
-      {where_clause}
+      select distinct
+        unnest(sources).url as url,
+        unnest(sources).md5sum as md5sum
+      from pred_meta_t
+      where sources is not null
       }"
-    )) |>
-      cast_dt_col("id_coord", as.integer) |>
-      data.table::setkeyv("id_coord")
+    ))
   })
-}
+})
 
-#' @describeIn evoland_db_views Returns the extent of the coords_t as terra::SpatExtent
-make_extent_db <- function(self, private) {
-  self$with_tables("coords_t", function() {
-    self$get_query(glue::glue(
-      r"{
-          SELECT
-            min(lon) as xmin,
-            max(lon) as xmax,
-            min(lat) as ymin,
-            max(lat) as ymax
-          FROM
-            coords_t
-          }"
-    )) |>
-      unlist() |>
-      terra::ext()
-  })
-}
-
-#' @describeIn evoland_db_views Returns transitions based on lulc_data_t
-make_transitions_v <- function(self, private, where = NULL) {
+evoland_db$set("active", "transitions_v", function() {
   self$with_tables("lulc_data_t", function() {
-    where_clause <- if (!is.null(where)) paste("WHERE", where) else ""
-
     self$get_query(glue::glue(
       r"{
       SELECT
@@ -99,34 +65,56 @@ make_transitions_v <- function(self, private, where = NULL) {
       ON
         curr.id_coord = prev.id_coord
         AND curr.id_period = prev.id_period + 1
-      {where_clause}
       }"
     ))
   })
-}
+})
 
-#' @describeIn evoland_db_views Returns wide table of transition results and predictor data
-#' for a specific transition. Used as input to covariance filtering.
-#'
-#' @param id_trans Integer, the transition ID to generate data for
-#' @return data.table with columns: result (0/1), id_pred_1, id_pred_2, ..., id_pred_N
-make_trans_pred_data_v <- function(self, private, id_trans) {
+evoland_db$set("active", "extent", function() {
+  self$with_tables("coords_t", function() {
+    self$get_query(glue::glue(
+      r"{
+      SELECT
+        min(lon) as xmin,
+        max(lon) as xmax,
+        min(lat) as ymin,
+        max(lat) as ymax
+      FROM
+        coords_t
+      }"
+    )) |>
+      unlist() |>
+      terra::ext()
+  })
+})
+
+evoland_db$set("active", "coords_minimal", function() {
+  self$with_tables("coords_t", function() {
+    self$get_query(glue::glue(
+      r"{
+      select id_coord, lon, lat
+      from coords_t
+      }"
+    )) |>
+      cast_dt_col("id_coord", as.integer) |>
+      data.table::setkeyv("id_coord")
+  })
+})
+
+evoland_db$set("public", "trans_pred_data_v", function(id_trans) {
   stopifnot(
     "id_trans must be a single integer" = length(id_trans) == 1L && is.numeric(id_trans)
   )
 
-  # Determine which predictor tables exist
   all_tables <- self$list_tables()
   pred_tables <- c("pred_data_t_float", "pred_data_t_int", "pred_data_t_bool")
   existing_pred_tables <- intersect(pred_tables, all_tables)
 
-  # Build list of tables to attach
   tables_to_attach <- c("trans_meta_t", "lulc_data_t", "pred_meta_t", existing_pred_tables)
 
   self$with_tables(
     tables_to_attach,
     function() {
-      # Get transition metadata
       trans_info <- self$get_query(glue::glue(
         "SELECT id_lulc_anterior, id_lulc_posterior
          FROM trans_meta_t
@@ -140,10 +128,8 @@ make_trans_pred_data_v <- function(self, private, id_trans) {
       id_lulc_ant <- trans_info$id_lulc_anterior
       id_lulc_post <- trans_info$id_lulc_posterior
 
-      # Build CTEs dynamically based on which predictor tables exist
       ctes <- list()
 
-      # Always include trans_result
       ctes$trans_result <- glue::glue(
         "trans_result AS (
           SELECT
@@ -162,8 +148,6 @@ make_trans_pred_data_v <- function(self, private, id_trans) {
         )"
       )
 
-      # Add predictor CTEs for each type that exists
-      # UNION period-specific data (period >= 1) with cross-joined static data (period 0)
       if ("pred_data_t_float" %in% existing_pred_tables) {
         ctes$pred_float_combined <- "pred_float_combined AS (
           SELECT id_coord, id_period, id_pred, value
@@ -215,7 +199,6 @@ make_trans_pred_data_v <- function(self, private, id_trans) {
         )"
       }
 
-      # Build SELECT columns
       select_cols <- "tr.result"
       if ("pred_data_t_float" %in% existing_pred_tables) {
         select_cols <- paste0(select_cols, ", pf.* EXCLUDE (id_coord, id_period)")
@@ -227,7 +210,6 @@ make_trans_pred_data_v <- function(self, private, id_trans) {
         select_cols <- paste0(select_cols, ", pb.* EXCLUDE (id_coord, id_period)")
       }
 
-      # Build JOINs
       joins <- ""
       if ("pred_data_t_float" %in% existing_pred_tables) {
         joins <- paste0(
@@ -248,7 +230,6 @@ make_trans_pred_data_v <- function(self, private, id_trans) {
         )
       }
 
-      # Combine everything into final query
       cte_string <- paste(unlist(ctes), collapse = ",\n\n        ")
 
       query <- glue::glue(
@@ -261,7 +242,6 @@ make_trans_pred_data_v <- function(self, private, id_trans) {
 
       result <- self$get_query(query)
 
-      # Rename columns to id_pred_{N} format
       old_names <- names(result)
       new_names <- old_names
       for (i in seq_along(old_names)) {
@@ -274,4 +254,4 @@ make_trans_pred_data_v <- function(self, private, id_trans) {
       result
     }
   )
-}
+})

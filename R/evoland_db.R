@@ -8,6 +8,13 @@
 #'
 #' Inherits from [parquet_duckdb] for generic database operations.
 #'
+#' @seealso
+#' Additional methods and active bindings are added to this class in separate files:
+#'
+#' - [evoland_db_tables] - Table active bindings (coords_t, lulc_data_t, etc.)
+#' - [evoland_db_views] - View active bindings (lulc_meta_long_v, etc.) and methods
+#' - [evoland_db_neighbors] - Neighbor analysis methods
+#'
 #' @include parquet_duckdb.R
 #' @export
 
@@ -43,8 +50,6 @@ evoland_db <- R6::R6Class(
       invisible(self)
     },
 
-    ### Evoland-specific methods ----
-
     #' @description
     #' Fetch data from storage with evoland-specific view support
     #' @param table_name Character string. Name of the table to query.
@@ -53,26 +58,21 @@ evoland_db <- R6::R6Class(
     #'
     #' @return A data.table
     fetch = function(table_name, where = NULL, limit = NULL) {
-      # Check if this is a view that needs special handling
-      view_result <- switch(
-        table_name,
-        lulc_meta_long_v = make_lulc_meta_long_v(self, private, where),
-        pred_sources_v = make_pred_sources_v(self, private, where),
-        transitions_v = make_transitions_v(self, private, where),
-        NULL
-      )
-
-      if (!is.null(view_result)) {
-        return(view_result)
+      # Check if this is a view (active binding)
+      if (
+        table_name %in%
+          c("lulc_meta_long_v", "pred_sources_v", "transitions_v", "extent", "coords_minimal")
+      ) {
+        return(self[[table_name]])
       }
 
       file_info <- private$get_file_path(table_name)
 
       if (!file_info$exists) {
+        # TODO make this an error
         return(private$get_empty_table(table_name))
       }
 
-      # Call parent method
       super$fetch(table_name, where, limit)
     },
 
@@ -214,196 +214,7 @@ evoland_db <- R6::R6Class(
   ),
 
   ## Active Bindings ----
-  active = list(
-    ### Bindings for tables ----
-    #' @field coords_t A `coords_t` instance; see [create_coords_t()] for the type of
-    #' object to assign. Assigning is an upsert operation.
-    coords_t = function(x) {
-      create_active_binding(self, "coords_t", as_coords_t)(x)
-    },
-
-    #' @field periods_t A `periods_t` instance; see [create_periods_t()] for the type of
-    #' object to assign. Assigning is an upsert operation.
-    periods_t = function(x) {
-      create_active_binding(self, "periods_t", as_periods_t)(x)
-    },
-
-    #' @field lulc_meta_t A `lulc_meta_t` instance; see [create_lulc_meta_t()] for the type of
-    #' object to assign. Assigning is an upsert operation.
-    lulc_meta_t = function(x) {
-      create_active_binding(self, "lulc_meta_t", as_lulc_meta_t)(x)
-    },
-
-    #' @field lulc_meta_long_v Return a `lulc_meta_long_v` instance, i.e. unrolled `lulc_meta_t`.
-    lulc_meta_long_v = function() {
-      make_lulc_meta_long_v(self, private)
-    },
-
-    #' @field lulc_data_t A `lulc_data_t` instance; see [as_lulc_data_t()] for the type of
-    #' object to assign. Assigning is an upsert operation.
-    lulc_data_t = function(x) {
-      create_active_binding(self, "lulc_data_t", as_lulc_data_t)(x)
-    },
-
-    #' @field transitions_v Get the transitions from `lulc_data_t`.
-    transitions_v = function() {
-      make_transitions_v(self, private)
-    },
-
-    #' @field pred_data_t_float A `pred_data_t_float` instance; see
-    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
-    #' upsert operation.
-    pred_data_t_float = function(x) {
-      create_active_binding(
-        self,
-        "pred_data_t_float",
-        as_pred_data_t,
-        type = "float"
-      )(x)
-    },
-
-    #' @field pred_data_t_int A `pred_data_t_int` instance; see
-    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
-    #' upsert operation.
-    pred_data_t_int = function(x) {
-      create_active_binding(
-        self,
-        "pred_data_t_int",
-        as_pred_data_t,
-        type = "int"
-      )(x)
-    },
-
-    #' @field pred_data_t_bool A `pred_data_t_bool` instance; see
-    #' [create_pred_data_t()] for the type of object to assign. Assigning is an
-    #' upsert operation.
-    pred_data_t_bool = function(x) {
-      create_active_binding(
-        self,
-        "pred_data_t_bool",
-        as_pred_data_t,
-        type = "bool"
-      )(x)
-    },
-
-    ### Bindings for descriptions, views, etc. ----
-    #' @field extent Return a terra SpatExtent based on coords_t
-    extent = function() {
-      make_extent_db(self, private)
-    },
-
-    #' @field coords_minimal data.table with only (id_coord, lon, lat)
-    coords_minimal = function() {
-      make_coords_minimal(self, private)
-    },
-
-    #' @field pred_meta_t A `pred_meta_t` instance; see [create_pred_meta_t()] for the type of
-    #' object to assign. Assigning is an upsert operation.
-    pred_meta_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("pred_meta_t")
-        return(as_pred_meta_t(x))
-      }
-      stopifnot(inherits(x, "pred_meta_t"))
-      self$commit_upsert(
-        x,
-        table_name = "pred_meta_t",
-        key_cols = "name",
-        autoincrement_cols = "id_pred"
-      )
-    },
-
-    #' @field pred_sources_v Retrieve a table of distinct predictor urls and their
-    #' md5sum
-    pred_sources_v = function() {
-      make_pred_sources_v(self, private)
-    },
-
-    #' @field trans_meta_t A `trans_meta_t` instance; see [create_trans_meta_t()] for the type of
-    #' object to assign. Assigning is an upsert operation.
-    trans_meta_t = function(x) {
-      if (missing(x)) {
-        x <- self$fetch("trans_meta_t")
-        return(as_trans_meta_t(x))
-      }
-      stopifnot(inherits(x, "trans_meta_t"))
-      self$commit_upsert(
-        x,
-        table_name = "trans_meta_t",
-        key_cols = c("id_lulc_anterior", "id_lulc_posterior"),
-        autoincrement_cols = "id_trans"
-      )
-    },
-
-    #' @field trans_preds_t A `trans_preds_t` instance; see [create_trans_preds_t()] for the type of
-    #' object to assign. Assigning is an upsert operation.
-    trans_preds_t = function(x) {
-      create_active_binding(self, "trans_preds_t", as_trans_preds_t)(x)
-    },
-
-    #' @field intrv_meta_t A `intrv_meta_t` instance; see [create_intrv_meta_t()] for the type of
-    #' object to assign. Assigning is an upsert operation.
-    intrv_meta_t = function(x) {
-      if (missing(x)) {
-        return(as_intrv_meta_t(
-          convert_list_cols(self$fetch("intrv_meta_t"), "params", kv_df_to_list)
-        ))
-      }
-      stopifnot(inherits(x, "intrv_meta_t"))
-
-      self$commit_upsert(x, "intrv_meta_t", key_cols = "id_intrv", map_cols = "params")
-    },
-
-    #' @field intrv_masks_t A `intrv_masks_t` instance; see [as_intrv_masks_t()] for the type of
-    #' object to assign. Assigning is an upsert operation.
-    intrv_masks_t = function(x) {
-      create_active_binding(self, "intrv_masks_t", as_intrv_masks_t)(x)
-    },
-
-    #' @field trans_models_t A `trans_models_t` instance; see [create_trans_models_t()] for the type
-    #' of object to assign. Assigning is an upsert operation.
-    trans_models_t = function(x) {
-      if (missing(x)) {
-        return(as_trans_models_t(
-          convert_list_cols(
-            self$fetch("trans_models_t"),
-            c("model_params", "goodness_of_fit"),
-            kv_df_to_list
-          )
-        ))
-      }
-      stopifnot(inherits(x, "trans_models_t"))
-
-      self$commit_upsert(
-        x,
-        "trans_models_t",
-        key_cols = c("id_trans", "id_period"),
-        map_cols = c("model_params", "goodness_of_fit")
-      )
-    },
-
-    #' @field alloc_params_t A `alloc_params_t` instance; see [as_alloc_params_t()] for the type
-    #' of object to assign. Assigning is an upsert operation.
-    alloc_params_t = function(x) {
-      if (missing(x)) {
-        return(as_alloc_params_t(
-          convert_list_cols(
-            self$fetch("alloc_params_t"),
-            c("alloc_params", "goodness_of_fit"),
-            kv_df_to_list
-          )
-        ))
-      }
-      stopifnot(inherits(x, "alloc_params_t"))
-
-      self$commit_upsert(
-        x,
-        "alloc_params_t",
-        key_cols = c("id_trans", "id_period"),
-        map_cols = c("alloc_params", "goodness_of_fit")
-      )
-    }
-  ),
+  active = list(),
 
   ## Private Methods ----
   private = list(
@@ -431,7 +242,8 @@ evoland_db <- R6::R6Class(
         intrv_meta_t = as_intrv_meta_t(),
         intrv_masks_t = as_intrv_masks_t(),
         trans_models_t = as_trans_models_t(),
-        alloc_params_t = as_alloc_params_t()
+        alloc_params_t = as_alloc_params_t(),
+        neighbors_t = as_neighbors_t()
       )
 
       if (table_name %in% names(empty_tables)) {
@@ -443,68 +255,3 @@ evoland_db <- R6::R6Class(
     }
   )
 )
-
-# Helper function to create simple Bindings with standard fetch/commit pattern
-# param self The R6 instance (self).
-# param table_name Character string. Name of the table.
-# param as_fn Function to convert fetched data to the appropriate type.
-# param ... Additional arguments passed to as_fn.
-# return A function suitable for use as an active binding.
-create_active_binding <- function(self, table_name, as_fn, ...) {
-  extra_args <- list(...)
-  function(x) {
-    if (missing(x)) {
-      x <- self$fetch(table_name)
-      return(do.call(as_fn, c(list(x), extra_args)))
-    }
-    stopifnot(inherits(x, table_name))
-    self$commit_upsert(x, table_name)
-  }
-}
-
-
-# Helper functions for converting between list and data.frame formats for DuckDB MAPs
-convert_list_cols <- function(x, cols, fn) {
-  for (col in cols) {
-    x[[col]] <- lapply(x[[col]], fn)
-  }
-  x
-}
-
-list_to_kv_df <- function(x) {
-  if (is.null(x) || length(x) == 0) {
-    return(data.frame(
-      key = character(0),
-      value = character(0),
-      stringsAsFactors = FALSE
-    ))
-  }
-  data.frame(
-    key = names(x),
-    value = as.character(unlist(x)),
-    stringsAsFactors = FALSE
-  )
-}
-
-kv_df_to_list <- function(x) {
-  if (is.null(x) || nrow(x) == 0) {
-    return(NULL)
-  }
-
-  out <- list()
-
-  for (row in seq_len(nrow(x))) {
-    key <- x$key[row]
-    val <- x$value[row]
-
-    # Try numeric conversion
-    num_val <- suppressWarnings(as.numeric(val))
-    if (!is.na(num_val)) {
-      out[[key]] <- num_val
-    } else {
-      out[[key]] <- val
-    }
-  }
-
-  out
-}

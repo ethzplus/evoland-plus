@@ -9,16 +9,28 @@
 \usage{
 as_trans_preds_t(x)
 
-create_trans_preds_t()
+create_trans_preds_t(
+  db,
+  corcut = 0.7,
+  rank_fun = rank_poly_glm,
+  weights = NULL,
+  ...
+)
 
 \method{print}{trans_preds_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
+\item{db}{An \link{evoland_db} instance with populated tables}
+
+\item{corcut}{Numeric threshold (0-1) for correlation filtering passed to \code{\link[=covariance_filter]{covariance_filter()}}}
+
+\item{rank_fun}{Optional ranking function passed to \code{\link[=covariance_filter]{covariance_filter()}}}
+
+\item{weights}{Optional weights passed to \code{\link[=covariance_filter]{covariance_filter()}}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 
-\item{db}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
+\item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 }
 \value{
 A data.table of class "trans_preds_t" with columns:
@@ -40,6 +52,7 @@ modelling each transition type.
 \section{Functions}{
 \itemize{
 \item \code{create_trans_preds_t()}: Create a transition-predictor relation, i.e. records the
-result of a predictor selection step.
+result of a predictor selection step. Runs covariance filtering for each viable
+transition and stores the selected predictors.
 
 }}

@@ -71,7 +71,7 @@ create_trans_preds_t <- function(
     # Get wide transition-predictor data
     tryCatch(
       {
-        trans_pred_data <- make_trans_pred_data_v(db, list(), id_trans)
+        trans_pred_data <- db$trans_pred_data_v(id_trans)
 
         # Check if we have any data
         if (nrow(trans_pred_data) == 0L) {

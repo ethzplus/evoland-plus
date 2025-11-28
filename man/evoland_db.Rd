@@ -11,73 +11,23 @@ to disk in parquet format for better compression.
 
 Inherits from \link{parquet_duckdb} for generic database operations.
 }
+\seealso{
+Additional methods and active bindings are added to this class in separate files:
+\itemize{
+\item \link{evoland_db_tables} - Table active bindings (coords_t, lulc_data_t, etc.)
+\item \link{evoland_db_views} - View active bindings (lulc_meta_long_v, etc.) and methods
+\item \link{evoland_db_neighbors} - Neighbor analysis methods
+}
+}
 \section{Super class}{
 \code{\link[evoland:parquet_duckdb]{evoland::parquet_duckdb}} -> \code{evoland_db}
-}
-\section{Active bindings}{
-\if{html}{\out{<div class="r6-active-bindings">}}
-\describe{
-\item{\code{coords_t}}{A \code{coords_t} instance; see \code{\link[=create_coords_t]{create_coords_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{periods_t}}{A \code{periods_t} instance; see \code{\link[=create_periods_t]{create_periods_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{lulc_meta_t}}{A \code{lulc_meta_t} instance; see \code{\link[=create_lulc_meta_t]{create_lulc_meta_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{lulc_meta_long_v}}{Return a \code{lulc_meta_long_v} instance, i.e. unrolled \code{lulc_meta_t}.}
-
-\item{\code{lulc_data_t}}{A \code{lulc_data_t} instance; see \code{\link[=as_lulc_data_t]{as_lulc_data_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{transitions_v}}{Get the transitions from \code{lulc_data_t}.}
-
-\item{\code{pred_data_t_float}}{A \code{pred_data_t_float} instance; see
-\code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
-upsert operation.}
-
-\item{\code{pred_data_t_int}}{A \code{pred_data_t_int} instance; see
-\code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
-upsert operation.}
-
-\item{\code{pred_data_t_bool}}{A \code{pred_data_t_bool} instance; see
-\code{\link[=create_pred_data_t]{create_pred_data_t()}} for the type of object to assign. Assigning is an
-upsert operation.}
-
-\item{\code{extent}}{Return a terra SpatExtent based on coords_t}
-
-\item{\code{coords_minimal}}{data.table with only (id_coord, lon, lat)}
-
-\item{\code{pred_meta_t}}{A \code{pred_meta_t} instance; see \code{\link[=create_pred_meta_t]{create_pred_meta_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{pred_sources_v}}{Retrieve a table of distinct predictor urls and their
-md5sum}
-
-\item{\code{trans_meta_t}}{A \code{trans_meta_t} instance; see \code{\link[=create_trans_meta_t]{create_trans_meta_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{trans_preds_t}}{A \code{trans_preds_t} instance; see \code{\link[=create_trans_preds_t]{create_trans_preds_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{intrv_meta_t}}{A \code{intrv_meta_t} instance; see \code{\link[=create_intrv_meta_t]{create_intrv_meta_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{intrv_masks_t}}{A \code{intrv_masks_t} instance; see \code{\link[=as_intrv_masks_t]{as_intrv_masks_t()}} for the type of
-object to assign. Assigning is an upsert operation.}
-
-\item{\code{trans_models_t}}{A \code{trans_models_t} instance; see \code{\link[=create_trans_models_t]{create_trans_models_t()}} for the type
-of object to assign. Assigning is an upsert operation.}
-
-\item{\code{alloc_params_t}}{A \code{alloc_params_t} instance; see \code{\link[=as_alloc_params_t]{as_alloc_params_t()}} for the type
-of object to assign. Assigning is an upsert operation.}
-}
-\if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
+\item \href{#method-evoland_db-compute_neighbors}{\code{evoland_db$compute_neighbors()}}
+\item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
+\item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
 \item \href{#method-evoland_db-fetch}{\code{evoland_db$fetch()}}
 \item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
@@ -105,6 +55,38 @@ of object to assign. Assigning is an upsert operation.}
 </ul>
 </details>
 }}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-compute_neighbors"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-compute_neighbors}{}}}
+\subsection{Method \code{compute_neighbors()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$compute_neighbors(
+  max_distance = 1000,
+  distance_breaks = c(0, 100, 500, 1000),
+  resolution = 100,
+  overwrite = FALSE
+)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-generate_neighbor_predictors"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-generate_neighbor_predictors}{}}}
+\subsection{Method \code{generate_neighbor_predictors()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$generate_neighbor_predictors()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-trans_pred_data_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-trans_pred_data_v}{}}}
+\subsection{Method \code{trans_pred_data_v()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_pred_data_v(id_trans)}\if{html}{\out{</div>}}
+}
+
+}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-new"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-new}{}}}

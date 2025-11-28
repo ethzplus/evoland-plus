@@ -89,6 +89,8 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
   out
 }
 
+# TODO move this to a neighbors_t.R file that includes a formal class definition
+# for the return table, including validation, print, coercion
 #' @describeIn util_terra Compute neighboring coordinates within specified distances. In
 #' order to be computationally feasible, the coordinates' IDs are rasterized before
 #' their actual Euclidean distance is calculated. If coordinates are so close that they
