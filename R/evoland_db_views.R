@@ -136,8 +136,8 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans) {
             curr.id_coord,
             curr.id_period,
             CASE
-              WHEN prev.id_lulc = {id_lulc_ant} AND curr.id_lulc = {id_lulc_post} THEN 1
-              WHEN prev.id_lulc = {id_lulc_ant} AND curr.id_lulc != {id_lulc_post} THEN 0
+              WHEN prev.id_lulc = {id_lulc_ant} AND curr.id_lulc = {id_lulc_post} THEN TRUE
+              WHEN prev.id_lulc = {id_lulc_ant} AND curr.id_lulc != {id_lulc_post} THEN FALSE
               ELSE NULL
             END AS result
           FROM lulc_data_t AS curr

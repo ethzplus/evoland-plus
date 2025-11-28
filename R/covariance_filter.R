@@ -56,7 +56,6 @@ covariance_filter <- function(
 
   # Validate binary outcome
   stopifnot(
-    "result_col must be binary (0/1)" = length(unique(data[[result_col]])) == 2,
     "corcut must be between 0 and 1" = corcut >= 0 && corcut <= 1
   )
 
@@ -119,8 +118,8 @@ rank_poly_glm <- function(x, y, weights = NULL, ...) {
 #' @keywords internal
 compute_balanced_weights <- function(trans_result, legacy = FALSE) {
   n_total <- length(trans_result)
-  n_trans <- sum(trans_result == 1)
-  n_non_trans <- sum(trans_result == 0)
+  n_trans <- sum(trans_result)
+  n_non_trans <- sum(!trans_result)
 
   # Compute inverse frequency weights
   weights <- numeric(n_total)
@@ -129,16 +128,16 @@ compute_balanced_weights <- function(trans_result, legacy = FALSE) {
     # I found this weighting in evoland-plus-legacy, but the models wouldn't converge
     # https://github.com/ethzplus/evoland-plus-legacy/blob/main/R/lulcc.splitforcovselection.r
     # This is actually just setting the underrepresented class to the rounded imbalance ratio
-    weights[trans_result == 0] <- 1
-    weights[trans_result == 1] <- round(n_non_trans / n_trans)
+    weights[!trans_result] <- 1
+    weights[trans_result] <- round(n_non_trans / n_trans)
     return(weights)
   }
 
   # This is the heuristic in scikit-learn, n_samples / (n_classes * np.bincount(y))
   # https://scikit-learn.org/stable/modules/generated/sklearn.utils.class_weight.compute_class_weight.html #nolint
   # This weighting maintains the exact imbalance ratio
-  weights[trans_result == 1] <- n_total / (2 * n_trans)
-  weights[trans_result == 0] <- n_total / (2 * n_non_trans)
+  weights[trans_result] <- n_total / (2 * n_trans)
+  weights[!trans_result] <- n_total / (2 * n_non_trans)
 
   weights
 }
