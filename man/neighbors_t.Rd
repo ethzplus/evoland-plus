@@ -3,11 +3,19 @@
 \name{neighbors_t}
 \alias{neighbors_t}
 \alias{as_neighbors_t}
+\alias{create_neighbors_t}
 \alias{validate.neighbors_t}
 \alias{print.neighbors_t}
 \title{Create Neighbors Table}
 \usage{
 as_neighbors_t(x)
+
+create_neighbors_t(
+  coords_t,
+  max_distance,
+  distance_breaks = NULL,
+  resolution = 100
+)
 
 \method{validate}{neighbors_t}(x, ...)
 
@@ -15,6 +23,15 @@ as_neighbors_t(x)
 }
 \arguments{
 \item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
+
+\item{max_distance}{Maximum distance to search for neighbors (in same units as
+coordinates and resolution)}
+
+\item{distance_breaks}{Optional numeric vector defining distance class boundaries.
+If NULL, no distance classification is performed.
+If provided, must have at least 2 elements defining interval breaks.}
+
+\item{resolution}{Grid cell size for rasterization (default: 100.0, in same units as coordinates)}
 
 \item{...}{Passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 
@@ -28,6 +45,14 @@ A data.table of class "neighbors_t" with columns:
 \item \code{distance}: Numeric distance between coordinates
 \item \code{distance_class}: Optional factor representing distance intervals
 }
+
+A data.table with columns:
+\itemize{
+\item id_coord_origin: ID of the origin coordinate
+\item id_coord_neighbor: ID of the neighboring coordinate
+\item distance: Distance between origin and neighbor
+\item distance_class: Factor indicating distance class (if distance_breaks provided)
+}
 }
 \description{
 Creates a \code{neighbors_t} table and validates that it matches the schema.
@@ -37,5 +62,14 @@ Creates a \code{neighbors_t} table and validates that it matches the schema.
 \item \code{validate(neighbors_t)}: Validate a neighbors_t object
 
 \item \code{print(neighbors_t)}: Print a neighbors_t object
+
+}}
+\section{Functions}{
+\itemize{
+\item \code{create_neighbors_t()}: Compute neighboring coordinates within specified distances. In
+order to be computationally feasible, the coordinates' IDs are rasterized before
+their actual Euclidean distance is calculated. If coordinates are so close that they
+get rasterized to the same cell, the first one is used and a warning is emitted. If
+this happens, try again using a lower resolution.
 
 }}

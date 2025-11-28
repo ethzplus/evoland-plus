@@ -140,7 +140,7 @@ expect_true(!anyNA(vector_na_omit_true$value))
 vector_na_omit_false <- extract_using_coords_t(vect_with_na, coords_t, na_omit = FALSE)
 expect_true(anyNA(vector_na_omit_false$value))
 
-# Test compute_neighbors
+# Test create_neighbors_t
 # Create a simple test coords_t with known distances
 test_coords <- data.table::data.table(
   id_coord = 1L:5L,
@@ -152,7 +152,7 @@ test_coords <- data.table::data.table(
 test_coords <- as_coords_t(test_coords)
 
 # Test basic neighbor computation with max_distance = 150
-neighbors <- compute_neighbors(test_coords, max_distance = 150)
+neighbors <- create_neighbors_t(test_coords, max_distance = 150)
 
 # Check structure
 expect_true(data.table::is.data.table(neighbors))
@@ -204,7 +204,7 @@ expect_equal(
 )
 
 # Test with distance_breaks
-neighbors_classified <- compute_neighbors(
+neighbors_classified <- create_neighbors_t(
   test_coords,
   max_distance = 150,
   distance_breaks = c(0, 100, 150)
@@ -234,7 +234,7 @@ expect_equal(
 )
 
 # Test with smaller max_distance
-neighbors_small <- compute_neighbors(test_coords, max_distance = 110)
+neighbors_small <- create_neighbors_t(test_coords, max_distance = 110)
 
 # With max_distance = 110, point 1 should only have neighbors 2 and 4 (distance 100)
 # but not 5 (distance ~141.4)
@@ -246,27 +246,27 @@ expect_false(5L %in% neighbors_from_1_small$id_coord_neighbor)
 
 # Test error handling
 expect_error(
-  compute_neighbors("not_coords_t", max_distance = 100),
+  create_neighbors_t("not_coords_t", max_distance = 100),
   "coords_t must be a coords_t object"
 )
 
 expect_error(
-  compute_neighbors(test_coords, max_distance = -10),
+  create_neighbors_t(test_coords, max_distance = -10),
   "max_distance must be a positive scalar numeric"
 )
 
 expect_error(
-  compute_neighbors(test_coords, max_distance = 100, distance_breaks = c(1)),
+  create_neighbors_t(test_coords, max_distance = 100, distance_breaks = c(1)),
   "distance_breaks must be NULL or a numeric vector with at least 2 elements"
 )
 
 expect_error(
-  compute_neighbors(test_coords, max_distance = 100, distance_breaks = "invalid"),
+  create_neighbors_t(test_coords, max_distance = 100, distance_breaks = "invalid"),
   "distance_breaks must be NULL or a numeric vector with at least 2 elements"
 )
 
 # Test with real coords_t from earlier in the test file
-real_neighbors <- compute_neighbors(coords_t, max_distance = 300)
+real_neighbors <- create_neighbors_t(coords_t, max_distance = 300)
 
 # Each point in a regular 100m grid should have neighbors
 # Interior points should have 8 neighbors within 300m (8-connectivity)
@@ -291,7 +291,7 @@ for (i in seq_len(
 }
 
 # Test with distance classification on real data
-real_neighbors_class <- compute_neighbors(
+real_neighbors_class <- create_neighbors_t(
   coords_t,
   max_distance = 300,
   distance_breaks = c(0, 150, 300)

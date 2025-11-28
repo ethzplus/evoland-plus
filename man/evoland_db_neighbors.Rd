@@ -10,7 +10,7 @@ These methods compute neighbor relationships and generate neighbor-based predict
 \section{Methods Added}{
 
 \itemize{
-\item \code{compute_neighbors(max_distance, distance_breaks, resolution, overwrite)} -
+\item \code{create_neighbors_t(max_distance, distance_breaks, resolution, overwrite)} -
 Computes neighbor relationships between coordinates.
 \itemize{
 \item \code{max_distance}: Maximum distance for neighbors (default: 1000)
@@ -20,7 +20,7 @@ Computes neighbor relationships between coordinates.
 }
 \item \code{generate_neighbor_predictors()} - Generates predictor variables based on neighbor
 land use counts by distance class. Requires neighbors_t with distance_class column
-(compute_neighbors with distance_breaks).
+(create_neighbors_t with distance_breaks).
 }
 }
 

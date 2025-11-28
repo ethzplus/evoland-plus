@@ -6,7 +6,7 @@
 #'
 #' @section Methods Added:
 #'
-#' - `compute_neighbors(max_distance, distance_breaks, resolution, overwrite)` -
+#' - `create_neighbors_t(max_distance, distance_breaks, resolution, overwrite)` -
 #'   Computes neighbor relationships between coordinates.
 #'   - `max_distance`: Maximum distance for neighbors (default: 1000)
 #'   - `distance_breaks`: Vector of breaks for distance classes (default: c(0, 100, 500, 1000))
@@ -14,7 +14,7 @@
 #'   - `overwrite`: Whether to overwrite existing neighbors_t (default: FALSE)
 #' - `generate_neighbor_predictors()` - Generates predictor variables based on neighbor
 #'   land use counts by distance class. Requires neighbors_t with distance_class column
-#'   (compute_neighbors with distance_breaks).
+#'   (create_neighbors_t with distance_breaks).
 #'
 #' @name evoland_db_neighbors
 #' @include evoland_db.R
@@ -22,7 +22,7 @@ NULL
 
 evoland_db$set(
   "public",
-  "compute_neighbors",
+  "create_neighbors_t",
   function(
     max_distance = 1000,
     distance_breaks = c(0, 100, 500, 1000),
@@ -36,7 +36,7 @@ evoland_db$set(
 
     coords <- self$coords_t
 
-    neighbors <- compute_neighbors(
+    neighbors <- create_neighbors_t(
       coords,
       max_distance = max_distance,
       distance_breaks = distance_breaks,
@@ -55,7 +55,7 @@ evoland_db$set(
 
 evoland_db$set("public", "generate_neighbor_predictors", function() {
   if (self$row_count("neighbors_t") == 0) {
-    stop("No neighbor data found. Run $compute_neighbors() first.")
+    stop("No neighbor data found. Run $create_neighbors_t() first.")
   }
 
   if (self$row_count("lulc_meta_t") == 0) {
@@ -69,7 +69,7 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
   neighbors_sample <- self$fetch("neighbors_t", limit = 1)
   if (!"distance_class" %in% names(neighbors_sample)) {
     stop(
-      "neighbors_t does not have distance_class column. Run $compute_neighbors() with distance_breaks parameter."
+      "neighbors_t does not have distance_class column. Run $create_neighbors_t() with distance_breaks parameter."
     )
   }
 

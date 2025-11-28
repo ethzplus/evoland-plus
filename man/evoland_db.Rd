@@ -25,7 +25,7 @@ Additional methods and active bindings are added to this class in separate files
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
-\item \href{#method-evoland_db-compute_neighbors}{\code{evoland_db$compute_neighbors()}}
+\item \href{#method-evoland_db-create_neighbors_t}{\code{evoland_db$create_neighbors_t()}}
 \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
 \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
@@ -56,11 +56,11 @@ Additional methods and active bindings are added to this class in separate files
 </details>
 }}
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-compute_neighbors"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-compute_neighbors}{}}}
-\subsection{Method \code{compute_neighbors()}}{
+\if{html}{\out{<a id="method-evoland_db-create_neighbors_t"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-create_neighbors_t}{}}}
+\subsection{Method \code{create_neighbors_t()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$compute_neighbors(
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$create_neighbors_t(
   max_distance = 1000,
   distance_breaks = c(0, 100, 500, 1000),
   resolution = 100,
