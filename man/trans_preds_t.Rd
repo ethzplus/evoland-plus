@@ -9,13 +9,7 @@
 \usage{
 as_trans_preds_t(x)
 
-create_trans_preds_t(
-  db,
-  corcut = 0.7,
-  rank_fun = rank_poly_glm,
-  weights = NULL,
-  ...
-)
+create_trans_preds_t(db, corcut = 0.7, rank_fun = rank_poly_glm, ...)
 
 \method{print}{trans_preds_t}(x, nrow = 10, ...)
 }
@@ -25,8 +19,6 @@ create_trans_preds_t(
 \item{corcut}{Numeric threshold (0-1) for correlation filtering passed to \code{\link[=covariance_filter]{covariance_filter()}}}
 
 \item{rank_fun}{Optional ranking function passed to \code{\link[=covariance_filter]{covariance_filter()}}}
-
-\item{weights}{Optional weights passed to \code{\link[=covariance_filter]{covariance_filter()}}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 

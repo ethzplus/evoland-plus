@@ -34,14 +34,12 @@ as_trans_preds_t <- function(x) {
 #' @param db An [evoland_db] instance with populated tables
 #' @param corcut Numeric threshold (0-1) for correlation filtering passed to [covariance_filter()]
 #' @param rank_fun Optional ranking function passed to [covariance_filter()]
-#' @param weights Optional weights passed to [covariance_filter()]
 #' @param ... Additional arguments passed to rank_fun via [covariance_filter()]
 #' @export
 create_trans_preds_t <- function(
   db,
   corcut = 0.7,
   rank_fun = rank_poly_glm,
-  weights = NULL,
   ...
 ) {
   stopifnot(
