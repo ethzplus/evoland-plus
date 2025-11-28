@@ -51,8 +51,7 @@ create_trans_preds_t <- function(
   viable_trans <- db$trans_meta_t[is_viable == TRUE]
   pred_meta <- db$pred_meta_t
   stopifnot(
-    "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L,
-    "No predictors found in pred_meta_t" = nrow(pred_meta) > 0L
+    "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L
   )
 
   results_list <- list()

@@ -184,7 +184,7 @@ expect_error(
 
 expect_error(
   create_trans_preds_t(db = db_empty),
-  "No viable transitions"
+  "Table `trans_meta_t` does not exist"
 )
 
 # Test with no predictors
@@ -195,10 +195,13 @@ db_no_pred$coords_t <- db_tps$coords_t
 db_no_pred$periods_t <- db_tps$periods_t
 db_no_pred$lulc_meta_t <- db_tps$lulc_meta_t
 db_no_pred$lulc_data_t <- db_tps$lulc_data_t
-db_no_pred$trans_meta_t <- db_tps$trans_meta_t
+expect_warning(
+  db_no_pred$trans_meta_t <- db_tps$trans_meta_t,
+  "Overriding existing IDs"
+)
 expect_error(
   create_trans_preds_t(db = db_no_pred),
-  "No predictors found"
+  "Table `pred_meta_t` does not exist"
 )
 
 # Test print method

@@ -38,26 +38,7 @@ expect_equal(
   sort(reporting2$key)
 )
 
-# Test 4: Domain-specific empty table structures via active bindings
-empty_tables <- c(
-  "alloc_params_t",
-  "coords_t",
-  "intrv_masks_t",
-  "intrv_meta_t",
-  "lulc_data_t",
-  "lulc_meta_t",
-  "periods_t",
-  "pred_data_t_bool",
-  "pred_data_t_float",
-  "pred_data_t_int",
-  "pred_meta_t",
-  "trans_meta_t",
-  "trans_models_t",
-  "trans_preds_t"
-)
-for (table in empty_tables) {
-  expect_equal(nrow(db[[table]]), 0L)
-}
+# Test 4 removed: Fetching a missing table now produces an error
 
 # Test 5: Create synthetic evoland-specific test data
 coords_t <- create_coords_t_square(

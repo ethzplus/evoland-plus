@@ -60,6 +60,8 @@ evoland_db <- R6::R6Class(
     fetch = function(table_name, where = NULL, limit = NULL) {
       # Check if this is a view (active binding)
       if (
+        # TODO these should probably not be active bindings, but instead methods with
+        # predefined query parameters
         table_name %in%
           c("lulc_meta_long_v", "pred_sources_v", "transitions_v", "extent", "coords_minimal")
       ) {
@@ -69,8 +71,7 @@ evoland_db <- R6::R6Class(
       file_info <- private$get_file_path(table_name)
 
       if (!file_info$exists) {
-        # TODO make this an error
-        return(private$get_empty_table(table_name))
+        stop("Table `", table_name, "` does not exist")
       }
 
       super$fetch(table_name, where, limit)
@@ -210,48 +211,6 @@ evoland_db <- R6::R6Class(
       cat(sprintf("Tables: %d\n", length(self$list_tables())))
 
       invisible(self)
-    }
-  ),
-
-  ## Active Bindings ----
-  active = list(),
-
-  ## Private Methods ----
-  private = list(
-    # Get empty table with proper structure (evoland-specific)
-    #
-    # param table_name Character string table name
-    # return Empty data.table with correct columns
-    get_empty_table = function(table_name) {
-      # Define empty table structures
-      empty_tables <- list(
-        reporting_t = suppressWarnings(data.table::data.table(
-          key = character(0),
-          value = character(0)
-        )),
-        coords_t = as_coords_t(),
-        periods_t = as_periods_t(),
-        lulc_meta_t = as_lulc_meta_t(),
-        lulc_data_t = as_lulc_data_t(),
-        pred_meta_t = as_pred_meta_t(),
-        pred_data_t_float = as_pred_data_t(type = "float"),
-        pred_data_t_int = as_pred_data_t(type = "int"),
-        pred_data_t_bool = as_pred_data_t(type = "bool"),
-        trans_meta_t = as_trans_meta_t(),
-        trans_preds_t = as_trans_preds_t(),
-        intrv_meta_t = as_intrv_meta_t(),
-        intrv_masks_t = as_intrv_masks_t(),
-        trans_models_t = as_trans_models_t(),
-        alloc_params_t = as_alloc_params_t(),
-        neighbors_t = as_neighbors_t()
-      )
-
-      if (table_name %in% names(empty_tables)) {
-        return(empty_tables[[table_name]])
-      }
-
-      # Default: return empty data.table
-      data.table::data.table()
     }
   )
 )
