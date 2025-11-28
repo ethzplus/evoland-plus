@@ -19,8 +19,8 @@ as_trans_preds_t <- function(x) {
       id_trans = integer(0)
     )
   }
-  cast_dt_col(x, "id_pred", as.integer)
-  cast_dt_col(x, "id_trans", as.integer)
+  cast_dt_col(x, "id_pred", "int")
+  cast_dt_col(x, "id_trans", "int")
   new_evoland_table(
     x,
     "trans_preds_t",

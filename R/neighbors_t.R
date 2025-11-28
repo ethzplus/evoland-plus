@@ -20,10 +20,10 @@ as_neighbors_t <- function(x) {
       distance = numeric(0)
     )
   }
-  cast_dt_col(x, "id_coord_origin", as.integer)
-  cast_dt_col(x, "id_coord_neighbor", as.integer)
+  cast_dt_col(x, "id_coord_origin", "int")
+  cast_dt_col(x, "id_coord_neighbor", "int")
   if ("distance_class" %in% names(x)) {
-    cast_dt_col(x, "distance_class", as.factor)
+    cast_dt_col(x, "distance_class", "factor")
   }
   new_evoland_table(
     x,
@@ -56,21 +56,23 @@ validate.neighbors_t <- function(x, ...) {
 #' @export
 print.neighbors_t <- function(x, nrow = 10, ...) {
   if (nrow(x) > 0) {
-    n_origins <- data.table::uniqueN(x[["id_coord_origin"]])
-    n_neighbors <- data.table::uniqueN(x[["id_coord_neighbor"]])
-    total_pairs <- nrow(x)
+    total_pairs <- format(
+      nrow(x),
+      big.mark = "_",
+      scientific = FALSE
+    )
 
     extra_info <- ""
     if ("distance_class" %in% names(x)) {
-      n_classes <- data.table::uniqueN(x[["distance_class"]])
-      extra_info <- glue::glue(", Distance classes: {n_classes}")
+      extra_info <- paste(
+        "Distance classes:",
+        paste(levels(x[["distance_class"]]), collapse = ", ")
+      )
     }
 
     cat(glue::glue(
       "Neighbors Table\n",
       "Neighbor pairs: {total_pairs}\n",
-      "Origin coordinates: {n_origins}, ",
-      "Neighbor coordinates: {n_neighbors}",
       "{extra_info}\n\n"
     ))
   } else {

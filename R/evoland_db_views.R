@@ -96,7 +96,7 @@ evoland_db$set("active", "coords_minimal", function() {
       from coords_t
       }"
     )) |>
-      cast_dt_col("id_coord", as.integer) |>
+      cast_dt_col("id_coord", "int") |>
       data.table::setkeyv("id_coord")
   })
 })
