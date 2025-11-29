@@ -436,10 +436,90 @@ parquet_duckdb <- R6::R6Class(
     #' @param ... Not used
     #' @return self (invisibly)
     print = function(...) {
-      cat("<parquet_duckdb>\n")
-      cat(sprintf("Database path: %s\n", self$path))
-      cat(sprintf("Default format: %s\n", self$default_format))
-      cat(sprintf("Tables: %d\n", length(self$list_tables())))
+      # gather data to be printed
+      classes <- class(self)
+      classes <- classes[classes != "R6"]
+
+      all_names <- names(self)
+      methods <- character(0)
+      active_bindings <- character(0)
+
+      names(self$.__enclos_env__$private)
+      if (!is.null(self$.__enclos_env__$super)) {
+        # exclude private super names
+        super_names <- setdiff(
+          ls(self$.__enclos_env__$super),
+          ls(self$.__enclos_env__$super$.__enclos_env__$private)
+        )
+      } else {
+        super_names <- character(0)
+      }
+      nonsuper_names <- setdiff(all_names, super_names)
+
+      for (name in nonsuper_names) {
+        # Check if it's an active binding first; subset2 would evaluate it
+        if (bindingIsActive(name, self$.__enclos_env__$self)) {
+          active_bindings <- c(active_bindings, name)
+        } else {
+          obj <- .subset2(self, name)
+          if (is.function(obj) && !name %in% c("initialize", "print", "clone")) {
+            methods <- c(methods, name)
+          }
+        }
+      }
+
+      methods <- sort(methods)
+      active_bindings <-
+        active_bindings[!grepl("_t($|_)", active_bindings)] |>
+        sort()
+
+      # actually start printing
+      if (length(classes) == 1) {
+        cat("<", classes[1], "> Object\n")
+      } else {
+        cat(classes[1], "Object. Inherits from", toString(classes[-1]), "\n")
+      }
+
+      compression <- if (grepl("compression\\s+(\\w+)", self$writeopts)) {
+        sub(".*compression\\s+(\\w+).*", "\\1", self$writeopts)
+      } else {
+        "none"
+      }
+
+      # Database info on one line
+      cat(
+        glue::glue(
+          "Database: {self$path} | Format: {self$default_format} | Compression: {compression}"
+        ),
+        "\n\n"
+      )
+
+      tables <- self$list_tables()
+      if (length(tables) > 0) {
+        cat("Tables present:\n  ")
+        cat(strwrap(toString(tables), width = 80), sep = "\n  ")
+        cat("\n")
+      } else {
+        cat("Tables present: (none)\n\n")
+      }
+
+      if (length(super_names) > 0) {
+        cat("DB Methods:\n  ")
+        cat(strwrap(toString(super_names), width = 80), sep = "\n  ")
+        cat("\n")
+      }
+
+      if (length(methods) > 0) {
+        cat("Public methods:\n  ")
+        cat(strwrap(toString(methods), width = 80), sep = "\n  ")
+        cat("\n")
+      }
+
+      if (length(active_bindings) > 0) {
+        cat("Active bindings:\n  ")
+        cat(strwrap(toString(active_bindings), width = 80), sep = "\n  ")
+      }
+
       invisible(self)
     }
   ),

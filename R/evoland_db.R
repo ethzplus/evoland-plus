@@ -174,43 +174,6 @@ evoland_db <- R6::R6Class(
         as_pred_data_t(pred_data, pred_type),
         paste0("pred_data_t_", pred_type)
       )
-    },
-
-    #' @description
-    #' Print method for evoland_db
-    #' @param ... Not used
-    #' @return self (invisibly)
-    print = function(...) {
-      cat("<evoland_db> (extends parquet_duckdb)\n")
-      cat(sprintf("Database path: %s\n", self$path))
-      cat(sprintf("Default format: %s\n\n", self$default_format))
-
-      cat("Database methods (inherited):\n")
-      cat("  Commit: commit_overwrite(x, table_name, autoincrement_cols, map_cols),\n")
-      cat("          commit_append(x, table_name, autoincrement_cols, map_cols),\n")
-      cat("          commit_upsert(x, table_name, key_cols, autoincrement_cols, map_cols)\n")
-      cat("  Fetch:  fetch(table_name, where, limit)\n")
-      cat("  Delete: delete_from(table_name, where)\n")
-      cat("  Other:  list_tables(), execute(statement), get_query(statement),\n")
-      cat("          attach_table(table_name, columns), detach_table(table_name),\n")
-      cat("          row_count(table_name)\n\n")
-
-      cat("Set / Add methods:\n")
-      cat("  set_report(...), set_coords(type, ...),\n")
-      cat("  set_periods(period_length_str, start_observed, end_observed, end_extrapolated),\n")
-      cat("  add_predictor(pred_spec, pred_data, pred_type)\n\n")
-
-      cat("Active bindings (read-write):\n")
-      cat("  coords_t, periods_t, lulc_meta_t, lulc_data_t, pred_data_t_float,\n")
-      cat("  pred_data_t_int, pred_data_t_bool, pred_meta_t, trans_meta_t, trans_preds_t,\n")
-      cat("  intrv_meta_t, intrv_masks_t, trans_models_t, alloc_params_t\n\n")
-
-      cat("Active bindings (read-only):\n")
-      cat("  extent, coords_minimal, lulc_meta_long_v, pred_sources_v\n\n")
-
-      cat(sprintf("Tables: %d\n", length(self$list_tables())))
-
-      invisible(self)
     }
   )
 )
