@@ -22,7 +22,7 @@ NULL
 
 evoland_db$set(
   "public",
-  "create_neighbors_t",
+  "set_neighbors",
   function(
     max_distance = 1000,
     distance_breaks = c(0, 100, 500, 1000),
@@ -55,7 +55,7 @@ evoland_db$set(
 
 evoland_db$set("public", "generate_neighbor_predictors", function() {
   if (self$row_count("neighbors_t") == 0) {
-    stop("No neighbor data found. Run $create_neighbors_t() first.")
+    stop("No neighbor data found. Run $set_neighbors() first.")
   }
 
   if (self$row_count("lulc_meta_t") == 0) {
@@ -95,6 +95,7 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     "(select 0 as max_pred)"
   }
 
+  # TODO this could possibly be done using the upsert, since it now takes care of the IDs
   self$execute(glue::glue(
     r"{
     create temp table pred_meta_neighbors_t as

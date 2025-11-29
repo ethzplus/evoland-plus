@@ -25,7 +25,7 @@ Additional methods and active bindings are added to this class in separate files
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
-\item \href{#method-evoland_db-create_neighbors_t}{\code{evoland_db$create_neighbors_t()}}
+\item \href{#method-evoland_db-set_neighbors}{\code{evoland_db$set_neighbors()}}
 \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
 \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
@@ -34,7 +34,6 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
 \item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
 \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
-\item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -50,17 +49,18 @@ Additional methods and active bindings are added to this class in separate files
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="execute"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-execute'><code>evoland::parquet_duckdb$execute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="get_query"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-get_query'><code>evoland::parquet_duckdb$get_query()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="list_tables"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-list_tables'><code>evoland::parquet_duckdb$list_tables()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="print"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-print'><code>evoland::parquet_duckdb$print()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="row_count"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-row_count'><code>evoland::parquet_duckdb$row_count()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="with_tables"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-with_tables'><code>evoland::parquet_duckdb$with_tables()</code></a></span></li>
 </ul>
 </details>
 }}
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-create_neighbors_t"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-create_neighbors_t}{}}}
-\subsection{Method \code{create_neighbors_t()}}{
+\if{html}{\out{<a id="method-evoland_db-set_neighbors"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-set_neighbors}{}}}
+\subsection{Method \code{set_neighbors()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$create_neighbors_t(
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_neighbors(
   max_distance = 1000,
   distance_breaks = c(0, 100, 500, 1000),
   resolution = 100,
@@ -222,26 +222,6 @@ Add a predictor to the database
 \item{\code{pred_type}}{Passed to \code{\link[=as_pred_data_t]{as_pred_data_t()}}; one of float, int, bool}
 }
 \if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-print"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-print}{}}}
-\subsection{Method \code{print()}}{
-Print method for evoland_db
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$print(...)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{...}}{Not used}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-self (invisibly)
 }
 }
 \if{html}{\out{<hr>}}
