@@ -34,9 +34,9 @@ as_coords_t <- function(x) {
       geom_polygon = list()
     )
   }
-  cast_dt_col(x, "id_coord", as.integer)
+  cast_dt_col(x, "id_coord", "int")
   if (!is.null(x[["region"]])) {
-    cast_dt_col(x, "region", as.factor)
+    cast_dt_col(x, "region", "factor")
   }
   new_evoland_table(
     x,

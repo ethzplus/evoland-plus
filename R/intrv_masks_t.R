@@ -18,8 +18,8 @@ as_intrv_masks_t <- function(x) {
       id_coord = integer(0)
     )
   }
-  cast_dt_col(x, "id_coord", as.integer)
-  cast_dt_col(x, "id_coord", as.integer)
+  cast_dt_col(x, "id_coord", "int")
+  cast_dt_col(x, "id_coord", "int")
   new_evoland_table(
     x,
     "intrv_masks_t",

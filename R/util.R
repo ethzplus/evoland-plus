@@ -143,11 +143,29 @@ print_rowwise_yaml <- function(df) {
 }
 
 #' @describeIn util Cast a data.table column; invisibly returns x
-cast_dt_col <- function(x, colname, castfun) {
+cast_dt_col <- function(x, colname, type) {
+  predicate_fn <- switch(
+    type,
+    float = is.numeric,
+    int = is.integer,
+    bool = is.logical,
+    factor = is.factor
+  )
+  if (predicate_fn(x[[colname]])) {
+    return(invisible(x))
+  }
+
+  coercion_fn <- switch(
+    type,
+    float = as.numeric,
+    int = as.integer,
+    bool = as.logical,
+    factor = as.factor
+  )
   data.table::set(
     x = x,
     j = colname,
-    value = castfun(x[[colname]])
+    value = coercion_fn(x[[colname]])
   )
   invisible(x)
 }

@@ -19,7 +19,7 @@ as_lulc_data_t <- function(x) {
       id_period = integer(0)
     )
   }
-  cast_dt_col(x, "id_coord", as.integer)
+  cast_dt_col(x, "id_coord", "int")
   new_evoland_table(
     x,
     "lulc_data_t",

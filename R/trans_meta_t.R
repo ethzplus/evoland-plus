@@ -41,7 +41,8 @@ as_trans_meta_t <- function(x) {
   )
 }
 
-#' @describeIn trans_meta_t Calculate the transition metadata and mark for modelling feasibility
+#' @describeIn trans_meta_t Calculate the transition metadata and mark for modelling
+#' feasibility. Does not attribute `id_trans`; this only makes sense as part of a DB.
 #' @export
 create_trans_meta_t <- function(
   transitions,
@@ -107,9 +108,6 @@ create_trans_meta_t <- function(
       ]
     }
   }
-
-  # Add id_trans
-  trans_summary[, id_trans := .I]
 
   as_trans_meta_t(trans_summary)
 }
