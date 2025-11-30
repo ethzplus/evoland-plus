@@ -343,7 +343,7 @@ db$commit_upsert(test_no_keys, "no_keys_test", key_cols = character(0))
 expect_equal(db$row_count("no_keys_test"), 4L) # Should append
 
 # Test 35: Print method
-output <- capture.output(print(db))
-expect_true(any(grepl("parquet_duckdb", output)))
-expect_true(any(grepl("Database path", output)))
-expect_true(any(grepl("Default format", output)))
+expect_stdout(
+  print(db),
+  "Public methods:|Active bindings:|Format|Compression"
+)
