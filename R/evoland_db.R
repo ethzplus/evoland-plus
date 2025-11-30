@@ -167,7 +167,7 @@ evoland_db <- R6::R6Class(
         where = glue::glue("name = '{names(pred_spec)}'")
       )
 
-      data.table::set(pred_data, j = "id_pred", value = existing_meta[["id_pred"]])
+      data.table::set(pred_data, j = "id_pred", value = as.integer(existing_meta[["id_pred"]]))
       data.table::setcolorder(pred_data, c("id_pred", "id_coord", "id_period", "value"))
 
       self$commit_upsert(
