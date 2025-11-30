@@ -66,46 +66,33 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     stop("No LULC data found. Add lulc_data_t before generating neighbor predictors.")
   }
 
-  neighbors_sample <- self$fetch("neighbors_t", limit = 1)
+  neighbors_sample <- self$fetch("neighbors_t", limit = 0L)
   if (!"distance_class" %in% names(neighbors_sample)) {
     stop(
       "neighbors_t does not have distance_class column. Run $create_neighbors_t() with distance_breaks parameter."
     )
   }
 
-  self$attach_table("neighbors_t")
+  self$attach_table(
+    "neighbors_t",
+    columns = c("id_coord_origin", "id_coord_neighbor", "distance_class")
+  )
   self$attach_table("lulc_data_t")
   self$attach_table("lulc_meta_t")
-
-  has_pred_meta <- self$row_count("pred_meta_t") > 0
-  if (has_pred_meta) {
-    self$attach_table("pred_meta_t")
-  }
 
   on.exit({
     self$detach_table("neighbors_t")
     self$detach_table("lulc_data_t")
     self$detach_table("lulc_meta_t")
-    if (has_pred_meta) self$detach_table("pred_meta_t")
   })
 
-  max_id_query <- if (has_pred_meta) {
-    "(select coalesce(max(id_pred), 0) as max_pred from pred_meta_t)"
-  } else {
-    "(select 0 as max_pred)"
-  }
-
-  # TODO this could possibly be done using the upsert, since it now takes care of the IDs
-  self$execute(glue::glue(
+  n_predictors <- self$execute(
     r"{
-    create temp table pred_meta_neighbors_t as
+    create or replace temp table pred_meta_neighbors_t as
     with
-      all_distance_classes as (select distinct distance_class from neighbors_t),
-      max_id as }",
-    max_id_query,
-    r"{
+      all_distance_classes as (select distinct distance_class from neighbors_t)
     select
-      row_number() over () + (select max_pred from max_id) as id_pred,
+      NULL as id_pred,
       concat('id_lulc_', l.id_lulc, '_dist_', c.distance_class) as name,
       concat('Count of ', l.pretty_name, ' within distance class ', c.distance_class) as pretty_name,
       'Number of neighbors by land use class and distance interval' as description,
@@ -120,19 +107,25 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     cross join
       all_distance_classes c
     }"
-  ))
-
-  pred_meta_neighbors <- self$get_query(
-    "select id_pred, name, pretty_name, description, orig_format, unit
+  )
+  self$execute(
+    "create or replace view pred_meta_upsert_v as 
+     select name, pretty_name, description, orig_format, sources, unit, factor_levels
      from pred_meta_neighbors_t"
   )
 
-  pred_meta_neighbors$sources <- lapply(1:nrow(pred_meta_neighbors), function(i) list())
-  pred_meta_neighbors$factor_levels <- lapply(1:nrow(pred_meta_neighbors), function(i) list())
-
-  self$pred_meta_t <- as_pred_meta_t(pred_meta_neighbors)
-
+  self$attach_table("pred_meta_t")
+  on.exit(self$detach_table("pred_meta_t"), add = TRUE)
   self$execute(
+    r"{
+    update pred_meta_neighbors_t
+    set id_pred = pred_meta_t.id_pred
+    from pred_meta_t
+    where pred_meta_neighbors_t.name = pred_meta_t.name
+    }"
+  )
+
+  n_data_points <- self$execute(
     r"{
     create temp table pred_neighbors_t as
     select
@@ -157,17 +150,11 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     }"
   )
 
-  pred_neighbors <- self$get_query("select * from pred_neighbors_t")
-  pred_neighbors$id_pred <- as.integer(pred_neighbors$id_pred)
-  pred_neighbors$id_coord <- as.integer(pred_neighbors$id_coord)
-  pred_neighbors$id_period <- as.integer(pred_neighbors$id_period)
-  pred_neighbors$value <- as.integer(pred_neighbors$value)
-
-  self$pred_data_t_int <- as_pred_data_t(pred_neighbors, type = "int")
+  self$commit_upsert("pred_neighbors_t", "pred_neighbors_t_int")
 
   message(glue::glue(
-    "Generated {nrow(pred_meta_neighbors)} neighbor predictor variables with ",
-    "{nrow(pred_neighbors)} data points"
+    "Generated {n_predictors} neighbor predictor variables with ",
+    "{n_data_points} data points"
   ))
 
   invisible(self)
