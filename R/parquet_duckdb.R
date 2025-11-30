@@ -246,7 +246,7 @@ parquet_duckdb <- R6::R6Class(
 
     #' @description
     #' Commit data in overwrite mode
-    #' @param x Data frame to commit
+    #' @param x Data frame to commit. If character, in-duckdb-memory table.
     #' @param table_name Character string table name
     #' @param autoincrement_cols Character vector of column names to auto-increment
     #' @param map_cols Character vector of columns to convert to MAP format
@@ -260,10 +260,11 @@ parquet_duckdb <- R6::R6Class(
       file_path <- file.path(self$path, paste0(table_name, ".", self$default_format))
 
       private$register_new_data_v(x, map_cols)
-      on.exit(private$cleanup_new_data_v(map_cols), add = TRUE)
+      on.exit(private$cleanup_new_data_v(), add = TRUE)
+      new_data_names <- private$new_data_names()
 
       # Warn if overriding existing IDs
-      if (length(intersect(autoincrement_cols, names(x))) > 0) {
+      if (length(intersect(autoincrement_cols, new_data_names)) > 0) {
         warning(glue::glue(
           "Overriding existing IDs ({toString(autoincrement_cols)}) with row numbers;\n",
           "Assign these IDs manually and do not pass any autoincrement_cols to avoid this warning"
@@ -271,7 +272,7 @@ parquet_duckdb <- R6::R6Class(
       }
 
       # Build SELECT expression
-      ordinary_cols <- setdiff(names(x), autoincrement_cols)
+      ordinary_cols <- setdiff(new_data_names, autoincrement_cols)
       select_expr <- glue::glue_collapse(
         c(glue::glue("row_number() over () as {autoincrement_cols}"), ordinary_cols),
         sep = ",\n "
@@ -291,7 +292,7 @@ parquet_duckdb <- R6::R6Class(
 
     #' @description
     #' Commit data in append mode
-    #' @param x Data frame to commit
+    #' @param x Data frame to commit. If character, in-duckdb-memory table.
     #' @param table_name Character string table name
     #' @param autoincrement_cols Character vector of column names to auto-increment
     #' @param map_cols Character vector of columns to convert to MAP format
@@ -313,9 +314,10 @@ parquet_duckdb <- R6::R6Class(
       private$set_autoincrement_vars(table_name, autoincrement_cols)
 
       private$register_new_data_v(x, map_cols)
-      on.exit(private$cleanup_new_data_v(map_cols), add = TRUE)
+      on.exit(private$cleanup_new_data_v(), add = TRUE)
+      new_data_names <- private$get_new_data_names()
 
-      ordinary_cols <- setdiff(names(x), autoincrement_cols)
+      ordinary_cols <- setdiff(new_data_names, autoincrement_cols)
       select_new <- glue::glue_collapse(
         c(
           glue::glue(
@@ -344,16 +346,17 @@ parquet_duckdb <- R6::R6Class(
 
     #' @description
     #' Commit data in upsert mode (update existing, insert new)
-    #' @param x Data frame to commit
+    #' @param x Data frame to commit. If character, in-duckdb-memory table.
     #' @param table_name Character string table name
-    #' @param key_cols Character vector of columns that define uniqueness
+    #' @param key_cols Character vector of columns that define uniqueness. If missing,
+    #' use all columns starting with `id_`
     #' @param autoincrement_cols Character vector of column names to auto-increment
     #' @param map_cols Character vector of columns to convert to MAP format
     #' @return Invisible NULL (called for side effects)
     commit_upsert = function(
       x,
       table_name,
-      key_cols = grep("^id_", names(x), value = TRUE),
+      key_cols,
       autoincrement_cols = character(0),
       map_cols = character(0)
     ) {
@@ -361,8 +364,6 @@ parquet_duckdb <- R6::R6Class(
 
       if (!file_info$exists) {
         return(self$commit_overwrite(x, table_name, autoincrement_cols, map_cols))
-      } else if (length(key_cols) == 0) {
-        return(self$commit_append(x, table_name, autoincrement_cols, map_cols))
       }
 
       self$attach_table(table_name)
@@ -371,10 +372,17 @@ parquet_duckdb <- R6::R6Class(
       private$set_autoincrement_vars(table_name, autoincrement_cols)
 
       private$register_new_data_v(x, map_cols)
-      on.exit(private$cleanup_new_data_v(map_cols), add = TRUE)
+      on.exit(private$cleanup_new_data_v(), add = TRUE)
+      new_data_names <- private$new_data_names()
+      if (missing(key_cols)) {
+        key_cols <- grep("^id_", new_data_names, value = TRUE)
+      }
+      if (length(key_cols) == 0) {
+        return(self$commit_append(x, table_name, autoincrement_cols, map_cols))
+      }
 
       # Update existing data
-      ordinary_cols <- setdiff(names(x), union(key_cols, autoincrement_cols))
+      ordinary_cols <- setdiff(new_data_names, union(key_cols, autoincrement_cols))
       update_select_expr <- glue::glue_collapse(
         glue::glue("{ordinary_cols} = new_data_v.{ordinary_cols}"),
         sep = ",\n "
@@ -400,7 +408,7 @@ parquet_duckdb <- R6::R6Class(
           glue::glue(
             "row_number() over () + getvariable('max_{autoincrement_cols}') as {autoincrement_cols}"
           ),
-          glue::glue("new_data_v.{setdiff(names(x), autoincrement_cols)}")
+          glue::glue("new_data_v.{setdiff(new_data_names, autoincrement_cols)}")
         ),
         sep = ",\n "
       )
@@ -567,6 +575,12 @@ parquet_duckdb <- R6::R6Class(
     # @param map_cols Character vector of columns to convert to MAP format
     # @return NULL (called for side effects)
     register_new_data_v = function(x, map_cols = character(0)) {
+      if (is.character(x)) {
+        # TODO add tests
+        self$execute(glue::glue("create view new_data_v as from {x}"))
+        return(invisible(NULL))
+      }
+
       if (length(map_cols) == 0) {
         # No MAP conversion needed - register directly
         duckdb::duckdb_register(self$connection, "new_data_v", x)
@@ -598,18 +612,20 @@ parquet_duckdb <- R6::R6Class(
     #
     # @param map_cols Character vector indicating if MAP conversion was used
     # @return NULL (called for side effects)
-    cleanup_new_data_v = function(map_cols = character(0)) {
-      if (length(map_cols) == 0) {
-        duckdb::duckdb_unregister(self$connection, "new_data_v")
-      } else {
-        self$execute(
-          "drop table if exists new_data_v;
+    cleanup_new_data_v = function() {
+      duckdb::duckdb_unregister(self$connection, "new_data_v")
+      duckdb::duckdb_unregister(self$connection, "new_data_raw")
+      self$execute(
+        "drop table if exists new_data_v;
           drop view if exists new_data_v"
-        )
-        duckdb::duckdb_unregister(self$connection, "new_data_raw")
-      }
+      )
 
       invisible(NULL)
+    },
+
+    # Get the names of the current new_data_v
+    new_data_names = function() {
+      self$get_query("select column_name from (describe new_data_v)")[[1]]
     },
 
     # Set DuckDB variables max_{colname} for autoincrement columns
