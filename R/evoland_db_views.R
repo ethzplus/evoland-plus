@@ -103,17 +103,19 @@ evoland_db$set("active", "coords_minimal", function() {
 
 # get transitions along with their predictor data in a wide data.table
 # id_trans - integer transition ID
+# id_pred - optional integer vector of predictor IDs to include (NULL = all predictors)
 # na_value - if not NA, replace all NULL/NA predictor values with this value
-evoland_db$set("public", "trans_pred_data_v", function(id_trans, na_value = NA) {
+evoland_db$set("public", "trans_pred_data_v", function(id_trans, id_pred = NULL, na_value = NA) {
   stopifnot(
-    "id_trans must be a single integer" = length(id_trans) == 1L && is.numeric(id_trans)
+    "id_trans must be a single integer" = length(id_trans) == 1L && is.numeric(id_trans),
+    "id_pred must be NULL or a numeric vector" = is.null(id_pred) || is.numeric(id_pred)
   )
 
   all_tables <- self$list_tables()
   pred_tables <- c("pred_data_t_float", "pred_data_t_int", "pred_data_t_bool")
   existing_pred_tables <- intersect(pred_tables, all_tables)
 
-  tables_to_attach <- c("trans_meta_t", "lulc_data_t", "pred_meta_t", existing_pred_tables)
+  tables_to_attach <- c("trans_meta_t", "lulc_data_t", existing_pred_tables)
 
   self$with_tables(
     tables_to_attach,
@@ -151,17 +153,26 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans, na_value = NA) 
         )"
       )
 
+      pred_filter <- ""
+      if (!is.null(id_pred)) {
+        pred_filter <- glue::glue(" AND id_pred IN ({toString(id_pred)})")
+      }
+
       if ("pred_data_t_float" %in% existing_pred_tables) {
-        ctes$pred_float_combined <- "pred_float_combined AS (
+        ctes$pred_float_combined <- glue::glue(
+          "pred_float_combined AS (
           SELECT id_coord, id_period, id_pred, value
           FROM pred_data_t_float
           WHERE id_period >= 1
+            {pred_filter}
           UNION ALL
           SELECT p0.id_coord, periods.id_period, p0.id_pred, p0.value
           FROM pred_data_t_float AS p0
           CROSS JOIN (SELECT DISTINCT id_period FROM trans_result WHERE id_period >= 1) AS periods
           WHERE p0.id_period = 0
+            {pred_filter}
         )"
+        )
 
         ctes$pred_float_wide <- "pred_float_wide AS (
           PIVOT pred_float_combined ON id_pred USING FIRST(value) GROUP BY id_coord, id_period
@@ -169,16 +180,20 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans, na_value = NA) 
       }
 
       if ("pred_data_t_int" %in% existing_pred_tables) {
-        ctes$pred_int_combined <- "pred_int_combined AS (
+        ctes$pred_int_combined <- glue::glue(
+          "pred_int_combined AS (
           SELECT id_coord, id_period, id_pred, value
           FROM pred_data_t_int
           WHERE id_period >= 1
+            {pred_filter}
           UNION ALL
           SELECT p0.id_coord, periods.id_period, p0.id_pred, p0.value
           FROM pred_data_t_int AS p0
           CROSS JOIN (SELECT DISTINCT id_period FROM trans_result WHERE id_period >= 1) AS periods
           WHERE p0.id_period = 0
+            {pred_filter}
         )"
+        )
 
         ctes$pred_int_wide <- "pred_int_wide AS (
           PIVOT pred_int_combined ON id_pred USING FIRST(value) GROUP BY id_coord, id_period
@@ -186,16 +201,20 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans, na_value = NA) 
       }
 
       if ("pred_data_t_bool" %in% existing_pred_tables) {
-        ctes$pred_bool_combined <- "pred_bool_combined AS (
+        ctes$pred_bool_combined <- glue::glue(
+          "pred_bool_combined AS (
           SELECT id_coord, id_period, id_pred, value
           FROM pred_data_t_bool
           WHERE id_period >= 1
+            {pred_filter}
           UNION ALL
           SELECT p0.id_coord, periods.id_period, p0.id_pred, p0.value
           FROM pred_data_t_bool AS p0
           CROSS JOIN (SELECT DISTINCT id_period FROM trans_result WHERE id_period >= 1) AS periods
           WHERE p0.id_period = 0
+            {pred_filter}
         )"
+        )
 
         ctes$pred_bool_wide <- "pred_bool_wide AS (
           PIVOT pred_bool_combined ON id_pred USING FIRST(value) GROUP BY id_coord, id_period
@@ -217,23 +236,23 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans, na_value = NA) 
       if ("pred_data_t_float" %in% existing_pred_tables) {
         joins <- paste0(
           joins,
-          "\n        LEFT JOIN pred_float_wide AS pf ON tr.id_coord = pf.id_coord AND tr.id_period = pf.id_period"
+          "\n LEFT JOIN pred_float_wide AS pf ON tr.id_coord = pf.id_coord AND tr.id_period = pf.id_period"
         )
       }
       if ("pred_data_t_int" %in% existing_pred_tables) {
         joins <- paste0(
           joins,
-          "\n        LEFT JOIN pred_int_wide AS pi ON tr.id_coord = pi.id_coord AND tr.id_period = pi.id_period"
+          "\n LEFT JOIN pred_int_wide AS pi ON tr.id_coord = pi.id_coord AND tr.id_period = pi.id_period"
         )
       }
       if ("pred_data_t_bool" %in% existing_pred_tables) {
         joins <- paste0(
           joins,
-          "\n        LEFT JOIN pred_bool_wide AS pb ON tr.id_coord = pb.id_coord AND tr.id_period = pb.id_period"
+          "\n LEFT JOIN pred_bool_wide AS pb ON tr.id_coord = pb.id_coord AND tr.id_period = pb.id_period"
         )
       }
 
-      cte_string <- paste(unlist(ctes), collapse = ",\n\n        ")
+      cte_string <- paste(unlist(ctes), collapse = ",\n\n ")
 
       query <- glue::glue(
         "WITH {cte_string}
