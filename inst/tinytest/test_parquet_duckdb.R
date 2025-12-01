@@ -29,14 +29,18 @@ expect_equal(nrow(result), 0L)
 # Test 4: Row count for non-existent table
 expect_equal(db$row_count("nonexistent_table"), 0L)
 
-# Test 5: commit_overwrite creates new table
+# Test 5: commit overwrite creates new table
 test_data_1 <- data.table::data.table(
   id = 1:5,
   name = letters[1:5],
   value = c(10.1, 20.2, 30.3, 40.4, 50.5)
 )
 expect_silent(
-  db$commit_overwrite(test_data_1, "test_table_1")
+  db$commit(
+    method = "overwrite",
+    test_data_1,
+    "test_table_1"
+  )
 )
 expect_true("test_table_1" %in% db$list_tables())
 expect_equal(db$row_count("test_table_1"), 5L)
@@ -45,60 +49,64 @@ expect_equal(db$row_count("test_table_1"), 5L)
 retrieved <- db$fetch("test_table_1")
 expect_equal(retrieved, test_data_1)
 
-# Test 7: commit_overwrite replaces existing data
+# Test 7: commit overwrite replaces existing data
 test_data_1b <- data.table::data.table(
   id = 10:12,
   name = letters[24:26],
   value = c(100.1, 200.2, 300.3)
 )
 expect_silent(
-  db$commit_overwrite(test_data_1b, "test_table_1")
+  db$commit(
+    method = "overwrite",
+    test_data_1b,
+    "test_table_1"
+  )
 )
 expect_equal(db$row_count("test_table_1"), 3L)
 retrieved <- db$fetch("test_table_1")
 expect_equal(retrieved, test_data_1b)
 
-# Test 8: commit_append adds to existing data
+# Test 8: commit append adds to existing data
 test_data_1c <- data.table::data.table(
   id = 13:15,
   name = letters[1:3],
   value = c(111.1, 222.2, 333.3)
 )
 expect_silent(
-  db$commit_append(test_data_1c, "test_table_1")
+  db$commit(test_data_1c, "test_table_1", method = "append")
 )
 expect_equal(db$row_count("test_table_1"), 6L)
 retrieved <- db$fetch("test_table_1")
 expect_equal(nrow(retrieved), 6L)
 expect_true(all(c(10:15) %in% retrieved$id))
 
-# Test 9: commit_append on non-existent table creates it
+# Test 9: commit append on non-existent table creates it
 expect_silent(
-  db$commit_append(test_data_1, "test_table_2")
+  db$commit(test_data_1, "test_table_2", method = "append")
 )
 expect_true("test_table_2" %in% db$list_tables())
 expect_equal(db$row_count("test_table_2"), 5L)
 
-# Test 10: commit_upsert on non-existent table creates it
+# Test 10: commit w/ upsert on non-existent table creates it
 test_data_3 <- data.table::data.table(
   id_key = 1:3,
   name = c("a", "b", "c"),
   value = c(1.1, 2.2, 3.3)
 )
 expect_silent(
-  db$commit_upsert(test_data_3, "test_table_3", key_cols = "id_key")
+  db$commit(test_data_3, "test_table_3", key_cols = "id_key", method = "upsert")
 )
 expect_true("test_table_3" %in% db$list_tables())
 expect_equal(db$row_count("test_table_3"), 3L)
 
-# Test 11: commit_upsert updates existing rows and inserts new ones
+# Test 11: commit w/ upsert updates existing rows and inserts new ones
 test_data_3b <- data.table::data.table(
   id_key = c(2L, 3L, 4L),
   name = c("b_updated", "c_updated", "d"),
   value = c(22.2, 33.3, 44.4)
 )
 expect_silent(
-  db$commit_upsert(test_data_3b, "test_table_3", key_cols = "id_key")
+  db$commit(test_data_3b, "test_table_3", key_cols = "id_key", method = "upsert")
 )
 expect_equal(db$row_count("test_table_3"), 4L)
 retrieved <- db$fetch("test_table_3")
@@ -130,7 +138,11 @@ retrieved <- db$fetch("test_table_3")
 expect_false(1L %in% retrieved$id_key)
 
 # Test 16: delete_from with complex WHERE
-db$commit_overwrite(test_data_1, "test_table_4")
+db$commit(
+  method = "overwrite",
+  test_data_1,
+  "test_table_4"
+)
 deleted_count <- db$delete_from("test_table_4", where = "id < 3")
 expect_equal(deleted_count, 2L)
 retrieved <- db$fetch("test_table_4")
@@ -147,7 +159,11 @@ deleted_count <- db$delete_from("nonexistent", where = "id = 1")
 expect_equal(deleted_count, 0L)
 
 # Test 19: delete_from with WHERE that matches nothing
-db$commit_overwrite(test_data_1, "test_table_5")
+db$commit(
+  method = "overwrite",
+  test_data_1,
+  "test_table_5"
+)
 initial_count <- db$row_count("test_table_5")
 deleted_count <- db$delete_from("test_table_5", where = "id = 999")
 expect_equal(deleted_count, 0L)
@@ -158,7 +174,8 @@ test_autoinc_1 <- data.table::data.table(
   name = c("item_a", "item_b", "item_c"),
   value = c(10, 20, 30)
 )
-db$commit_overwrite(
+db$commit(
+  method = "overwrite",
   test_autoinc_1,
   "test_autoinc_1",
   autoincrement_cols = "id"
@@ -172,10 +189,11 @@ test_autoinc_2 <- data.table::data.table(
   name = c("item_d", "item_e"),
   value = c(40, 50)
 )
-db$commit_append(
+db$commit(
   test_autoinc_2,
   "test_autoinc_1",
-  autoincrement_cols = "id"
+  autoincrement_cols = "id",
+  method = "append"
 )
 result <- db$fetch("test_autoinc_1")
 expect_equal(nrow(result), 5L)
@@ -187,10 +205,11 @@ test_autoinc_3 <- data.table::data.table(
   name = c("item_f", "item_g"),
   value = c(60, 70)
 )
-db$commit_upsert(
+db$commit(
   test_autoinc_3,
   "test_autoinc_1",
-  autoincrement_cols = "id"
+  autoincrement_cols = "id",
+  method = "upsert"
 )
 result <- db$fetch("test_autoinc_1")
 expect_equal(nrow(result), 7L)
@@ -203,7 +222,8 @@ test_autoinc_with_ids <- data.table::data.table(
   value = c(1, 2, 3)
 )
 expect_warning(
-  db$commit_overwrite(
+  db$commit(
+    method = "overwrite",
     test_autoinc_with_ids,
     "test_autoinc_2",
     autoincrement_cols = "id"
@@ -218,7 +238,8 @@ test_multi_autoinc <- data.table::data.table(
   name = c("item1", "item2"),
   value = c(10, 20)
 )
-db$commit_overwrite(
+db$commit(
+  method = "overwrite",
   test_multi_autoinc,
   "test_multi_autoinc",
   autoincrement_cols = c("id_a", "id_b")
@@ -232,15 +253,20 @@ test_continue_a <- data.table::data.table(
   id_seq = c(5L, 10L, 15L),
   value = c(100, 200, 300)
 )
-db$commit_overwrite(test_continue_a, "test_continue")
+db$commit(
+  method = "overwrite",
+  test_continue_a,
+  "test_continue"
+)
 
 test_continue_b <- data.table::data.table(
   value = c(400, 500)
 )
-db$commit_append(
+db$commit(
   test_continue_b,
   "test_continue",
-  autoincrement_cols = "id_seq"
+  autoincrement_cols = "id_seq",
+  method = "append"
 )
 result <- db$fetch("test_continue")
 expect_equal(nrow(result), 5L)
@@ -248,7 +274,11 @@ expect_equal(result$id_seq[4:5], c(16L, 17L))
 expect_equal(result$value[4:5], c(400, 500))
 
 # Test 26: attach_table and detach_table
-db$commit_overwrite(test_data_1, "test_attach")
+db$commit(
+  method = "overwrite",
+  test_data_1,
+  "test_attach"
+)
 expect_silent(db$attach_table("test_attach"))
 # Verify table is attached by querying it directly
 result <- db$get_query("SELECT COUNT(*) as n FROM test_attach")
@@ -302,7 +332,7 @@ test_csv_data <- data.table::data.table(
   id = 1:3,
   name = c("a", "b", "c")
 )
-db_csv$commit_overwrite(test_csv_data, "csv_table")
+db_csv$commit(test_csv_data, "csv_table", method = "overwrite")
 expect_true("csv_table" %in% db_csv$list_tables())
 retrieved <- db_csv$fetch("csv_table")
 expect_equal(retrieved, test_csv_data)
@@ -321,7 +351,11 @@ expect_silent(
 )
 
 # Test 33: Persistence across connections
-db$commit_overwrite(test_data_1, "persist_test")
+db$commit(
+  method = "overwrite",
+  test_data_1,
+  "persist_test"
+)
 rm(db)
 gc()
 
@@ -331,15 +365,24 @@ expect_true("persist_test" %in% db$list_tables())
 retrieved <- db$fetch("persist_test")
 expect_equal(retrieved, test_data_1)
 
-# Test 34: commit_upsert with no key_cols defaults to append
+# Test 34: commit with no key_cols defaults to append
 test_no_keys <- data.table::data.table(
   name = c("x", "y"),
   value = c(1, 2)
 )
-db$commit_overwrite(test_no_keys, "no_keys_test")
+db$commit(
+  method = "overwrite",
+  test_no_keys,
+  "no_keys_test"
+)
 expect_equal(db$row_count("no_keys_test"), 2L)
 
-db$commit_upsert(test_no_keys, "no_keys_test", key_cols = character(0))
+db$commit(
+  test_no_keys,
+  "no_keys_test",
+  key_cols = character(0),
+  method = "upsert"
+)
 expect_equal(db$row_count("no_keys_test"), 4L) # Should append
 
 # Test 35: Print method

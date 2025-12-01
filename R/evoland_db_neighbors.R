@@ -43,9 +43,10 @@ evoland_db$set(
       resolution = resolution
     )
 
-    self$commit_overwrite(
+    self$commit(
       as_neighbors_t(neighbors),
-      table_name = "neighbors_t"
+      table_name = "neighbors_t",
+      method = "overwrite"
     )
 
     message(glue::glue("Computed {nrow(neighbors)} neighbor relationships"))
@@ -150,7 +151,7 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     }"
   )
 
-  self$commit_upsert("pred_neighbors_t", "pred_neighbors_t_int")
+  self$commit("pred_neighbors_t", "pred_neighbors_t_int", method = "upsert")
 
   message(glue::glue(
     "Generated {n_predictors} neighbor predictor variables with ",

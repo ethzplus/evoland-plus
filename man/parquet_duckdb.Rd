@@ -35,9 +35,7 @@ domain-specific database classes.
 \item \href{#method-parquet_duckdb-with_tables}{\code{parquet_duckdb$with_tables()}}
 \item \href{#method-parquet_duckdb-fetch}{\code{parquet_duckdb$fetch()}}
 \item \href{#method-parquet_duckdb-delete_from}{\code{parquet_duckdb$delete_from()}}
-\item \href{#method-parquet_duckdb-commit_overwrite}{\code{parquet_duckdb$commit_overwrite()}}
-\item \href{#method-parquet_duckdb-commit_append}{\code{parquet_duckdb$commit_append()}}
-\item \href{#method-parquet_duckdb-commit_upsert}{\code{parquet_duckdb$commit_upsert()}}
+\item \href{#method-parquet_duckdb-commit}{\code{parquet_duckdb$commit()}}
 \item \href{#method-parquet_duckdb-print}{\code{parquet_duckdb$print()}}
 \item \href{#method-parquet_duckdb-clone}{\code{parquet_duckdb$clone()}}
 }
@@ -260,94 +258,38 @@ Number of rows deleted
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-parquet_duckdb-commit_overwrite"></a>}}
-\if{latex}{\out{\hypertarget{method-parquet_duckdb-commit_overwrite}{}}}
-\subsection{Method \code{commit_overwrite()}}{
-Commit data in overwrite mode
+\if{html}{\out{<a id="method-parquet_duckdb-commit"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_duckdb-commit}{}}}
+\subsection{Method \code{commit()}}{
+Commit data using overwrite, append, or upsert modes. Handles autoincrement, key
+identity columns, and list-to-MAP conversion.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$commit_overwrite(
+\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$commit(
   x,
   table_name,
+  key_cols,
   autoincrement_cols = character(0),
-  map_cols = character(0)
+  map_cols = character(0),
+  method = c("overwrite", "append", "upsert")
 )}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{x}}{Data frame to commit}
+\item{\code{x}}{Data frame to commit. If character, in-duckdb-memory table.}
 
 \item{\code{table_name}}{Character string table name}
+
+\item{\code{key_cols}}{Character vector of columns that define uniqueness. If missing,
+use all columns starting with \code{id_}}
 
 \item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
 
 \item{\code{map_cols}}{Character vector of columns to convert to MAP format}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Invisible NULL (called for side effects)
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-parquet_duckdb-commit_append"></a>}}
-\if{latex}{\out{\hypertarget{method-parquet_duckdb-commit_append}{}}}
-\subsection{Method \code{commit_append()}}{
-Commit data in append mode
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$commit_append(
-  x,
-  table_name,
-  autoincrement_cols = character(0),
-  map_cols = character(0)
-)}\if{html}{\out{</div>}}
-}
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{x}}{Data frame to commit}
-
-\item{\code{table_name}}{Character string table name}
-
-\item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
-
-\item{\code{map_cols}}{Character vector of columns to convert to MAP format}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Invisible NULL (called for side effects)
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-parquet_duckdb-commit_upsert"></a>}}
-\if{latex}{\out{\hypertarget{method-parquet_duckdb-commit_upsert}{}}}
-\subsection{Method \code{commit_upsert()}}{
-Commit data in upsert mode (update existing, insert new)
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$commit_upsert(
-  x,
-  table_name,
-  key_cols = grep("^id_", names(x), value = TRUE),
-  autoincrement_cols = character(0),
-  map_cols = character(0)
-)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{x}}{Data frame to commit}
-
-\item{\code{table_name}}{Character string table name}
-
-\item{\code{key_cols}}{Character vector of columns that define uniqueness}
-
-\item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
-
-\item{\code{map_cols}}{Character vector of columns to convert to MAP format}
+\item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
+update for existing rows, and insert for new rows)}
 }
 \if{html}{\out{</div>}}
 }
@@ -373,6 +315,23 @@ Print method for parquet_duckdb
 }
 \subsection{Returns}{
 self (invisibly)
+param x Data frame to commit. If character, in-duckdb-memory table.
+param table_name Character string table name
+param autoincrement_cols Character vector of column names to auto-increment
+param map_cols Character vector of columns to convert to MAP format
+return Invisible NULL (called for side effects)
+param x Data frame to commit. If character, in-duckdb-memory table.
+param table_name Character string table name
+param autoincrement_cols Character vector of column names to auto-increment
+param map_cols Character vector of columns to convert to MAP format
+return Invisible NULL (called for side effects)
+param x Data frame to commit. If character, in-duckdb-memory table.
+param table_name Character string table name
+param key_cols Character vector of columns that define uniqueness. If missing,
+use all columns starting with \code{id_}
+param autoincrement_cols Character vector of column names to auto-increment
+param map_cols Character vector of columns to convert to MAP format
+return Invisible NULL (called for side effects)
 }
 }
 \if{html}{\out{<hr>}}

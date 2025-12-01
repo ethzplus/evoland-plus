@@ -50,12 +50,13 @@ create_table_binding <- function(
 
     stopifnot(inherits(x, table_name))
 
-    self$commit_upsert(
+    self$commit(
       x,
       table_name = table_name,
       key_cols = key_cols,
       autoincrement_cols = autoincrement_cols,
-      map_cols = map_cols
+      map_cols = map_cols,
+      method = "upsert"
     )
   }
 }

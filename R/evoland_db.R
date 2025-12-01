@@ -98,13 +98,14 @@ evoland_db <- R6::R6Class(
       params[["last_opened"]] <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
       params[["last_opened_username"]] <- Sys.getenv("USER", unset = "unknown")
 
-      self$commit_upsert(
+      self$commit(
         data.table::as.data.table(list(
           key = names(params), # cannot name a column "key" in data.table()
           value = unlist(params)
         )),
         table_name = "reporting_t",
-        key_cols = "key"
+        key_cols = "key",
+        method = "upsert"
       )
     },
 
@@ -123,7 +124,7 @@ evoland_db <- R6::R6Class(
         function(x) stop("Unsupported coordinate type specified.")
       )
 
-      self$commit_overwrite(as_coords_t(create_fun(...)), "coords_t")
+      self$commit(as_coords_t(create_fun(...)), "coords_t", method = "overwrite")
     },
 
     #' @description
@@ -144,7 +145,7 @@ evoland_db <- R6::R6Class(
         return(invisible(NULL))
       }
 
-      self$commit_append(
+      self$commit(
         do.call(create_periods_t, as.list(environment())),
         "periods_t"
       )
@@ -170,9 +171,10 @@ evoland_db <- R6::R6Class(
       data.table::set(pred_data, j = "id_pred", value = as.integer(existing_meta[["id_pred"]]))
       data.table::setcolorder(pred_data, c("id_pred", "id_coord", "id_period", "value"))
 
-      self$commit_upsert(
+      self$commit(
         as_pred_data_t(pred_data, pred_type),
-        paste0("pred_data_t_", pred_type)
+        paste0("pred_data_t_", pred_type),
+        method = "upsert"
       )
     }
   )

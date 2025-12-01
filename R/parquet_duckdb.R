@@ -104,7 +104,6 @@ parquet_duckdb <- R6::R6Class(
         sql <- glue::glue("{sql} where {where}")
       }
 
-      # Execute SQL
       self$execute(sql)
       invisible(NULL)
     },
@@ -242,201 +241,72 @@ parquet_duckdb <- R6::R6Class(
       return(count_before - count_after)
     },
 
-    ### Commit Methods ----
-
     #' @description
-    #' Commit data in overwrite mode
-    #' @param x Data frame to commit. If character, in-duckdb-memory table.
-    #' @param table_name Character string table name
-    #' @param autoincrement_cols Character vector of column names to auto-increment
-    #' @param map_cols Character vector of columns to convert to MAP format
-    #' @return Invisible NULL (called for side effects)
-    commit_overwrite = function(
-      x,
-      table_name,
-      autoincrement_cols = character(0),
-      map_cols = character(0)
-    ) {
-      file_path <- file.path(self$path, paste0(table_name, ".", self$default_format))
-
-      private$register_new_data_v(x, map_cols)
-      on.exit(private$cleanup_new_data_v(), add = TRUE)
-      new_data_names <- private$new_data_names()
-
-      # Warn if overriding existing IDs
-      if (length(intersect(autoincrement_cols, new_data_names)) > 0) {
-        warning(glue::glue(
-          "Overriding existing IDs ({toString(autoincrement_cols)}) with row numbers;\n",
-          "Assign these IDs manually and do not pass any autoincrement_cols to avoid this warning"
-        ))
-      }
-
-      # Build SELECT expression
-      ordinary_cols <- setdiff(new_data_names, autoincrement_cols)
-      select_expr <- glue::glue_collapse(
-        c(glue::glue("row_number() over () as {autoincrement_cols}"), ordinary_cols),
-        sep = ",\n "
-      )
-
-      self$execute(glue::glue(
-        r"{
-        copy (
-          select {select_expr}
-          from new_data_v
-        ) to '{file_path}' ({self$writeopts})
-        }"
-      ))
-
-      invisible(NULL)
-    },
-
-    #' @description
-    #' Commit data in append mode
-    #' @param x Data frame to commit. If character, in-duckdb-memory table.
-    #' @param table_name Character string table name
-    #' @param autoincrement_cols Character vector of column names to auto-increment
-    #' @param map_cols Character vector of columns to convert to MAP format
-    #' @return Invisible NULL (called for side effects)
-    commit_append = function(
-      x,
-      table_name,
-      autoincrement_cols = character(0),
-      map_cols = character(0)
-    ) {
-      file_info <- private$get_file_path(table_name)
-
-      if (!file_info$exists) {
-        return(self$commit_overwrite(x, table_name, autoincrement_cols, map_cols))
-      }
-
-      self$attach_table(table_name)
-      on.exit(self$detach_table(table_name), add = TRUE)
-      private$set_autoincrement_vars(table_name, autoincrement_cols)
-
-      private$register_new_data_v(x, map_cols)
-      on.exit(private$cleanup_new_data_v(), add = TRUE)
-      new_data_names <- private$get_new_data_names()
-
-      ordinary_cols <- setdiff(new_data_names, autoincrement_cols)
-      select_new <- glue::glue_collapse(
-        c(
-          glue::glue(
-            "row_number() over () + getvariable('max_{autoincrement_cols}') as {autoincrement_cols}"
-          ),
-          ordinary_cols
-        ),
-        sep = ",\n "
-      )
-
-      # Concatenation using UNION ALL; "by name" handles missing columns
-      self$execute(glue::glue(
-        r"{
-          copy (
-            select * from {table_name}
-            union all by name
-            select {select_new}
-            from new_data_v
-          )
-          to '{file_info$path}' ({self$writeopts})
-          }"
-      ))
-
-      invisible(NULL)
-    },
-
-    #' @description
-    #' Commit data in upsert mode (update existing, insert new)
+    #' Commit data using overwrite, append, or upsert modes. Handles autoincrement, key
+    #' identity columns, and list-to-MAP conversion.
     #' @param x Data frame to commit. If character, in-duckdb-memory table.
     #' @param table_name Character string table name
     #' @param key_cols Character vector of columns that define uniqueness. If missing,
     #' use all columns starting with `id_`
     #' @param autoincrement_cols Character vector of column names to auto-increment
     #' @param map_cols Character vector of columns to convert to MAP format
+    #' @param method Character, one of "overwrite", "append", "upsert" (upsert being an
+    #' update for existing rows, and insert for new rows)
     #' @return Invisible NULL (called for side effects)
-    commit_upsert = function(
+    commit = function(
       x,
       table_name,
       key_cols,
       autoincrement_cols = character(0),
-      map_cols = character(0)
+      map_cols = character(0),
+      method = c("overwrite", "append", "upsert")
     ) {
+      method <- match.arg(method)
+
+      private$register_new_data_v(x, map_cols)
+      on.exit(private$cleanup_new_data_v(), add = TRUE)
+      all_cols <- self$get_query(
+        "select column_name from (describe new_data_v)"
+      )[[1]]
+
       file_info <- private$get_file_path(table_name)
 
-      if (!file_info$exists) {
-        return(self$commit_overwrite(x, table_name, autoincrement_cols, map_cols))
+      if (method == "overwrite" || !file_info$exists) {
+        # in case overwrite explicitly required, or no previously existing data to
+        # append or upsert to; rest of logic can be skipped
+        return(private$commit_overwrite(
+          table_name = table_name,
+          all_cols = all_cols,
+          autoincrement_cols = autoincrement_cols,
+          file_info = file_info
+        ))
       }
 
       self$attach_table(table_name)
       on.exit(self$detach_table(table_name), add = TRUE)
-
       private$set_autoincrement_vars(table_name, autoincrement_cols)
 
-      private$register_new_data_v(x, map_cols)
-      on.exit(private$cleanup_new_data_v(), add = TRUE)
-      new_data_names <- private$new_data_names()
       if (missing(key_cols)) {
-        key_cols <- grep("^id_", new_data_names, value = TRUE)
-      }
-      if (length(key_cols) == 0) {
-        return(self$commit_append(x, table_name, autoincrement_cols, map_cols))
+        key_cols <- grep("^id_", all_cols, value = TRUE)
       }
 
-      # Update existing data
-      ordinary_cols <- setdiff(new_data_names, union(key_cols, autoincrement_cols))
-      update_select_expr <- glue::glue_collapse(
-        glue::glue("{ordinary_cols} = new_data_v.{ordinary_cols}"),
-        sep = ",\n "
-      )
-      update_join_condition <- glue::glue_collapse(
-        glue::glue("{table_name}.{key_cols} = new_data_v.{key_cols}"),
-        sep = "\nand "
-      )
-
-      self$execute(glue::glue(
-        r"{
-        update {table_name} set
-          {update_select_expr}
-        from new_data_v
-        where
-          {update_join_condition};
-        }"
-      ))
-
-      # Insert new data
-      insert_select_expr <- glue::glue_collapse(
-        c(
-          glue::glue(
-            "row_number() over () + getvariable('max_{autoincrement_cols}') as {autoincrement_cols}"
-          ),
-          glue::glue("new_data_v.{setdiff(new_data_names, autoincrement_cols)}")
-        ),
-        sep = ",\n "
-      )
-      null_condition <- glue::glue_collapse(
-        glue::glue("{table_name}.{key_cols} is null"),
-        sep = "\nand "
-      )
-
-      self$execute(glue::glue(
-        r"{
-        insert into {table_name}
-        select
-          {insert_select_expr}
-        from
-          new_data_v
-        left join
-          {table_name}
-        on
-          {update_join_condition}
-        where
-          {null_condition}
-        ;
-        }"
-      ))
-
-      self$execute(glue::glue("copy {table_name} to '{file_info$path}' ({self$writeopts})"))
-
-      invisible(NULL)
+      if (method == "append" || length(key_cols) == 0L) {
+        # if there are no key columns to join on, upsert becomes append
+        private$commit_append(
+          table_name = table_name,
+          all_cols = all_cols,
+          autoincrement_cols = autoincrement_cols,
+          file_info = file_info
+        )
+      } else {
+        private$commit_upsert(
+          table_name = table_name,
+          all_cols = all_cols,
+          key_cols = key_cols,
+          autoincrement_cols = autoincrement_cols,
+          file_info = file_info
+        )
+      }
     },
 
     #' @description
@@ -542,6 +412,149 @@ parquet_duckdb <- R6::R6Class(
       }
     },
 
+    ### Commit Methods ----
+    #' param x Data frame to commit. If character, in-duckdb-memory table.
+    #' param table_name Character string table name
+    #' param autoincrement_cols Character vector of column names to auto-increment
+    #' param map_cols Character vector of columns to convert to MAP format
+    #' return Invisible NULL (called for side effects)
+    commit_overwrite = function(
+      table_name,
+      all_cols,
+      autoincrement_cols = character(0),
+      file_info
+    ) {
+      # Warn if overriding existing IDs
+      if (length(intersect(autoincrement_cols, all_cols)) > 0) {
+        warning(glue::glue(
+          "Overriding existing IDs ({toString(autoincrement_cols)}) with row numbers;\n",
+          "Assign these IDs manually and do not pass any autoincrement_cols to avoid this warning"
+        ))
+      }
+
+      # Build SELECT expression
+      ordinary_cols <- setdiff(all_cols, autoincrement_cols)
+      select_expr <- glue::glue_collapse(
+        c(glue::glue("row_number() over () as {autoincrement_cols}"), ordinary_cols),
+        sep = ",\n "
+      )
+
+      self$execute(glue::glue(
+        r"{
+        copy (
+          select {select_expr}
+          from new_data_v
+        ) to '{file_info$path}' ({self$writeopts})
+        }"
+      ))
+    },
+
+    #' param x Data frame to commit. If character, in-duckdb-memory table.
+    #' param table_name Character string table name
+    #' param autoincrement_cols Character vector of column names to auto-increment
+    #' param map_cols Character vector of columns to convert to MAP format
+    #' return Invisible NULL (called for side effects)
+    commit_append = function(
+      table_name,
+      all_cols,
+      autoincrement_cols = character(0),
+      file_info
+    ) {
+      ordinary_cols <- setdiff(all_cols, autoincrement_cols)
+      select_new <- glue::glue_collapse(
+        c(
+          glue::glue(
+            "row_number() over () + getvariable('max_{autoincrement_cols}') as {autoincrement_cols}"
+          ),
+          ordinary_cols
+        ),
+        sep = ",\n "
+      )
+
+      # Concatenation using UNION ALL; "by name" handles missing columns
+      self$execute(glue::glue(
+        r"{
+          copy (
+            select * from {table_name}
+            union all by name
+            select {select_new}
+            from new_data_v
+          )
+          to '{file_info$path}' ({self$writeopts})
+          }"
+      ))
+    },
+
+    #' param x Data frame to commit. If character, in-duckdb-memory table.
+    #' param table_name Character string table name
+    #' param key_cols Character vector of columns that define uniqueness. If missing,
+    #' use all columns starting with `id_`
+    #' param autoincrement_cols Character vector of column names to auto-increment
+    #' param map_cols Character vector of columns to convert to MAP format
+    #' return Invisible NULL (called for side effects)
+    commit_upsert = function(
+      table_name,
+      all_cols,
+      key_cols,
+      autoincrement_cols = character(0),
+      file_info
+    ) {
+      # Update existing data
+      ordinary_cols <- setdiff(all_cols, union(key_cols, autoincrement_cols))
+      update_select_expr <- glue::glue_collapse(
+        glue::glue("{ordinary_cols} = new_data_v.{ordinary_cols}"),
+        sep = ",\n "
+      )
+      update_join_condition <- glue::glue_collapse(
+        glue::glue("{table_name}.{key_cols} = new_data_v.{key_cols}"),
+        sep = "\nand "
+      )
+
+      self$execute(glue::glue(
+        r"{
+        update {table_name} set
+          {update_select_expr}
+        from new_data_v
+        where
+          {update_join_condition};
+        }"
+      ))
+
+      # Insert new data
+      insert_select_expr <- glue::glue_collapse(
+        c(
+          glue::glue(
+            "row_number() over () + getvariable('max_{autoincrement_cols}') as {autoincrement_cols}"
+          ),
+          glue::glue("new_data_v.{setdiff(all_cols, autoincrement_cols)}")
+        ),
+        sep = ",\n "
+      )
+      null_condition <- glue::glue_collapse(
+        glue::glue("{table_name}.{key_cols} is null"),
+        sep = "\nand "
+      )
+
+      self$execute(glue::glue(
+        r"{
+        insert into {table_name}
+        select
+          {insert_select_expr}
+        from
+          new_data_v
+        left join
+          {table_name}
+        on
+          {update_join_condition}
+        where
+          {null_condition}
+        ;
+        }"
+      ))
+
+      self$execute(glue::glue("copy {table_name} to '{file_info$path}' ({self$writeopts})"))
+    },
+
     # Get file path and format for a table
     #
     # @param table_name Character string table name
@@ -613,19 +626,12 @@ parquet_duckdb <- R6::R6Class(
     # @param map_cols Character vector indicating if MAP conversion was used
     # @return NULL (called for side effects)
     cleanup_new_data_v = function() {
-      duckdb::duckdb_unregister(self$connection, "new_data_v")
-      duckdb::duckdb_unregister(self$connection, "new_data_raw")
-      self$execute(
-        "drop table if exists new_data_v;
-          drop view if exists new_data_v"
-      )
+      try(duckdb::duckdb_unregister(self$connection, "new_data_v"), silent = TRUE)
+      try(duckdb::duckdb_unregister(self$connection, "new_data_raw"), silent = TRUE)
+      try(self$execute("drop table if exists new_data_v"), silent = TRUE)
+      try(self$execute("drop view if exists new_data_v"), silent = TRUE)
 
       invisible(NULL)
-    },
-
-    # Get the names of the current new_data_v
-    new_data_names = function() {
-      self$get_query("select column_name from (describe new_data_v)")[[1]]
     },
 
     # Set DuckDB variables max_{colname} for autoincrement columns

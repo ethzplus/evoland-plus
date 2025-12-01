@@ -108,7 +108,7 @@ db$commit(
     value = c(lulc_files$url, lulc_files$md5sum, "BFS Arealstatistik")
   ),
   table_name = "reporting_t",
-  mode = "append"
+  method = "append"
 )
 
 zippath <- file.path(
@@ -322,7 +322,7 @@ id_coord_keep <- lulc_data_t[, id_coord]
 db$commit(
   x = db$coords_t[id_coord %in% id_coord_keep],
   table_name = "coords_t",
-  mode = "overwrite"
+  method = "overwrite"
 )
 ```
 
