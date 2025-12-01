@@ -101,7 +101,10 @@ evoland_db$set("active", "coords_minimal", function() {
   })
 })
 
-evoland_db$set("public", "trans_pred_data_v", function(id_trans) {
+# get transitions along with their predictor data in a wide data.table
+# id_trans - integer transition ID
+# na_value - if not NA, replace all NULL/NA predictor values with this value
+evoland_db$set("public", "trans_pred_data_v", function(id_trans, na_value = NA) {
   stopifnot(
     "id_trans must be a single integer" = length(id_trans) == 1L && is.numeric(id_trans)
   )
@@ -250,6 +253,13 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans) {
         }
       }
       data.table::setnames(result, old_names, new_names)
+
+      if (!is.na(na_value)) {
+        pred_cols <- setdiff(names(result), "result")
+        for (col in pred_cols) {
+          data.table::set(result, i = which(is.na(result[[col]])), j = col, value = na_value)
+        }
+      }
 
       result
     }

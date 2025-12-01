@@ -23,8 +23,7 @@
 #'        coefficients above this threshold will be filtered out. Default is 0 (no filtering).
 #' @param ... Additional arguments passed to rank_fun.
 #'
-#' @return A filtered data.table containing only the selected covariates after ranking
-#'         by the specified method and filtering based on correlation threshold.
+#' @return A set of column names (covariates) to retain
 #'
 #' @details
 #' The function first ranks covariates using the provided ranking function (default:
@@ -70,22 +69,18 @@ covariance_filter <- function(
   )
 
   # Sort by scores (lower = better/more significant)
-  ranked_order <- order(scores)
-  data_ranked <- data[, ..ranked_order]
+  ranked_order <- names(sort(scores))
 
-  # If no correlation filtering needed, return ranked data
+  # If no correlation filtering needed, return ranked predictors
   if (corcut == 1) {
-    return(data_ranked)
+    return(ranked_order)
   }
 
   # Compute correlation matrix once
-  cor_mat <- abs(cor(data_ranked, use = "pairwise.complete.obs"))
+  cor_mat <- abs(cor(data[, ..ranked_order], use = "pairwise.complete.obs"))
 
   # Iteratively select covariates based on correlation threshold
-  selected <- select_by_correlation(cor_mat, corcut)
-
-  # Return selected covariates
-  data_ranked[, ..selected, drop = FALSE]
+  select_by_correlation(cor_mat, corcut)
 }
 
 

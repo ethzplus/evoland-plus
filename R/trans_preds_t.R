@@ -34,12 +34,14 @@ as_trans_preds_t <- function(x) {
 #' @param db An [evoland_db] instance with populated tables
 #' @param corcut Numeric threshold (0-1) for correlation filtering passed to [covariance_filter()]
 #' @param rank_fun Optional ranking function passed to [covariance_filter()]
+#' @param na_value Passed to db$trans_pred_data_v - if not NA, replace all NA predictor values with this value
 #' @param ... Additional arguments passed to rank_fun via [covariance_filter()]
 #' @export
 create_trans_preds_t <- function(
   db,
   corcut = 0.7,
   rank_fun = rank_poly_glm,
+  na_value = NA,
   ...
 ) {
   stopifnot(
@@ -68,7 +70,7 @@ create_trans_preds_t <- function(
     # Get wide transition-predictor data
     tryCatch(
       {
-        trans_pred_data <- db$trans_pred_data_v(id_trans)
+        trans_pred_data <- db$trans_pred_data_v(id_trans, na_value)
 
         # Check if we have any data
         if (nrow(trans_pred_data) == 0L) {
@@ -87,7 +89,8 @@ create_trans_preds_t <- function(
           next
         }
 
-        filtered_data <- covariance_filter(
+        # Return ranked + filtered predictor names as id_pred_{n}
+        filtered_preds <- covariance_filter(
           data = trans_pred_data,
           result_col = "result",
           rank_fun = rank_fun,
@@ -95,15 +98,12 @@ create_trans_preds_t <- function(
           ...
         )
 
-        # Extract selected predictor IDs from column names
-        selected_cols <- setdiff(names(filtered_data), "result")
-
-        if (length(selected_cols) > 0L) {
+        if (length(filtered_preds) > 0L) {
           # Parse id_pred values from column names (e.g., "id_pred_1" -> 1)
-          selected_ids <- as.integer(sub("^id_pred_", "", selected_cols))
+          selected_ids <- as.integer(sub("^id_pred_", "", filtered_preds))
 
           # Create result rows
-          results_list[[length(results_list) + 1]] <- data.table::data.table(
+          results_list[[id_trans]] <- data.table::data.table(
             id_pred = selected_ids,
             id_trans = id_trans
           )

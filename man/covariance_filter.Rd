@@ -50,8 +50,7 @@ Should take arguments (x, y, weights, ...) and return a single numeric value
 \item{cor_mat}{Absolute correlation matrix}
 }
 \value{
-A filtered data.table containing only the selected covariates after ranking
-by the specified method and filtering based on correlation threshold.
+A set of column names (covariates) to retain
 }
 \description{
 The \code{covariance_filter} returns a set of covariates for land use land cover change

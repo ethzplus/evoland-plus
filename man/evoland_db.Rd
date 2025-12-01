@@ -41,9 +41,7 @@ Additional methods and active bindings are added to this class in separate files
 <details><summary>Inherited methods</summary>
 <ul>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="attach_table"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-attach_table'><code>evoland::parquet_duckdb$attach_table()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="commit_append"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-commit_append'><code>evoland::parquet_duckdb$commit_append()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="commit_overwrite"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-commit_overwrite'><code>evoland::parquet_duckdb$commit_overwrite()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="commit_upsert"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-commit_upsert'><code>evoland::parquet_duckdb$commit_upsert()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="commit"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-commit'><code>evoland::parquet_duckdb$commit()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="delete_from"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-delete_from'><code>evoland::parquet_duckdb$delete_from()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="detach_table"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-detach_table'><code>evoland::parquet_duckdb$detach_table()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="execute"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-execute'><code>evoland::parquet_duckdb$execute()</code></a></span></li>
@@ -83,7 +81,7 @@ Additional methods and active bindings are added to this class in separate files
 \if{latex}{\out{\hypertarget{method-evoland_db-trans_pred_data_v}{}}}
 \subsection{Method \code{trans_pred_data_v()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_pred_data_v(id_trans)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_pred_data_v(id_trans, na_value = NA)}\if{html}{\out{</div>}}
 }
 
 }
