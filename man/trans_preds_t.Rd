@@ -3,34 +3,19 @@
 \name{trans_preds_t}
 \alias{trans_preds_t}
 \alias{as_trans_preds_t}
-\alias{create_trans_preds_t}
 \alias{print.trans_preds_t}
 \title{Create Transition-Predictor Relationship Table}
 \usage{
 as_trans_preds_t(x)
 
-create_trans_preds_t(
-  db,
-  corcut = 0.7,
-  rank_fun = rank_poly_glm,
-  na_value = NA,
-  ...
-)
-
 \method{print}{trans_preds_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{db}{An \link{evoland_db} instance with populated tables}
-
-\item{corcut}{Numeric threshold (0-1) for correlation filtering passed to \code{\link[=covariance_filter]{covariance_filter()}}}
-
-\item{rank_fun}{Optional ranking function passed to \code{\link[=covariance_filter]{covariance_filter()}}}
-
-\item{na_value}{Passed to db$trans_pred_data_v - if not NA, replace all NA predictor values with this value}
+\item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 
-\item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
+\item{db}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
 }
 \value{
 A data.table of class "trans_preds_t" with columns:
@@ -47,12 +32,5 @@ modelling each transition type.
 \section{Methods (by generic)}{
 \itemize{
 \item \code{print(trans_preds_t)}: Print a trans_preds_t object, passing params to data.table print
-
-}}
-\section{Functions}{
-\itemize{
-\item \code{create_trans_preds_t()}: Create a transition-predictor relation, i.e. records the
-result of a predictor selection step. Runs covariance filtering for each viable
-transition and stores the selected predictors.
 
 }}
