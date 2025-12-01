@@ -24,17 +24,16 @@ using namespace Rcpp;
  *   - id_coord_neighbor: ID of the neighboring coordinate
  *   - distance_approx: Approximate distance between origin and neighbor
  *
- * @note The function uses an approximate distance calculation based on grid cells.
- *   If multiple points fall into the same cell, a warning is issued and only the first
- *   point is retained for that cell.
+ * @note The function uses an approximate distance calculation based on grid
+ * cells. If multiple points fall into the same cell, a warning is issued and
+ * only the first point is retained for that cell.
  *
  * @warning Distance calculations are approximate and based on Euclidean distance in
  *   coordinate space. For geographic coordinates, this may not reflect true geodesic distance.
  */
 // [[Rcpp::export]]
-List distance_neighbors_cpp(DataFrame coords_t,
-                                 double max_distance,
-                                 double resolution = 100.0) {
+List distance_neighbors_cpp(DataFrame coords_t, double max_distance,
+                            double resolution = 100.0, bool quiet = false) {
 
   // Extract columns
   IntegerVector id_coord = coords_t["id_coord"];
@@ -112,7 +111,25 @@ List distance_neighbors_cpp(DataFrame coords_t,
   
   // 5. Find neighbors within max_distance
 
+  // Progress reporting setup
+  int progress_interval = std::max(1000, n_points / 20); // Report every 5%
+
+  if (!quiet) {
+    Rcpp::Rcout << "\rProgress: 0% (0/" << n_points << " points)" << std::flush;
+  }
+
   for (int pt_idx = 0; pt_idx < n_points; pt_idx++) {
+    // Check for user interrupt periodically
+    if (pt_idx % 1000 == 0) {
+      Rcpp::checkUserInterrupt();
+    }
+
+    // Report progress
+    if (!quiet && pt_idx > 0 && pt_idx % progress_interval == 0) {
+      int pct = (int)(100.0 * pt_idx / n_points);
+      Rcpp::Rcout << "\rProgress: " << pct << "% (" << pt_idx << "/" << n_points
+                  << " points)" << std::flush;
+    }
     int origin_id = id_coord[pt_idx];
     int origin_row = row_indices[pt_idx];
     int origin_col = col_indices[pt_idx];
@@ -160,6 +177,10 @@ List distance_neighbors_cpp(DataFrame coords_t,
     Named("id_coord_neighbor") = neighbor_ids,
     Named("distance_approx") = distances_approx
   );
+  if (!quiet) {
+    Rcpp::Rcout << "\rProgress: 100% (" << n_points << "/" << n_points
+                << " points)" << std::endl;
+  }
 
   res.attr("class") = CharacterVector::create("data.table", "data.frame");
 

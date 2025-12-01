@@ -152,7 +152,10 @@ test_coords <- data.table::data.table(
 test_coords <- as_coords_t(test_coords)
 
 # Test basic neighbor computation with max_distance = 150
-neighbors <- create_neighbors_t(test_coords, max_distance = 150)
+expect_stdout(
+  neighbors <- create_neighbors_t(test_coords, max_distance = 150),
+  "Progress"
+)
 
 # Check structure
 expect_true(data.table::is.data.table(neighbors))
@@ -204,10 +207,13 @@ expect_equal(
 )
 
 # Test with distance_breaks
-neighbors_classified <- create_neighbors_t(
-  test_coords,
-  max_distance = 150,
-  distance_breaks = c(0, 100, 150)
+expect_stdout(
+  neighbors_classified <- create_neighbors_t(
+    test_coords,
+    max_distance = 150,
+    distance_breaks = c(0, 100, 150)
+  ),
+  "Progress"
 )
 
 # Check that distance_class is populated
@@ -234,7 +240,10 @@ expect_equal(
 )
 
 # Test with smaller max_distance
-neighbors_small <- create_neighbors_t(test_coords, max_distance = 110)
+expect_stdout(
+  neighbors_small <- create_neighbors_t(test_coords, max_distance = 110),
+  "Progress"
+)
 
 # With max_distance = 110, point 1 should only have neighbors 2 and 4 (distance 100)
 # but not 5 (distance ~141.4)
@@ -266,7 +275,7 @@ expect_error(
 )
 
 # Test with real coords_t from earlier in the test file
-real_neighbors <- create_neighbors_t(coords_t, max_distance = 300)
+expect_stdout(real_neighbors <- create_neighbors_t(coords_t, max_distance = 300), "Progress")
 
 # Each point in a regular 100m grid should have neighbors
 # Interior points should have 8 neighbors within 300m (8-connectivity)
