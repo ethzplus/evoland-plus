@@ -300,10 +300,13 @@ for (i in seq_len(
 }
 
 # Test with distance classification on real data
-real_neighbors_class <- create_neighbors_t(
-  coords_t,
-  max_distance = 300,
-  distance_breaks = c(0, 150, 300)
+expect_silent(
+  real_neighbors_class <- create_neighbors_t(
+    coords_t,
+    max_distance = 300,
+    distance_breaks = c(0, 150, 300),
+    quiet = TRUE
+  )
 )
 
 expect_true(all(!is.na(real_neighbors_class$distance_class)))

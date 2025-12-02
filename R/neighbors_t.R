@@ -53,7 +53,8 @@ create_neighbors_t <- function(
   coords_t,
   max_distance,
   distance_breaks = NULL,
-  resolution = 100.0
+  resolution = 100.0,
+  quiet = FALSE
 ) {
   # Validate inputs
   if (!inherits(coords_t, "coords_t")) {
@@ -74,7 +75,8 @@ create_neighbors_t <- function(
   dt <- distance_neighbors_cpp(
     coords_t = coords_t,
     max_distance = max_distance,
-    resolution = resolution
+    resolution = resolution,
+    quiet = quiet
   )
 
   data.table::setalloccol(dt)
