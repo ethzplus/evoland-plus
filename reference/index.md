@@ -11,10 +11,14 @@
   : Coordinate Tables
 - [`evoland_db`](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
   : R6 Class for Folder-Based Data Storage Interface
-- [`make_pred_sources_v()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
-  [`make_lulc_meta_long_v()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
-  [`make_coords_minimal()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+- [`evoland_db_neighbors`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_neighbors.md)
+  : Neighbor analysis methods for evoland_db
+- [`evoland_db_tables`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_tables.md)
+  : Table active bindings for evoland_db
+- [`evoland_db_views`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   : Views on the evoland-plus data model
+- [`grrf_filter()`](https://ethzplus.github.io/evoland-plus/reference/grrf_filter.md)
+  : Guided Regularized Random Forest Feature Selection
 - [`as_intrv_masks_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
   [`print(`*`<intrv_masks_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
   : Create Intervention Masks Table
@@ -30,6 +34,13 @@
   [`create_lulc_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.md)
   [`print(`*`<lulc_meta_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.md)
   : Create LULC Metadata Table
+- [`as_neighbors_t()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+  [`create_neighbors_t()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+  [`validate(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+  [`print(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+  : Create Neighbors Table
+- [`parquet_duckdb`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.md)
+  : R6 Base Class for Parquet-Backed DuckDB Storage
 - [`as_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
   [`create_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
   [`print(`*`<periods_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
@@ -49,7 +60,6 @@
   [`print(`*`<trans_models_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
   : Create Transition Models Table
 - [`as_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
-  [`create_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   [`print(`*`<trans_preds_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   : Create Transition-Predictor Relationship Table
 - [`validate()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
@@ -64,5 +74,4 @@
 - [`download_and_verify()`](https://ethzplus.github.io/evoland-plus/reference/util_download.md)
   : Utilities to download and manage files
 - [`extract_using_coords_t()`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
-  [`compute_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
   : evoland utility functions to work with terra objects

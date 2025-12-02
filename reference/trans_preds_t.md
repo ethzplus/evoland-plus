@@ -9,8 +9,6 @@ are useful for modelling each transition type.
 ``` r
 as_trans_preds_t(x)
 
-create_trans_preds_t()
-
 # S3 method for class 'trans_preds_t'
 print(x, nrow = 10, ...)
 ```
@@ -45,8 +43,3 @@ A data.table of class "trans_preds_t" with columns:
 
 - `print(trans_preds_t)`: Print a trans_preds_t object, passing params
   to data.table print
-
-## Functions
-
-- `create_trans_preds_t()`: Create a transition-predictor relation, i.e.
-  records the result of a predictor selection step.

@@ -1,0 +1,95 @@
+# Guided Regularized Random Forest Feature Selection
+
+The `grrf_filter` returns a set of covariates for land use land cover
+change (LULCC) models based on feature selection with Guided Regularized
+Random Forests. This is a two-stage random forest approach: a first
+unregularized random forest estimates variable importance scores. These
+scores are then used to guide a second regularized random forest that
+penalizes less important features, resulting in a more parsimonious
+feature set.
+
+## Usage
+
+``` r
+grrf_filter(
+  data,
+  result_col = "result",
+  weights = compute_balanced_weights(data[[result_col]]),
+  gamma = 0.5,
+  num.trees = 500,
+  max.depth = 100,
+  ...
+)
+```
+
+## Arguments
+
+- data:
+
+  A data.table of target variable and candidate covariates to be
+  filtered; wide format with one predictor per column.
+
+- result_col:
+
+  Name of the column representing the transition results (0: no trans,
+  1: trans)
+
+- weights:
+
+  Optional named vector of class weights. If NULL, class-balanced
+  weights are computed automatically using compute_grrf_weights().
+
+- gamma:
+
+  Numeric between 0-1 controlling the weight of the normalized
+  importance score (the "importance coefficient"). When gamma = 0, we
+  perform unguided regularized random forest (no guiding effect). When
+  gamma = 1, we apply the strongest guiding effect, leading to the most
+  penalization of redundant features and the most concise feature sets.
+  Default is 0.5.
+
+- num.trees:
+
+  Number of trees to grow in each random forest. Default is 500.
+
+- ...:
+
+  Additional arguments passed to ranger::ranger().
+
+## Value
+
+A character vector of column names (covariates) to retain, ordered by
+importance (most important first)
+
+## Details
+
+The Guided Regularized Random Forest (GRRF) algorithm works as follows:
+
+1.  Fit an initial unregularized random forest to obtain variable
+    importance scores
+
+2.  Normalize these importance scores and use them to compute
+    regularization coefficients: coefReg = (1 - gamma) + gamma \*
+    normalized_importance
+
+3.  Fit a regularized random forest using these coefficients to penalize
+    splits on less important variables
+
+4.  Return variables with positive importance in the regularized model
+
+Class weights are used to handle class imbalance. Variables in terminal
+nodes are weighted by class, and splits are evaluated using weighted
+Gini impurity.
+
+The ranger implementation uses the `split.select.weights` parameter to
+apply regularization penalties, approximating the RRF regularization
+approach.
+
+## References
+
+Deng, H., & Runger, G. (2013). Gene selection with guided regularized
+random forest. Pattern Recognition, 46(12), 3483-3489.
+https://arxiv.org/pdf/1306.0237.pdf
+
+Original implementation by Antoine Adde, edited by Ben Black and adapted
+for ranger by the evoland-plus team.

@@ -1,24 +1,25 @@
 # Views on the evoland-plus data model
 
-Functions to generate views on the database
+This file adds view active bindings and methods to the `evoland_db`
+class using R6's `$set()` method. These provide computed views on the
+database without storing additional data.
 
-## Usage
+## Active Bindings Added
 
-``` r
-make_pred_sources_v(self, private)
+- `lulc_meta_long_v` - Unrolled LULC metadata with one row per source
+  class
 
-make_lulc_meta_long_v(self, private)
+- `pred_sources_v` - Distinct predictor URLs and their MD5 checksums
 
-make_coords_minimal(self, private)
-```
+- `transitions_v` - Land use transitions derived from lulc_data_t
 
-## Functions
+- `extent` - Spatial extent of coords_t as terra::SpatExtent
 
-- `make_pred_sources_v()`: Retrieve a table of distinct predictor urls
-  and their md5sum
+- `coords_minimal` - Minimal coordinate representation (id_coord, lon,
+  lat)
 
-- `make_lulc_meta_long_v()`: Return a `lulc_meta_long_v` instance, i.e.
-  unrolled `lulc_meta_t`.
+## Methods Added
 
-- `make_coords_minimal()`: Minimal coordinate representation (id_coord,
-  lon, lat)
+- `trans_pred_data_v(id_trans)` - Returns wide table of transition
+  results and predictor data for a specific transition. Used as input to
+  covariance filtering.

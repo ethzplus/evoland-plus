@@ -19,7 +19,7 @@ ensure_dir(dir)
 
 print_rowwise_yaml(df)
 
-cast_dt_col(x, colname, castfun)
+cast_dt_col(x, colname, type)
 ```
 
 ## Arguments

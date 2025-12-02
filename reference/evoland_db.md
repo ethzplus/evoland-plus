@@ -5,148 +5,42 @@ system for the evoland package. Each table is stored as a parquet (or
 CSV) file. This class uses DuckDB for in-memory SQL operations while
 persisting data to disk in parquet format for better compression.
 
-## Public fields
+Inherits from
+[parquet_duckdb](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.md)
+for generic database operations.
 
-- `connection`:
+## See also
 
-  DBI connection object to an in-memory DuckDB database
+Additional methods and active bindings are added to this class in
+separate files:
 
-- `path`:
+- [evoland_db_tables](https://ethzplus.github.io/evoland-plus/reference/evoland_db_tables.md) -
+  Table active bindings (coords_t, lulc_data_t, etc.)
 
-  Character string path to the data folder
+- [evoland_db_views](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md) -
+  View active bindings (lulc_meta_long_v, etc.) and methods
 
-- `default_format`:
+- [evoland_db_neighbors](https://ethzplus.github.io/evoland-plus/reference/evoland_db_neighbors.md) -
+  Neighbor analysis methods
 
-  Default file format for new tables
+## Super class
 
-- `writeopts`:
-
-  Default write options for DuckDB, see
-
-## Active bindings
-
-- `coords_t`:
-
-  A `coords_t` instance; see `create_coords_t()` for the type of object
-  to assign. Assigning is an upsert operation.
-
-- `periods_t`:
-
-  A `periods_t` instance; see
-  [`create_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
-
-- `lulc_meta_t`:
-
-  A `lulc_meta_t` instance; see
-  [`create_lulc_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
-
-- `lulc_meta_long_v`:
-
-  Return a `lulc_meta_long_v` instance, i.e. unrolled `lulc_meta_t`.
-
-- `lulc_data_t`:
-
-  A `lulc_data_t` instance; see
-  [`as_lulc_data_t()`](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
-
-- `pred_data_t_float`:
-
-  A `pred_data_t_float` instance; see `create_pred_data_t()` for the
-  type of object to assign. Assigning is an upsert operation.
-
-- `pred_data_t_int`:
-
-  A `pred_data_t_int` instance; see `create_pred_data_t()` for the type
-  of object to assign. Assigning is an upsert operation.
-
-- `pred_data_t_bool`:
-
-  A `pred_data_t_bool` instance; see `create_pred_data_t()` for the type
-  of object to assign. Assigning is an upsert operation.
-
-- `extent`:
-
-  Return a terra SpatExtent based on coords_t
-
-- `coords_minimal`:
-
-  data.table with only (id_coord, lon, lat)
-
-- `pred_meta_t`:
-
-  A `pred_meta_t` instance; see
-  [`create_pred_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
-
-- `pred_sources_v`:
-
-  Retrieve a table of distinct predictor urls and their md5sum
-
-- `trans_meta_t`:
-
-  A `trans_meta_t` instance; see
-  [`create_trans_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
-
-- `trans_preds_t`:
-
-  A `trans_preds_t` instance; see
-  [`create_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
-
-- `intrv_meta_t`:
-
-  A `intrv_meta_t` instance; see
-  [`create_intrv_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_meta_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
-
-- `intrv_masks_t`:
-
-  A `intrv_masks_t` instance; see
-  [`as_intrv_masks_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
-
-- `trans_models_t`:
-
-  A `trans_models_t` instance; see `create_trans_models_t()` for the
-  type of object to assign. Assigning is an upsert operation.
-
-- `alloc_params_t`:
-
-  A `alloc_params_t` instance; see
-  [`as_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_params_t.md)
-  for the type of object to assign. Assigning is an upsert operation.
+[`evoland::parquet_duckdb`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.md)
+-\> `evoland_db`
 
 ## Methods
 
 ### Public methods
 
+- [`evoland_db$set_neighbors()`](#method-evoland_db-set_neighbors)
+
+- [`evoland_db$generate_neighbor_predictors()`](#method-evoland_db-generate_neighbor_predictors)
+
+- [`evoland_db$trans_pred_data_v()`](#method-evoland_db-trans_pred_data_v)
+
 - [`evoland_db$new()`](#method-evoland_db-new)
 
-- [`evoland_db$commit_overwrite()`](#method-evoland_db-commit_overwrite)
-
-- [`evoland_db$commit_append()`](#method-evoland_db-commit_append)
-
-- [`evoland_db$commit_upsert()`](#method-evoland_db-commit_upsert)
-
 - [`evoland_db$fetch()`](#method-evoland_db-fetch)
-
-- [`evoland_db$list_tables()`](#method-evoland_db-list_tables)
-
-- [`evoland_db$execute()`](#method-evoland_db-execute)
-
-- [`evoland_db$get_query()`](#method-evoland_db-get_query)
-
-- [`evoland_db$attach_table()`](#method-evoland_db-attach_table)
-
-- [`evoland_db$detach_table()`](#method-evoland_db-detach_table)
-
-- [`evoland_db$row_count()`](#method-evoland_db-row_count)
-
-- [`evoland_db$delete_from()`](#method-evoland_db-delete_from)
 
 - [`evoland_db$set_report()`](#method-evoland_db-set_report)
 
@@ -156,7 +50,53 @@ persisting data to disk in parquet format for better compression.
 
 - [`evoland_db$add_predictor()`](#method-evoland_db-add_predictor)
 
+- [`evoland_db$set_full_trans_preds()`](#method-evoland_db-set_full_trans_preds)
+
+- [`evoland_db$prune_trans_preds()`](#method-evoland_db-prune_trans_preds)
+
 - [`evoland_db$clone()`](#method-evoland_db-clone)
+
+Inherited methods
+
+- [`evoland::parquet_duckdb$attach_table()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-attach_table)
+- [`evoland::parquet_duckdb$commit()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-commit)
+- [`evoland::parquet_duckdb$delete_from()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-delete_from)
+- [`evoland::parquet_duckdb$detach_table()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-detach_table)
+- [`evoland::parquet_duckdb$execute()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-execute)
+- [`evoland::parquet_duckdb$get_query()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-get_query)
+- [`evoland::parquet_duckdb$list_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-list_tables)
+- [`evoland::parquet_duckdb$print()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-print)
+- [`evoland::parquet_duckdb$row_count()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-row_count)
+- [`evoland::parquet_duckdb$with_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-with_tables)
+
+------------------------------------------------------------------------
+
+### Method `set_neighbors()`
+
+#### Usage
+
+    evoland_db$set_neighbors(
+      max_distance = 1000,
+      distance_breaks = c(0, 100, 500, 1000),
+      resolution = 100,
+      overwrite = FALSE
+    )
+
+------------------------------------------------------------------------
+
+### Method `generate_neighbor_predictors()`
+
+#### Usage
+
+    evoland_db$generate_neighbor_predictors()
+
+------------------------------------------------------------------------
+
+### Method `trans_pred_data_v()`
+
+#### Usage
+
+    evoland_db$trans_pred_data_v(id_trans, id_pred = NULL, na_value = NA)
 
 ------------------------------------------------------------------------
 
@@ -189,114 +129,9 @@ A new `evoland_db` object
 
 ------------------------------------------------------------------------
 
-### Method `commit_overwrite()`
-
-Commit data in overwrite mode
-
-#### Usage
-
-    evoland_db$commit_overwrite(
-      x,
-      table_name,
-      autoincrement_cols = character(0),
-      map_cols = character(0)
-    )
-
-#### Arguments
-
-- `x`:
-
-  Data frame to commit
-
-- `table_name`:
-
-  Character string table name
-
-- `autoincrement_cols`:
-
-  Character vector of column names to auto-increment
-
-- `map_cols`:
-
-  Character vector of columns to convert to MAP format
-
-------------------------------------------------------------------------
-
-### Method `commit_append()`
-
-Commit data in append mode
-
-#### Usage
-
-    evoland_db$commit_append(
-      x,
-      table_name,
-      autoincrement_cols = character(0),
-      map_cols = character(0)
-    )
-
-#### Arguments
-
-- `x`:
-
-  Data frame to commit
-
-- `table_name`:
-
-  Character string table name
-
-- `autoincrement_cols`:
-
-  Character vector of column names to auto-increment
-
-- `map_cols`:
-
-  Character vector of columns to convert to MAP format
-
-------------------------------------------------------------------------
-
-### Method `commit_upsert()`
-
-Commit data in upsert mode
-
-#### Usage
-
-    evoland_db$commit_upsert(
-      x,
-      table_name,
-      key_cols = grep("^id_", names(x), value = TRUE),
-      autoincrement_cols = character(0),
-      map_cols = character(0)
-    )
-
-#### Arguments
-
-- `x`:
-
-  Data frame to commit
-
-- `table_name`:
-
-  Character string table name
-
-- `key_cols`:
-
-  Identify unique columns - heuristic: if prefixed with id\_, the set of
-  all columns designates a uniqueness condition
-
-- `autoincrement_cols`:
-
-  Character vector of column names to auto-increment
-
-- `map_cols`:
-
-  Character vector of columns to convert to MAP format
-
-------------------------------------------------------------------------
-
 ### Method `fetch()`
 
-Fetch data from storage
+Fetch data from storage with evoland-specific view support
 
 #### Usage
 
@@ -319,142 +154,6 @@ Fetch data from storage
 #### Returns
 
 A data.table
-
-------------------------------------------------------------------------
-
-### Method `list_tables()`
-
-List all tables (files) in storage
-
-#### Usage
-
-    evoland_db$list_tables()
-
-#### Returns
-
-Character vector of table names
-
-------------------------------------------------------------------------
-
-### Method `execute()`
-
-Execute statement
-
-#### Usage
-
-    evoland_db$execute(statement)
-
-#### Arguments
-
-- `statement`:
-
-  A SQL statement
-
-#### Returns
-
-No. of rows affected by statement
-
-------------------------------------------------------------------------
-
-### Method `get_query()`
-
-Get Query
-
-#### Usage
-
-    evoland_db$get_query(statement)
-
-#### Arguments
-
-- `statement`:
-
-  A SQL statement
-
-#### Returns
-
-No. of rows affected by statement
-
-------------------------------------------------------------------------
-
-### Method `attach_table()`
-
-Attach one or more tables from the database folder as temporary tables
-in DuckDB. This is useful for working with multiple tables in SQL
-queries without loading them into R memory.
-
-#### Usage
-
-    evoland_db$attach_table(table_name, columns = "*")
-
-#### Arguments
-
-- `table_name`:
-
-  Character vector. Names of table to attach.
-
-- `columns`:
-
-  Character vector. Optional sql column selection, defaults to "\*"
-
-------------------------------------------------------------------------
-
-### Method `detach_table()`
-
-Detach one or more tables from the database.
-
-#### Usage
-
-    evoland_db$detach_table(table_name)
-
-#### Arguments
-
-- `table_name`:
-
-  Character. Name of table to drop.
-
-------------------------------------------------------------------------
-
-### Method `row_count()`
-
-Get table row count
-
-#### Usage
-
-    evoland_db$row_count(table_name)
-
-#### Arguments
-
-- `table_name`:
-
-  Character string. Name of the table to query.
-
-#### Returns
-
-No. of rows
-
-------------------------------------------------------------------------
-
-### Method `delete_from()`
-
-Delete rows from a table
-
-#### Usage
-
-    evoland_db$delete_from(table_name, where = NULL)
-
-#### Arguments
-
-- `table_name`:
-
-  Character string. Name of the table to delete from.
-
-- `where`:
-
-  Character string, defaults to NULL: delete everything in table.
-
-#### Returns
-
-No. of rows affected
 
 ------------------------------------------------------------------------
 
@@ -559,6 +258,26 @@ Add a predictor to the database
   Passed to
   [`as_pred_data_t()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md);
   one of float, int, bool
+
+------------------------------------------------------------------------
+
+### Method `set_full_trans_preds()`
+
+#### Usage
+
+    evoland_db$set_full_trans_preds(overwrite = FALSE)
+
+------------------------------------------------------------------------
+
+### Method `prune_trans_preds()`
+
+#### Usage
+
+    evoland_db$prune_trans_preds(
+      filter_fun = covariance_filter,
+      na_value = NA,
+      ...
+    )
 
 ------------------------------------------------------------------------
 

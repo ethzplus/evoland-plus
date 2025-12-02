@@ -10,7 +10,7 @@ metadata entries for each viable transition type.
 as_trans_meta_t(x)
 
 create_trans_meta_t(
-  lulc_data,
+  transitions,
   min_cardinality_abs = NULL,
   min_frequency_rel = NULL,
   exclude_anterior = NULL,
@@ -23,11 +23,10 @@ print(x, nrow = 10, ...)
 
 ## Arguments
 
-- lulc_data:
+- transitions:
 
-  A
-  [lulc_data_t](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
-  table with land use observations
+  A transitions_v table, with columns id_coord, id_lulc_anterior,
+  id_lulc_posterior, id_period
 
 - min_cardinality_abs:
 
@@ -81,4 +80,5 @@ A data.table of class "trans_meta_t" with columns:
 ## Functions
 
 - `create_trans_meta_t()`: Calculate the transition metadata and mark
-  for modelling feasibility
+  for modelling feasibility. Does not attribute `id_trans`; this only
+  makes sense as part of a DB.

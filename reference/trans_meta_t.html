@@ -52,7 +52,7 @@ entries for each viable transition type.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">as_trans_meta_t</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">create_trans_meta_t</span><span class="op">(</span></span>
-<span>  <span class="va">lulc_data</span>,</span>
+<span>  <span class="va">transitions</span>,</span>
 <span>  min_cardinality_abs <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  min_frequency_rel <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  exclude_anterior <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -67,8 +67,9 @@ entries for each viable transition type.</p>
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-lulc-data">lulc_data<a class="anchor" aria-label="anchor" href="#arg-lulc-data"></a></dt>
-<dd><p>A <a href="lulc_data_t.html">lulc_data_t</a> table with land use observations</p></dd>
+<dl><dt id="arg-transitions">transitions<a class="anchor" aria-label="anchor" href="#arg-transitions"></a></dt>
+<dd><p>A transitions_v table, with columns id_coord, id_lulc_anterior,
+id_lulc_posterior, id_period</p></dd>
 
 
 <dt id="arg-min-cardinality-abs">min_cardinality_abs<a class="anchor" aria-label="anchor" href="#arg-min-cardinality-abs"></a></dt>
@@ -113,7 +114,8 @@ entries for each viable transition type.</p>
     <div class="section level2">
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
-<ul><li><p><code>create_trans_meta_t()</code>: Calculate the transition metadata and mark for modelling feasibility</p></li>
+<ul><li><p><code>create_trans_meta_t()</code>: Calculate the transition metadata and mark for modelling
+feasibility. Does not attribute <code>id_trans</code>; this only makes sense as part of a DB.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
