@@ -41,7 +41,7 @@ evoland_db$set(
     t <- self$trans_meta_t[is_viable == TRUE]
 
     full <- expand.grid(id_pred = p[["id_pred"]], id_trans = t[["id_trans"]])
-    self$trans_preds_t <- as_trans_preds_t(full)
+    self$commit(as_trans_preds_t(full), "trans_preds_t", method = "overwrite")
   }
 )
 
@@ -49,15 +49,14 @@ evoland_db$set(
 #' result of a predictor selection step. Runs covariance filtering for each viable
 #' transition and stores the selected predictors.
 #' param corcut Numeric threshold (0-1) for correlation filtering passed to [covariance_filter()]
-#' param rank_fun Optional ranking function passed to [covariance_filter()]
+#' param filter_fun Defaults to [covariance_filter()], but can be any function that returns
 #' param na_value Passed to db$trans_pred_data_v - if not NA, replace all NA predictor values with this value
 #' param ... Additional arguments passed to rank_fun via [covariance_filter()]
 evoland_db$set(
   "public",
-  "prune_trans_preds_two_stage_covar",
+  "prune_trans_preds",
   function(
-    corcut = 0.7,
-    rank_fun = rank_poly_glm,
+    filter_fun = covariance_filter,
     na_value = NA,
     ...
   ) {
@@ -114,11 +113,9 @@ evoland_db$set(
           }
 
           # Return ranked + filtered predictor names as id_pred_{n}
-          filtered_preds <- covariance_filter(
+          filtered_preds <- filter_fun(
             data = trans_pred_data,
             result_col = "result",
-            rank_fun = rank_fun,
-            corcut = corcut,
             ...
           )
 

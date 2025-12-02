@@ -17,8 +17,8 @@
 #' @param rank_fun Optional function to compute ranking scores for each covariate.
 #'        Should take arguments (x, y, weights, ...) and return a single numeric value
 #'        (lower = better). Defaults to polynomial GLM p-value ranking.
-#' @param weights Optional vector of weights to be used in the ranking function.
-#'        If NULL and rank_fun uses default, class-balanced weights are computed automatically.
+#' @param weights Optional vector of weights to be used in the ranking function. Defaults to
+#'        class-balanced weights
 #' @param corcut Numeric threshold (0-1) for correlation filtering. Covariates with correlation
 #'        coefficients above this threshold will be filtered out. Default is 0 (no filtering).
 #' @param ... Additional arguments passed to rank_fun.

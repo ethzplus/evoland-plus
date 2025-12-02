@@ -14,7 +14,8 @@ create_neighbors_t(
   coords_t,
   max_distance,
   distance_breaks = NULL,
-  resolution = 100
+  resolution = 100,
+  quiet = FALSE
 )
 
 \method{validate}{neighbors_t}(x, ...)

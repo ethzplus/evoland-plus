@@ -147,30 +147,31 @@ pred_data_int <- data.table::data.table(
 )
 db_tps$pred_data_t_int <- as_pred_data_t(pred_data_int, type = "int")
 
-# Test create_trans_preds_t
+# Test pruning
 expect_message(
-  trans_preds_result <-
-    create_trans_preds_t(
-      db = db_tps,
-      corcut = 0.7
-    ),
+  db_tps$prune_trans_preds(
+    corcut = 0.2
+  ),
   "Processing transition 1/2"
 )
-
+trans_preds_result <- db_tps$trans_preds_t
 expect_true(inherits(trans_preds_result, "trans_preds_t"))
-expect_equal(nrow(trans_preds_result), 8L)
-
-# Verify structure
-expect_true(all(c("id_pred", "id_trans") %in% names(trans_preds_result)))
-expect_true(is.integer(trans_preds_result$id_pred))
-expect_true(is.integer(trans_preds_result$id_trans))
+expect_equal(nrow(trans_preds_result), 4L)
 
 # Verify that all id_trans in result are viable
 viable_trans_ids <- db_tps$trans_meta_t[is_viable == TRUE]$id_trans
 expect_true(all(trans_preds_result$id_trans %in% viable_trans_ids))
 
-# Verify that all id_pred in result exist in pred_meta_t
-expect_true(all(trans_preds_result$id_pred %in% db_tps$pred_meta_t$id_pred))
+# reset to full set of trans - preds
+expect_silent(db_tps$set_full_trans_preds(overwrite = TRUE))
+expect_message(
+  db_tps$prune_trans_preds(
+    filter_fun = grrf_filter,
+    num.trees = 10,
+    gamma = 0.9
+  ),
+  "Selected 5 predictor\\(s\\) for transition"
+)
 
 # Test error handling - empty database
 test_dir_empty <- tempfile("evoland_empty_")
@@ -178,12 +179,7 @@ on.exit(unlink(test_dir_empty, recursive = TRUE), add = TRUE)
 db_empty <- evoland_db$new(test_dir_empty)
 
 expect_error(
-  create_trans_preds_t(db = "not_a_db"),
-  "must be an evoland_db"
-)
-
-expect_error(
-  create_trans_preds_t(db = db_empty),
+  db_empty$prune_trans_preds(),
   "Table `trans_meta_t` does not exist"
 )
 
@@ -200,7 +196,7 @@ expect_warning(
   "Overriding existing IDs"
 )
 expect_error(
-  create_trans_preds_t(db = db_no_pred),
+  db_no_pred$prune_trans_preds(),
   "Table `pred_meta_t` does not exist"
 )
 
