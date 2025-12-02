@@ -18,26 +18,18 @@
 as_pred_data_t <- function(x, type) {
   stopifnot(type %in% c("float", "int", "bool"))
 
-  # Create empty table with proper value type
-  coercion_fn <- switch(
-    type,
-    float = as.numeric,
-    int = as.integer,
-    bool = as.logical
-  )
-
   if (missing(x)) {
     x <- data.table::data.table(
       id_pred = integer(0),
       id_coord = integer(0),
       id_period = integer(0),
-      value = coercion_fn(integer(0))
+      value = integer(0)
     )
   }
 
   data.table::setDT(x, key = c("id_pred", "id_coord", "id_period")) |>
-    cast_dt_col("value", coercion_fn) |>
-    cast_dt_col("id_coord", as.integer)
+    cast_dt_col("value", type) |>
+    cast_dt_col("id_coord", "int")
 
   class_name <- paste0("pred_data_t_", type)
   new_evoland_table(x, c(class_name, "pred_data_t"))

@@ -28,8 +28,35 @@ Imports:
     terra
 Suggests:
     tinytest,
-    quarto
+    quarto,
+    ranger
 VignetteBuilder: quarto
 Config/testthat/edition: 3
-LinkingTo: 
+LinkingTo:
     Rcpp
+Collate:
+    'RcppExports.R'
+    'alloc_params_t.R'
+    'coords_t.R'
+    'covariance_filter.R'
+    'parquet_duckdb.R'
+    'evoland_db.R'
+    'evoland_db_neighbors.R'
+    'evoland_db_tables.R'
+    'evoland_db_views.R'
+    'grrf_filter.r'
+    'init.R'
+    'intrv_masks_t.R'
+    'intrv_meta_t.R'
+    'lulc_data_t.R'
+    'lulc_meta_t.R'
+    'neighbors_t.R'
+    'periods_t.R'
+    'pred_data_t.R'
+    'pred_meta_t.R'
+    'trans_meta_t.R'
+    'trans_models_t.R'
+    'trans_preds_t.R'
+    'util.R'
+    'util_download.R'
+    'util_terra.R'

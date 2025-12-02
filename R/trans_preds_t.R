@@ -5,6 +5,7 @@
 #' modelling each transition type.
 #'
 #' @name trans_preds_t
+#' @include evoland_db.R
 #'
 #' @param db An [evoland_db] instance with populated trans_meta_t and pred_meta_t tables
 #'
@@ -19,6 +20,8 @@ as_trans_preds_t <- function(x) {
       id_trans = integer(0)
     )
   }
+  cast_dt_col(x, "id_pred", "int")
+  cast_dt_col(x, "id_trans", "int")
   new_evoland_table(
     x,
     "trans_preds_t",
@@ -26,12 +29,139 @@ as_trans_preds_t <- function(x) {
   )
 }
 
-#' @describeIn trans_preds_t Create a transition-predictor relation, i.e. records the
-#' result of a predictor selection step.
-#' @export
-create_trans_preds_t <- function() {
-  as_trans_preds_t()
-}
+# set an initial full set of transition / predictor relations
+evoland_db$set(
+  "public",
+  "set_full_trans_preds",
+  function(overwrite = FALSE) {
+    if (self$row_count("trans_preds_t") > 0 && !overwrite) {
+      stop("Set overwrite to TRUE to overwrite existing trans_preds_t")
+    }
+    p <- self$pred_meta_t
+    t <- self$trans_meta_t[is_viable == TRUE]
+
+    full <- expand.grid(id_pred = p[["id_pred"]], id_trans = t[["id_trans"]])
+    self$commit(as_trans_preds_t(full), "trans_preds_t", method = "overwrite")
+  }
+)
+
+#' describeIn trans_preds_t Create a transition-predictor relation, i.e. records the
+#' result of a predictor selection step. Runs covariance filtering for each viable
+#' transition and stores the selected predictors.
+#' param corcut Numeric threshold (0-1) for correlation filtering passed to [covariance_filter()]
+#' param filter_fun Defaults to [covariance_filter()], but can be any function that returns
+#' param na_value Passed to db$trans_pred_data_v - if not NA, replace all NA predictor values with this value
+#' param ... Additional arguments passed to rank_fun via [covariance_filter()]
+evoland_db$set(
+  "public",
+  "prune_trans_preds",
+  function(
+    filter_fun = covariance_filter,
+    na_value = NA,
+    ...
+  ) {
+    viable_trans <- self$trans_meta_t[is_viable == TRUE]
+    pred_meta <- self$pred_meta_t
+    stopifnot(
+      "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L
+    )
+    if (self$row_count("trans_preds_t") == 0) {
+      self$set_full_trans_preds()
+    }
+    trans_preds_pre <- self$trans_preds_t
+
+    results_list <- list()
+
+    # Iterate over transitions (anterior/posterior pairs)
+    for (i in seq_len(nrow(viable_trans))) {
+      id_trans <- viable_trans$id_trans[i]
+      id_lulc_ant <- viable_trans$id_lulc_anterior[i]
+      id_lulc_post <- viable_trans$id_lulc_posterior[i]
+      id_preds <- trans_preds_pre$id_pred[
+        trans_preds_pre$id_trans == id_trans
+      ]
+
+      message(glue::glue(
+        "Processing transition {i}/{nrow(viable_trans)}: ",
+        "id_trans={id_trans} ({id_lulc_ant} -> {id_lulc_post})"
+      ))
+
+      if (length(id_preds) == 0L) {
+        next
+      }
+
+      # Get wide transition-predictor data
+      tryCatch(
+        {
+          trans_pred_data <- self$trans_pred_data_v(id_trans, id_preds, na_value)
+
+          # Check if we have any data
+          if (nrow(trans_pred_data) == 0L) {
+            warning(glue::glue(
+              "No data for transition {id_trans}, skipping"
+            ))
+            next
+          }
+
+          # Check if we have any predictor columns
+          pred_cols <- grep("^id_pred_", names(trans_pred_data), value = TRUE)
+          if (length(pred_cols) == 0L) {
+            warning(glue::glue(
+              "No predictor columns for transition {id_trans}, skipping"
+            ))
+            next
+          }
+
+          # Return ranked + filtered predictor names as id_pred_{n}
+          filtered_preds <- filter_fun(
+            data = trans_pred_data,
+            result_col = "result",
+            ...
+          )
+
+          if (length(filtered_preds) > 0L) {
+            # Parse id_pred values from column names (e.g., "id_pred_1" -> 1)
+            selected_ids <- as.integer(sub("^id_pred_", "", filtered_preds))
+
+            # Create result rows
+            results_list[[id_trans]] <- data.table::data.table(
+              id_pred = selected_ids,
+              id_trans = id_trans
+            )
+
+            message(glue::glue(
+              "  Selected {length(selected_ids)} predictor(s) for transition {id_trans}"
+            ))
+          } else {
+            message(glue::glue(
+              "  No predictors selected for transition {id_trans}"
+            ))
+          }
+        },
+        error = function(e) {
+          # do not prune on error
+          results_list[[id_trans]] <- data.table::data.table(
+            id_pred = id_preds,
+            id_trans = id_trans
+          )
+          warning(glue::glue(
+            "Error processing transition {id_trans}: {e$message}"
+          ))
+        }
+      )
+    }
+
+    # Combine all results
+    if (length(results_list) == 0L) {
+      warning("No predictors selected for any transition")
+      return(invisible(NULL))
+    }
+
+    result <- data.table::rbindlist(results_list)
+
+    self$commit(as_trans_preds_t(result), "trans_preds_t", method = "overwrite")
+  }
+)
 
 #' @export
 validate.trans_preds_t <- function(x, ...) {

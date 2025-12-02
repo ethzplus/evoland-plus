@@ -10,7 +10,7 @@
 as_trans_meta_t(x)
 
 create_trans_meta_t(
-  lulc_data,
+  transitions,
   min_cardinality_abs = NULL,
   min_frequency_rel = NULL,
   exclude_anterior = NULL,
@@ -20,7 +20,8 @@ create_trans_meta_t(
 \method{print}{trans_meta_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{lulc_data}{A \link{lulc_data_t} table with land use observations}
+\item{transitions}{A transitions_v table, with columns id_coord, id_lulc_anterior,
+id_lulc_posterior, id_period}
 
 \item{min_cardinality_abs}{Minimum absolute number of transitions for viability (optional)}
 
@@ -58,6 +59,7 @@ entries for each viable transition type.
 }}
 \section{Functions}{
 \itemize{
-\item \code{create_trans_meta_t()}: Calculate the transition metadata and mark for modelling feasibility
+\item \code{create_trans_meta_t()}: Calculate the transition metadata and mark for modelling
+feasibility. Does not attribute \code{id_trans}; this only makes sense as part of a DB.
 
 }}
