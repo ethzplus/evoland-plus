@@ -35,7 +35,7 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
 \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
 \item \href{#method-evoland_db-set_full_trans_preds}{\code{evoland_db$set_full_trans_preds()}}
-\item \href{#method-evoland_db-prune_trans_preds}{\code{evoland_db$prune_trans_preds()}}
+\item \href{#method-evoland_db-get_pruned_trans_preds_t}{\code{evoland_db$get_pruned_trans_preds_t()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -234,11 +234,11 @@ Add a predictor to the database
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-prune_trans_preds"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-prune_trans_preds}{}}}
-\subsection{Method \code{prune_trans_preds()}}{
+\if{html}{\out{<a id="method-evoland_db-get_pruned_trans_preds_t"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-get_pruned_trans_preds_t}{}}}
+\subsection{Method \code{get_pruned_trans_preds_t()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$prune_trans_preds(
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_pruned_trans_preds_t(
   filter_fun = covariance_filter,
   na_value = NA,
   ...

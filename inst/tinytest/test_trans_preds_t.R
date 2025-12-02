@@ -147,14 +147,19 @@ pred_data_int <- data.table::data.table(
 )
 db_tps$pred_data_t_int <- as_pred_data_t(pred_data_int, type = "int")
 
+expect_true(setequal(
+  db_tps$trans_pred_data_v(1L)[, id_coord],
+  c(1, 2, 2, 4, 4, 7, 8, 10, 10, 12, 12, 13, 13, 16, 16, 17, 17, 18, 20, 21, 23, 24)
+))
+
 # Test pruning
 expect_message(
-  db_tps$prune_trans_preds(
+  trans_preds_result <- db_tps$get_pruned_trans_preds_t(
     corcut = 0.2
   ),
   "Processing transition 1/2"
 )
-trans_preds_result <- db_tps$trans_preds_t
+
 expect_true(inherits(trans_preds_result, "trans_preds_t"))
 expect_equal(nrow(trans_preds_result), 4L)
 
@@ -165,7 +170,7 @@ expect_true(all(trans_preds_result$id_trans %in% viable_trans_ids))
 # reset to full set of trans - preds
 expect_silent(db_tps$set_full_trans_preds(overwrite = TRUE))
 expect_message(
-  db_tps$prune_trans_preds(
+  db_tps$get_pruned_trans_preds_t(
     filter_fun = grrf_filter,
     num.trees = 10,
     gamma = 0.9
@@ -179,7 +184,7 @@ on.exit(unlink(test_dir_empty, recursive = TRUE), add = TRUE)
 db_empty <- evoland_db$new(test_dir_empty)
 
 expect_error(
-  db_empty$prune_trans_preds(),
+  db_empty$get_pruned_trans_preds_t(),
   "Table `trans_meta_t` does not exist"
 )
 
@@ -196,7 +201,7 @@ expect_warning(
   "Overriding existing IDs"
 )
 expect_error(
-  db_no_pred$prune_trans_preds(),
+  db_no_pred$get_pruned_trans_preds_t(),
   "Table `pred_meta_t` does not exist"
 )
 

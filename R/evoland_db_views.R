@@ -105,38 +105,46 @@ evoland_db$set("active", "coords_minimal", function() {
 # id_trans - integer transition ID
 # id_pred - optional integer vector of predictor IDs to include (NULL = all predictors)
 # na_value - if not NA, replace all NULL/NA predictor values with this value
-evoland_db$set("public", "trans_pred_data_v", function(id_trans, id_pred = NULL, na_value = NA) {
-  stopifnot(
-    "id_trans must be a single integer" = length(id_trans) == 1L && is.numeric(id_trans),
-    "id_pred must be NULL or a numeric vector" = is.null(id_pred) || is.numeric(id_pred)
-  )
+# sample_pct - if not NULL, use this fraction of the underlying data
+evoland_db$set(
+  "public",
+  "trans_pred_data_v",
+  function(
+    id_trans,
+    id_pred = NULL,
+    na_value = NA
+  ) {
+    stopifnot(
+      "id_trans must be a single integer" = length(id_trans) == 1L && is.numeric(id_trans),
+      "id_pred must be NULL or a numeric vector" = is.null(id_pred) || is.numeric(id_pred)
+    )
 
-  all_tables <- self$list_tables()
-  pred_tables <- c("pred_data_t_float", "pred_data_t_int", "pred_data_t_bool")
-  existing_pred_tables <- intersect(pred_tables, all_tables)
+    all_tables <- self$list_tables()
+    pred_tables <- c("pred_data_t_float", "pred_data_t_int", "pred_data_t_bool")
+    existing_pred_tables <- intersect(pred_tables, all_tables)
 
-  tables_to_attach <- c("trans_meta_t", "lulc_data_t", existing_pred_tables)
+    tables_to_attach <- c("trans_meta_t", "lulc_data_t", existing_pred_tables)
 
-  self$with_tables(
-    tables_to_attach,
-    function() {
-      trans_info <- self$get_query(glue::glue(
-        "SELECT id_lulc_anterior, id_lulc_posterior
+    self$with_tables(
+      tables_to_attach,
+      function() {
+        trans_info <- self$get_query(glue::glue(
+          "SELECT id_lulc_anterior, id_lulc_posterior
          FROM trans_meta_t
          WHERE id_trans = {id_trans}"
-      ))
+        ))
 
-      if (nrow(trans_info) == 0L) {
-        stop(glue::glue("Transition id_trans = {id_trans} not found in trans_meta_t"))
-      }
+        if (nrow(trans_info) == 0L) {
+          stop(glue::glue("Transition id_trans = {id_trans} not found in trans_meta_t"))
+        }
 
-      id_lulc_ant <- trans_info$id_lulc_anterior
-      id_lulc_post <- trans_info$id_lulc_posterior
+        id_lulc_ant <- trans_info$id_lulc_anterior
+        id_lulc_post <- trans_info$id_lulc_posterior
 
-      ctes <- list()
+        ctes <- list()
 
-      ctes$trans_result <- glue::glue(
-        "trans_result AS (
+        ctes$trans_result <- glue::glue(
+          "trans_result AS (
           SELECT
             curr.id_coord,
             curr.id_period,
@@ -151,16 +159,16 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans, id_pred = NULL,
             AND curr.id_period = prev.id_period + 1
           WHERE prev.id_lulc = {id_lulc_ant}
         )"
-      )
+        )
 
-      pred_filter <- ""
-      if (!is.null(id_pred)) {
-        pred_filter <- glue::glue(" AND id_pred IN ({toString(id_pred)})")
-      }
+        pred_filter <- ""
+        if (!is.null(id_pred)) {
+          pred_filter <- glue::glue(" AND id_pred IN ({toString(id_pred)})")
+        }
 
-      if ("pred_data_t_float" %in% existing_pred_tables) {
-        ctes$pred_float_combined <- glue::glue(
-          "pred_float_combined AS (
+        if ("pred_data_t_float" %in% existing_pred_tables) {
+          ctes$pred_float_combined <- glue::glue(
+            "pred_float_combined AS (
           SELECT id_coord, id_period, id_pred, value
           FROM pred_data_t_float
           WHERE id_period >= 1
@@ -172,16 +180,16 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans, id_pred = NULL,
           WHERE p0.id_period = 0
             {pred_filter}
         )"
-        )
+          )
 
-        ctes$pred_float_wide <- "pred_float_wide AS (
+          ctes$pred_float_wide <- "pred_float_wide AS (
           PIVOT pred_float_combined ON id_pred USING FIRST(value) GROUP BY id_coord, id_period
         )"
-      }
+        }
 
-      if ("pred_data_t_int" %in% existing_pred_tables) {
-        ctes$pred_int_combined <- glue::glue(
-          "pred_int_combined AS (
+        if ("pred_data_t_int" %in% existing_pred_tables) {
+          ctes$pred_int_combined <- glue::glue(
+            "pred_int_combined AS (
           SELECT id_coord, id_period, id_pred, value
           FROM pred_data_t_int
           WHERE id_period >= 1
@@ -193,16 +201,16 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans, id_pred = NULL,
           WHERE p0.id_period = 0
             {pred_filter}
         )"
-        )
+          )
 
-        ctes$pred_int_wide <- "pred_int_wide AS (
+          ctes$pred_int_wide <- "pred_int_wide AS (
           PIVOT pred_int_combined ON id_pred USING FIRST(value) GROUP BY id_coord, id_period
         )"
-      }
+        }
 
-      if ("pred_data_t_bool" %in% existing_pred_tables) {
-        ctes$pred_bool_combined <- glue::glue(
-          "pred_bool_combined AS (
+        if ("pred_data_t_bool" %in% existing_pred_tables) {
+          ctes$pred_bool_combined <- glue::glue(
+            "pred_bool_combined AS (
           SELECT id_coord, id_period, id_pred, value
           FROM pred_data_t_bool
           WHERE id_period >= 1
@@ -214,73 +222,86 @@ evoland_db$set("public", "trans_pred_data_v", function(id_trans, id_pred = NULL,
           WHERE p0.id_period = 0
             {pred_filter}
         )"
-        )
+          )
 
-        ctes$pred_bool_wide <- "pred_bool_wide AS (
+          ctes$pred_bool_wide <- "pred_bool_wide AS (
           PIVOT pred_bool_combined ON id_pred USING FIRST(value) GROUP BY id_coord, id_period
         )"
-      }
+        }
 
-      select_cols <- "tr.result"
-      if ("pred_data_t_float" %in% existing_pred_tables) {
-        select_cols <- paste0(select_cols, ", pf.* EXCLUDE (id_coord, id_period)")
-      }
-      if ("pred_data_t_int" %in% existing_pred_tables) {
-        select_cols <- paste0(select_cols, ", pi.* EXCLUDE (id_coord, id_period)")
-      }
-      if ("pred_data_t_bool" %in% existing_pred_tables) {
-        select_cols <- paste0(select_cols, ", pb.* EXCLUDE (id_coord, id_period)")
-      }
+        select_cols <- "tr.id_coord, tr.id_period, tr.result"
+        if ("pred_data_t_float" %in% existing_pred_tables) {
+          select_cols <- paste0(select_cols, ", pf.* EXCLUDE (id_coord, id_period)")
+        }
+        if ("pred_data_t_int" %in% existing_pred_tables) {
+          select_cols <- paste0(select_cols, ", pi.* EXCLUDE (id_coord, id_period)")
+        }
+        if ("pred_data_t_bool" %in% existing_pred_tables) {
+          select_cols <- paste0(select_cols, ", pb.* EXCLUDE (id_coord, id_period)")
+        }
 
-      joins <- ""
-      if ("pred_data_t_float" %in% existing_pred_tables) {
-        joins <- paste0(
-          joins,
-          "\n LEFT JOIN pred_float_wide AS pf ON tr.id_coord = pf.id_coord AND tr.id_period = pf.id_period"
-        )
-      }
-      if ("pred_data_t_int" %in% existing_pred_tables) {
-        joins <- paste0(
-          joins,
-          "\n LEFT JOIN pred_int_wide AS pi ON tr.id_coord = pi.id_coord AND tr.id_period = pi.id_period"
-        )
-      }
-      if ("pred_data_t_bool" %in% existing_pred_tables) {
-        joins <- paste0(
-          joins,
-          "\n LEFT JOIN pred_bool_wide AS pb ON tr.id_coord = pb.id_coord AND tr.id_period = pb.id_period"
-        )
-      }
+        joins <- ""
+        if ("pred_data_t_float" %in% existing_pred_tables) {
+          joins <- paste0(
+            joins,
+            "\n LEFT JOIN
+                pred_float_wide AS pf
+              ON
+                tr.id_coord = pf.id_coord
+                AND tr.id_period = pf.id_period"
+          )
+        }
+        if ("pred_data_t_int" %in% existing_pred_tables) {
+          joins <- paste0(
+            joins,
+            "\n LEFT JOIN
+                pred_int_wide AS pi
+              ON
+                tr.id_coord = pi.id_coord
+                AND tr.id_period = pi.id_period"
+          )
+        }
+        if ("pred_data_t_bool" %in% existing_pred_tables) {
+          joins <- paste0(
+            joins,
+            "\n LEFT JOIN
+                pred_bool_wide AS pb
+              ON
+                tr.id_coord = pb.id_coord
+                AND tr.id_period = pb.id_period"
+          )
+        }
 
-      cte_string <- paste(unlist(ctes), collapse = ",\n\n ")
+        cte_string <- paste(unlist(ctes), collapse = ",\n\n ")
 
-      query <- glue::glue(
-        "WITH {cte_string}
+        query <- glue::glue(
+          "WITH {cte_string}
 
         SELECT {select_cols}
         FROM trans_result AS tr{joins}
         WHERE tr.result IS NOT NULL"
-      )
+        )
 
-      result <- self$get_query(query)
+        result <- self$get_query(query)
 
-      old_names <- names(result)
-      new_names <- old_names
-      for (i in seq_along(old_names)) {
-        if (old_names[i] != "result" && grepl("^\\d+$", old_names[i])) {
-          new_names[i] <- paste0("id_pred_", old_names[i])
+        old_names <- names(result)
+        new_names <- old_names
+        for (i in seq_along(old_names)) {
+          if (old_names[i] != "result" && grepl("^\\d+$", old_names[i])) {
+            new_names[i] <- paste0("id_pred_", old_names[i])
+          }
         }
-      }
-      data.table::setnames(result, old_names, new_names)
+        data.table::setnames(result, old_names, new_names)
 
-      if (!is.na(na_value)) {
-        pred_cols <- setdiff(names(result), "result")
-        for (col in pred_cols) {
-          data.table::set(result, i = which(is.na(result[[col]])), j = col, value = na_value)
+        if (!is.na(na_value)) {
+          pred_cols <- setdiff(names(result), "result")
+          for (col in pred_cols) {
+            data.table::set(result, i = which(is.na(result[[col]])), j = col, value = na_value)
+          }
         }
-      }
 
-      result
-    }
-  )
-})
+        result
+      }
+    )
+  }
+)

@@ -54,7 +54,7 @@ evoland_db$set(
 #' param ... Additional arguments passed to rank_fun via [covariance_filter()]
 evoland_db$set(
   "public",
-  "prune_trans_preds",
+  "get_pruned_trans_preds_t",
   function(
     filter_fun = covariance_filter,
     na_value = NA,
@@ -114,7 +114,8 @@ evoland_db$set(
 
           # Return ranked + filtered predictor names as id_pred_{n}
           filtered_preds <- filter_fun(
-            data = trans_pred_data,
+            # drop vars that are irrelevant to the filtering
+            data = trans_pred_data[, .SD, .SDcols = !c("id_coord", "id_period")],
             result_col = "result",
             ...
           )
@@ -159,7 +160,9 @@ evoland_db$set(
 
     result <- data.table::rbindlist(results_list)
 
-    self$commit(as_trans_preds_t(result), "trans_preds_t", method = "overwrite")
+    # FIXME can we do this safely? something might go wrong in between
+    # self$commit(as_trans_preds_t(result), "trans_preds_t", method = "overwrite")
+    as_trans_preds_t(result)
   }
 )
 
