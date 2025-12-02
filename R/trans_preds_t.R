@@ -139,6 +139,11 @@ evoland_db$set(
           }
         },
         error = function(e) {
+          # do not prune on error
+          results_list[[id_trans]] <- data.table::data.table(
+            id_pred = id_preds,
+            id_trans = id_trans
+          )
           warning(glue::glue(
             "Error processing transition {id_trans}: {e$message}"
           ))

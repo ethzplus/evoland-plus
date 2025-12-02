@@ -93,7 +93,11 @@ grrf_filter <- function(
 
   # Extract and normalize importance scores
   imp_initial <- rf_initial$variable.importance
-  imp_normalized <- imp_initial / max(imp_initial)
+  # Normalize to [0,1] (importance values may be negative)
+  imp_normalized <- {
+    (imp_initial - min(imp_initial)) /
+      (max(imp_initial) - min(imp_initial))
+  }
 
   # Step 2: Calculate regularization coefficients (penalty weights)
   # Higher importance -> higher coefficient -> less penalty
@@ -110,7 +114,6 @@ grrf_filter <- function(
     case.weights = weights,
     max.depth = max.depth,
     split.select.weights = coef_reg,
-    verbose = FALSE, # easiest way to get rid of cpp warning about split selected weights
     ...
   )
 
