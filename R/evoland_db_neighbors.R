@@ -151,7 +151,7 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     }"
   )
 
-  self$commit("pred_neighbors_t", "pred_neighbors_t_int", method = "upsert")
+  self$commit("pred_neighbors_t", "pred_data_t_int", method = "upsert")
 
   message(glue::glue(
     "Generated {n_predictors} neighbor predictor variables with ",
