@@ -1,0 +1,52 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.191.1/containers/debian
+{
+  "name": "evoland-devcontainer",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "platform": "linux/amd64"
+    }
+  },
+  "mounts": [
+    {
+      "source": "${localEnv:EVOLAND_CACHEDIR}",
+      "target": "/mnt/evoland_cache",
+      "type": "bind"
+    },
+    {
+      "source": "${localEnv:EVOLAND_CALIBRATION_DIR}",
+      "target": "/mnt/calibration",
+      "type": "bind"
+    },
+    {
+      "source": "${localEnv:EVOLAND_SIMULATION_DIR}",
+      "target": "/mnt/simulation",
+      "type": "bind"
+    }
+  ],
+  "containerEnv": {
+    "EVOLAND_DATA_BASEPATH": "/mnt/evoland-data",
+    "EVOLAND_CALIBRATION_DIR": "/mnt/calibration",
+    "EVOLAND_SIMULATION_DIR": "/mnt/simulation"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "git.path": "/usr/bin/git",
+        "r.rterm.linux": "/usr/local/bin/radian",
+        "shellcheck.executablePath": "/usr/bin/shellcheck",
+        "r.plot.useHttpgd": true,
+        "r.bracketedPaste": true,
+        "rewrap.wrappingColumn": 88
+      },
+      "extensions": [
+        "RDebugger.r-debugger",
+        "REditorSupport.r",
+        "quarto.quarto",
+        "timonwong.shellcheck"
+      ]
+    }
+  }
+}

@@ -1,0 +1,185 @@
+@charset = UTF-8
+@submodel.name = CreateCubeOfProbabilityMaps
+@submodel.description = "Stack various probabilities maps into a map cube renaming each one according to the transitions present in the transition matrix. Probability maps must be ordered using a prefix like 1_ , e.g 1_filename.tif according to the number of the row of the respective transition.
+
+The map cube is used as input for both patcher and expander operators"
+@submodel.group = Map Algebra
+@submodel.import = ListFilenames { { \"folder\" : Folder, \"filePattern\" : String } { \"searchSubFoldersRecursively\" : BooleanValue } { \"files\" : Table } }; ExpandTableToUniqueKeys { { \"constant\" : Table } { } { \"table\" : Table } }
+@date = 2023-Nov-22 15:03:10
+@version = 7.6.0.20231102
+Script {{
+    // Folder containing files of probability maps, they must be ordered according to
+    // the number of rows of the transition matrix using as a prefix a number, e.g.
+    // 1_name.tif. Each map will be a layer in the cube raster set
+    @submodel.in.constant.advanced = no
+    @submodel.in.constant.description = Folder containing files of probability maps, they must be ordered according to the number of rows of the transition matrix using as a prefix a number, e.g. 1_name.tif. Each map will be a layer in the cube raster set
+    @submodel.in.constant.name = inputFolder
+    @submodel.in.constant.optional = no
+    @submodel.in.constant.order = 2
+    inputFolder := Folder "..";
+
+    listFilenames6935 := ListFilenames {
+        folder = inputFolder,
+        filePattern = $"(*.tif)",
+        searchSubFoldersRecursively = .no
+    };
+
+    getFileNames := GetTableColumn listFilenames6935 2;
+
+    // the transiton matrix
+    @submodel.in.constant.advanced = no
+    @submodel.in.constant.description = the transiton matrix
+    @submodel.in.constant.name = transitionMatrix
+    @submodel.in.constant.optional = no
+    @submodel.in.constant.order = 1
+    transitionMatrix := Table .UNBOUND;
+
+    expandTableToUniqueKeys15358 := ExpandTableToUniqueKeys transitionMatrix;
+
+    @collapsed = no
+    _ := ForEach expandTableToUniqueKeys15358 .none {{
+        step = step;
+
+        row := Step step;
+
+        getTo := GetTableValue {
+            table = expandTableToUniqueKeys15358,
+            keys = row,
+            column = "To",
+            valueIfNotFound = .none
+        };
+
+        getFrom := GetTableValue {
+            table = expandTableToUniqueKeys15358,
+            keys = row,
+            column = "From",
+            valueIfNotFound = .none
+        };
+
+        muxTableLayerNames := MuxTable [
+            "Key*", "layer_sufix#str",
+        ] setTableCellValue15385;
+
+        createLayerName := CreateString $"(<s3><s1><v1><s1><s2><s1><v2>)" {{
+            NumberString $"(_)" 1;
+
+            NumberString $"(to)" 2;
+
+            NumberString $"(probability)" 3;
+
+            NumberValue getFrom 1;
+
+            NumberValue getTo 2;
+        }};
+
+        setTableCellValue15385 := SetTableCellValue {
+            table = muxTableLayerNames,
+            column = 2,
+            keys = row,
+            value = createLayerName
+        };
+    }};
+
+    getTableValue13738 := GetTableValue {
+        table = getFileNames,
+        keys = [ 1 ],
+        column = 2,
+        valueIfNotFound = .none
+    };
+
+    loadFirstMap := LoadMap {
+        filename = getTableValue13738,
+        nullValue = .none,
+        storageMode = .default,
+        suffixDigits = 0,
+        step = .none,
+        workdir = .none
+    };
+
+    convertToDouble := CalculateMap {
+        expression = [
+            i1
+        ],
+        cellType = .float32,
+        nullValue = .default,
+        resultIsSparse = .no,
+        resultFormat = .none
+    } {{
+        NumberMap loadFirstMap 1;
+    }};
+
+    tableJunction906 := TableJunction setTableCellValue15385 [
+        "Key*", "Value",
+    ];
+
+    @collapsed = no
+    _ := ForEach (TableJunction setTableCellValue15385 [
+        "Key*", "Value",
+    ]) .none {{
+        step0 = step;
+
+        layer := Step step0;
+
+        getTableValue92360 := GetTableValue {
+            table = getFileNames,
+            keys = layer,
+            column = 2,
+            valueIfNotFound = .none
+        };
+
+        loadEvidence := LoadMap {
+            filename = getTableValue92360,
+            nullValue = .none,
+            storageMode = .default,
+            suffixDigits = 0,
+            step = step0,
+            workdir = .none
+        };
+
+        muxMap27567 := MuxMap convertToDouble insertMapLayer27563;
+
+        firstLayer := CalculateValue [
+            if v1 = 1 then
+                1
+            else
+                0
+        ] .none {{
+            NumberValue layer 1;
+        }};
+
+        getTableValue9236 := GetTableValue {
+            table = tableJunction906,
+            keys = layer,
+            column = 2,
+            valueIfNotFound = .none
+        };
+
+        @alias = convert to double
+        convertToDouble0 := CalculateMap {
+            expression = [
+                i1
+            ],
+            cellType = .float32,
+            nullValue = .default,
+            resultIsSparse = .no,
+            resultFormat = .none
+        } {{
+            NumberMap loadEvidence 1;
+        }};
+
+        insertMapLayer27563 := InsertMapLayer {
+            map = muxMap27567,
+            layer = convertToDouble0,
+            layerPosition = layer,
+            layerName = getTableValue9236,
+            replaceLayer = firstLayer
+        };
+    }};
+
+    // Value or constant representing a map provided as the functor input.
+    @alias = Object
+    @submodel.out.object.description = Value or constant representing a map provided as the functor input.
+    @submodel.out.object.name = probabilityMapsRasterCube
+    @submodel.out.object.order = 1
+    _ := Map (MapJunction insertMapLayer27563 convertToDouble);
+}};
