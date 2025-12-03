@@ -24,7 +24,6 @@ A data.table of class "trans_models_t" with columns:
 \item \code{model_family}: Model family (e.g., "rf", "glm", "bayesian")
 \item \code{model_params}: Map of model (hyper) parameters
 \item \code{goodness_of_fit}: Map of various measures of fit (e.g., ROC AUC, RMSE)
-\item \code{sampled_coords}: data.table with id_coord/id_period pairs used for training
 \item \code{fit_call}: Character string of the original fit function call for reproducibility
 \item \code{model_obj_part}: BLOB of serialized model object for validation
 \item \code{model_obj_full}: BLOB of serialized model object for extrapolation

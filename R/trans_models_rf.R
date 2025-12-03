@@ -27,7 +27,7 @@
 #' - min.node.size = 1
 #'
 #' @export
-fit_ranger <- function(data, result_col = "result", ...) {
+fit_ranger <- function(data, result_col = "result", num.trees = 500, ...) {
   if (!requireNamespace("ranger", quietly = TRUE)) {
     stop(
       "Package 'ranger' is required but is not installed.\n",
@@ -58,10 +58,7 @@ fit_ranger <- function(data, result_col = "result", ...) {
     x = x,
     y = y,
     num.trees = num.trees,
-    min.node.size = min.min.node.size,
     case.weights = weights,
-    # Stratified sampling by class
-    sample.fraction = c(nmin / class_counts[1], nmin / class_counts[2]),
     probability = TRUE, # For probability predictions
     importance = "impurity",
     ...

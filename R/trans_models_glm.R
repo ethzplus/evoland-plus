@@ -30,10 +30,21 @@ fit_glm <- function(data, result_col = "result", ...) {
   formula_str <- paste(result_col, "~", paste(pred_cols, collapse = " + "))
   formula <- as.formula(formula_str)
 
-  # Fit GLM with quasibinomial family (handles overdispersion better)
   model <- glm(formula, data = data, family = quasibinomial())
 
-  # Butcher the model if package is available (reduces memory footprint)
+  # clean up the object
+  model[["model"]] <- NULL
+  model[["residuals"]] <- NULL
+  model[["fitted.values"]] <- NULL
+  model[["effects"]] <- NULL
+  model[["qr"]][["qr"]] <- NULL
+  model[["linear.predictors"]] <- NULL
+  model[["weights"]] <- NULL
+  model[["prior.weights"]] <- NULL
+  model[["y"]] <- NULL
+  attr(model[["formula"]], ".Environment") <- NULL
+
+  # just to be sure
   if (requireNamespace("butcher", quietly = TRUE)) {
     model <- butcher::butcher(model)
   }

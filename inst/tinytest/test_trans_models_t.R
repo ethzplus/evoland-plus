@@ -6,7 +6,7 @@ expect_stdout(print(trans_models_empty), "Transition Models Table")
 expect_equal(nrow(trans_models_empty), 0L)
 expect_true(inherits(trans_models_empty, "trans_models_t"))
 
-# Test creation with data (updated structure with sampled_coords and fit_call)
+# Test creation with data
 trans_models_t <- as_trans_models_t(data.table::data.table(
   id_trans = 1L,
   model_family = "rf",
@@ -15,9 +15,6 @@ trans_models_t <- as_trans_models_t(data.table::data.table(
   ),
   goodness_of_fit = list(
     list(auc = 0.8, rmse = 0.15)
-  ),
-  sampled_coords = list(
-    data.table::data.table(id_coord = 1:10, id_period = rep(1L, 10))
   ),
   fit_call = "fit_fun(data = data, result_col = \"result\")",
   model_obj_part = list(
@@ -195,52 +192,35 @@ expect_message(
     gof_fun = gof_mock,
     sample_pct = 70,
     seed = 123,
-    na_value = 0
+    na_value = 0,
+    other_param = "nonce"
   ),
   "Fitting partial model"
 )
-
-# test DB round trip
-expect_silent(db_tm$trans_models_t <- partial_models)
-expect_equivalent(db_tm$trans_models_t, partial_models)
-
-expect_true(inherits(partial_models, "trans_models_t"))
-expect_true(nrow(partial_models) > 0L)
-expect_true(all(partial_models$id_trans > 0))
-
-# Check that partial models are present
-expect_true(all(!vapply(partial_models$model_obj_part, is.null, logical(1))))
-
-# Check that full models are NULL
-expect_true(all(vapply(partial_models$model_obj_full, is.null, logical(1))))
-
-# Check that sampled_coords is present
-expect_true(all(!vapply(partial_models$sampled_coords, is.null, logical(1))))
-first_sampled <- partial_models$sampled_coords[[1]]
-expect_true(inherits(first_sampled, "data.table"))
-expect_true("id_coord" %in% names(first_sampled))
-expect_true("id_period" %in% names(first_sampled))
-
-# Check that fit_call is present and is character string
-expect_true(all(nchar(partial_models$fit_call) > 0))
-expect_true(is.character(partial_models$fit_call))
-
-# Check that fit_call contains the function name
-first_call <- partial_models$fit_call[1]
-expect_true(grepl("fit_mock_glm", first_call))
-expect_true(grepl("data.*result_col", first_call))
-
-# Check that goodness_of_fit is populated
-first_gof <- partial_models$goodness_of_fit[[1]]
-expect_true(length(first_gof) > 0)
-expect_true("cor" %in% names(first_gof) || "mse" %in% names(first_gof))
+expect_equal(
+  partial_models$fit_call[1],
+  r"{fit_mock_glm(data = data, result_col = "result", other_param = "nonce")}"
+)
+expect_equal(
+  partial_models$model_params[[1]],
+  list(n_predictors = 3, n_train = 17, sample_pct = 70, other_param = "nonce")
+)
+expect_true(all(
+  !vapply(partial_models$model_obj_part, is.null, logical(1))
+))
+expect_equal(
+  partial_models$goodness_of_fit[[1]],
+  list(cor = 0.6917245, mse = 0.1610296, n_test = 5),
+  tolerance = 1e07
+)
 
 # Test that model deserialization works
 first_model_part <- qs2::qs_deserialize(partial_models$model_obj_part[[1]])
 expect_true(inherits(first_model_part, "glm"))
 
-# Note: Reproducibility with seed can be affected by RNG state from previous operations
-# Skipping reproducibility test for now
+# test DB round trip
+expect_silent(db_tm$trans_models_t <- partial_models)
+expect_equivalent(db_tm$trans_models_t, partial_models)
 
 # Test fit_full_models
 expect_message(
@@ -256,7 +236,6 @@ expect_message(
 # test DB round trip
 expect_silent(db_tm$trans_models_t <- full_models)
 expect_identical(db_tm$trans_models_t, full_models)
-
 
 expect_true(inherits(full_models, "trans_models_t"))
 expect_true(nrow(full_models) > 0L)
@@ -430,7 +409,6 @@ expect_equal(
     "model_family",
     "model_params",
     "goodness_of_fit",
-    "sampled_coords",
     "fit_call",
     "model_obj_part",
     "model_obj_full"

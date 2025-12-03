@@ -4,7 +4,7 @@
 \alias{fit_ranger}
 \title{Random Forest Model Fitting for Transition Models}
 \usage{
-fit_ranger(data, result_col = "result", ...)
+fit_ranger(data, result_col = "result", num.trees = 500, ...)
 }
 \arguments{
 \item{data}{A data.table containing the result column and predictor columns

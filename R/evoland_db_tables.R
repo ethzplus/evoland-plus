@@ -182,7 +182,7 @@ evoland_db$set("active", "trans_models_t", function(x) {
     self,
     "trans_models_t",
     as_trans_models_t,
-    key_cols = c("id_trans"),
+    key_cols = c("id_trans", "fit_call"),
     map_cols = c("model_params", "goodness_of_fit")
   )(x)
 })

@@ -13,7 +13,6 @@
 #'   - `model_family`: Model family (e.g., "rf", "glm", "bayesian")
 #'   - `model_params`: Map of model (hyper) parameters
 #'   - `goodness_of_fit`: Map of various measures of fit (e.g., ROC AUC, RMSE)
-#'   - `sampled_coords`: data.table with id_coord/id_period pairs used for training
 #'   - `fit_call`: Character string of the original fit function call for reproducibility
 #'   - `model_obj_part`: BLOB of serialized model object for validation
 #'   - `model_obj_full`: BLOB of serialized model object for extrapolation
@@ -25,7 +24,6 @@ as_trans_models_t <- function(x) {
       model_family = character(0),
       model_params = list(),
       goodness_of_fit = list(),
-      sampled_coords = list(),
       fit_call = character(0),
       model_obj_part = list(),
       model_obj_full = list()
@@ -144,9 +142,6 @@ evoland_db$set(
           train_data <- trans_pred_data_full[train_idx, ]
           test_data <- trans_pred_data_full[test_idx, ]
 
-          # Record sampled coordinates for reproducibility
-          sampled_coords <- train_data[, .(id_coord, id_period)]
-
           message(glue::glue(
             "  Training on {nrow(train_data)} observations ",
             "({n_train_true} TRUE, {n_train_false} FALSE)"
@@ -184,8 +179,7 @@ evoland_db$set(
           goodness_of_fit <- gof_fun(
             model = model,
             test_data = test_data,
-            result_col = "result",
-            ...
+            result_col = "result"
           )
 
           # Extract model family
@@ -201,7 +195,8 @@ evoland_db$set(
           model_params <- list(
             n_predictors = length(pred_cols),
             n_train = nrow(train_data),
-            sample_pct = sample_pct
+            sample_pct = sample_pct,
+            ...
           )
 
           # Serialize partial model
@@ -218,7 +213,6 @@ evoland_db$set(
             model_family = model_family,
             model_params = list(model_params),
             goodness_of_fit = list(goodness_of_fit),
-            sampled_coords = list(sampled_coords),
             fit_call = fit_call,
             model_obj_part = model_obj_part,
             model_obj_full = list(NULL)
@@ -356,7 +350,6 @@ evoland_db$set(
             model_family = best_models$model_family[i],
             model_params = list(best_models$model_params[[i]]),
             goodness_of_fit = list(best_models$goodness_of_fit[[i]]),
-            sampled_coords = list(best_models$sampled_coords[[i]]),
             fit_call = best_models$fit_call[i],
             model_obj_part = list(best_models$model_obj_part[[i]]),
             model_obj_full = model_obj_full
@@ -393,7 +386,6 @@ validate.trans_models_t <- function(x, ...) {
       "model_family",
       "model_params",
       "goodness_of_fit",
-      "sampled_coords",
       "fit_call",
       "model_obj_part",
       "model_obj_full"
@@ -410,7 +402,6 @@ validate.trans_models_t <- function(x, ...) {
     is.character(x[["model_family"]]),
     is.list(x[["model_params"]]),
     is.list(x[["goodness_of_fit"]]),
-    is.list(x[["sampled_coords"]]),
     is.character(x[["fit_call"]]),
     is.list(x[["model_obj_part"]]),
     is.list(x[["model_obj_full"]]),
