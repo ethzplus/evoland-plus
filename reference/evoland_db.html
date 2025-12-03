@@ -80,8 +80,10 @@ to disk in parquet format for better compression.</p>
 <li><p><a href="#method-evoland_db-set_coords"><code>evoland_db$set_coords()</code></a></p></li>
 <li><p><a href="#method-evoland_db-set_periods"><code>evoland_db$set_periods()</code></a></p></li>
 <li><p><a href="#method-evoland_db-add_predictor"><code>evoland_db$add_predictor()</code></a></p></li>
+<li><p><a href="#method-evoland_db-fit_partial_models"><code>evoland_db$fit_partial_models()</code></a></p></li>
+<li><p><a href="#method-evoland_db-fit_full_models"><code>evoland_db$fit_full_models()</code></a></p></li>
 <li><p><a href="#method-evoland_db-set_full_trans_preds"><code>evoland_db$set_full_trans_preds()</code></a></p></li>
-<li><p><a href="#method-evoland_db-prune_trans_preds"><code>evoland_db$prune_trans_preds()</code></a></p></li>
+<li><p><a href="#method-evoland_db-get_pruned_trans_preds_t"><code>evoland_db$get_pruned_trans_preds_t()</code></a></p></li>
 <li><p><a href="#method-evoland_db-clone"><code>evoland_db$clone()</code></a></p></li>
 </ul></div><p><details><summary>Inherited methods</summary><ul><li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="attach_table"><a href="parquet_duckdb.html#method-attach_table"><code>evoland::parquet_duckdb$attach_table()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="commit"><a href="parquet_duckdb.html#method-commit"><code>evoland::parquet_duckdb$commit()</code></a></span></li>
@@ -278,21 +280,52 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 </dl><p></p></div>
 </div>
 
+</div><p></p><hr><a id="method-evoland_db-fit_partial_models"></a><div class="section">
+<h3 id="method-fit-partial-models-">Method <code>fit_partial_models()</code><a class="anchor" aria-label="anchor" href="#method-fit-partial-models-"></a></h3>
+
+<div class="section">
+<h4 id="usage-9">Usage<a class="anchor" aria-label="anchor" href="#usage-9"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">fit_partial_models</span><span class="op">(</span></span>
+<span>  <span class="va">fit_fun</span>,</span>
+<span>  <span class="va">gof_fun</span>,</span>
+<span>  sample_pct <span class="op">=</span> <span class="fl">70</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  na_value <span class="op">=</span> <span class="cn">NA</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+
+</div><p></p><hr><a id="method-evoland_db-fit_full_models"></a><div class="section">
+<h3 id="method-fit-full-models-">Method <code>fit_full_models()</code><a class="anchor" aria-label="anchor" href="#method-fit-full-models-"></a></h3>
+
+<div class="section">
+<h4 id="usage-10">Usage<a class="anchor" aria-label="anchor" href="#usage-10"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">fit_full_models</span><span class="op">(</span></span>
+<span>  <span class="va">partial_models</span>,</span>
+<span>  <span class="va">gof_criterion</span>,</span>
+<span>  maximize <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  na_value <span class="op">=</span> <span class="cn">NA</span>,</span>
+<span>  envir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sys.parent.html" class="external-link">parent.frame</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+
 </div><p></p><hr><a id="method-evoland_db-set_full_trans_preds"></a><div class="section">
 <h3 id="method-set-full-trans-preds-">Method <code>set_full_trans_preds()</code><a class="anchor" aria-label="anchor" href="#method-set-full-trans-preds-"></a></h3>
 
 <div class="section">
-<h4 id="usage-9">Usage<a class="anchor" aria-label="anchor" href="#usage-9"></a></h4>
+<h4 id="usage-11">Usage<a class="anchor" aria-label="anchor" href="#usage-11"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">set_full_trans_preds</span><span class="op">(</span>overwrite <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 
-</div><p></p><hr><a id="method-evoland_db-prune_trans_preds"></a><div class="section">
-<h3 id="method-prune-trans-preds-">Method <code>prune_trans_preds()</code><a class="anchor" aria-label="anchor" href="#method-prune-trans-preds-"></a></h3>
+</div><p></p><hr><a id="method-evoland_db-get_pruned_trans_preds_t"></a><div class="section">
+<h3 id="method-get-pruned-trans-preds-t-">Method <code>get_pruned_trans_preds_t()</code><a class="anchor" aria-label="anchor" href="#method-get-pruned-trans-preds-t-"></a></h3>
 
 <div class="section">
-<h4 id="usage-10">Usage<a class="anchor" aria-label="anchor" href="#usage-10"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">prune_trans_preds</span><span class="op">(</span></span>
+<h4 id="usage-12">Usage<a class="anchor" aria-label="anchor" href="#usage-12"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">get_pruned_trans_preds_t</span><span class="op">(</span></span>
 <span>  filter_fun <span class="op">=</span> <span class="va">covariance_filter</span>,</span>
 <span>  na_value <span class="op">=</span> <span class="cn">NA</span>,</span>
 <span>  <span class="va">...</span></span>
@@ -303,7 +336,7 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 </div><p></p><hr><a id="method-evoland_db-clone"></a><div class="section">
 <h3 id="method-clone-">Method <code>clone()</code><a class="anchor" aria-label="anchor" href="#method-clone-"></a></h3>
 <p>The objects of this class are cloneable with this method.</p><div class="section">
-<h4 id="usage-11">Usage<a class="anchor" aria-label="anchor" href="#usage-11"></a></h4>
+<h4 id="usage-13">Usage<a class="anchor" aria-label="anchor" href="#usage-13"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">clone</span><span class="op">(</span>deep <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 

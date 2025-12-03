@@ -50,9 +50,13 @@ separate files:
 
 - [`evoland_db$add_predictor()`](#method-evoland_db-add_predictor)
 
+- [`evoland_db$fit_partial_models()`](#method-evoland_db-fit_partial_models)
+
+- [`evoland_db$fit_full_models()`](#method-evoland_db-fit_full_models)
+
 - [`evoland_db$set_full_trans_preds()`](#method-evoland_db-set_full_trans_preds)
 
-- [`evoland_db$prune_trans_preds()`](#method-evoland_db-prune_trans_preds)
+- [`evoland_db$get_pruned_trans_preds_t()`](#method-evoland_db-get_pruned_trans_preds_t)
 
 - [`evoland_db$clone()`](#method-evoland_db-clone)
 
@@ -261,6 +265,35 @@ Add a predictor to the database
 
 ------------------------------------------------------------------------
 
+### Method `fit_partial_models()`
+
+#### Usage
+
+    evoland_db$fit_partial_models(
+      fit_fun,
+      gof_fun,
+      sample_pct = 70,
+      seed = NULL,
+      na_value = NA,
+      ...
+    )
+
+------------------------------------------------------------------------
+
+### Method `fit_full_models()`
+
+#### Usage
+
+    evoland_db$fit_full_models(
+      partial_models,
+      gof_criterion,
+      maximize = TRUE,
+      na_value = NA,
+      envir = parent.frame()
+    )
+
+------------------------------------------------------------------------
+
 ### Method `set_full_trans_preds()`
 
 #### Usage
@@ -269,11 +302,11 @@ Add a predictor to the database
 
 ------------------------------------------------------------------------
 
-### Method `prune_trans_preds()`
+### Method `get_pruned_trans_preds_t()`
 
 #### Usage
 
-    evoland_db$prune_trans_preds(
+    evoland_db$get_pruned_trans_preds_t(
       filter_fun = covariance_filter,
       na_value = NA,
       ...

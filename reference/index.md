@@ -17,6 +17,14 @@
   : Table active bindings for evoland_db
 - [`evoland_db_views`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   : Views on the evoland-plus data model
+- [`fit_glm()`](https://ethzplus.github.io/evoland-plus/reference/fit_glm.md)
+  : GLM Model Fitting for Transition Models
+- [`fit_ranger()`](https://ethzplus.github.io/evoland-plus/reference/fit_ranger.md)
+  : Random Forest Model Fitting for Transition Models
+- [`gof_glm()`](https://ethzplus.github.io/evoland-plus/reference/gof_glm.md)
+  : Goodness of Fit Evaluation for GLM Models
+- [`gof_ranger()`](https://ethzplus.github.io/evoland-plus/reference/gof_ranger.md)
+  : Goodness of Fit Evaluation for Random Forest Models
 - [`grrf_filter()`](https://ethzplus.github.io/evoland-plus/reference/grrf_filter.md)
   : Guided Regularized Random Forest Feature Selection
 - [`as_intrv_masks_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)

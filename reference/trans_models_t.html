@@ -74,10 +74,10 @@ structure for storing fitted models.</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data.table of class "trans_models_t" with columns:</p><ul><li><p><code>id_trans</code>: Foreign key to trans_meta_t</p></li>
-<li><p><code>id_period</code>: Foreign key to periods_t</p></li>
 <li><p><code>model_family</code>: Model family (e.g., "rf", "glm", "bayesian")</p></li>
 <li><p><code>model_params</code>: Map of model (hyper) parameters</p></li>
-<li><p><code>goodness_of_fit</code>: Map of various measures of fit (e.g., ROC AUC)</p></li>
+<li><p><code>goodness_of_fit</code>: Map of various measures of fit (e.g., ROC AUC, RMSE)</p></li>
+<li><p><code>fit_call</code>: Character string of the original fit function call for reproducibility</p></li>
 <li><p><code>model_obj_part</code>: BLOB of serialized model object for validation</p></li>
 <li><p><code>model_obj_full</code>: BLOB of serialized model object for extrapolation</p></li>
 </ul></div>

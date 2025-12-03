@@ -35,13 +35,15 @@ A data.table of class "trans_models_t" with columns:
 
 - `id_trans`: Foreign key to trans_meta_t
 
-- `id_period`: Foreign key to periods_t
-
 - `model_family`: Model family (e.g., "rf", "glm", "bayesian")
 
 - `model_params`: Map of model (hyper) parameters
 
-- `goodness_of_fit`: Map of various measures of fit (e.g., ROC AUC)
+- `goodness_of_fit`: Map of various measures of fit (e.g., ROC AUC,
+  RMSE)
+
+- `fit_call`: Character string of the original fit function call for
+  reproducibility
 
 - `model_obj_part`: BLOB of serialized model object for validation
 
