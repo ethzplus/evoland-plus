@@ -105,7 +105,6 @@ evoland_db$set("active", "coords_minimal", function() {
 # id_trans - integer transition ID
 # id_pred - optional integer vector of predictor IDs to include (NULL = all predictors)
 # na_value - if not NA, replace all NULL/NA predictor values with this value
-# sample_pct - if not NULL, use this fraction of the underlying data
 evoland_db$set(
   "public",
   "trans_pred_data_v",
@@ -145,20 +144,20 @@ evoland_db$set(
 
         ctes$trans_result <- glue::glue(
           "trans_result AS (
-          SELECT
-            curr.id_coord,
-            curr.id_period,
-            CASE
-              WHEN prev.id_lulc = {id_lulc_ant} AND curr.id_lulc = {id_lulc_post} THEN TRUE
-              WHEN prev.id_lulc = {id_lulc_ant} AND curr.id_lulc != {id_lulc_post} THEN FALSE
-              ELSE NULL
-            END AS result
-          FROM lulc_data_t AS curr
-          INNER JOIN lulc_data_t AS prev
-            ON curr.id_coord = prev.id_coord
-            AND curr.id_period = prev.id_period + 1
-          WHERE prev.id_lulc = {id_lulc_ant}
-        )"
+            SELECT
+              curr.id_coord,
+              curr.id_period,
+              CASE
+                WHEN prev.id_lulc = {id_lulc_ant} AND curr.id_lulc = {id_lulc_post} THEN TRUE
+                WHEN prev.id_lulc = {id_lulc_ant} AND curr.id_lulc != {id_lulc_post} THEN FALSE
+                ELSE NULL
+              END AS result
+            FROM lulc_data_t AS curr
+            INNER JOIN lulc_data_t AS prev
+              ON curr.id_coord = prev.id_coord
+              AND curr.id_period = prev.id_period + 1
+            WHERE prev.id_lulc = {id_lulc_ant}
+          )"
         )
 
         pred_filter <- ""

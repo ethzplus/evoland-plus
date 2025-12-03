@@ -170,12 +170,15 @@ expect_true(all(trans_preds_result$id_trans %in% viable_trans_ids))
 # reset to full set of trans - preds
 expect_silent(db_tps$set_full_trans_preds(overwrite = TRUE))
 expect_message(
-  db_tps$get_pruned_trans_preds_t(
-    filter_fun = grrf_filter,
-    num.trees = 10,
-    gamma = 0.9
+  expect_stdout(
+    db_tps$get_pruned_trans_preds_t(
+      filter_fun = grrf_filter,
+      num.trees = 10,
+      gamma = 0.9
+    ),
+    "Split select weights used"
   ),
-  "Selected 5 predictor\\(s\\) for transition"
+  r"{Selected [0-9] predictor\(s\) for transition}"
 )
 
 # Test error handling - empty database

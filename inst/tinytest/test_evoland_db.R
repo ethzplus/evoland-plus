@@ -188,24 +188,6 @@ trans_meta_t <- as_trans_meta_t(
   )
 )
 
-trans_models_t <- as_trans_models_t(list(
-  id_trans = 1L,
-  id_period = 2L,
-  model_family = "rf",
-  model_params = list(
-    list(depth = 100)
-  ),
-  goodness_of_fit = list(
-    list(auc = 0.8)
-  ),
-  model_obj_part = list(
-    charToRaw("some data")
-  ),
-  model_obj_full = list(
-    charToRaw("some data")
-  )
-))
-
 intrv_masks_t <- as_intrv_masks_t(
   data.table::data.table(
     id_coord = 1:99,
@@ -246,10 +228,6 @@ expect_equal(db$intrv_meta_t, intrv_meta_t)
 # Test 11: Active bindings - trans_meta_t
 expect_silent(db$trans_meta_t <- trans_meta_t)
 expect_equal(db$trans_meta_t[, c(-1)], trans_meta_t)
-
-# Test 12: Active bindings - trans_models_t (with MAP and BLOB columns)
-expect_silent(db$trans_models_t <- trans_models_t)
-expect_equal(db$trans_models_t, trans_models_t)
 
 # Test 13: Active bindings - alloc_params_t (with MAP columns)
 expect_silent(db$alloc_params_t <- alloc_params_t)

@@ -106,6 +106,7 @@ grrf_filter <- function(
   # Step 3: Run guided regularized random forest
   # Use split.select.weights to penalize variables with lower importance
   # Higher weight = more likely to be selected for splitting
+  # FIXME silence expected warning about split weights without silencing progress output
   rf_grrf <- ranger::ranger(
     x = x,
     y = y,
