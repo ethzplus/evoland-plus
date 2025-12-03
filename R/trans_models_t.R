@@ -42,14 +42,16 @@ as_trans_models_t <- function(x) {
 #' sampling. Models are trained on a subsample and evaluated on held-out data.
 #'
 #' @param fit_fun Function to fit models. Should accept (data, result_col = "result", ...) and
-#'   return a fitted model object
+#'   return a fitted model object. For GLMs, quasibinomial family is recommended. If the butcher
+#'   package is available, consider using butcher::butcher() on the model before returning to
+#'   reduce memory footprint.
 #' @param gof_fun Function to evaluate goodness of fit. Should accept (model, test_data, result_col,
-#' ...) and return a named list of metrics @param sample_pct Percentage (0-100) for stratified
-#' sampling. This percentage of each result group (TRUE/FALSE) will be used for training, the rest
-#' for validation.
+#'   ...) and return a named list of metrics
+#' @param sample_pct Percentage (0-100) for stratified sampling. This percentage of each result
+#'   group (TRUE/FALSE) will be used for training, the rest for validation.
 #' @param seed Random seed for reproducible sampling
 #' @param na_value Passed to db$trans_pred_data_v - if not NA, replace all NA predictor values with
-#' this value
+#'   this value
 #' @param ... Additional arguments passed to fit_fun
 evoland_db$set(
   "public",
@@ -57,7 +59,7 @@ evoland_db$set(
   function(
     fit_fun,
     gof_fun,
-    sample_pct = 70,
+    sample_pct = 70, # TODO change this to fraction
     seed = NULL,
     na_value = NA,
     ...

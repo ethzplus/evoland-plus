@@ -27,6 +27,8 @@ Imports:
     stringi,
     terra
 Suggests:
+    butcher,
+    pROC,
     tinytest,
     quarto,
     ranger
@@ -55,6 +57,8 @@ Collate:
     'pred_data_t.R'
     'pred_meta_t.R'
     'trans_meta_t.R'
+    'trans_models_glm.R'
+    'trans_models_rf.R'
     'trans_models_t.R'
     'trans_preds_t.R'
     'util.R'
