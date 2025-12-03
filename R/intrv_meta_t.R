@@ -88,7 +88,7 @@ create_intrv_meta_t <- function(intrv_spec) {
     sources = lapply(
       intrv_spec,
       function(intrv) {
-        data.frame(
+        data.table::data.table(
           url = unlist(pluck_wildcard(intrv, "sources", NA, "url") %||% character()),
           md5sum = unlist(pluck_wildcard(intrv, "sources", NA, "md5sum") %||% character())
         )

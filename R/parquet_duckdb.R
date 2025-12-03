@@ -76,8 +76,24 @@ parquet_duckdb <- R6::R6Class(
     #' @param statement A SQL query statement
     #' @return A data.table with query results
     get_query = function(statement) {
-      DBI::dbGetQuery(self$connection, statement) |>
-        data.table::as.data.table()
+      # it's not currently possible to get the duckdb driver to build data.tables directly
+      result <- data.table::as.data.table(
+        DBI::dbGetQuery(self$connection, statement)
+      )
+
+      # Convert list columns containing data.frames to data.tables
+      list_cols <- names(result)[vapply(result, is.list, logical(1))]
+      for (col in list_cols) {
+        data.table::set(
+          result,
+          j = col,
+          value = lapply(result[[col]], function(x) {
+            if (is.data.frame(x)) data.table::as.data.table(x) else x
+          })
+        )
+      }
+
+      result
     },
 
     #' @description
