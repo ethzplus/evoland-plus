@@ -5,7 +5,7 @@
 
 desc <- remotes:::read_dcf("DESCRIPTION")
 
-dependencies <- c("Depends", "Imports", "LinkingTo")
+dependencies <- c("Depends", "Imports", "LinkingTo", "Suggests")
 dependencies <- intersect(dependencies, names(desc))
 pkg_deps <-
   lapply(desc[dependencies], remotes:::parse_deps) |>

@@ -12,24 +12,12 @@
   "mounts": [
     {
       "source": "${localEnv:EVOLAND_CACHEDIR}",
-      "target": "/mnt/evoland_cache",
-      "type": "bind"
-    },
-    {
-      "source": "${localEnv:EVOLAND_CALIBRATION_DIR}",
-      "target": "/mnt/calibration",
-      "type": "bind"
-    },
-    {
-      "source": "${localEnv:EVOLAND_SIMULATION_DIR}",
-      "target": "/mnt/simulation",
+      "target": "/mnt/evoland-cache",
       "type": "bind"
     }
   ],
   "containerEnv": {
-    "EVOLAND_DATA_BASEPATH": "/mnt/evoland-data",
-    "EVOLAND_CALIBRATION_DIR": "/mnt/calibration",
-    "EVOLAND_SIMULATION_DIR": "/mnt/simulation"
+    "EVOLAND_CACHEDIR": "/mnt/evoland-cache"
   },
   "customizations": {
     "vscode": {

@@ -24,6 +24,7 @@ install2.r --error --skipinstalled -n $NCPUS \
     covr \
     devtools \
     languageserver \
+    lobstr \
     microbenchmark \
     profvis \
     quarto \

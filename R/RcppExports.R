@@ -4,4 +4,3 @@
 distance_neighbors_cpp <- function(coords_t, max_distance, resolution = 100.0, quiet = FALSE) {
     .Call(`_evoland_distance_neighbors_cpp`, coords_t, max_distance, resolution, quiet)
 }
-
