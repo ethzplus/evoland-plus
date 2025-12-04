@@ -93,44 +93,46 @@ expect_equal(
   sample_dinamica_script_decoded
 )
 
-# Test: exec_dinamica works
-tmpfile_ego <- tempfile(fileext = ".ego")
-writeChar(
-  sample_dinamica_script_encoded,
-  tmpfile_ego,
-  eos = NULL
-)
-expect_message(
-  expect_identical(
-    exec_dinamica(tmpfile_ego)[["status"]],
-    0L
-  ),
-  "Logging to"
-)
-unlink(tmpfile_ego)
+if (length(Sys.which("DinamicaConsole")) == 1L) {
+  # Test: exec_dinamica works
+  tmpfile_ego <- tempfile(fileext = ".ego")
+  writeChar(
+    sample_dinamica_script_encoded,
+    tmpfile_ego,
+    eos = NULL
+  )
+  expect_message(
+    expect_identical(
+      exec_dinamica(tmpfile_ego)[["status"]],
+      0L
+    ),
+    "Logging to"
+  )
+  unlink(tmpfile_ego)
 
-# Test: exec_dinamica with echo
-tmpfile_ego <- tempfile(fileext = ".ego")
-writeChar(
-  sample_dinamica_script_encoded,
-  tmpfile_ego,
-  eos = NULL
-)
-expect_stdout(
-  exec_dinamica(tmpfile_ego, echo = TRUE, write_logfile = FALSE),
-  "Running model script"
-)
-unlink(tmpfile_ego)
+  # Test: exec_dinamica with echo
+  tmpfile_ego <- tempfile(fileext = ".ego")
+  writeChar(
+    sample_dinamica_script_encoded,
+    tmpfile_ego,
+    eos = NULL
+  )
+  expect_stdout(
+    exec_dinamica(tmpfile_ego, echo = TRUE, write_logfile = FALSE),
+    "Running model script"
+  )
+  unlink(tmpfile_ego)
 
-# Test: exec_dinamica fails
-tmpfile_ego <- tempfile(fileext = ".ego")
-evoland:::process_dinamica_script(I(sample_dinamica_script_decoded), tmpfile_ego)
+  # Test: exec_dinamica fails
+  tmpfile_ego <- tempfile(fileext = ".ego")
+  evoland:::process_dinamica_script(I(sample_dinamica_script_decoded), tmpfile_ego)
 
-expect_stdout(
-  expect_error(
-    exec_dinamica(tmpfile_ego, echo = TRUE),
-    "Dinamica registered an error"
-  ),
-  pattern = "runcible spoon"
-)
-unlink(tmpfile_ego)
+  expect_stdout(
+    expect_error(
+      exec_dinamica(tmpfile_ego, echo = TRUE),
+      "Dinamica registered an error"
+    ),
+    pattern = "runcible spoon"
+  )
+  unlink(tmpfile_ego)
+}

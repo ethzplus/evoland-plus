@@ -26,6 +26,12 @@ exec_dinamica <- function(
   write_logfile = TRUE,
   echo = FALSE
 ) {
+  if (Sys.which("DinamicaConsole") == "") {
+    stop(
+      "DinamicaConsole not found on PATH. ",
+      "Please ensure Dinamica EGO is installed and DinamicaConsole is available."
+    )
+  }
   args <- character()
   if (disable_parallel) {
     args <- c(args, "-disable-parallel-steps")
