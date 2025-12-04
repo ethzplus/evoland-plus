@@ -1,434 +1,70 @@
 @charset = UTF-8
-@date = 2024-Jan-21 16:00:58
-@version = 7.2.0.20221230
+@date = 2025-Dec-04 16:00:58
+@version = 8.7.0.20250814
 @submodel.import = CreateCubeOfProbabilityMaps { { \"transitionMatrix\" : Table, \"inputFolder\" : Folder } { } { \"probabilityMapsRasterCube\" : Map } }; AllocateTransitions { { \"lanscape\" : CategoricalMap, \"probabilities\" : Map, \"transitionMatrix\" : TransitionMatrix, \"percentOfTransitionsByExpansion\" : PercentMatrix, \"patchExpansionParameters\" : TransitionFunctionParameterMatrix, \"patchGenerationParameters\" : TransitionFunctionParameterMatrix } { \"printTransitionInfo\" : BooleanValue } { \"resultingLanscape\" : CategoricalMap } }; CalcSimilarityOfDifferences { { \"initialMap\" : CategoricalMap, \"observedMap\" : CategoricalMap, \"simulatedMap\" : CategoricalMap } { \"useExponentialDecay\" : BooleanValue, \"windowSize\" : PositiveIntegerValue, \"printSimilarities\" : BooleanValue, \"exponentialDecayDivisor\" : RealValue } { \"similarityMap\" : Map, \"similarity\" : RealValue } }
 Script {{
-    @collapsed = no
-    @alias = Load control table
-    _ := Group .none {{
-        getEnvironmentVariables := CalculateRExpression "
-            message(Sys.time(), " - getEnvironmentVariables")
-            outputString("work_dir", getwd())
-        " .no {{ }};
-
-        workingDirectory := ExtractStructString getEnvironmentVariables $"(work_dir)";
-
-        // Subset control table. The ForEach logic in Dinamica takes the first column
-        // for the simulationNumber, which R then uses to subset by csv row. Danger!
-        @collapsed = no
-        @alias = Subset control table to only simulations yet to be completed (i.e. modelled)
-        incompleteSimulationsRExpression := CalculateRExpression "
-            message(Sys.time(), " - incompleteSimulationsRExpression")
-            outputTable("remaining_simulations", evoland::get_remaining_simulations())
-        " .no {{ }};
-
-        @viewer.table = yes
-        subsettedControlTable := ExtractStructTable incompleteSimulationsRExpression $"(remaining_simulations)";
-    }};
-
-    // Iterate over each row of the control table performing the extrapolation
-    @collapsed = no
-    @alias = Simulation iteration
-    _ := ForEach subsettedControlTable subsettedControlTable {{
-        step = step;
-
-        @viewer.step = yes
-        simulationNumber := Step step;
-
-        @collapsed = no
-        @alias = Set working directory
-        Workdir workingDirectory {{
-            workdir = workdir;
-
-            @collapsed = no
-            @viewer.executionCompletedSucessfully = yes
-            skipOnError1399 := SkipOnError .yes {{
-                @collapsed = no
-                @alias = Initialise scenario
-                _ := Group .none {{
-                    // Prepare maps, create folders and pass back file paths for current simulation
-                    @collapsed = no
-                    @viewer.result = yes
-                    initializeCurrentSimulation := CalculateRExpression "
-                        message(Sys.time(), " - initializeCurrentSimulation")
-                        config <- evoland::get_config()
-                        sim_details <- evoland::get_simulation_params(simulation_id = v1)
-                        evoland::create_init_lulc_raster(params = sim_details)
-
-                        # step length to construct simulatedLulcSavePath
-                        outputDouble("step_length", config[["step_length"]])
-
-                        # lookup table to iterate over (timeStepTable)
-                        timesteps <- evoland::get_simulation_timesteps(params = sim_details)
-                        outputLookupTable("simulation_time_steps", timesteps[["key"]], timesteps[["value"]])
-
-                        # send simulated LULC folder path to Dinamica receiver: sim_results_path
-                        outputString("sim_results_path", sim_details[["sim_results_path"]])
-
-                        # send initial LULC map file path to Dinamica receiver:
-                        outputString("initial_lulc_path", sim_details[["initial_lulc_path"]])
-
-                        # send folder path as string to Dinamica receiver: allocation_params_folder_path
-                        outputString("allocation_params_folder_path", sim_details[["params_folder_dinamica"]])
-                    " .no {{
-                        @alias = Row of current simulation in table
-                        NumberValue simulationNumber 1;
-                    }};
-
-                    @viewer.string = yes
-                    receiveInitialLulcFilePath := ExtractStructString initializeCurrentSimulation $"(initial_lulc_path)";
-
-                    @viewer.lookupTable = yes
-                    timeStepTable := ExtractStructLookupTable initializeCurrentSimulation $"(simulation_time_steps)";
-
-                    stepLength := ExtractStructNumber initializeCurrentSimulation $"(step_length)";
-
-                    @viewer.string = yes
-                    allocationParamsFolderPath := ExtractStructString initializeCurrentSimulation $"(allocation_params_folder_path)";
-
-                    @viewer.string = yes
-                    receiveSimResultsPath := ExtractStructString initializeCurrentSimulation $"(sim_results_path)";
-                }};
-
-                @collapsed = no
-                scenarioTimeStepIteration := ForEach timeStepTable timeStepTable {{
-                    step0 = step;
-
-                    // Receives current model time step
-                    @viewer.step = yes
-                    timeStep := Step step0;
-
-                    @alias = Transition rate table control
-                    _ := Group .none {{
-
-                        // Load Scenario/time specific transition matrix
-                        @collapsed = no
-                        loadTransitionRateTable := CalculateRExpression "
-                            message(Sys.time(), " - loadTransitionRateTable")
-                            outputTable("trans_rate_table", evoland::dinamica_load_trans_table(
-                                simulation_id = v2,
-                                year = v1
-                            ))
-                        " .no {{
-                            @alias = Time step
-                            NumberValue timeStep 1;
-
-                            @alias = Simulation number
-                            NumberValue simulationNumber 2;
-                        }};
-
-                        transitionRatesTable := ExtractStructTable loadTransitionRateTable $"(trans_rate_table)";
-                    }};
-
-                    @viewer.map = yes
-                    loadInitialLulcMap := LoadCategoricalMap {
-                        filename = receiveInitialLulcFilePath,
-                        nullValue = .none,
-                        storageMode = .default,
-                        suffixDigits = 0,
-                        step = step0,
-                        workdir = workdir
-                    };
-
-                    // simulated LULC map updated for each time step
-                    @viewer.map = yes
-                    updatedLulcMap := MuxCategoricalMap loadInitialLulcMap loadUpdatedLulcMap;
-
-                    @alias = Load allocation parameters
-                    _ := Group .none {{
-                        @collapsed = no
-                        @viewer.result = yes
-                        // Modify file path for allocation parameters table for time step
-                        allocationParametersPathForTimeStep := CreateString allocationParamsFolderPath {{
-                            @alias = Time step
-                            NumberValue timeStep 1;
-                        }};
-
-                        @viewer.table = yes
-                        loadTableOfAllocationParameters := LoadTable {
-                            filename = allocationParametersPathForTimeStep,
-                            uniqueIdKeyColumnCreation = .ifNecessary,
-                            suffixDigits = 0,
-                            step = step0,
-                            workdir = workdir
-                        };
-
-                        @collapsed = no
-                        @viewer.result = yes
-                        splitParamTable := CalculateRExpression "
-                            message(Sys.time(), " - splitParamTable")
-                            param_table <- t1
-
-                            # the third positional argument `, 2` is necessary for Dinamica to register that the
-                            # table has 2 key columns (From and To) - could not find documentation for this
-                            outputTable(
-                                "expander_table", 
-                                param_table[, c("From", "To", "Perc_expander")], 
-                                2
-                            )
-                            outputTable(
-                                "patch_table", 
-                                param_table[, !(colnames(param_table) %in% c("Perc_expander", "Perc_patcher"))], 
-                                2
-                            )
-                        " .no {{
-                            NumberTable loadTableOfAllocationParameters 1;
-                        }};
-
-                        @alias = % expansion table
-                        @viewer.table = yes
-                        expansionTable := ExtractStructTable splitParamTable $"(expander_table)";
-
-                        @viewer.table = yes
-                        patchRelatedParams := ExtractStructTable splitParamTable $"(patch_table)";
-                    }};
-
-                    @collapsed = no
-                    @alias = Transition potential calculation
-                    _ := Group .none {{
-                        @collapsed = no
-                        @alias = Transition potential R script
-                        transitionPotentialRScript := CalculateRExpression "
-                            message(Sys.time(), " - transitionPotentialRScript")
-
-                            prob_map_folder <- evoland::dinamica_trans_potent_calc(
-                                simulation_num = v2,
-                                time_step = v1
-                            )
-
-                            outputString("probmap_folder_path", prob_map_folder)
-                        " .no {{
-                            @alias = time_step
-                            NumberValue timeStep 1;
-
-                            @alias = Current simulation number
-                            NumberValue simulationNumber 2;
-                        }};
-
-                        @viewer.string = yes
-                        folderPathForProbabilityMaps := ExtractStructString transitionPotentialRScript $"(probmap_folder_path)";
-
-                        @viewer.probabilityMapsRasterCube = yes
-                        createCubeOfProbabilityMaps7123 := CreateCubeOfProbabilityMaps transitionRatesTable folderPathForProbabilityMaps;
-                    }};
-
-                    @alias = Transition allocation
-                    _ := Group .none {{
-                        @collapsed = no
-                        createSimulatedLulcSavePath := CalculateRExpression "
-                            message(Sys.time(), " - createSimulatedLulcSavePath")
-                            simulated_lulc_year <- v1 + v2
-                            final_lulc_path <- file.path(
-                                s1,
-                                paste0(simulated_lulc_year, ".tif")
-                            )
-
-                            outputString("simulated_lulc_save_path", final_lulc_path)
-                            #output the simulated map year for use in the implementation of deterministic transitions
-                            outputDouble("simulated_lulc_year", simulated_lulc_year)
-                        " .no {{
-                            @alias = Simulated LULC map base path
-                            NumberString receiveSimResultsPath 1;
-
-                            @alias = Current time
-                            NumberValue timeStep 1;
-
-                            @alias = Model step length
-                            NumberValue stepLength 2;
-                        }};
-
-                        @viewer.string = yes
-                        simulatedLulcSavePath := ExtractStructString createSimulatedLulcSavePath $"(simulated_lulc_save_path)";                        
-                        simulatedLulcYear := ExtractStructNumber createSimulatedLulcSavePath $"(simulated_lulc_year)";
-
-                        @viewer.resultingLanscape = yes
-                        allocateTransitions1454 := AllocateTransitions {
-                            lanscape = updatedLulcMap,
-                            probabilities = createCubeOfProbabilityMaps7123,
-                            transitionMatrix = transitionRatesTable,
-                            percentOfTransitionsByExpansion = expansionTable,
-                            patchExpansionParameters = patchRelatedParams,
-                            patchGenerationParameters = patchRelatedParams,
-                            printTransitionInfo = .yes
-                        };
-
-
-                        // Simulated LULC map saved at every time step. Receives time info from control
-                        // operator and adds a suffix to the file path.
-                        @alias = Save simulated LULC
-                        SaveMap {
-                            map = allocateTransitions1454,
-                            filename = simulatedLulcSavePath,
-                            suffixDigits = 0,
-                            step = 0,
-                            useCompression = .yes,
-                            workdir = workdir,
-                            ignoreCostlySparseCategories = .yes
-                        };
-                    }};
-
-                    @alias = Implement deterministic transitions
-                    _ := Group .none {{
-                        @collapsed = no
-                        _ := CalculateRExpression "
-                            message(Sys.time(), " - deterministicTransitions")
-
-                            evoland::dinamica_deterministic_trans(
-                                simulated_lulc_save_path = s1,
-                                simulation_id = v1,
-                                simulated_lulc_year = v2
-                            )
-                        " .no {{
-                            @alias = Simulated LULC save path
-                            NumberString simulatedLulcSavePath 1;
-
-                            @alias = Simulation number
-                            NumberValue simulationNumber 1;
-
-                            @alias = Simulated LULC year
-                            NumberValue simulatedLulcYear 2;
-                        }};
-
-                        //
-                        // ===
-                        // Load simulated LULC map that has had deterministic transition incorporated
-                        loadUpdatedLulcMap := LoadCategoricalMap {
-                            filename = simulatedLulcSavePath,
-                            nullValue = .none,
-                            storageMode = .default,
-                            suffixDigits = 0,
-                            step = step0,
-                            workdir = workdir
-                        };
-                    }};
-                }};
-
-                //
-                // ===
-                // If simulating during calibration period validate outputs
-                @collapsed = no
-                @alias = Calibration period validation
-                _ := Group scenarioTimeStepIteration {{
-                    @collapsed = no
-                    validateCalibration := CalculateRExpression "
-                        message(Sys.time(), " - validateCalibration")
-                        validation_params <- evoland::dinamica_use_validation(
-                            simulation_id = v1,
-                            sim_results_path = s1
-                        )
-
-                        # double as bool: 0 -> don't validate, 1 -> do validate
-                        outputDouble("Use_validation", validation_params[["validation_condition"]])
-
-                        # where to write validation results
-                        outputString("Val_map_path", validation_params[["Validation_map_path"]])
-                        outputString("Val_result_path", validation_params[["Validation_result_path"]])
-
-                        # final observed and simulated years, respectively
-                        outputString("Obs_LULC_path", validation_params[["Final_LULC_path"]])
-                        outputString("Sim_LULC_path", validation_params[["Sim_final_LULC_path"]])
-                    " .no {{
-                        @alias = Send simulation ID
-                        NumberValue simulationNumber 1;
-
-                        @alias = Send file path for simulated LULC map
-                        NumberString receiveSimResultsPath 1;
-
-                    }};
-
-                    @viewer.string = yes
-                    filePathLastObservedLulcYear := ExtractStructString validateCalibration $"(Obs_LULC_path)";
-
-                    filePathValidationResults := ExtractStructString validateCalibration $"(Val_result_path)";
-
-                    filePathLastSimulatedLulcYear := ExtractStructString validateCalibration $"(Sim_LULC_path)";
-
-                    // returning 0 does not initiate validation, returning 1 does
-                    @viewer.number = yes
-                    useValidationCondition := ExtractStructNumber validateCalibration $"(Use_validation)";
-
-                    filePathValidationMap := ExtractStructString validateCalibration $"(Val_map_path)";
-
-                    _ := IfThen useValidationCondition .none {{
-                        loadObservedLulcMapForFinalYearOfSimulation := LoadCategoricalMap {
-                            filename = filePathLastObservedLulcYear,
-                            nullValue = .none,
-                            storageMode = .default,
-                            suffixDigits = 0,
-                            step = step,
-                            workdir = workdir
-                        };
-
-                        @alias = Load Initial Lulc Map
-                        loadInitialLulcMap0 := LoadCategoricalMap {
-                            filename = receiveInitialLulcFilePath,
-                            nullValue = .none,
-                            storageMode = .default,
-                            suffixDigits = 0,
-                            step = step,
-                            workdir = workdir
-                        };
-
-                        loadSimulatedLulcMap := LoadCategoricalMap {
-                            filename = filePathLastSimulatedLulcYear,
-                            nullValue = .none,
-                            storageMode = .default,
-                            suffixDigits = 0,
-                            step = step,
-                            workdir = workdir
-                        };
-
-                        // can this be replaced by logic in R?
-                        @viewer.similarity = yes
-                        @viewer.similarityMap = yes
-                        similarityMap similarity := CalcSimilarityOfDifferences {
-                            initialMap = loadInitialLulcMap0,
-                            observedMap = loadObservedLulcMapForFinalYearOfSimulation,
-                            simulatedMap = loadSimulatedLulcMap,
-                            useExponentialDecay = .yes,
-                            windowSize = 11,
-                            printSimilarities = .yes,
-                            exponentialDecayDivisor = 2
-                        };
-
-                        SaveTextFile {
-                            text = similarity,
-                            filename = filePathValidationResults,
-                            suffixDigits = 2,
-                            step = step,
-                            workdir = workdir
-                        };
-
-                        SaveMap {
-                            map = similarityMap,
-                            filename = filePathValidationMap,
-                            suffixDigits = 2,
-                            step = step,
-                            useCompression = .yes,
-                            workdir = workdir,
-                            ignoreCostlySparseCategories = .yes
-                        };
-                    }};
-                }};
-            }};
-
-            @alias = Update control table to reflect simulation complete
-            _ := Group .none {{
-                @collapsed = no
-                _ := CalculateRExpression "
-                    message(Sys.time(), " - update control table")
-                    evoland::dinamica_update_control_table(
-                        success = s1,
-                        simulation_num = v1
-                    )
-                " .no {{
-                    @alias = Completion boolean
-                    NumberString skipOnError1399 1;
-
-                    @alias = Simulation number
-                    NumberValue simulationNumber 1;
-                }};
-            }};
-        }};
-    }};
+    getVariables := CalculateRExpression "
+        message(Sys.time(), " - getEnvironmentVariables")
+        outputString("probabilityMapDir", file.path(getwd(), "probability_map_dir"))
+        outputString("anteriorMapPath", file.path(getwd(), "anterior.tif"))
+        outputString("posteriorMapPath", file.path(getwd(), "posterior.tif"))
+
+        # the 2 is for two key columns, which i don't know how to set when using LoadTable
+        outputTable(
+            "expansionTable",
+            read.csv(file.path(getwd(), "expansion_table.csv")),
+            2
+        )
+        outputTable(
+            "patcherTable",
+            read.csv(file.path(getwd(), "patcher_table.csv")),
+            2
+        )
+        outputTable(
+            "transitionRatesTable",
+            read.csv(file.path(getwd(), "trans_rates.csv")),
+            2
+        )
+    " .no {{ }};
+    
+    probabilityMapDir := ExtractStructString getVariables $"(probabilityMapDir)";
+    anteriorMapPath := ExtractStructString getVariables $"(anteriorMapPath)";
+    posteriorMapPath := ExtractStructString getVariables $"(posteriorMapPath)";
+
+    // this includes From*, To*, Rate
+    transitionRatesTable := ExtractStructTable getVariables $"(transitionRatesTable)";
+    // this includes From*, To*, Perc_expander
+    expansionTable := ExtractStructTable getVariables $"(expansionTable)";
+    // this includes From*, To*, Mean_Patch_Size, Patch_Size_Variance, Patch_Isometry
+    patcherTable := ExtractStructTable getVariables $"(patcherTable)";
+
+    anteriorMap := LoadCategoricalMap {
+        filename = anteriorMapPath,
+        nullValue = .none,
+        storageMode = .default
+    };
+
+    @alias = Create cube of probability maps
+    cubeOfProbMaps := CreateCubeOfProbabilityMaps transitionRatesTable probabilityMapDir;
+
+    @alias = Allocate transitions
+    posteriorMap := AllocateTransitions {
+        lanscape = anteriorMap,
+        probabilities = cubeOfProbMaps,
+        transitionMatrix = transitionRatesTable,
+        percentOfTransitionsByExpansion = expansionTable,
+        patchExpansionParameters = patcherTable,
+        patchGenerationParameters = patcherTable,
+        printTransitionInfo = .yes
+    };
+
+    // Simulated LULC map saved at every time step. Receives time info from control
+    // operator and adds a suffix to the file path.
+    @alias = Save simulated LULC
+    SaveMap {
+        map = posteriorMap,
+        filename = posteriorMapPath,
+        useCompression = .yes
+    };
 }};
+
