@@ -39,60 +39,65 @@ exec_dinamica <- function(
   args <- c(args, model_path)
 
   if (write_logfile) {
-    logfile_path <- fs::path(
-      fs::path_dir(model_path),
+    logfile_path <- file.path(
+      dirname(model_path),
       format(Sys.time(), "%Y-%m-%d_%Hh%Mm%Ss_dinamica.log")
     )
-    cli::cli_inform(
-      "Logging to {.file {logfile_path}}"
+    message("Logging to ", logfile_path)
+
+    # Use bash process substitution with sed to strip ANSI codes and tee to logfile
+    # This avoids the overhead of R callbacks for every chunk
+    res <- processx::run(
+      command = "bash",
+      args = c(
+        "-c",
+        sprintf(
+          "stdbuf -oL DinamicaConsole %s 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g' | tee '%s'",
+          paste(shQuote(args), collapse = " "),
+          logfile_path
+        )
+      ),
+      error_on_status = FALSE,
+      echo = echo,
+      spinner = TRUE,
+      env = c(
+        "current",
+        DINAMICA_HOME = dirname(model_path)
+      )
     )
-    logfile_con <- file(
-      description = logfile_path,
-      open = "a"
-    )
-    on.exit(close(logfile_con))
-    # callback should have irrelevant overhead versus launching a shell, tee-ing a pipe,
-    # and stripping escape sequences with sed
-    stdout_cb <- function(chunk, process) {
-      cli::ansi_strip(chunk) |>
-        cat(file = logfile_con)
-    }
   } else {
-    # register empty callback
-    stdout_cb <- function(chunk, process) {
-      NULL
-    }
+    res <- processx::run(
+      # If called directly, DinamicaConsole does not flush its buffer upon SIGTERM.
+      # stdbuf -oL forces flushing the stdout buffer after every line.
+      command = "stdbuf",
+      args = c(
+        "-oL",
+        "DinamicaConsole", # assume that $PATH is complete
+        args
+      ),
+      error_on_status = FALSE,
+      echo = echo,
+      spinner = TRUE,
+      env = c(
+        "current",
+        DINAMICA_HOME = dirname(model_path)
+      )
+    )
   }
 
-  res <- processx::run(
-    # If called directly, DinamicaConsole does not flush its buffer upon SIGTERM.
-    # stdbuf -oL forces flushing the stdout buffer after every line.
-    command = "stdbuf",
-    args = c(
-      "-oL",
-      "DinamicaConsole", # assume that $PATH is complete
-      args
-    ),
-    error_on_status = FALSE,
-    echo = echo,
-    stdout_callback = stdout_cb,
-    stderr_callback = stdout_cb,
-    spinner = TRUE,
-    env = c(
-      "current",
-      DINAMICA_HOME = fs::path_dir(model_path)
-    )
-  )
-
   if (res[["status"]] != 0L) {
-    cli::cli_abort(
-      c(
-        "Dinamica registered an error.",
-        "Rerun with echo = TRUE write_logfile = TRUE to see what went wrong."
+    err <- structure(
+      list(
+        message = paste(
+          "Dinamica registered an error.",
+          "Rerun with echo = TRUE and write_logfile = TRUE to see what went wrong.",
+          sep = "\n"
+        ),
+        stderr = res[["stderr"]]
       ),
-      class = "dinamicaconsole_error",
-      body = res[["stderr"]]
+      class = c("dinamicaconsole_error", "error", "condition")
     )
+    stop(err)
   }
 
   invisible(res)
@@ -119,37 +124,32 @@ run_evoland_dinamica_sim <- function(
   }
 
   # find raw ego files with decoded R/Python code chunks
-  decoded_files <- fs::dir_ls(
+  decoded_files <- list.files(
     path = system.file("dinamica_model", package = "evoland"),
-    regexp = "evoland.*\\.ego-decoded$",
-    recurse = TRUE
+    pattern = "evoland.*\\.ego-decoded$",
+    full.names = TRUE,
+    recursive = TRUE
   )
 
-  purrr::walk(decoded_files, function(decoded_file) {
+  invisible(lapply(decoded_files, function(decoded_file) {
     # Determine relative path and new output path with .ego extension
-    rel_path <- fs::path_rel(
-      path = decoded_file,
-      start = system.file("dinamica_model", package = "evoland")
-    )
-    out_path <- fs::path_ext_set(fs::path(work_dir, rel_path), "ego")
-    fs::dir_create(fs::path_dir(out_path))
+    base_dir <- system.file("dinamica_model", package = "evoland")
+    rel_path <- substring(decoded_file, nchar(base_dir) + 2)
+    out_path <- sub("\\.ego-decoded$", ".ego", file.path(work_dir, rel_path))
+    dir.create(dirname(out_path), showWarnings = FALSE, recursive = TRUE)
     process_dinamica_script(decoded_file, out_path)
-  })
+  }))
 
   # move simulation control csv into place
-  fs::file_copy(
-    ifelse(
-      calibration,
-      config[["calibration_ctrl_tbl_path"]],
-      config[["ctrl_tbl_path"]]
-    ),
-    fs::path(work_dir, "simulation_control.csv"),
+  file.copy(
+    if (calibration) config[["calibration_ctrl_tbl_path"]] else config[["ctrl_tbl_path"]],
+    file.path(work_dir, "simulation_control.csv"),
     overwrite = TRUE
   )
 
-  cli::cli_inform("Starting to run model with Dinamica EGO")
+  message("Starting to run model with Dinamica EGO")
   exec_dinamica(
-    model_path = fs::path(work_dir, "evoland.ego"),
+    model_path = file.path(work_dir, "evoland.ego"),
     ...
   )
 }
@@ -162,7 +162,7 @@ run_evoland_dinamica_sim <- function(
 #' @param check Default TRUE, simple check to ensure that you're handling what you're expecting
 
 process_dinamica_script <- function(infile, outfile, mode = "encode", check = TRUE) {
-  mode <- rlang::arg_match(mode, c("encode", "decode"))
+  mode <- match.arg(mode, c("encode", "decode"))
   if (inherits(infile, "AsIs")) {
     file_text <- infile
   } else {
@@ -193,13 +193,13 @@ process_dinamica_script <- function(infile, outfile, mode = "encode", check = TR
   }
 
   if (nrow(matches) > 0) {
-    encoder_decoder <- ifelse(
-      mode == "encode",
-      \(code) base64enc::base64encode(charToRaw(code)),
-      \(code) rawToChar(base64enc::base64decode(code))
-    )
+    encoder_decoder <- if (mode == "encode") {
+      function(code) base64enc::base64encode(charToRaw(code))
+    } else {
+      function(code) rawToChar(base64enc::base64decode(code))
+    }
     # matches[,2] contains the captured R/python code OR base64-encoded code
-    encoded_vec <- purrr::map_chr(matches[, 2], encoder_decoder)
+    encoded_vec <- vapply(matches[, 2], encoder_decoder, character(1), USE.NAMES = FALSE)
     # replace each original code with its base64 encoded version
     for (i in seq_along(encoded_vec)) {
       file_text <- stringr::str_replace(

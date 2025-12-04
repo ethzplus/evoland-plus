@@ -86,7 +86,7 @@ sonbase_sources <-
 extent_wide <- db$extent |> terra::extend(1000)
 
 sonbase_max <-
-  purrr::map(
+  lapply(
     sonbase_sources$local_path,
     \(x) terra::rast(x) |> terra::crop(extent_wide)
   ) |>
