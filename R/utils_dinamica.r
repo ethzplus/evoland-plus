@@ -52,7 +52,7 @@ exec_dinamica <- function(
       args = c(
         "-c",
         sprintf(
-          "stdbuf -oL DinamicaConsole %s 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g' | tee '%s'",
+          "set -o pipefail; stdbuf -oL DinamicaConsole %s 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g' | tee '%s'; exit ${PIPESTATUS[0]}",
           paste(shQuote(args), collapse = " "),
           logfile_path
         )
@@ -90,7 +90,7 @@ exec_dinamica <- function(
       list(
         message = paste(
           "Dinamica registered an error.",
-          "Rerun with echo = TRUE and write_logfile = TRUE to see what went wrong.",
+          "Rerun with echo = TRUE or write_logfile = TRUE to see what went wrong.",
           sep = "\n"
         ),
         stderr = res[["stderr"]]
