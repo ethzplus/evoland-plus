@@ -36,9 +36,9 @@ Script {{
 '
 # nolint end
 
-# Test: process_dinamica_script encodes correctly
+# Test: evoland:::process_dinamica_script encodes correctly
 expect_error(
-  process_dinamica_script(
+  evoland:::process_dinamica_script(
     I(sample_dinamica_script_encoded),
     mode = "encode"
   ),
@@ -46,16 +46,16 @@ expect_error(
 )
 
 expect_match(
-  process_dinamica_script(
+  evoland:::process_dinamica_script(
     I(sample_dinamica_script_encoded),
     mode = "decode"
   ),
   'output <- v1\\*2\\noutputDouble\\("output_number", output\\)'
 )
 
-# Test: process_dinamica_script decodes correctly
+# Test: evoland:::process_dinamica_script decodes correctly
 expect_error(
-  process_dinamica_script(
+  evoland:::process_dinamica_script(
     I(sample_dinamica_script_decoded),
     mode = "decode"
   ),
@@ -63,21 +63,21 @@ expect_error(
 )
 
 expect_match(
-  process_dinamica_script(
+  evoland:::process_dinamica_script(
     I(sample_dinamica_script_decoded),
     mode = "encode"
   ),
   "c3RvcCgicnVuY2libGUgc3Bvb24iKQ=="
 )
 
-# Test: process_dinamica_script is idempotent
+# Test: evoland:::process_dinamica_script is idempotent
 expect_equal(
   {
     sample_dinamica_script_encoded |>
       I() |>
-      process_dinamica_script(mode = "decode") |>
+      evoland:::process_dinamica_script(mode = "decode") |>
       I() |>
-      process_dinamica_script(mode = "encode")
+      evoland:::process_dinamica_script(mode = "encode")
   },
   sample_dinamica_script_encoded
 )
@@ -86,9 +86,9 @@ expect_equal(
   {
     sample_dinamica_script_decoded |>
       I() |>
-      process_dinamica_script(mode = "encode") |>
+      evoland:::process_dinamica_script(mode = "encode") |>
       I() |>
-      process_dinamica_script(mode = "decode")
+      evoland:::process_dinamica_script(mode = "decode")
   },
   sample_dinamica_script_decoded
 )
@@ -100,9 +100,12 @@ writeChar(
   tmpfile_ego,
   eos = NULL
 )
-expect_identical(
-  exec_dinamica(tmpfile_ego)[["status"]],
-  0L
+expect_message(
+  expect_identical(
+    exec_dinamica(tmpfile_ego)[["status"]],
+    0L
+  ),
+  "Logging to"
 )
 unlink(tmpfile_ego)
 
@@ -121,9 +124,13 @@ unlink(tmpfile_ego)
 
 # Test: exec_dinamica fails
 tmpfile_ego <- tempfile(fileext = ".ego")
-process_dinamica_script(I(sample_dinamica_script_decoded), tmpfile_ego)
-expect_error(
-  exec_dinamica(tmpfile_ego, echo = TRUE),
+evoland:::process_dinamica_script(I(sample_dinamica_script_decoded), tmpfile_ego)
+
+expect_stdout(
+  expect_error(
+    exec_dinamica(tmpfile_ego, echo = TRUE),
+    "Dinamica registered an error"
+  ),
   pattern = "runcible spoon"
 )
 unlink(tmpfile_ego)
