@@ -19,11 +19,9 @@ Imports:
     DBI,
     duckdb,
     glue,
-    purrr,
     qs2,
     R6,
     Rcpp,
-    rlang,
     stringi,
     terra
 Suggests:
@@ -64,3 +62,4 @@ Collate:
     'util.R'
     'util_download.R'
     'util_terra.R'
+    'utils_dinamica.r'

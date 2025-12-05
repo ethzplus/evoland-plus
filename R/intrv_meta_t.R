@@ -121,12 +121,13 @@ create_intrv_meta_t_row <- function(
   params
 ) {
   stopifnot(
-    rlang::is_scalar_character(name),
-    rlang::is_scalar_character(pretty_name),
-    rlang::is_scalar_character(description),
+    "name is not scalar character" = length(name) == 1L && is.character(name),
+    "pretty_name is not scalar character" = length(pretty_name) == 1L && is.character(pretty_name),
+    "description is not scalar character" = length(description) == 1L && is.character(description),
     is.integer(id_period_list),
     is.integer(id_trans_list),
-    rlang::is_scalar_logical(pre_allocation),
+    "pre_allocation is not scalar logical" = length(pre_allocation) == 1L &&
+      is.logical(pre_allocation),
     inherits(sources, "data.frame"),
   )
   check_missing_names(sources, c("url", "md5sum"))

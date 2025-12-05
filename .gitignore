@@ -56,3 +56,11 @@ docs
 
 # generally ignore databases, like .evolanddb, .duckdb, anything.db
 *db
+
+# IDE specific artefacts
+*compile_commands*
+*cobertura*
+.cache/
+
+# ignore drafts
+*suddel*

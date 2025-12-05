@@ -1,0 +1,68 @@
+@charset = UTF-8
+@submodel.name = ListFilenames
+@author = Hermann Rodrigues
+@organization = CSR / UFMG
+@submodel.description = "List the filenames in the given folder (and maybe its sub-folders) that match the given file pattern. The resulting filenames include their corresponding file paths.
+The functionality provided by this submodel is similar to the one provided by the \"List Filenames In Folder\" submodel, except that this implementation used Python internally. However, this version is simpler to use."
+@submodel.group = Files
+@date = 2023-Nov-22 15:03:10
+@version = 7.6.0.20231102
+Script {{
+    // Folder where the files are located.
+    @submodel.in.constant.advanced = no
+    @submodel.in.constant.description = Folder where the files are located.
+    @submodel.in.constant.name = folder
+    @submodel.in.constant.optional = no
+    @submodel.in.constant.order = 1
+    folder := Folder .UNBOUND;
+
+    // If true, also search for files in the sub-folders of the given folder
+    // recursively. Otherwise, the result only includes files from the given folder.
+    @submodel.in.constant.advanced = yes
+    @submodel.in.constant.description = If true, also search for files in the sub-folders of the given folder recursively. Otherwise, the result only includes files from the given folder.
+    @submodel.in.constant.name = searchSubFoldersRecursively
+    @submodel.in.constant.optional = yes
+    @submodel.in.constant.order = 3
+    searchSubFoldersRecursively := BooleanValue .no;
+
+    // Pattern of file names that will be returned. The pattern can include all
+    // wildcards supported by the OS shell. Ex: *.*, *.csv, my_image[0-9].tif, etc
+    @submodel.in.constant.advanced = no
+    @submodel.in.constant.description = Pattern of file names that will be returned. The pattern can include all wildcards supported by the OS shell. Ex: *.*, *.csv, my_image[0-9].tif, etc
+    @submodel.in.constant.name = filePattern
+    @submodel.in.constant.optional = no
+    @submodel.in.constant.order = 2
+    filePattern := String .UNBOUND;
+
+    calculatePythonExpression13799 := CalculatePythonExpression "dinamica.package("glob")
+
+folder = dinamica.inputs["s1"]
+extension = dinamica.inputs["s2"]
+
+recurse_subfolders = dinamica.inputs["v1"] != 0
+
+if recurse_subfolders:
+    full_filename_pattern = folder + "/**/" + extension;
+else:
+    full_filename_pattern = folder + "/" + extension;
+
+files = glob.glob(full_filename_pattern, recursive=recurse_subfolders)
+# sort files alphabetically
+files = sorted(files)
+files = [["Indices*#real", "Filenames#string"]] + list(enumerate(files, 1))
+print("Prepared output for Dinamica: ", files)
+
+dinamica.outputs["files"] = dinamica.prepareTable(files, 1)
+" {{
+        NumberString folder 1;
+
+        NumberString filePattern 2;
+
+        NumberValue searchSubFoldersRecursively 1;
+    }};
+
+    @submodel.out.table.description = The list of filename (and their corresponding paths) found in the given folder that match the given extension.
+    @submodel.out.table.name = files
+    @submodel.out.table.order = 1
+    _ := ExtractStructTable calculatePythonExpression13799 $"(files)";
+}};

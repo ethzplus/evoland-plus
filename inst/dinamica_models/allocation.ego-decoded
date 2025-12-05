@@ -1,0 +1,70 @@
+@charset = UTF-8
+@date = 2025-Dec-04 16:00:58
+@version = 8.7.0.20250814
+@submodel.import = CreateCubeOfProbabilityMaps { { \"transitionMatrix\" : Table, \"inputFolder\" : Folder } { } { \"probabilityMapsRasterCube\" : Map } }; AllocateTransitions { { \"lanscape\" : CategoricalMap, \"probabilities\" : Map, \"transitionMatrix\" : TransitionMatrix, \"percentOfTransitionsByExpansion\" : PercentMatrix, \"patchExpansionParameters\" : TransitionFunctionParameterMatrix, \"patchGenerationParameters\" : TransitionFunctionParameterMatrix } { \"printTransitionInfo\" : BooleanValue } { \"resultingLanscape\" : CategoricalMap } }; CalcSimilarityOfDifferences { { \"initialMap\" : CategoricalMap, \"observedMap\" : CategoricalMap, \"simulatedMap\" : CategoricalMap } { \"useExponentialDecay\" : BooleanValue, \"windowSize\" : PositiveIntegerValue, \"printSimilarities\" : BooleanValue, \"exponentialDecayDivisor\" : RealValue } { \"similarityMap\" : Map, \"similarity\" : RealValue } }
+Script {{
+    getVariables := CalculateRExpression "
+        message(Sys.time(), " - getEnvironmentVariables")
+        outputString("probabilityMapDir", file.path(getwd(), "probability_map_dir"))
+        outputString("anteriorMapPath", file.path(getwd(), "anterior.tif"))
+        outputString("posteriorMapPath", file.path(getwd(), "posterior.tif"))
+
+        # the 2 is for two key columns, which i don't know how to set when using LoadTable
+        outputTable(
+            "expansionTable",
+            read.csv(file.path(getwd(), "expansion_table.csv")),
+            2
+        )
+        outputTable(
+            "patcherTable",
+            read.csv(file.path(getwd(), "patcher_table.csv")),
+            2
+        )
+        outputTable(
+            "transitionRatesTable",
+            read.csv(file.path(getwd(), "trans_rates.csv")),
+            2
+        )
+    " .no {{ }};
+    
+    probabilityMapDir := ExtractStructString getVariables $"(probabilityMapDir)";
+    anteriorMapPath := ExtractStructString getVariables $"(anteriorMapPath)";
+    posteriorMapPath := ExtractStructString getVariables $"(posteriorMapPath)";
+
+    // this includes From*, To*, Rate
+    transitionRatesTable := ExtractStructTable getVariables $"(transitionRatesTable)";
+    // this includes From*, To*, Perc_expander
+    expansionTable := ExtractStructTable getVariables $"(expansionTable)";
+    // this includes From*, To*, Mean_Patch_Size, Patch_Size_Variance, Patch_Isometry
+    patcherTable := ExtractStructTable getVariables $"(patcherTable)";
+
+    anteriorMap := LoadCategoricalMap {
+        filename = anteriorMapPath,
+        nullValue = .none,
+        storageMode = .default
+    };
+
+    @alias = Create cube of probability maps
+    cubeOfProbMaps := CreateCubeOfProbabilityMaps transitionRatesTable probabilityMapDir;
+
+    @alias = Allocate transitions
+    posteriorMap := AllocateTransitions {
+        lanscape = anteriorMap,
+        probabilities = cubeOfProbMaps,
+        transitionMatrix = transitionRatesTable,
+        percentOfTransitionsByExpansion = expansionTable,
+        patchExpansionParameters = patcherTable,
+        patchGenerationParameters = patcherTable,
+        printTransitionInfo = .yes
+    };
+
+    // Simulated LULC map saved at every time step. Receives time info from control
+    // operator and adds a suffix to the file path.
+    @alias = Save simulated LULC
+    SaveMap {
+        map = posteriorMap,
+        filename = posteriorMapPath,
+        useCompression = .yes
+    };
+}};
+
