@@ -93,7 +93,7 @@ expect_equal(
   sample_dinamica_script_decoded
 )
 
-if (length(Sys.which("DinamicaConsole")) == 1L) {
+if (Sys.which("DinamicaConsole") != "") {
   # Test: exec_dinamica works
   tmpfile_ego <- tempfile(fileext = ".ego")
   writeChar(
