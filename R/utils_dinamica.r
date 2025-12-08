@@ -26,6 +26,14 @@ exec_dinamica <- function(
   write_logfile = TRUE,
   echo = FALSE
 ) {
+  if (!requireNamespace("processx", quietly = TRUE)) {
+    stop(
+      "Package 'processx' is required for this function. ",
+      "Please install it with: install.packages('processx')",
+      call. = FALSE
+    )
+  }
+
   if (Sys.which("DinamicaConsole") == "") {
     stop(
       "DinamicaConsole not found on PATH. ",
@@ -52,7 +60,6 @@ exec_dinamica <- function(
     message("Logging to ", logfile_path)
 
     # Use bash process substitution with sed to strip ANSI codes and tee to logfile
-    # This avoids the overhead of R callbacks for every chunk
     res <- processx::run(
       command = "bash",
       args = c(
@@ -91,19 +98,14 @@ exec_dinamica <- function(
     )
   }
 
-  if (res[["status"]] != 0L) {
-    err <- structure(
-      list(
-        message = paste(
-          "Dinamica registered an error.",
-          "Rerun with echo = TRUE or write_logfile = TRUE to see what went wrong.",
-          sep = "\n"
-        ),
-        stderr = res[["stderr"]]
-      ),
-      class = c("dinamicaconsole_error", "error", "condition")
+  if (
+    res[["status"]] != 0L ||
+      grepl("Dinamica EGO exited with an error", res[["stdout"]])
+  ) {
+    stop(
+      "Dinamica registered an error. \n",
+      "Rerun with echo = TRUE or check logfile to see what went wrong."
     )
-    stop(err)
   }
 
   invisible(res)
@@ -168,21 +170,41 @@ run_evoland_dinamica_sim <- function(
 #' @param check Default TRUE, simple check to ensure that you're handling what you're expecting
 
 process_dinamica_script <- function(infile, outfile, mode = "encode", check = TRUE) {
+  if (!requireNamespace("base64enc", quietly = TRUE)) {
+    stop(
+      "Package 'base64enc' is required for this function. ",
+      "Please install it with: install.packages('base64enc')",
+      call. = FALSE
+    )
+  }
+
   mode <- match.arg(mode, c("encode", "decode"))
   if (inherits(infile, "AsIs")) {
-    file_text <- infile
+    file_text <- unclass(infile)
   } else {
     # read the input file as a single string
     file_text <- readChar(infile, file.info(infile)$size)
   }
 
   # match the Calculate R or Python Expression blocks - guesswork involved
-  pattern <- ':= Calculate(?:Python|R)Expression "(\\X*?)" (?:\\.no )?\\{\\{'
-  # extracts both full match [,1] and capture group [,2]
-  matches <- stringr::str_match_all(file_text, pattern)[[1]]
+  pattern <- r'(:= Calculate(?:Python|R)Expression "(\X*?)" (?:\.no )?\{\{)'
+  match_positions <- gregexpr(pattern, file_text, perl = TRUE)[[1]]
+  if (match_positions[1] == -1) {
+    # none found (position -1)
+    matches <- character(0)
+  } else {
+    # extracts first the full match as char vect and then the captured group
+    full_matches <- regmatches(file_text, match_positions)
+    # Extract the first capture group for each match
+    all_matches <- lapply(full_matches, function(m) {
+      cap <- regmatches(m, regexec(pattern, m, perl = TRUE))[[1]]
+      cap[2]
+    })
+    matches <- do.call(c, all_matches)
+  }
 
   if (check) {
-    non_base64_chars_present <- stringr::str_detect(matches[, 2], "[^A-Za-z0-9+=\\n/]")
+    non_base64_chars_present <- grepl("[^A-Za-z0-9+=\\n/]", matches)
     if (mode == "encode" && any(!non_base64_chars_present)) {
       stop(
         "There are no non-base64 chars in one of the matched patterns, which seems ",
@@ -198,20 +220,21 @@ process_dinamica_script <- function(infile, outfile, mode = "encode", check = TR
     }
   }
 
-  if (nrow(matches) > 0) {
+  if (length(matches) > 0) {
     encoder_decoder <- if (mode == "encode") {
       function(code) base64enc::base64encode(charToRaw(code))
     } else {
       function(code) rawToChar(base64enc::base64decode(code))
     }
-    # matches[,2] contains the captured R/python code OR base64-encoded code
-    encoded_vec <- vapply(matches[, 2], encoder_decoder, character(1), USE.NAMES = FALSE)
+    # matches contains the captured R/python code OR base64-encoded code
+    encoded_vec <- vapply(matches, encoder_decoder, character(1), USE.NAMES = FALSE)
     # replace each original code with its base64 encoded version
     for (i in seq_along(encoded_vec)) {
-      file_text <- stringr::str_replace(
-        string = file_text,
-        pattern = stringr::fixed(matches[i, 2]),
-        replacement = encoded_vec[i]
+      file_text <- sub(
+        pattern = matches[i],
+        replacement = encoded_vec[i],
+        x = file_text,
+        fixed = TRUE
       )
     }
   }

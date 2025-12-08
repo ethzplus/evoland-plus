@@ -10,7 +10,7 @@ URL: https://ethzplus.github.io/evoland-plus, https://github.com/ethzplus/evolan
 BugReports: https://github.com/ethzplus/evoland-plus/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Depends:
     R (>= 4.2)
 Imports:
@@ -25,11 +25,13 @@ Imports:
     stringi,
     terra
 Suggests:
+    base64enc,
     butcher,
     pROC,
-    tinytest,
+    processx,
     quarto,
-    ranger
+    ranger,
+    tinytest
 VignetteBuilder: quarto
 Config/testthat/edition: 3
 LinkingTo:

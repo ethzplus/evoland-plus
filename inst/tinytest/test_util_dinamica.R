@@ -94,6 +94,14 @@ expect_equal(
 )
 
 if (Sys.which("DinamicaConsole") != "") {
+  stopifnot(
+    !is.na(Sys.getenv("DINAMICA_EGO_8_INSTALLATION_DIRECTORY", unset = NA)),
+    !is.na(Sys.getenv("DINAMICA_EGO_CLI", unset = NA)),
+    !is.na(Sys.getenv("DINAMICA_EGO_8_HOME", unset = NA))
+  )
+  Sys.setenv(
+    "DINAMICA_EGO_8_TEMP_DIR" = tempdir()
+  )
   # Test: exec_dinamica works
   tmpfile_ego <- tempfile(fileext = ".ego")
   writeChar(
@@ -102,9 +110,9 @@ if (Sys.which("DinamicaConsole") != "") {
     eos = NULL
   )
   expect_message(
-    expect_identical(
-      exec_dinamica(tmpfile_ego)[["status"]],
-      0L
+    expect_length(
+      exec_dinamica(tmpfile_ego),
+      4 # list of status, stdout, stderr, timeout
     ),
     "Logging to"
   )
@@ -127,12 +135,17 @@ if (Sys.which("DinamicaConsole") != "") {
   tmpfile_ego <- tempfile(fileext = ".ego")
   evoland:::process_dinamica_script(I(sample_dinamica_script_decoded), tmpfile_ego)
 
+  # capture the R error for the Dinamica CalculateRExpression (via stdout)
   expect_stdout(
-    expect_error(
-      exec_dinamica(tmpfile_ego, echo = TRUE),
-      "Dinamica registered an error"
+    # silence the logging message within this calling process
+    expect_message(
+      # capture the R error within this calling process
+      expect_error(
+        exec_dinamica(tmpfile_ego, echo = TRUE),
+        "Dinamica registered an error"
+      )
     ),
-    pattern = "runcible spoon"
+    pattern = "Error caught in R execution: 'runcible spoon'"
   )
   unlink(tmpfile_ego)
 }
