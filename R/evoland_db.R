@@ -2,7 +2,7 @@
 #'
 #' @description
 #' An R6 class that provides an interface to a folder-based data storage system
-#' for the evoland package. Each table is stored as a parquet (or CSV) file.
+#' for the evoland package. Each table is stored as a parquet (or JSON) file.
 #' This class uses DuckDB for in-memory SQL operations while persisting data
 #' to disk in parquet format for better compression.
 #'
@@ -27,14 +27,14 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Initialize a new evoland_db object
     #' @param path Character string. Path to the data folder.
-    #' @param default_format Character. Default file format ("parquet" or "csv").
+    #' @param default_format Character. Default file format ("parquet" or "json").
     #' Default is "parquet".
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
     initialize = function(
       path,
-      default_format = c("parquet", "csv"),
+      default_format = c("parquet", "json"),
       ...
     ) {
       # Initialize parent class with spatial extension

@@ -5,7 +5,7 @@
 \title{R6 Class for Folder-Based Data Storage Interface}
 \description{
 An R6 class that provides an interface to a folder-based data storage system
-for the evoland package. Each table is stored as a parquet (or CSV) file.
+for the evoland package. Each table is stored as a parquet (or JSON) file.
 This class uses DuckDB for in-memory SQL operations while persisting data
 to disk in parquet format for better compression.
 
@@ -95,7 +95,7 @@ Additional methods and active bindings are added to this class in separate files
 \subsection{Method \code{new()}}{
 Initialize a new evoland_db object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, default_format = c("parquet", "csv"), ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, default_format = c("parquet", "json"), ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -103,7 +103,7 @@ Initialize a new evoland_db object
 \describe{
 \item{\code{path}}{Character string. Path to the data folder.}
 
-\item{\code{default_format}}{Character. Default file format ("parquet" or "csv").
+\item{\code{default_format}}{Character. Default file format ("parquet" or "json").
 Default is "parquet".}
 
 \item{\code{...}}{passed on to \code{set_report}}

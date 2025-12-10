@@ -33,10 +33,9 @@ create_table_binding <- function(
   key_cols = NULL,
   autoincrement_cols = NULL,
   map_cols = NULL,
+  format = NULL,
   ...
 ) {
-  extra_args <- list(...)
-
   function(x) {
     if (missing(x)) {
       fetched <- self$fetch(table_name)
@@ -45,7 +44,7 @@ create_table_binding <- function(
         fetched <- convert_list_cols(fetched, map_cols, kv_df_to_list)
       }
 
-      return(do.call(as_fn, c(list(fetched), extra_args)))
+      return(as_fn(fetched, ...))
     }
 
     stopifnot(inherits(x, table_name))
@@ -56,7 +55,8 @@ create_table_binding <- function(
       key_cols = key_cols,
       autoincrement_cols = autoincrement_cols,
       map_cols = map_cols,
-      method = "upsert"
+      method = "upsert",
+      format = format
     )
   }
 }
@@ -84,7 +84,8 @@ evoland_db$set("active", "lulc_meta_t", function(x) {
     self,
     "lulc_meta_t",
     as_lulc_meta_t,
-    key_cols = "id_lulc"
+    key_cols = "id_lulc",
+    form = "json"
   )(x)
 })
 
@@ -135,7 +136,8 @@ evoland_db$set("active", "pred_meta_t", function(x) {
     "pred_meta_t",
     as_pred_meta_t,
     key_cols = "name",
-    autoincrement_cols = "id_pred"
+    autoincrement_cols = "id_pred",
+    format = "json"
   )(x)
 })
 
@@ -145,7 +147,8 @@ evoland_db$set("active", "trans_meta_t", function(x) {
     "trans_meta_t",
     as_trans_meta_t,
     key_cols = c("id_lulc_anterior", "id_lulc_posterior"),
-    autoincrement_cols = "id_trans"
+    autoincrement_cols = "id_trans",
+    format = "json"
   )(x)
 })
 
@@ -164,7 +167,8 @@ evoland_db$set("active", "intrv_meta_t", function(x) {
     "intrv_meta_t",
     as_intrv_meta_t,
     key_cols = "id_intrv",
-    map_cols = "params"
+    map_cols = "params",
+    format = "json"
   )(x)
 })
 
@@ -193,7 +197,8 @@ evoland_db$set("active", "alloc_params_t", function(x) {
     "alloc_params_t",
     as_alloc_params_t,
     key_cols = c("id_trans", "id_period"),
-    map_cols = c("alloc_params", "goodness_of_fit")
+    map_cols = c("alloc_params", "goodness_of_fit"),
+    format = "json"
   )(x)
 })
 

@@ -48,7 +48,7 @@ Initialize a new parquet_duckdb object
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$new(
   path,
-  default_format = c("parquet", "csv"),
+  default_format = c("parquet", "json"),
   extensions = character(0)
 )}\if{html}{\out{</div>}}
 }
@@ -58,7 +58,7 @@ Initialize a new parquet_duckdb object
 \describe{
 \item{\code{path}}{Character string. Path to the data folder.}
 
-\item{\code{default_format}}{Character. Default file format ("parquet" or "csv").
+\item{\code{default_format}}{Character. Default file format ("parquet" or "json").
 Default is "parquet".}
 
 \item{\code{extensions}}{Character vector of DuckDB extensions to load (e.g., "spatial")}
@@ -270,7 +270,8 @@ identity columns, and list-to-MAP conversion.
   key_cols,
   autoincrement_cols = character(0),
   map_cols = character(0),
-  method = c("overwrite", "append", "upsert")
+  method = c("overwrite", "append", "upsert"),
+  format = NULL
 )}\if{html}{\out{</div>}}
 }
 
@@ -290,6 +291,9 @@ use all columns starting with \code{id_}}
 
 \item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
 update for existing rows, and insert for new rows)}
+
+\item{\code{format}}{Character. Optional format override ("parquet" or "json"). If NULL,
+uses the existing file's format or default_format for new files.}
 }
 \if{html}{\out{</div>}}
 }

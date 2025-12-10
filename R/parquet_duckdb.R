@@ -28,14 +28,14 @@ parquet_duckdb <- R6::R6Class(
     #' @description
     #' Initialize a new parquet_duckdb object
     #' @param path Character string. Path to the data folder.
-    #' @param default_format Character. Default file format ("parquet" or "csv").
+    #' @param default_format Character. Default file format ("parquet" or "json").
     #' Default is "parquet".
     #' @param extensions Character vector of DuckDB extensions to load (e.g., "spatial")
     #'
     #' @return A new `parquet_duckdb` object
     initialize = function(
       path,
-      default_format = c("parquet", "csv"),
+      default_format = c("parquet", "json"),
       extensions = character(0)
     ) {
       # Create folder if it doesn't exist
@@ -43,12 +43,7 @@ parquet_duckdb <- R6::R6Class(
 
       # Set format / writeopts
       self$default_format <- match.arg(default_format)
-      self$writeopts <- switch(
-        self$default_format,
-        parquet = "format parquet, compression zstd",
-        csv = "format csv",
-        stop(glue::glue("Unsupported format: {self$default_format}"))
-      )
+      self$writeopts <- private$format_to_writeopts(self$default_format)
 
       # Create in-memory connection for SQL operations
       self$connection <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
@@ -153,7 +148,7 @@ parquet_duckdb <- R6::R6Class(
     #' List all tables (files) in storage
     #' @return Character vector of table names
     list_tables = function() {
-      list.files(self$path, pattern = "\\.(parquet|csv)$", full.names = FALSE) |>
+      list.files(self$path, pattern = "\\.(parquet|json)$", full.names = FALSE) |>
         tools::file_path_sans_ext() |>
         unique() |>
         sort()
@@ -242,13 +237,16 @@ parquet_duckdb <- R6::R6Class(
         return(count_before)
       }
 
+      # Use the same format as the existing file
+      writeopts <- private$format_to_writeopts(file_info$format)
+
       self$execute(glue::glue(
         r"{
         copy (
           select * from read_{file_info$format}('{file_info$path}')
           where not ({where})
         )
-        to '{file_info$path}' ({self$writeopts})
+        to '{file_info$path}' ({writeopts})
         }"
       ))
 
@@ -268,6 +266,8 @@ parquet_duckdb <- R6::R6Class(
     #' @param map_cols Character vector of columns to convert to MAP format
     #' @param method Character, one of "overwrite", "append", "upsert" (upsert being an
     #' update for existing rows, and insert for new rows)
+    #' @param format Character. Optional format override ("parquet" or "json"). If NULL,
+    #' uses the existing file's format or default_format for new files.
     #' @return Invisible NULL (called for side effects)
     commit = function(
       x,
@@ -275,7 +275,8 @@ parquet_duckdb <- R6::R6Class(
       key_cols,
       autoincrement_cols = character(0),
       map_cols = character(0),
-      method = c("overwrite", "append", "upsert")
+      method = c("overwrite", "append", "upsert"),
+      format = NULL
     ) {
       method <- match.arg(method)
 
@@ -285,7 +286,7 @@ parquet_duckdb <- R6::R6Class(
         "select column_name from (describe new_data_v)"
       )[[1]]
 
-      file_info <- private$get_file_path(table_name)
+      file_info <- private$get_file_path(table_name, format)
 
       if (method == "overwrite" || !file_info$exists) {
         # in case overwrite explicitly required, or no previously existing data to
@@ -455,12 +456,13 @@ parquet_duckdb <- R6::R6Class(
         sep = ",\n "
       )
 
+      writeopts <- private$format_to_writeopts(file_info$format)
       self$execute(glue::glue(
         r"{
         copy (
           select {select_expr}
           from new_data_v
-        ) to '{file_info$path}' ({self$writeopts})
+        ) to '{file_info$path}' ({writeopts})
         }"
       ))
     },
@@ -487,6 +489,8 @@ parquet_duckdb <- R6::R6Class(
         sep = ",\n "
       )
 
+      writeopts <- private$format_to_writeopts(file_info$format)
+
       # Concatenation using UNION ALL; "by name" handles missing columns
       self$execute(glue::glue(
         r"{
@@ -496,7 +500,7 @@ parquet_duckdb <- R6::R6Class(
             select {select_new}
             from new_data_v
           )
-          to '{file_info$path}' ({self$writeopts})
+          to '{file_info$path}' ({writeopts})
           }"
       ))
     },
@@ -568,34 +572,51 @@ parquet_duckdb <- R6::R6Class(
         }"
       ))
 
-      self$execute(glue::glue("copy {table_name} to '{file_info$path}' ({self$writeopts})"))
+      writeopts <- private$format_to_writeopts(file_info$format)
+
+      self$execute(glue::glue("copy {table_name} to '{file_info$path}' ({writeopts})"))
     },
 
     # Get file path and format for a table
     #
     # @param table_name Character string table name
+    # @param format_override Character. Optional format override
     # @return List with path, format, and exists flag
-    get_file_path = function(table_name) {
-      # Check for parquet first, then csv
+    get_file_path = function(table_name, format_override = NULL) {
+      # Check for parquet first, then json
       parquet_path <- file.path(self$path, paste0(table_name, ".parquet"))
-      csv_path <- file.path(self$path, paste0(table_name, ".csv"))
+      json_path <- file.path(self$path, paste0(table_name, ".json"))
 
       if (file.exists(parquet_path)) {
         return(list(path = parquet_path, format = "parquet", exists = TRUE))
-      } else if (file.exists(csv_path)) {
-        return(list(path = csv_path, format = "csv", exists = TRUE))
+      } else if (file.exists(json_path)) {
+        return(list(path = json_path, format = "json", exists = TRUE))
       } else {
-        # Return default format for new file
+        # Return format override or default format for new file
+        use_format <- format_override %||% self$default_format
         default_path <- file.path(
           self$path,
-          paste0(table_name, ".", self$default_format)
+          paste0(table_name, ".", use_format)
         )
         return(list(
           path = default_path,
-          format = self$default_format,
+          format = use_format,
           exists = FALSE
         ))
       }
+    },
+
+    # Convert format to writeopts
+    #
+    # @param format Character. Format name ("parquet" or "json")
+    # @return Character. DuckDB write options string
+    format_to_writeopts = function(format) {
+      switch(
+        format,
+        parquet = "format parquet, compression zstd",
+        json = "format json",
+        stop(glue::glue("Unsupported format: {format}"))
+      )
     },
 
     # Register new_data_v table, optionally converting MAP columns

@@ -318,24 +318,24 @@ expect_true(inherits(result, "data.table"))
 expect_true("max_id" %in% names(result))
 db$detach_table("test_attach")
 
-# Test 31: CSV format support
-test_dir_csv <- tempfile("parquet_duckdb_csv_")
-on.exit(unlink(test_dir_csv, recursive = TRUE), add = TRUE)
+# Test 31: JSON format support
+test_dir_json <- tempfile("parquet_duckdb_json_")
+on.exit(unlink(test_dir_json, recursive = TRUE), add = TRUE)
 
-db_csv <- parquet_duckdb$new(
-  path = test_dir_csv,
-  default_format = "csv"
+db_json <- parquet_duckdb$new(
+  path = test_dir_json,
+  default_format = "json"
 )
-expect_equal(db_csv$default_format, "csv")
+expect_equal(db_json$default_format, "json")
 
-test_csv_data <- data.table::data.table(
+test_json_data <- data.table::data.table(
   id = 1:3,
   name = c("a", "b", "c")
 )
-db_csv$commit(test_csv_data, "csv_table", method = "overwrite")
-expect_true("csv_table" %in% db_csv$list_tables())
-retrieved <- db_csv$fetch("csv_table")
-expect_equal(retrieved, test_csv_data)
+db_json$commit(test_json_data, "json_table", method = "overwrite")
+expect_true("json_table" %in% db_json$list_tables())
+retrieved <- db_json$fetch("json_table")
+expect_equal(retrieved, test_json_data)
 
 # Test 32: Extension loading
 test_dir_ext <- tempfile("parquet_duckdb_ext_")

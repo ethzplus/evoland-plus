@@ -103,7 +103,10 @@ pred_spec_tm <- list(
     sources = list(list(url = "https://example.com/roads.gpkg", md5sum = "ghi789"))
   )
 )
-db_tm$pred_meta_t <- create_pred_meta_t(pred_spec_tm)
+expect_warning(
+  db_tm$pred_meta_t <- create_pred_meta_t(pred_spec_tm),
+  "Overriding existing IDs"
+)
 
 # Add predictor data - mix of static and time-varying
 set.seed(43)
