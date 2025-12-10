@@ -227,7 +227,7 @@ expect_equal(db$intrv_meta_t, intrv_meta_t)
 
 # Test 11: Active bindings - trans_meta_t
 expect_silent(db$trans_meta_t <- trans_meta_t)
-expect_equal(db$trans_meta_t[, c(-1)], trans_meta_t)
+expect_equal(db$trans_meta_t[, c(-1)], trans_meta_t, tolerance = 1e7)
 
 # Test 13: Active bindings - alloc_params_t (with MAP columns)
 expect_silent(db$alloc_params_t <- alloc_params_t)

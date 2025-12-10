@@ -196,17 +196,36 @@ parquet_duckdb <- R6::R6Class(
     #' @param table_name Character string. Name of the table to query.
     #' @param where Character string. Optional WHERE clause for the SQL query.
     #' @param limit Integer. Optional limit on number of rows to return.
+    #' @param map_cols Vector of columns to be converted from key/value structs to R lists
+    #' @param json_colspec For JSON files, an optional column type specification
     #'
     #' @return A data.table
-    fetch = function(table_name, where = NULL, limit = NULL) {
+    fetch = function(
+      table_name,
+      where = NULL,
+      limit = NULL,
+      map_cols = NULL,
+      json_colspec = NULL
+    ) {
       file_info <- private$get_file_path(table_name)
 
       if (!file_info$exists) {
-        return(data.table::data.table())
+        stop("Table `", table_name, "` does not exist")
       }
 
       # build sql query
-      sql <- glue::glue("select * from read_{file_info$format}('{file_info$path}')")
+      if (!is.null(json_colspec)) {
+        if (file_info$format != "json") {
+          stop("Cannot pass json_colspec if format is not json")
+        }
+        sql <- glue::glue(
+          "from read_<file_info$format>('<file_info$path>', columns = {<json_colspec>})",
+          .open = "<",
+          .close = ">"
+        )
+      } else {
+        sql <- glue::glue("from read_{file_info$format}('{file_info$path}')")
+      }
 
       if (!is.null(where)) {
         sql <- glue::glue("{sql} where {where}")
@@ -215,7 +234,13 @@ parquet_duckdb <- R6::R6Class(
         sql <- glue::glue("{sql} limit {limit}")
       }
 
-      self$get_query(sql)
+      res <- self$get_query(sql)
+
+      if (!is.null(map_cols) && nrow(res) > 0) {
+        return(convert_list_cols(res, map_cols, kv_df_to_list))
+      }
+
+      res
     },
 
     #' @description

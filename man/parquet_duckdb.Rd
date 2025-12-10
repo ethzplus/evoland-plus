@@ -217,7 +217,13 @@ Result of func
 \subsection{Method \code{fetch()}}{
 Fetch data from a table
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$fetch(table_name, where = NULL, limit = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$fetch(
+  table_name,
+  where = NULL,
+  limit = NULL,
+  map_cols = NULL,
+  json_colspec = NULL
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -228,6 +234,10 @@ Fetch data from a table
 \item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
 
 \item{\code{limit}}{Integer. Optional limit on number of rows to return.}
+
+\item{\code{map_cols}}{Vector of columns to be converted from key/value structs to R lists}
+
+\item{\code{json_colspec}}{For JSON files, an optional column type specification}
 }
 \if{html}{\out{</div>}}
 }
