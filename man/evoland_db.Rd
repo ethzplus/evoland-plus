@@ -29,7 +29,6 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
 \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
-\item \href{#method-evoland_db-fetch}{\code{evoland_db$fetch()}}
 \item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
 \item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
@@ -49,6 +48,7 @@ Additional methods and active bindings are added to this class in separate files
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="delete_from"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-delete_from'><code>evoland::parquet_duckdb$delete_from()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="detach_table"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-detach_table'><code>evoland::parquet_duckdb$detach_table()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="execute"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-execute'><code>evoland::parquet_duckdb$execute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="fetch"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-fetch'><code>evoland::parquet_duckdb$fetch()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="get_query"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-get_query'><code>evoland::parquet_duckdb$get_query()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="list_tables"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-list_tables'><code>evoland::parquet_duckdb$list_tables()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="print"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-print'><code>evoland::parquet_duckdb$print()</code></a></span></li>
@@ -112,30 +112,6 @@ Default is "parquet".}
 }
 \subsection{Returns}{
 A new \code{evoland_db} object
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-fetch"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-fetch}{}}}
-\subsection{Method \code{fetch()}}{
-Fetch data from storage with evoland-specific view support
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$fetch(table_name, where = NULL, limit = NULL)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{table_name}}{Character string. Name of the table to query.}
-
-\item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
-
-\item{\code{limit}}{integerish, limit the amount of rows to return}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A data.table
 }
 }
 \if{html}{\out{<hr>}}

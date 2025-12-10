@@ -50,33 +50,6 @@ evoland_db <- R6::R6Class(
       invisible(self)
     },
 
-    #' @description
-    #' Fetch data from storage with evoland-specific view support
-    #' @param table_name Character string. Name of the table to query.
-    #' @param where Character string. Optional WHERE clause for the SQL query.
-    #' @param limit integerish, limit the amount of rows to return
-    #'
-    #' @return A data.table
-    fetch = function(table_name, where = NULL, limit = NULL) {
-      # Check if this is a view (active binding)
-      if (
-        # TODO these should probably not be active bindings, but instead methods with
-        # predefined query parameters
-        table_name %in%
-          c("lulc_meta_long_v", "pred_sources_v", "transitions_v", "extent", "coords_minimal")
-      ) {
-        return(self[[table_name]])
-      }
-
-      file_info <- private$get_file_path(table_name)
-
-      if (!file_info$exists) {
-        stop("Table `", table_name, "` does not exist")
-      }
-
-      super$fetch(table_name, where, limit)
-    },
-
     ### Setter methods ----
     #' @description
     #' Set reporting metadata

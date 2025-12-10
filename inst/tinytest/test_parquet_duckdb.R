@@ -21,10 +21,8 @@ expect_true(inherits(db$connection, "duckdb_connection"))
 # Test 2: Initial state - no tables
 expect_identical(db$list_tables(), character(0))
 
-# Test 3: Fetch from non-existent table returns empty data.table
-result <- db$fetch("nonexistent_table")
-expect_true(inherits(result, "data.table"))
-expect_equal(nrow(result), 0L)
+# Test 3: Fetch for nonexistent errors out
+expect_error(db$fetch("nonexistent_table"), "does not exist")
 
 # Test 4: Row count for non-existent table
 expect_equal(db$row_count("nonexistent_table"), 0L)
