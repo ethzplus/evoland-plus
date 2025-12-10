@@ -56,6 +56,7 @@ Collate:
     'periods_t.R'
     'pred_data_t.R'
     'pred_meta_t.R'
+    'reporting_t.R'
     'trans_meta_t.R'
     'trans_models_glm.R'
     'trans_models_rf.R'

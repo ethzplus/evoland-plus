@@ -210,3 +210,12 @@ evoland_db$set("active", "neighbors_t", function(x) {
     key_cols = c("id_coord_origin", "id_coord_neighbor")
   )(x)
 })
+
+evoland_db$set("active", "reporting_t", function(x) {
+  create_table_binding(
+    self,
+    "reporting_t",
+    as_reporting_t,
+    key_cols = "key"
+  )(x)
+})
