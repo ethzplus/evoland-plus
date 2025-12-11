@@ -41,7 +41,7 @@ evoland_db <- R6::R6Class(
       super$initialize(
         path = path,
         default_format = default_format,
-        extensions = "spatial"
+        extensions = c("spatial", "json")
       )
 
       # Set evoland-specific reporting metadata

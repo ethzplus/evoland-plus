@@ -36,7 +36,7 @@ parquet_duckdb <- R6::R6Class(
     initialize = function(
       path,
       default_format = c("parquet", "json"),
-      extensions = character(0)
+      extensions = c("json")
     ) {
       # Create folder if it doesn't exist
       self$path <- ensure_dir(path)
