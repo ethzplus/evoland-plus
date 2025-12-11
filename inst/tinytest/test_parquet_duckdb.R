@@ -8,13 +8,11 @@ on.exit(unlink(test_dir, recursive = TRUE), add = TRUE)
 # Test 1: Initialization
 expect_silent(
   db <- parquet_duckdb$new(
-    path = test_dir,
-    default_format = "parquet"
+    path = test_dir
   )
 )
 expect_true(inherits(db, "parquet_duckdb"))
 expect_true(dir.exists(test_dir))
-expect_equal(db$default_format, "parquet")
 expect_true(!is.null(db$connection))
 expect_true(inherits(db$connection, "duckdb_connection"))
 
@@ -316,26 +314,7 @@ expect_true(inherits(result, "data.table"))
 expect_true("max_id" %in% names(result))
 db$detach_table("test_attach")
 
-# Test 31: JSON format support
-test_dir_json <- tempfile("parquet_duckdb_json_")
-on.exit(unlink(test_dir_json, recursive = TRUE), add = TRUE)
-
-db_json <- parquet_duckdb$new(
-  path = test_dir_json,
-  default_format = "json"
-)
-expect_equal(db_json$default_format, "json")
-
-test_json_data <- data.table::data.table(
-  id = 1:3,
-  name = c("a", "b", "c")
-)
-db_json$commit(test_json_data, "json_table", method = "overwrite")
-expect_true("json_table" %in% db_json$list_tables())
-retrieved <- db_json$fetch("json_table")
-expect_equal(retrieved, test_json_data)
-
-# Test 32: Extension loading
+# Test 31: Extension loading
 test_dir_ext <- tempfile("parquet_duckdb_ext_")
 on.exit(unlink(test_dir_ext, recursive = TRUE), add = TRUE)
 
@@ -348,7 +327,7 @@ expect_silent(
   db_ext$get_query("SELECT ST_Point(0, 0) as geom")
 )
 
-# Test 33: Persistence across connections
+# Test 32: Persistence across connections
 db$commit(
   method = "overwrite",
   test_data_1,

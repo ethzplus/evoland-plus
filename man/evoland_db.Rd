@@ -95,16 +95,13 @@ Additional methods and active bindings are added to this class in separate files
 \subsection{Method \code{new()}}{
 Initialize a new evoland_db object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, default_format = c("parquet", "json"), ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{path}}{Character string. Path to the data folder.}
-
-\item{\code{default_format}}{Character. Default file format ("parquet" or "json").
-Default is "parquet".}
 
 \item{\code{...}}{passed on to \code{set_report}}
 }

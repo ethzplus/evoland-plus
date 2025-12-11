@@ -33,16 +33,13 @@ create_table_binding <- function(
   key_cols = NULL,
   autoincrement_cols = NULL,
   map_cols = NULL,
-  format = NULL,
-  json_colspec = NULL,
   ...
 ) {
   function(x) {
     if (missing(x)) {
       fetched <- self$fetch(
         table_name = table_name,
-        map_cols = map_cols,
-        json_colspec = json_colspec
+        map_cols = map_cols
       )
 
       return(as_fn(fetched, ...))
@@ -56,8 +53,7 @@ create_table_binding <- function(
       key_cols = key_cols,
       autoincrement_cols = autoincrement_cols,
       map_cols = map_cols,
-      method = "upsert",
-      format = format
+      method = "upsert"
     )
   }
 }
@@ -85,15 +81,7 @@ evoland_db$set("active", "lulc_meta_t", function(x) {
     self,
     "lulc_meta_t",
     as_lulc_meta_t,
-    key_cols = "id_lulc",
-    form = "json",
-    json_colspec = r"[
-      id_lulc: 'int', 
-      name: 'varchar', 
-      pretty_name: 'varchar', 
-      description: 'varchar', 
-      src_classes: 'int[]'
-    ]"
+    key_cols = "id_lulc"
   )(x)
 })
 
@@ -144,18 +132,7 @@ evoland_db$set("active", "pred_meta_t", function(x) {
     "pred_meta_t",
     as_pred_meta_t,
     key_cols = "name",
-    autoincrement_cols = "id_pred",
-    form = "json",
-    json_colspec = r"[
-      id_pred: 'int',
-      name: 'varchar',
-      pretty_name: 'varchar',
-      description: 'varchar',
-      orig_format: 'varchar',
-      sources: 'struct(url varchar, md5sum varchar)[]',
-      unit: 'varchar',
-      factor_levels: 'map(integer, varchar)'
-    ]"
+    autoincrement_cols = "id_pred"
   )(x)
 })
 
@@ -165,17 +142,7 @@ evoland_db$set("active", "trans_meta_t", function(x) {
     "trans_meta_t",
     as_trans_meta_t,
     key_cols = c("id_lulc_anterior", "id_lulc_posterior"),
-    autoincrement_cols = "id_trans",
-    form = "json",
-    json_colspec = r"[
-      id_trans: 'int',
-      id_lulc_anterior: 'int',
-      id_lulc_posterior: 'int',
-      cardinality: 'int',
-      frequency_rel: 'float',
-      frequency_abs: 'float',
-      is_viable: 'bool'
-    ]"
+    autoincrement_cols = "id_trans"
   )(x)
 })
 
@@ -194,19 +161,7 @@ evoland_db$set("active", "intrv_meta_t", function(x) {
     "intrv_meta_t",
     as_intrv_meta_t,
     key_cols = "id_intrv",
-    map_cols = "params",
-    form = "json",
-    json_colspec = r"[
-      id_intrv: 'int',
-      id_period_list: 'int[]',
-      id_trans_list: 'int[]',
-      pre_allocation: 'bool',
-      name: 'varchar',
-      pretty_name: 'varchar',
-      description: 'varchar',
-      sources: 'struct(url varchar, md5sum varchar)[]',
-      params: 'map(varchar, varchar)'
-    ]"
+    map_cols = "params"
   )(x)
 })
 
@@ -235,14 +190,7 @@ evoland_db$set("active", "alloc_params_t", function(x) {
     "alloc_params_t",
     as_alloc_params_t,
     key_cols = c("id_trans", "id_period"),
-    map_cols = c("alloc_params", "goodness_of_fit"),
-    form = "json",
-    json_colspec = r"[
-      id_trans: 'int',
-      id_period: 'int',
-      alloc_params: 'map(varchar, double)',
-      goodness_of_fit: 'map(varchar, double)'
-    ]"
+    map_cols = c("alloc_params", "goodness_of_fit")
   )(x)
 })
 

@@ -27,21 +27,17 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Initialize a new evoland_db object
     #' @param path Character string. Path to the data folder.
-    #' @param default_format Character. Default file format ("parquet" or "json").
-    #' Default is "parquet".
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
     initialize = function(
       path,
-      default_format = c("parquet", "json"),
       ...
     ) {
       # Initialize parent class with spatial extension
       super$initialize(
         path = path,
-        default_format = default_format,
-        extensions = c("spatial", "json")
+        extensions = "spatial"
       )
 
       # Set evoland-specific reporting metadata
