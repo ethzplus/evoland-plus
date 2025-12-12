@@ -63,6 +63,6 @@ Collate:
     'trans_models_t.R'
     'trans_preds_t.R'
     'util.R'
+    'util_dinamica.r'
     'util_download.R'
     'util_terra.R'
-    'utils_dinamica.r'

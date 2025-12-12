@@ -2,10 +2,10 @@
 #'
 #' Interact with Dinamica from R, see **Functions** section below.
 #'
-#' @name dinamica_utils
+#' @name util_dinamica
 NULL
 
-#' @describeIn dinamica_utils Execute a Dinamica .ego file using `DinamicaConsole`
+#' @describeIn util_dinamica Execute a Dinamica .ego file using `DinamicaConsole`
 #' @param model_path Path to the .ego model file to run. Any submodels must be included
 #' in a directory of the exact form `basename(modelpath)_ego_Submodels`, [see
 #' wiki](https://csr.ufmg.br/dinamica/dokuwiki/doku.php?id=submodels)
@@ -111,7 +111,7 @@ exec_dinamica <- function(
   invisible(res)
 }
 
-#' @describeIn dinamica_utils Set up evoland-specific Dinamica EGO files; execute using
+#' @describeIn util_dinamica Set up evoland-specific Dinamica EGO files; execute using
 #' [exec_dinamica()]
 #' @param run_modelprechecks bool, Validate that everything's in place for a model run.
 #' Will never be run if calibration.
@@ -162,7 +162,7 @@ run_evoland_dinamica_sim <- function(
   )
 }
 
-#' @describeIn dinamica_utils Encode or decode raw R and Python code chunks in .ego
+#' @describeIn util_dinamica Encode or decode raw R and Python code chunks in .ego
 #' files and their submodels to/from base64
 #' @param infile Input file path. Treated as input if passed AsIs using `base::I()`
 #' @param outfile Output file path (optional)
