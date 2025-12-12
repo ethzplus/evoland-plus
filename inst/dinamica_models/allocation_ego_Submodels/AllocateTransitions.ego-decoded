@@ -16,12 +16,12 @@ Script {{
     @submodel.in.constant.order = 1
     landscape := CategoricalMap .UNBOUND;
 
-    // This matriz defines the percentage of total transitions performed by expansion
+    // This matrix defines the percentage of total transitions performed by expansion
     // of existent patches (using Expander operator). The complement of this matrix
     // defines the percentage of transitions performed by generation of new patches
     // (using Patcher operator).
     @submodel.in.constant.advanced = no
-    @submodel.in.constant.description = This matriz defines the percentage of total transitions performed by expansion of existent patches (using Expander operator). The complement of this matrix defines the percentage of transitions performed by generation of new patches (using Patcher operator).
+    @submodel.in.constant.description = This matrix defines the percentage of total transitions performed by expansion of existent patches (using Expander operator). The complement of this matrix defines the percentage of transitions performed by generation of new patches (using Patcher operator).
     @submodel.in.constant.name = percentOfTransitionsByExpansion
     @submodel.in.constant.optional = no
     @submodel.in.constant.order = 4
@@ -29,7 +29,7 @@ Script {{
 
     // The transition matrix defining net transition rates.
     @submodel.in.constant.advanced = no
-    @submodel.in.constant.description = The matriz defining the net rate of each transition.
+    @submodel.in.constant.description = The matrix defining the net rate of each transition.
     @submodel.in.constant.name = transitionMatrix
     @submodel.in.constant.optional = no
     @submodel.in.constant.order = 3
