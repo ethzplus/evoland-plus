@@ -118,7 +118,7 @@ zippath <- file.path(
 # find singular csv
 csv_file <-
   unzip(zippath, list = TRUE) |>
-  purrr::pluck("Name") |>
+  (\(x) x[["Name"]])() |>
   stringi::stri_subset_fixed(".csv")
 stopifnot(length(csv_file) == 1L)
 ```

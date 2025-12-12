@@ -2,7 +2,7 @@
 
 An R6 class that provides an interface to a folder-based data storage
 system for the evoland package. Each table is stored as a parquet (or
-CSV) file. This class uses DuckDB for in-memory SQL operations while
+JSON) file. This class uses DuckDB for in-memory SQL operations while
 persisting data to disk in parquet format for better compression.
 
 Inherits from
@@ -40,8 +40,6 @@ separate files:
 
 - [`evoland_db$new()`](#method-evoland_db-new)
 
-- [`evoland_db$fetch()`](#method-evoland_db-fetch)
-
 - [`evoland_db$set_report()`](#method-evoland_db-set_report)
 
 - [`evoland_db$set_coords()`](#method-evoland_db-set_coords)
@@ -67,6 +65,7 @@ Inherited methods
 - [`evoland::parquet_duckdb$delete_from()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-delete_from)
 - [`evoland::parquet_duckdb$detach_table()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-detach_table)
 - [`evoland::parquet_duckdb$execute()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-execute)
+- [`evoland::parquet_duckdb$fetch()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-fetch)
 - [`evoland::parquet_duckdb$get_query()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-get_query)
 - [`evoland::parquet_duckdb$list_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-list_tables)
 - [`evoland::parquet_duckdb$print()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-print)
@@ -110,18 +109,13 @@ Initialize a new evoland_db object
 
 #### Usage
 
-    evoland_db$new(path, default_format = c("parquet", "csv"), ...)
+    evoland_db$new(path, ...)
 
 #### Arguments
 
 - `path`:
 
   Character string. Path to the data folder.
-
-- `default_format`:
-
-  Character. Default file format ("parquet" or "csv"). Default is
-  "parquet".
 
 - `...`:
 
@@ -130,34 +124,6 @@ Initialize a new evoland_db object
 #### Returns
 
 A new `evoland_db` object
-
-------------------------------------------------------------------------
-
-### Method `fetch()`
-
-Fetch data from storage with evoland-specific view support
-
-#### Usage
-
-    evoland_db$fetch(table_name, where = NULL, limit = NULL)
-
-#### Arguments
-
-- `table_name`:
-
-  Character string. Name of the table to query.
-
-- `where`:
-
-  Character string. Optional WHERE clause for the SQL query.
-
-- `limit`:
-
-  integerish, limit the amount of rows to return
-
-#### Returns
-
-A data.table
 
 ------------------------------------------------------------------------
 

@@ -15,13 +15,9 @@ inherited by domain-specific database classes.
 
   Character string path to the data folder
 
-- `default_format`:
-
-  Default file format for new tables
-
 - `writeopts`:
 
-  Default write options for DuckDB
+  Write options for DuckDB parquet output
 
 ## Methods
 
@@ -61,22 +57,13 @@ Initialize a new parquet_duckdb object
 
 #### Usage
 
-    parquet_duckdb$new(
-      path,
-      default_format = c("parquet", "csv"),
-      extensions = character(0)
-    )
+    parquet_duckdb$new(path, extensions = character(0))
 
 #### Arguments
 
 - `path`:
 
   Character string. Path to the data folder.
-
-- `default_format`:
-
-  Character. Default file format ("parquet" or "csv"). Default is
-  "parquet".
 
 - `extensions`:
 
@@ -130,7 +117,7 @@ A data.table with query results
 
 ### Method `attach_table()`
 
-Attach a table from parquet/CSV file as a temporary table in DuckDB
+Attach a table from parquet file as a temporary table in DuckDB
 
 #### Usage
 
@@ -246,7 +233,7 @@ Fetch data from a table
 
 #### Usage
 
-    parquet_duckdb$fetch(table_name, where = NULL, limit = NULL)
+    parquet_duckdb$fetch(table_name, where = NULL, limit = NULL, map_cols = NULL)
 
 #### Arguments
 
@@ -261,6 +248,10 @@ Fetch data from a table
 - `limit`:
 
   Integer. Optional limit on number of rows to return.
+
+- `map_cols`:
+
+  Vector of columns to be converted from key/value structs to R lists
 
 #### Returns
 
@@ -361,19 +352,16 @@ Print method for parquet_duckdb
 self (invisibly) param x Data frame to commit. If character,
 in-duckdb-memory table. param table_name Character string table name
 param autoincrement_cols Character vector of column names to
-auto-increment param map_cols Character vector of columns to convert to
-MAP format return Invisible NULL (called for side effects) param x Data
-frame to commit. If character, in-duckdb-memory table. param table_name
-Character string table name param autoincrement_cols Character vector of
-column names to auto-increment param map_cols Character vector of
-columns to convert to MAP format return Invisible NULL (called for side
-effects) param x Data frame to commit. If character, in-duckdb-memory
-table. param table_name Character string table name param key_cols
-Character vector of columns that define uniqueness. If missing, use all
-columns starting with `id_` param autoincrement_cols Character vector of
-column names to auto-increment param map_cols Character vector of
-columns to convert to MAP format return Invisible NULL (called for side
-effects)
+auto-increment return Invisible NULL (called for side effects) param x
+Data frame to commit. If character, in-duckdb-memory table. param
+table_name Character string table name param autoincrement_cols
+Character vector of column names to auto-increment return Invisible NULL
+(called for side effects) param x Data frame to commit. If character,
+in-duckdb-memory table. param table_name Character string table name
+param key_cols Character vector of columns that define uniqueness. If
+missing, use all columns starting with `id_` param autoincrement_cols
+Character vector of column names to auto-increment return Invisible NULL
+(called for side effects)
 
 ------------------------------------------------------------------------
 

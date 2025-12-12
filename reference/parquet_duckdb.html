@@ -61,12 +61,8 @@ domain-specific database classes.</p>
 <dd><p>Character string path to the data folder</p></dd>
 
 
-<dt><code>default_format</code></dt>
-<dd><p>Default file format for new tables</p></dd>
-
-
 <dt><code>writeopts</code></dt>
-<dd><p>Default write options for DuckDB</p></dd>
+<dd><p>Write options for DuckDB parquet output</p></dd>
 
 
 </dl><p></p></div>
@@ -94,22 +90,13 @@ domain-specific database classes.</p>
 <h3 id="method-new-">Method <code>new()</code><a class="anchor" aria-label="anchor" href="#method-new-"></a></h3>
 <p>Initialize a new parquet_duckdb object</p><div class="section">
 <h4 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/parquet_duckdb.html">parquet_duckdb</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  <span class="va">path</span>,</span>
-<span>  default_format <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"parquet"</span>, <span class="st">"csv"</span><span class="op">)</span>,</span>
-<span>  extensions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div><p></p></div>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/parquet_duckdb.html">parquet_duckdb</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="va">path</span>, extensions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
 <h4 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>path</code></dt>
 <dd><p>Character string. Path to the data folder.</p></dd>
-
-
-<dt><code>default_format</code></dt>
-<dd><p>Character. Default file format ("parquet" or "csv").
-Default is "parquet".</p></dd>
 
 
 <dt><code>extensions</code></dt>
@@ -165,7 +152,7 @@ Default is "parquet".</p></dd>
 
 </div><p></p><hr><a id="method-parquet_duckdb-attach_table"></a><div class="section">
 <h3 id="method-attach-table-">Method <code>attach_table()</code><a class="anchor" aria-label="anchor" href="#method-attach-table-"></a></h3>
-<p>Attach a table from parquet/CSV file as a temporary table in DuckDB</p><div class="section">
+<p>Attach a table from parquet file as a temporary table in DuckDB</p><div class="section">
 <h4 id="usage-3">Usage<a class="anchor" aria-label="anchor" href="#usage-3"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_duckdb</span><span class="op">$</span><span class="fu">attach_table</span><span class="op">(</span><span class="va">table_name</span>, columns <span class="op">=</span> <span class="st">"*"</span>, where <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
@@ -276,7 +263,7 @@ If a table is already attached in the DuckDB instance, it won't be re-attached o
 <h3 id="method-fetch-">Method <code>fetch()</code><a class="anchor" aria-label="anchor" href="#method-fetch-"></a></h3>
 <p>Fetch data from a table</p><div class="section">
 <h4 id="usage-8">Usage<a class="anchor" aria-label="anchor" href="#usage-8"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_duckdb</span><span class="op">$</span><span class="fu">fetch</span><span class="op">(</span><span class="va">table_name</span>, where <span class="op">=</span> <span class="cn">NULL</span>, limit <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_duckdb</span><span class="op">$</span><span class="fu">fetch</span><span class="op">(</span><span class="va">table_name</span>, where <span class="op">=</span> <span class="cn">NULL</span>, limit <span class="op">=</span> <span class="cn">NULL</span>, map_cols <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
@@ -291,6 +278,10 @@ If a table is already attached in the DuckDB instance, it won't be re-attached o
 
 <dt><code>limit</code></dt>
 <dd><p>Integer. Optional limit on number of rows to return.</p></dd>
+
+
+<dt><code>map_cols</code></dt>
+<dd><p>Vector of columns to be converted from key/value structs to R lists</p></dd>
 
 
 </dl><p></p></div>
@@ -395,19 +386,16 @@ update for existing rows, and insert for new rows)</p></dd>
 param x Data frame to commit. If character, in-duckdb-memory table.
 param table_name Character string table name
 param autoincrement_cols Character vector of column names to auto-increment
-param map_cols Character vector of columns to convert to MAP format
 return Invisible NULL (called for side effects)
 param x Data frame to commit. If character, in-duckdb-memory table.
 param table_name Character string table name
 param autoincrement_cols Character vector of column names to auto-increment
-param map_cols Character vector of columns to convert to MAP format
 return Invisible NULL (called for side effects)
 param x Data frame to commit. If character, in-duckdb-memory table.
 param table_name Character string table name
 param key_cols Character vector of columns that define uniqueness. If missing,
 use all columns starting with <code>id_</code>
 param autoincrement_cols Character vector of column names to auto-increment
-param map_cols Character vector of columns to convert to MAP format
 return Invisible NULL (called for side effects)</p>
 </div>
 
