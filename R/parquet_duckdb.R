@@ -573,6 +573,7 @@ parquet_duckdb <- R6::R6Class(
     # @return NULL (called for side effects)
     register_new_data_v = function(x, map_cols = character(0)) {
       if (is.character(x)) {
+        # TODO add tests
         self$execute(glue::glue("create view new_data_v as from {x}"))
         return(invisible(NULL))
       }
