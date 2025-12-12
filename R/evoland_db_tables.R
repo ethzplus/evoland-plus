@@ -35,17 +35,14 @@ create_table_binding <- function(
   map_cols = NULL,
   ...
 ) {
-  extra_args <- list(...)
-
   function(x) {
     if (missing(x)) {
-      fetched <- self$fetch(table_name)
+      fetched <- self$fetch(
+        table_name = table_name,
+        map_cols = map_cols
+      )
 
-      if (!is.null(map_cols) && nrow(fetched) > 0) {
-        fetched <- convert_list_cols(fetched, map_cols, kv_df_to_list)
-      }
-
-      return(do.call(as_fn, c(list(fetched), extra_args)))
+      return(as_fn(fetched, ...))
     }
 
     stopifnot(inherits(x, table_name))
@@ -203,5 +200,14 @@ evoland_db$set("active", "neighbors_t", function(x) {
     "neighbors_t",
     as_neighbors_t,
     key_cols = c("id_coord_origin", "id_coord_neighbor")
+  )(x)
+})
+
+evoland_db$set("active", "reporting_t", function(x) {
+  create_table_binding(
+    self,
+    "reporting_t",
+    as_reporting_t,
+    key_cols = "key"
   )(x)
 })

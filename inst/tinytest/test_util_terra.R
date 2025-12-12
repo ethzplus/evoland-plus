@@ -83,7 +83,7 @@ expect_silent(vector_result <- extract_using_coords_t(vect_data, coords_t))
 
 
 expect_equal(
-  vector_result[id_coord %in% 1],
+  vector_result[id_coord == 1][order(attribute, -rank(value))],
   data.table::data.table(
     id_coord = 1L,
     attribute = factor(

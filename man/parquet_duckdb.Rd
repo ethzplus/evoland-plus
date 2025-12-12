@@ -16,9 +16,7 @@ domain-specific database classes.
 
 \item{\code{path}}{Character string path to the data folder}
 
-\item{\code{default_format}}{Default file format for new tables}
-
-\item{\code{writeopts}}{Default write options for DuckDB}
+\item{\code{writeopts}}{Write options for DuckDB parquet output}
 }
 \if{html}{\out{</div>}}
 }
@@ -46,20 +44,13 @@ domain-specific database classes.
 \subsection{Method \code{new()}}{
 Initialize a new parquet_duckdb object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$new(
-  path,
-  default_format = c("parquet", "csv"),
-  extensions = character(0)
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$new(path, extensions = character(0))}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{path}}{Character string. Path to the data folder.}
-
-\item{\code{default_format}}{Character. Default file format ("parquet" or "csv").
-Default is "parquet".}
 
 \item{\code{extensions}}{Character vector of DuckDB extensions to load (e.g., "spatial")}
 }
@@ -113,7 +104,7 @@ A data.table with query results
 \if{html}{\out{<a id="method-parquet_duckdb-attach_table"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_duckdb-attach_table}{}}}
 \subsection{Method \code{attach_table()}}{
-Attach a table from parquet/CSV file as a temporary table in DuckDB
+Attach a table from parquet file as a temporary table in DuckDB
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$attach_table(table_name, columns = "*", where = NULL)}\if{html}{\out{</div>}}
 }
@@ -217,7 +208,7 @@ Result of func
 \subsection{Method \code{fetch()}}{
 Fetch data from a table
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$fetch(table_name, where = NULL, limit = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{parquet_duckdb$fetch(table_name, where = NULL, limit = NULL, map_cols = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -228,6 +219,8 @@ Fetch data from a table
 \item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
 
 \item{\code{limit}}{Integer. Optional limit on number of rows to return.}
+
+\item{\code{map_cols}}{Vector of columns to be converted from key/value structs to R lists}
 }
 \if{html}{\out{</div>}}
 }
@@ -318,19 +311,16 @@ self (invisibly)
 param x Data frame to commit. If character, in-duckdb-memory table.
 param table_name Character string table name
 param autoincrement_cols Character vector of column names to auto-increment
-param map_cols Character vector of columns to convert to MAP format
 return Invisible NULL (called for side effects)
 param x Data frame to commit. If character, in-duckdb-memory table.
 param table_name Character string table name
 param autoincrement_cols Character vector of column names to auto-increment
-param map_cols Character vector of columns to convert to MAP format
 return Invisible NULL (called for side effects)
 param x Data frame to commit. If character, in-duckdb-memory table.
 param table_name Character string table name
 param key_cols Character vector of columns that define uniqueness. If missing,
 use all columns starting with \code{id_}
 param autoincrement_cols Character vector of column names to auto-increment
-param map_cols Character vector of columns to convert to MAP format
 return Invisible NULL (called for side effects)
 }
 }

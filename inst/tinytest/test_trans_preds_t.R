@@ -57,9 +57,8 @@ lulc_data <- data.table::rbindlist(list(
 db_tps$lulc_data_t <- as_lulc_data_t(lulc_data)
 
 # Create transition metadata
-transitions <- db_tps$fetch("transitions_v")
 db_tps$trans_meta_t <- create_trans_meta_t(
-  transitions,
+  db_tps$transitions_v,
   min_cardinality_abs = 5L
 )
 
@@ -147,10 +146,10 @@ pred_data_int <- data.table::data.table(
 )
 db_tps$pred_data_t_int <- as_pred_data_t(pred_data_int, type = "int")
 
-expect_true(setequal(
-  db_tps$trans_pred_data_v(1L)[, id_coord],
+expect_equal(
+  sort(db_tps$trans_pred_data_v(1L)[, id_coord]),
   c(1, 2, 2, 4, 4, 7, 8, 10, 10, 12, 12, 13, 13, 16, 16, 17, 17, 18, 20, 21, 23, 24)
-))
+)
 
 # Test pruning
 expect_message(

@@ -83,13 +83,18 @@ create_pred_meta_t <- function(pred_spec) {
     # path is pred_spec > pred_name > leaf_name
     # we pluck each element, then replace potential null using %||%
     pretty_name = unlist(
-      purrr::map2(pluck_wildcard(pred_spec, NA, "pretty_name"), pred_names, ~ .x %||% .y)
+      mapply(
+        function(x, y) x %||% y,
+        pluck_wildcard(pred_spec, NA, "pretty_name"),
+        pred_names,
+        SIMPLIFY = FALSE
+      )
     ),
     description = unlist(
-      purrr::map(pluck_wildcard(pred_spec, NA, "description"), ~ .x %||% NA_character_)
+      lapply(pluck_wildcard(pred_spec, NA, "description"), function(x) x %||% NA_character_)
     ),
     orig_format = unlist(
-      purrr::map(pluck_wildcard(pred_spec, NA, "orig_format"), ~ .x %||% NA_character_)
+      lapply(pluck_wildcard(pred_spec, NA, "orig_format"), function(x) x %||% NA_character_)
     ),
     sources = lapply(
       pred_spec,
@@ -102,7 +107,7 @@ create_pred_meta_t <- function(pred_spec) {
       }
     ),
     unit = unlist(
-      purrr::map(pluck_wildcard(pred_spec, NA, "unit"), ~ .x %||% NA_character_)
+      lapply(pluck_wildcard(pred_spec, NA, "unit"), function(x) x %||% NA_character_)
     ),
     factor_levels = pluck_wildcard(pred_spec, NA, "factor_levels")
   )

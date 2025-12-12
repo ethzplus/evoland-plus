@@ -19,36 +19,21 @@ parquet_duckdb <- R6::R6Class(
     #' @field path Character string path to the data folder
     path = NULL,
 
-    #' @field default_format Default file format for new tables
-    default_format = NULL,
-
-    #' @field writeopts Default write options for DuckDB
-    writeopts = NULL,
+    #' @field writeopts Write options for DuckDB parquet output
+    writeopts = "format parquet, compression zstd",
 
     #' @description
     #' Initialize a new parquet_duckdb object
     #' @param path Character string. Path to the data folder.
-    #' @param default_format Character. Default file format ("parquet" or "csv").
-    #' Default is "parquet".
     #' @param extensions Character vector of DuckDB extensions to load (e.g., "spatial")
     #'
     #' @return A new `parquet_duckdb` object
     initialize = function(
       path,
-      default_format = c("parquet", "csv"),
       extensions = character(0)
     ) {
       # Create folder if it doesn't exist
       self$path <- ensure_dir(path)
-
-      # Set format / writeopts
-      self$default_format <- match.arg(default_format)
-      self$writeopts <- switch(
-        self$default_format,
-        parquet = "format parquet, compression zstd",
-        csv = "format csv",
-        stop(glue::glue("Unsupported format: {self$default_format}"))
-      )
 
       # Create in-memory connection for SQL operations
       self$connection <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
@@ -97,15 +82,15 @@ parquet_duckdb <- R6::R6Class(
     },
 
     #' @description
-    #' Attach a table from parquet/CSV file as a temporary table in DuckDB
+    #' Attach a table from parquet file as a temporary table in DuckDB
     #' @param table_name Character. Name of table to attach.
     #' @param columns Character vector. Optional SQL column selection, defaults to "*"
     #' @param where Character. Optional SQL WHERE clause to subset the table.
     #' @return Invisible NULL (called for side effects)
     attach_table = function(table_name, columns = "*", where = NULL) {
-      file_info <- private$get_file_path(table_name)
+      file_path <- private$get_file_path(table_name)
 
-      if (!file_info$exists) {
+      if (!file.exists(file_path)) {
         stop(glue::glue("Table '{table_name}' does not exist at path: {self$path}"))
       }
 
@@ -113,7 +98,7 @@ parquet_duckdb <- R6::R6Class(
       sql <- glue::glue(
         "create temp table {table_name} as ",
         "select {paste(columns, collapse = ', ')} ",
-        "from read_{file_info$format}('{file_info$path}')"
+        "from read_parquet('{file_path}')"
       )
 
       if (!is.null(where)) {
@@ -138,14 +123,14 @@ parquet_duckdb <- R6::R6Class(
     #' @param table_name Character string. Name of the table to query.
     #' @return Integer number of rows
     row_count = function(table_name) {
-      file_info <- private$get_file_path(table_name)
+      file_path <- private$get_file_path(table_name)
 
-      if (!file_info$exists) {
+      if (!file.exists(file_path)) {
         return(0L)
       }
 
       self$get_query(
-        glue::glue("select count(*) as n from read_{file_info$format}('{file_info$path}')")
+        glue::glue("select count(*) as n from read_parquet('{file_path}')")
       )[[1]]
     },
 
@@ -153,9 +138,8 @@ parquet_duckdb <- R6::R6Class(
     #' List all tables (files) in storage
     #' @return Character vector of table names
     list_tables = function() {
-      list.files(self$path, pattern = "\\.(parquet|csv)$", full.names = FALSE) |>
+      list.files(self$path, pattern = "\\.parquet$", full.names = FALSE) |>
         tools::file_path_sans_ext() |>
-        unique() |>
         sort()
     },
 
@@ -201,17 +185,23 @@ parquet_duckdb <- R6::R6Class(
     #' @param table_name Character string. Name of the table to query.
     #' @param where Character string. Optional WHERE clause for the SQL query.
     #' @param limit Integer. Optional limit on number of rows to return.
+    #' @param map_cols Vector of columns to be converted from key/value structs to R lists
     #'
     #' @return A data.table
-    fetch = function(table_name, where = NULL, limit = NULL) {
-      file_info <- private$get_file_path(table_name)
+    fetch = function(
+      table_name,
+      where = NULL,
+      limit = NULL,
+      map_cols = NULL
+    ) {
+      file_path <- private$get_file_path(table_name)
 
-      if (!file_info$exists) {
-        return(data.table::data.table())
+      if (!file.exists(file_path)) {
+        stop("Table `", table_name, "` does not exist")
       }
 
       # build sql query
-      sql <- glue::glue("select * from read_{file_info$format}('{file_info$path}')")
+      sql <- glue::glue("from read_parquet('{file_path}')")
 
       if (!is.null(where)) {
         sql <- glue::glue("{sql} where {where}")
@@ -220,7 +210,13 @@ parquet_duckdb <- R6::R6Class(
         sql <- glue::glue("{sql} limit {limit}")
       }
 
-      self$get_query(sql)
+      res <- self$get_query(sql)
+
+      if (!is.null(map_cols) && nrow(res) > 0) {
+        return(convert_list_cols(res, map_cols, kv_df_to_list))
+      }
+
+      res
     },
 
     #' @description
@@ -229,26 +225,26 @@ parquet_duckdb <- R6::R6Class(
     #' @param where Character string. Optional WHERE clause; if NULL, deletes all rows.
     #' @return Number of rows deleted
     delete_from = function(table_name, where = NULL) {
-      file_info <- private$get_file_path(table_name)
+      file_path <- private$get_file_path(table_name)
 
-      if (!file_info$exists) {
+      if (!file.exists(file_path)) {
         return(0L)
       }
 
       count_before <- self$row_count(table_name)
 
       if (is.null(where)) {
-        file.remove(file_info$path)
+        file.remove(file_path)
         return(count_before)
       }
 
       self$execute(glue::glue(
         r"{
         copy (
-          select * from read_{file_info$format}('{file_info$path}')
+          select * from read_parquet('{file_path}')
           where not ({where})
         )
-        to '{file_info$path}' ({self$writeopts})
+        to '{file_path}' ({self$writeopts})
         }"
       ))
 
@@ -285,16 +281,16 @@ parquet_duckdb <- R6::R6Class(
         "select column_name from (describe new_data_v)"
       )[[1]]
 
-      file_info <- private$get_file_path(table_name)
+      file_path <- private$get_file_path(table_name)
 
-      if (method == "overwrite" || !file_info$exists) {
+      if (method == "overwrite" || !file.exists(file_path)) {
         # in case overwrite explicitly required, or no previously existing data to
         # append or upsert to; rest of logic can be skipped
         return(private$commit_overwrite(
           table_name = table_name,
           all_cols = all_cols,
           autoincrement_cols = autoincrement_cols,
-          file_info = file_info
+          file_path = file_path
         ))
       }
 
@@ -312,7 +308,7 @@ parquet_duckdb <- R6::R6Class(
           table_name = table_name,
           all_cols = all_cols,
           autoincrement_cols = autoincrement_cols,
-          file_info = file_info
+          file_path = file_path
         )
       } else {
         private$commit_upsert(
@@ -320,7 +316,7 @@ parquet_duckdb <- R6::R6Class(
           all_cols = all_cols,
           key_cols = key_cols,
           autoincrement_cols = autoincrement_cols,
-          file_info = file_info
+          file_path = file_path
         )
       }
     },
@@ -374,16 +370,10 @@ parquet_duckdb <- R6::R6Class(
         cat(classes[1], "Object. Inherits from", toString(classes[-1]), "\n")
       }
 
-      compression <- if (grepl("compression\\s+(\\w+)", self$writeopts)) {
-        sub(".*compression\\s+(\\w+).*", "\\1", self$writeopts)
-      } else {
-        "none"
-      }
-
       # Database info on one line
       cat(
         glue::glue(
-          "Database: {self$path} | Format: {self$default_format} | Compression: {compression}"
+          "Database: {self$path} | Write Options: {self$writeopts}"
         ),
         "\n\n"
       )
@@ -432,13 +422,12 @@ parquet_duckdb <- R6::R6Class(
     #' param x Data frame to commit. If character, in-duckdb-memory table.
     #' param table_name Character string table name
     #' param autoincrement_cols Character vector of column names to auto-increment
-    #' param map_cols Character vector of columns to convert to MAP format
     #' return Invisible NULL (called for side effects)
     commit_overwrite = function(
       table_name,
       all_cols,
       autoincrement_cols = character(0),
-      file_info
+      file_path
     ) {
       # Warn if overriding existing IDs
       if (length(intersect(autoincrement_cols, all_cols)) > 0) {
@@ -460,7 +449,7 @@ parquet_duckdb <- R6::R6Class(
         copy (
           select {select_expr}
           from new_data_v
-        ) to '{file_info$path}' ({self$writeopts})
+        ) to '{file_path}' ({self$writeopts})
         }"
       ))
     },
@@ -468,13 +457,12 @@ parquet_duckdb <- R6::R6Class(
     #' param x Data frame to commit. If character, in-duckdb-memory table.
     #' param table_name Character string table name
     #' param autoincrement_cols Character vector of column names to auto-increment
-    #' param map_cols Character vector of columns to convert to MAP format
     #' return Invisible NULL (called for side effects)
     commit_append = function(
       table_name,
       all_cols,
       autoincrement_cols = character(0),
-      file_info
+      file_path
     ) {
       ordinary_cols <- setdiff(all_cols, autoincrement_cols)
       select_new <- glue::glue_collapse(
@@ -496,7 +484,7 @@ parquet_duckdb <- R6::R6Class(
             select {select_new}
             from new_data_v
           )
-          to '{file_info$path}' ({self$writeopts})
+          to '{file_path}' ({self$writeopts})
           }"
       ))
     },
@@ -506,14 +494,13 @@ parquet_duckdb <- R6::R6Class(
     #' param key_cols Character vector of columns that define uniqueness. If missing,
     #' use all columns starting with `id_`
     #' param autoincrement_cols Character vector of column names to auto-increment
-    #' param map_cols Character vector of columns to convert to MAP format
     #' return Invisible NULL (called for side effects)
     commit_upsert = function(
       table_name,
       all_cols,
       key_cols,
       autoincrement_cols = character(0),
-      file_info
+      file_path
     ) {
       # Update existing data
       ordinary_cols <- setdiff(all_cols, union(key_cols, autoincrement_cols))
@@ -568,34 +555,15 @@ parquet_duckdb <- R6::R6Class(
         }"
       ))
 
-      self$execute(glue::glue("copy {table_name} to '{file_info$path}' ({self$writeopts})"))
+      self$execute(glue::glue("copy {table_name} to '{file_path}' ({self$writeopts})"))
     },
 
-    # Get file path and format for a table
+    # Get file path for a table
     #
     # @param table_name Character string table name
-    # @return List with path, format, and exists flag
+    # @return Character path to parquet file
     get_file_path = function(table_name) {
-      # Check for parquet first, then csv
-      parquet_path <- file.path(self$path, paste0(table_name, ".parquet"))
-      csv_path <- file.path(self$path, paste0(table_name, ".csv"))
-
-      if (file.exists(parquet_path)) {
-        return(list(path = parquet_path, format = "parquet", exists = TRUE))
-      } else if (file.exists(csv_path)) {
-        return(list(path = csv_path, format = "csv", exists = TRUE))
-      } else {
-        # Return default format for new file
-        default_path <- file.path(
-          self$path,
-          paste0(table_name, ".", self$default_format)
-        )
-        return(list(
-          path = default_path,
-          format = self$default_format,
-          exists = FALSE
-        ))
-      }
+      file.path(self$path, paste0(table_name, ".parquet"))
     },
 
     # Register new_data_v table, optionally converting MAP columns
@@ -639,7 +607,6 @@ parquet_duckdb <- R6::R6Class(
 
     # Cleanup new_data_v and related tables
     #
-    # @param map_cols Character vector indicating if MAP conversion was used
     # @return NULL (called for side effects)
     cleanup_new_data_v = function() {
       try(duckdb::duckdb_unregister(self$connection, "new_data_v"), silent = TRUE)

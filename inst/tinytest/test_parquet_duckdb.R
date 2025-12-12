@@ -8,23 +8,19 @@ on.exit(unlink(test_dir, recursive = TRUE), add = TRUE)
 # Test 1: Initialization
 expect_silent(
   db <- parquet_duckdb$new(
-    path = test_dir,
-    default_format = "parquet"
+    path = test_dir
   )
 )
 expect_true(inherits(db, "parquet_duckdb"))
 expect_true(dir.exists(test_dir))
-expect_equal(db$default_format, "parquet")
 expect_true(!is.null(db$connection))
 expect_true(inherits(db$connection, "duckdb_connection"))
 
 # Test 2: Initial state - no tables
 expect_identical(db$list_tables(), character(0))
 
-# Test 3: Fetch from non-existent table returns empty data.table
-result <- db$fetch("nonexistent_table")
-expect_true(inherits(result, "data.table"))
-expect_equal(nrow(result), 0L)
+# Test 3: Fetch for nonexistent errors out
+expect_error(db$fetch("nonexistent_table"), "does not exist")
 
 # Test 4: Row count for non-existent table
 expect_equal(db$row_count("nonexistent_table"), 0L)
@@ -318,26 +314,7 @@ expect_true(inherits(result, "data.table"))
 expect_true("max_id" %in% names(result))
 db$detach_table("test_attach")
 
-# Test 31: CSV format support
-test_dir_csv <- tempfile("parquet_duckdb_csv_")
-on.exit(unlink(test_dir_csv, recursive = TRUE), add = TRUE)
-
-db_csv <- parquet_duckdb$new(
-  path = test_dir_csv,
-  default_format = "csv"
-)
-expect_equal(db_csv$default_format, "csv")
-
-test_csv_data <- data.table::data.table(
-  id = 1:3,
-  name = c("a", "b", "c")
-)
-db_csv$commit(test_csv_data, "csv_table", method = "overwrite")
-expect_true("csv_table" %in% db_csv$list_tables())
-retrieved <- db_csv$fetch("csv_table")
-expect_equal(retrieved, test_csv_data)
-
-# Test 32: Extension loading
+# Test 31: Extension loading
 test_dir_ext <- tempfile("parquet_duckdb_ext_")
 on.exit(unlink(test_dir_ext, recursive = TRUE), add = TRUE)
 
@@ -350,7 +327,7 @@ expect_silent(
   db_ext$get_query("SELECT ST_Point(0, 0) as geom")
 )
 
-# Test 33: Persistence across connections
+# Test 32: Persistence across connections
 db$commit(
   method = "overwrite",
   test_data_1,

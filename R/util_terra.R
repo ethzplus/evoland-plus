@@ -20,7 +20,7 @@ extract_using_coords_t.SpatRaster <- function(x, coords_t, na_omit = TRUE) {
   pts <-
     coords_t[, .(id_coord, lon, lat)] |>
     data.table::as.data.table() |>
-    terra::vect()
+    terra::vect(crs = terra::crs(x)) # TODO we need to add an EPSG attr to coords
 
   out <-
     terra::extract(
@@ -52,7 +52,7 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
   pts <-
     coords_t[, .(lon, lat)] |>
     as.matrix() |>
-    terra::vect()
+    terra::vect(crs = terra::crs(x)) # TODO we need to add an EPSG attr to coords
 
   tmp <-
     terra::extract(

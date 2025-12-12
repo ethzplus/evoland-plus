@@ -1,0 +1,40 @@
+@charset = UTF-8
+@submodel.name = ExpandTableToUniqueKeys
+@submodel.description = Create a new Table containing the original table plus a key column with an unique index for each row of that Table.
+@submodel.group = Table
+@date = 2023-Nov-22 15:03:10
+@version = 7.6.0.20231102
+Script {{
+    @submodel.in.constant.advanced = no
+    @submodel.in.constant.name = constant
+    @submodel.in.constant.optional = no
+    @submodel.in.constant.order = 1
+    constant := Table .UNBOUND;
+
+    @collapsed = no
+    calculatePythonExpression475 := CalculatePythonExpression "newHeader = dinamica.inputs["t1"][ 0 ]
+newColumnName = "UniqueIndex"
+while newColumnName in newHeader:
+ newColumnName += "_"
+
+for c in newHeader:
+ c.replace( "*", "" )
+
+newHeader.insert(0, newColumnName)
+newTable = [ newHeader ]
+uniqueIndex = 1
+for rowIndex in range(1, len(dinamica.inputs["t1"])):
+ row = dinamica.inputs["t1"][ rowIndex ]
+ row.insert(0, uniqueIndex)
+ newTable.append(row)
+ uniqueIndex += 1
+
+dinamica.outputs["table"] = newTable" {{
+        NumberTable constant 1;
+    }};
+
+    @submodel.out.table.description = Extracted table.
+    @submodel.out.table.name = table
+    @submodel.out.table.order = 1
+    _ := ExtractStructTable calculatePythonExpression475 $"(table)";
+}};

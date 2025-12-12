@@ -110,7 +110,7 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     }"
   )
   self$execute(
-    "create or replace view pred_meta_upsert_v as 
+    "create or replace view pred_meta_upsert_v as
      select name, pretty_name, description, orig_format, sources, unit, factor_levels
      from pred_meta_neighbors_t"
   )

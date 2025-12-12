@@ -32,12 +32,12 @@ download_and_verify <- function(
     .(
       url,
       md5sum,
-      found_files = purrr::map(file.path(target_dir, md5sum), list.files, full.names = TRUE)
+      found_files = lapply(file.path(target_dir, md5sum), list.files, full.names = TRUE)
     )
   ]
 
   # can only handle one file per md5 folder
-  all_dt[, no_found_files := purrr::map_int(found_files, length)]
+  all_dt[, no_found_files := vapply(found_files, length, integer(1))]
   if (nrow(too_many_files <- all_dt[no_found_files > 1])) {
     stop(
       "Investigate: found more than one file for \n ",
@@ -54,9 +54,10 @@ download_and_verify <- function(
 
   # if download, fetch to temp file in target_dir, then move to md5 folder once known
   # if not download, just return details on existing file, not rechecking md5sum
-  downloaded_dt <- data.table::rbindlist(purrr::pmap(
-    .l = all_dt,
-    .f = function(url, found_files, to_download, md5sum, ...) {
+  downloaded_dt <- data.table::rbindlist(.mapply(
+    dots = all_dt,
+    MoreArgs = NULL,
+    FUN = function(url, found_files, to_download, md5sum, ...) {
       if (to_download) {
         message("Downloading: ", url)
         temp_file <- tempfile(tmpdir = target_dir)

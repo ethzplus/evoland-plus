@@ -91,10 +91,12 @@ print.coords_t <- function(x, nrow = 10, ...) {
 #' @describeIn coords_t Create a set of square coordinates
 #' @export
 create_coords_t_square <- function(epsg, extent, resolution, ...) {
-  if (!rlang::is_scalar_integerish(epsg)) {
+  if (
+    !(length(epsg) == 1L && (is.integer(epsg) || (is.numeric(epsg) && epsg == as.integer(epsg))))
+  ) {
     stop("epsg must be scalar integerish")
   }
-  if (!rlang::is_scalar_double(resolution)) {
+  if (!(length(resolution) == 1L && is.double(resolution))) {
     stop("resolution must be scalar double")
   }
   if (!inherits(extent, "SpatExtent")) {

@@ -2,7 +2,7 @@
 #'
 #' @description
 #' An R6 class that provides an interface to a folder-based data storage system
-#' for the evoland package. Each table is stored as a parquet (or CSV) file.
+#' for the evoland package. Each table is stored as a parquet (or JSON) file.
 #' This class uses DuckDB for in-memory SQL operations while persisting data
 #' to disk in parquet format for better compression.
 #'
@@ -27,20 +27,16 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Initialize a new evoland_db object
     #' @param path Character string. Path to the data folder.
-    #' @param default_format Character. Default file format ("parquet" or "csv").
-    #' Default is "parquet".
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
     initialize = function(
       path,
-      default_format = c("parquet", "csv"),
       ...
     ) {
       # Initialize parent class with spatial extension
       super$initialize(
         path = path,
-        default_format = default_format,
         extensions = "spatial"
       )
 
@@ -50,63 +46,13 @@ evoland_db <- R6::R6Class(
       invisible(self)
     },
 
-    #' @description
-    #' Fetch data from storage with evoland-specific view support
-    #' @param table_name Character string. Name of the table to query.
-    #' @param where Character string. Optional WHERE clause for the SQL query.
-    #' @param limit integerish, limit the amount of rows to return
-    #'
-    #' @return A data.table
-    fetch = function(table_name, where = NULL, limit = NULL) {
-      # Check if this is a view (active binding)
-      if (
-        # TODO these should probably not be active bindings, but instead methods with
-        # predefined query parameters
-        table_name %in%
-          c("lulc_meta_long_v", "pred_sources_v", "transitions_v", "extent", "coords_minimal")
-      ) {
-        return(self[[table_name]])
-      }
-
-      file_info <- private$get_file_path(table_name)
-
-      if (!file_info$exists) {
-        stop("Table `", table_name, "` does not exist")
-      }
-
-      super$fetch(table_name, where, limit)
-    },
-
     ### Setter methods ----
     #' @description
     #' Set reporting metadata
     #' @param ... each named argument is entered into the table with the argument name
     #' as its key
     set_report = function(...) {
-      params <- list(...)
-      if (self$row_count("reporting_t") == 0L) {
-        # only upsert if these values are missing upon DB init
-        params[["report_name"]] <-
-          params[["report_name"]] %||% "evoland_scenario"
-        params[["report_name_pretty"]] <-
-          params[["report_name_pretty"]] %||% "Default Evoland Scenario"
-        params[["report_include_date"]] <-
-          params[["report_include_date"]] %||% "TRUE"
-        params[["creator_username"]] <-
-          params[["creator_username"]] %||% Sys.getenv("USER", unset = "unknown")
-      }
-      params[["last_opened"]] <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-      params[["last_opened_username"]] <- Sys.getenv("USER", unset = "unknown")
-
-      self$commit(
-        data.table::as.data.table(list(
-          key = names(params), # cannot name a column "key" in data.table()
-          value = unlist(params)
-        )),
-        table_name = "reporting_t",
-        key_cols = "key",
-        method = "upsert"
-      )
+      db_set_report(self, ...)
     },
 
     #' @description
