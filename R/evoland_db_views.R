@@ -8,7 +8,7 @@
 #'
 #' - `lulc_meta_long_v` - Unrolled LULC metadata with one row per source class
 #' - `pred_sources_v` - Distinct predictor URLs and their MD5 checksums
-#' - `transitions_v` - Land use transitions derived from lulc_data_t
+#' - `trans_v` - Land use transitions derived from lulc_data_t
 #' - `extent` - Spatial extent of coords_t as terra::SpatExtent
 #' - `coords_minimal` - Minimal coordinate representation (id_coord, lon, lat)
 #'
@@ -49,7 +49,7 @@ evoland_db$set("active", "pred_sources_v", function() {
   })
 })
 
-evoland_db$set("active", "transitions_v", function() {
+evoland_db$set("active", "trans_v", function() {
   self$with_tables("lulc_data_t", function() {
     self$get_query(glue::glue(
       r"{

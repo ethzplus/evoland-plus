@@ -12,7 +12,7 @@ These provide computed views on the database without storing additional data.
 \itemize{
 \item \code{lulc_meta_long_v} - Unrolled LULC metadata with one row per source class
 \item \code{pred_sources_v} - Distinct predictor URLs and their MD5 checksums
-\item \code{transitions_v} - Land use transitions derived from lulc_data_t
+\item \code{trans_v} - Land use transitions derived from lulc_data_t
 \item \code{extent} - Spatial extent of coords_t as terra::SpatExtent
 \item \code{coords_minimal} - Minimal coordinate representation (id_coord, lon, lat)
 }
@@ -24,4 +24,3 @@ These provide computed views on the database without storing additional data.
 \item \code{trans_pred_data_v(id_trans)} - Returns wide table of transition results and predictor data for a specific transition. Used as input to covariance filtering.
 }
 }
-

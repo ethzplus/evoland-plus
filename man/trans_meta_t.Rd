@@ -20,7 +20,7 @@ create_trans_meta_t(
 \method{print}{trans_meta_t}(x, nrow = 10, ...)
 }
 \arguments{
-\item{transitions}{A transitions_v table, with columns id_coord, id_lulc_anterior,
+\item{transitions}{A trans_v table, with columns id_coord, id_lulc_anterior,
 id_lulc_posterior, id_period}
 
 \item{min_cardinality_abs}{Minimum absolute number of transitions for viability (optional)}

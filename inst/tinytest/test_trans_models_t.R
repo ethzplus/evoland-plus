@@ -76,7 +76,7 @@ lulc_data <- data.table::rbindlist(list(
 db_tm$lulc_data_t <- as_lulc_data_t(lulc_data)
 
 # Create transition metadata
-transitions <- db_tm$transitions_v
+transitions <- db_tm$trans_v
 db_tm$trans_meta_t <- create_trans_meta_t(
   transitions,
   min_cardinality_abs = 5L

@@ -6,7 +6,7 @@
 #'
 #' @name trans_meta_t
 #'
-#' @param transitions A transitions_v table, with columns id_coord, id_lulc_anterior,
+#' @param transitions A trans_v table, with columns id_coord, id_lulc_anterior,
 #' id_lulc_posterior, id_period
 #' @param min_cardinality_abs Minimum absolute number of transitions for viability (optional)
 #' @param min_frequency_rel Minimum relative frequency of transitions for viability (optional)
