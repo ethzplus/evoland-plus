@@ -72,6 +72,11 @@
 - [`as_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   [`print(`*`<trans_preds_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   : Create Transition-Predictor Relationship Table
+- [`as_trans_rates_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
+  [`create_obs_trans_rates_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
+  [`create_extr_trans_rates_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
+  [`print(`*`<trans_rates_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
+  : Create Transition Rates Table
 - [`validate()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`new_evoland_table()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`check_missing_names()`](https://ethzplus.github.io/evoland-plus/reference/util.md)

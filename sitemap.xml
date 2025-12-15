@@ -1,5 +1,6 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://ethzplus.github.io/evoland-plus/404.html</loc></url>
+<url><loc>https://ethzplus.github.io/evoland-plus/AGENTS.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/LICENSE.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/articles/evoland.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/articles/index.html</loc></url>
@@ -32,6 +33,7 @@
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/trans_models_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.html</loc></url>
+<url><loc>https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/util.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/util_dinamica.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/util_download.html</loc></url>

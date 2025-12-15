@@ -36,6 +36,9 @@ database tables with automatic validation.
 - `trans_preds_t` - Transition-predictor relationships. See
   [`as_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
 
+- `trans_rates_t` - Transition rates by period. See
+  [`as_trans_rates_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
+
 - `intrv_meta_t` - Intervention metadata. See
   [`as_intrv_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_meta_t.md)
 

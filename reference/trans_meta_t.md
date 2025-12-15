@@ -25,7 +25,7 @@ print(x, nrow = 10, ...)
 
 - transitions:
 
-  A transitions_v table, with columns id_coord, id_lulc_anterior,
+  A trans_v table, with columns id_coord, id_lulc_anterior,
   id_lulc_posterior, id_period
 
 - min_cardinality_abs:

@@ -38,6 +38,8 @@ separate files:
 
 - [`evoland_db$trans_pred_data_v()`](#method-evoland_db-trans_pred_data_v)
 
+- [`evoland_db$trans_rates_dinamica_v()`](#method-evoland_db-trans_rates_dinamica_v)
+
 - [`evoland_db$new()`](#method-evoland_db-new)
 
 - [`evoland_db$set_report()`](#method-evoland_db-set_report)
@@ -100,6 +102,14 @@ Inherited methods
 #### Usage
 
     evoland_db$trans_pred_data_v(id_trans, id_pred = NULL, na_value = NA)
+
+------------------------------------------------------------------------
+
+### Method `trans_rates_dinamica_v()`
+
+#### Usage
+
+    evoland_db$trans_rates_dinamica_v(id_period)
 
 ------------------------------------------------------------------------
 

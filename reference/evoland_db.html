@@ -74,6 +74,7 @@ to disk in parquet format for better compression.</p>
 <ul><li><p><a href="#method-evoland_db-set_neighbors"><code>evoland_db$set_neighbors()</code></a></p></li>
 <li><p><a href="#method-evoland_db-generate_neighbor_predictors"><code>evoland_db$generate_neighbor_predictors()</code></a></p></li>
 <li><p><a href="#method-evoland_db-trans_pred_data_v"><code>evoland_db$trans_pred_data_v()</code></a></p></li>
+<li><p><a href="#method-evoland_db-trans_rates_dinamica_v"><code>evoland_db$trans_rates_dinamica_v()</code></a></p></li>
 <li><p><a href="#method-evoland_db-new"><code>evoland_db$new()</code></a></p></li>
 <li><p><a href="#method-evoland_db-set_report"><code>evoland_db$set_report()</code></a></p></li>
 <li><p><a href="#method-evoland_db-set_coords"><code>evoland_db$set_coords()</code></a></p></li>
@@ -127,10 +128,19 @@ to disk in parquet format for better compression.</p>
 </div>
 
 
+</div><p></p><hr><a id="method-evoland_db-trans_rates_dinamica_v"></a><div class="section">
+<h3 id="method-trans-rates-dinamica-v-">Method <code>trans_rates_dinamica_v()</code><a class="anchor" aria-label="anchor" href="#method-trans-rates-dinamica-v-"></a></h3>
+
+<div class="section">
+<h4 id="usage-3">Usage<a class="anchor" aria-label="anchor" href="#usage-3"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">trans_rates_dinamica_v</span><span class="op">(</span><span class="va">id_period</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+
 </div><p></p><hr><a id="method-evoland_db-new"></a><div class="section">
 <h3 id="method-new-">Method <code>new()</code><a class="anchor" aria-label="anchor" href="#method-new-"></a></h3>
 <p>Initialize a new evoland_db object</p><div class="section">
-<h4 id="usage-3">Usage<a class="anchor" aria-label="anchor" href="#usage-3"></a></h4>
+<h4 id="usage-4">Usage<a class="anchor" aria-label="anchor" href="#usage-4"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/evoland_db.html">evoland_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="va">path</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
@@ -154,7 +164,7 @@ to disk in parquet format for better compression.</p>
 </div><p></p><hr><a id="method-evoland_db-set_report"></a><div class="section">
 <h3 id="method-set-report-">Method <code>set_report()</code><a class="anchor" aria-label="anchor" href="#method-set-report-"></a></h3>
 <p>Set reporting metadata</p><div class="section">
-<h4 id="usage-4">Usage<a class="anchor" aria-label="anchor" href="#usage-4"></a></h4>
+<h4 id="usage-5">Usage<a class="anchor" aria-label="anchor" href="#usage-5"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">set_report</span><span class="op">(</span><span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
@@ -171,7 +181,7 @@ as its key</p></dd>
 </div><p></p><hr><a id="method-evoland_db-set_coords"></a><div class="section">
 <h3 id="method-set-coords-">Method <code>set_coords()</code><a class="anchor" aria-label="anchor" href="#method-set-coords-"></a></h3>
 <p>Set coordinates for DB. Cannot overwrite existing table (would mean cascading deletion)</p><div class="section">
-<h4 id="usage-5">Usage<a class="anchor" aria-label="anchor" href="#usage-5"></a></h4>
+<h4 id="usage-6">Usage<a class="anchor" aria-label="anchor" href="#usage-6"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">set_coords</span><span class="op">(</span>type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"square"</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
@@ -191,7 +201,7 @@ as its key</p></dd>
 </div><p></p><hr><a id="method-evoland_db-set_periods"></a><div class="section">
 <h3 id="method-set-periods-">Method <code>set_periods()</code><a class="anchor" aria-label="anchor" href="#method-set-periods-"></a></h3>
 <p>Set periods for DB. See <code><a href="periods_t.html">periods_t</a></code></p><div class="section">
-<h4 id="usage-6">Usage<a class="anchor" aria-label="anchor" href="#usage-6"></a></h4>
+<h4 id="usage-7">Usage<a class="anchor" aria-label="anchor" href="#usage-7"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">set_periods</span><span class="op">(</span></span>
 <span>  period_length_str <span class="op">=</span> <span class="st">"P10Y"</span>,</span>
 <span>  start_observed <span class="op">=</span> <span class="st">"1985-01-01"</span>,</span>
@@ -225,7 +235,7 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 </div><p></p><hr><a id="method-evoland_db-add_predictor"></a><div class="section">
 <h3 id="method-add-predictor-">Method <code>add_predictor()</code><a class="anchor" aria-label="anchor" href="#method-add-predictor-"></a></h3>
 <p>Add a predictor to the database</p><div class="section">
-<h4 id="usage-7">Usage<a class="anchor" aria-label="anchor" href="#usage-7"></a></h4>
+<h4 id="usage-8">Usage<a class="anchor" aria-label="anchor" href="#usage-8"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">add_predictor</span><span class="op">(</span><span class="va">pred_spec</span>, <span class="va">pred_data</span>, <span class="va">pred_type</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
@@ -251,7 +261,7 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 <h3 id="method-fit-partial-models-">Method <code>fit_partial_models()</code><a class="anchor" aria-label="anchor" href="#method-fit-partial-models-"></a></h3>
 
 <div class="section">
-<h4 id="usage-8">Usage<a class="anchor" aria-label="anchor" href="#usage-8"></a></h4>
+<h4 id="usage-9">Usage<a class="anchor" aria-label="anchor" href="#usage-9"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">fit_partial_models</span><span class="op">(</span></span>
 <span>  <span class="va">fit_fun</span>,</span>
 <span>  <span class="va">gof_fun</span>,</span>
@@ -267,7 +277,7 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 <h3 id="method-fit-full-models-">Method <code>fit_full_models()</code><a class="anchor" aria-label="anchor" href="#method-fit-full-models-"></a></h3>
 
 <div class="section">
-<h4 id="usage-9">Usage<a class="anchor" aria-label="anchor" href="#usage-9"></a></h4>
+<h4 id="usage-10">Usage<a class="anchor" aria-label="anchor" href="#usage-10"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">fit_full_models</span><span class="op">(</span></span>
 <span>  <span class="va">partial_models</span>,</span>
 <span>  <span class="va">gof_criterion</span>,</span>
@@ -282,7 +292,7 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 <h3 id="method-set-full-trans-preds-">Method <code>set_full_trans_preds()</code><a class="anchor" aria-label="anchor" href="#method-set-full-trans-preds-"></a></h3>
 
 <div class="section">
-<h4 id="usage-10">Usage<a class="anchor" aria-label="anchor" href="#usage-10"></a></h4>
+<h4 id="usage-11">Usage<a class="anchor" aria-label="anchor" href="#usage-11"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">set_full_trans_preds</span><span class="op">(</span>overwrite <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
@@ -291,7 +301,7 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 <h3 id="method-get-pruned-trans-preds-t-">Method <code>get_pruned_trans_preds_t()</code><a class="anchor" aria-label="anchor" href="#method-get-pruned-trans-preds-t-"></a></h3>
 
 <div class="section">
-<h4 id="usage-11">Usage<a class="anchor" aria-label="anchor" href="#usage-11"></a></h4>
+<h4 id="usage-12">Usage<a class="anchor" aria-label="anchor" href="#usage-12"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">get_pruned_trans_preds_t</span><span class="op">(</span></span>
 <span>  filter_fun <span class="op">=</span> <span class="va">covariance_filter</span>,</span>
 <span>  na_value <span class="op">=</span> <span class="cn">NA</span>,</span>
@@ -303,7 +313,7 @@ period (currently only accepting years, e.g., "P5Y" for 5 years)</p></dd>
 </div><p></p><hr><a id="method-evoland_db-clone"></a><div class="section">
 <h3 id="method-clone-">Method <code>clone()</code><a class="anchor" aria-label="anchor" href="#method-clone-"></a></h3>
 <p>The objects of this class are cloneable with this method.</p><div class="section">
-<h4 id="usage-12">Usage<a class="anchor" aria-label="anchor" href="#usage-12"></a></h4>
+<h4 id="usage-13">Usage<a class="anchor" aria-label="anchor" href="#usage-13"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">clone</span><span class="op">(</span>deep <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 

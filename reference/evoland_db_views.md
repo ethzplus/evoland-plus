@@ -11,7 +11,7 @@ database without storing additional data.
 
 - `pred_sources_v` - Distinct predictor URLs and their MD5 checksums
 
-- `transitions_v` - Land use transitions derived from lulc_data_t
+- `trans_v` - Land use transitions derived from lulc_data_t
 
 - `extent` - Spatial extent of coords_t as terra::SpatExtent
 
@@ -23,3 +23,6 @@ database without storing additional data.
 - `trans_pred_data_v(id_trans)` - Returns wide table of transition
   results and predictor data for a specific transition. Used as input to
   covariance filtering.
+
+- `trans_rates_dinamica_v(id_period)` - Returns transition rates
+  formatted for Dinamica export for a specific period.

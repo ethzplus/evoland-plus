@@ -51,7 +51,7 @@ These provide computed views on the database without storing additional data.</p
 
 <ul><li><p><code>lulc_meta_long_v</code> - Unrolled LULC metadata with one row per source class</p></li>
 <li><p><code>pred_sources_v</code> - Distinct predictor URLs and their MD5 checksums</p></li>
-<li><p><code>transitions_v</code> - Land use transitions derived from lulc_data_t</p></li>
+<li><p><code>trans_v</code> - Land use transitions derived from lulc_data_t</p></li>
 <li><p><code>extent</code> - Spatial extent of coords_t as terra::SpatExtent</p></li>
 <li><p><code>coords_minimal</code> - Minimal coordinate representation (id_coord, lon, lat)</p></li>
 </ul></div>
@@ -60,6 +60,7 @@ These provide computed views on the database without storing additional data.</p
 
 
 <ul><li><p><code>trans_pred_data_v(id_trans)</code> - Returns wide table of transition results and predictor data for a specific transition. Used as input to covariance filtering.</p></li>
+<li><p><code>trans_rates_dinamica_v(id_period)</code> - Returns transition rates formatted for Dinamica export for a specific period.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
