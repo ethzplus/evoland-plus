@@ -28,6 +28,7 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-set_neighbors}{\code{evoland_db$set_neighbors()}}
 \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
 \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
+\item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
 \item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
@@ -86,6 +87,15 @@ Additional methods and active bindings are added to this class in separate files
 \subsection{Method \code{trans_pred_data_v()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_pred_data_v(id_trans, id_pred = NULL, na_value = NA)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
+\subsection{Method \code{trans_rates_dinamica_v()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_rates_dinamica_v(id_period)}\if{html}{\out{</div>}}
 }
 
 }

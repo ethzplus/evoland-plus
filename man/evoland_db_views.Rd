@@ -22,5 +22,7 @@ These provide computed views on the database without storing additional data.
 
 \itemize{
 \item \code{trans_pred_data_v(id_trans)} - Returns wide table of transition results and predictor data for a specific transition. Used as input to covariance filtering.
+\item \code{trans_rates_dinamica_v(id_period)} - Returns transition rates formatted for Dinamica export for a specific period.
 }
 }
+

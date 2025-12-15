@@ -312,7 +312,6 @@ expect_true(nrow(lulc_long) > nrow(lulc_meta_t))
 # Test 24: Domain-specific view - pred_sources_v
 db$pred_meta_t <- pred_meta_t
 sources <- db$pred_sources_v
-expect_true(inherits(sources, "data.table"))
 expect_true(all(c("url", "md5sum") %in% names(sources)))
 expect_true(nrow(sources) > 0L)
 

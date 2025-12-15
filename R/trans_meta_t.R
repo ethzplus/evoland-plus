@@ -62,6 +62,7 @@ create_trans_meta_t <- function(
   # Aggregate transitions by type and calculate frequencies
   trans_summary <-
     transitions[
+      # excludes non-transitions
       id_lulc_anterior != id_lulc_posterior
     ][,
       .(cardinality = .N),
