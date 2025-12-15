@@ -20,6 +20,7 @@ These bindings provide read/write access to database tables with automatic valid
 \item \code{pred_meta_t} - Predictor metadata. See \code{\link[=as_pred_meta_t]{as_pred_meta_t()}}
 \item \code{trans_meta_t} - Transition metadata. See \code{\link[=as_trans_meta_t]{as_trans_meta_t()}}
 \item \code{trans_preds_t} - Transition-predictor relationships. See \code{\link[=as_trans_preds_t]{as_trans_preds_t()}}
+\item \code{trans_rates_t} - Transition rates by period. See \code{\link[=as_trans_rates_t]{as_trans_rates_t()}}
 \item \code{intrv_meta_t} - Intervention metadata. See \code{\link[=as_intrv_meta_t]{as_intrv_meta_t()}}
 \item \code{intrv_masks_t} - Intervention masks. See \code{\link[=as_intrv_masks_t]{as_intrv_masks_t()}}
 \item \code{trans_models_t} - Transition models. See \code{\link[=as_trans_models_t]{as_trans_models_t()}}

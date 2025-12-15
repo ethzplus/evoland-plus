@@ -16,6 +16,7 @@
 #' - `pred_meta_t` - Predictor metadata. See [as_pred_meta_t()]
 #' - `trans_meta_t` - Transition metadata. See [as_trans_meta_t()]
 #' - `trans_preds_t` - Transition-predictor relationships. See [as_trans_preds_t()]
+#' - `trans_rates_t` - Transition rates by period. See [as_trans_rates_t()]
 #' - `intrv_meta_t` - Intervention metadata. See [as_intrv_meta_t()]
 #' - `intrv_masks_t` - Intervention masks. See [as_intrv_masks_t()]
 #' - `trans_models_t` - Transition models. See [as_trans_models_t()]
@@ -152,6 +153,15 @@ evoland_db$set("active", "trans_preds_t", function(x) {
     "trans_preds_t",
     as_trans_preds_t,
     key_cols = c("id_trans", "id_pred")
+  )(x)
+})
+
+evoland_db$set("active", "trans_rates_t", function(x) {
+  create_table_binding(
+    self,
+    "trans_rates_t",
+    as_trans_rates_t,
+    key_cols = c("id_period", "id_trans")
   )(x)
 })
 

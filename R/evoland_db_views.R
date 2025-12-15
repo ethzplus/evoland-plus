@@ -8,13 +8,14 @@
 #'
 #' - `lulc_meta_long_v` - Unrolled LULC metadata with one row per source class
 #' - `pred_sources_v` - Distinct predictor URLs and their MD5 checksums
-#' - `transitions_v` - Land use transitions derived from lulc_data_t
+#' - `trans_v` - Land use transitions derived from lulc_data_t
 #' - `extent` - Spatial extent of coords_t as terra::SpatExtent
 #' - `coords_minimal` - Minimal coordinate representation (id_coord, lon, lat)
 #'
 #' @section Methods Added:
 #'
 #' - `trans_pred_data_v(id_trans)` - Returns wide table of transition results and predictor data for a specific transition. Used as input to covariance filtering.
+#' - `trans_rates_dinamica_v(id_period)` - Returns transition rates formatted for Dinamica export for a specific period.
 #'
 #' @name evoland_db_views
 #' @include evoland_db.R
@@ -49,7 +50,7 @@ evoland_db$set("active", "pred_sources_v", function() {
   })
 })
 
-evoland_db$set("active", "transitions_v", function() {
+evoland_db$set("active", "trans_v", function() {
   self$with_tables("lulc_data_t", function() {
     self$get_query(glue::glue(
       r"{
@@ -137,8 +138,8 @@ evoland_db$set(
           stop(glue::glue("Transition id_trans = {id_trans} not found in trans_meta_t"))
         }
 
-        id_lulc_ant <- trans_info$id_lulc_anterior
-        id_lulc_post <- trans_info$id_lulc_posterior
+        id_lulc_ant <- trans_info[["id_lulc_anterior"]]
+        id_lulc_post <- trans_info[["id_lulc_posterior"]]
 
         ctes <- list()
 
@@ -298,6 +299,40 @@ evoland_db$set(
             data.table::set(result, i = which(is.na(result[[col]])), j = col, value = na_value)
           }
         }
+
+        result
+      }
+    )
+  }
+)
+
+# get transition rates formatted for Dinamica export
+# id_period - integer period ID for which to export rates
+evoland_db$set(
+  "public",
+  "trans_rates_dinamica_v",
+  function(id_period) {
+    stopifnot(
+      "id_period must be a single integer" = {
+        length(id_period) == 1L && id_period == as.integer(id_period)
+      }
+    )
+
+    self$with_tables(
+      c("trans_rates_t", "trans_meta_t"),
+      function() {
+        result <- self$get_query(glue::glue(
+          "SELECT
+            m.id_lulc_anterior as \"From*\",
+            m.id_lulc_posterior as \"To*\",
+            r.rate as \"Rate\"
+          FROM
+            trans_rates_t r,
+            trans_meta_t m
+          WHERE
+            r.id_trans = m.id_trans
+            AND r.id_period = {id_period}"
+        ))
 
         result
       }

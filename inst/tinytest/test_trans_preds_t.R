@@ -58,7 +58,7 @@ db_tps$lulc_data_t <- as_lulc_data_t(lulc_data)
 
 # Create transition metadata
 db_tps$trans_meta_t <- create_trans_meta_t(
-  db_tps$transitions_v,
+  db_tps$trans_v,
   min_cardinality_abs = 5L
 )
 
