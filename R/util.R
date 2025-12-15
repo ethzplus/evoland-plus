@@ -37,11 +37,15 @@ new_evoland_table <- function(x, class_name, keycols) {
     if (length(keycols_present) > 0) data.table::setkeyv(x, keycols_present)
   }
 
-  class(x) <- unique(c(
-    class_name,
-    "evoland_t",
-    class(x)
-  ))
+  data.table::setattr(
+    x,
+    "class",
+    unique(c(
+      class_name,
+      "evoland_t",
+      class(x)
+    ))
+  )
   validate(x)
 }
 
