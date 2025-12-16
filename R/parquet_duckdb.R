@@ -299,7 +299,7 @@ parquet_duckdb <- R6::R6Class(
       private$set_autoincrement_vars(table_name, autoincrement_cols)
 
       if (missing(key_cols)) {
-        key_cols <- grep("^id_", all_cols, value = TRUE)
+        key_cols <- grep("^id_[a-z]+$", all_cols, value = TRUE)
       }
 
       if (method == "append" || length(key_cols) == 0L) {
