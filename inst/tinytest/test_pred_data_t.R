@@ -13,7 +13,7 @@ pred_data_t_float <- as_pred_data_t(
 expect_inherits(
   pred_data_t_float,
   c("pred_data_t_float", "pred_data_t")
-))
+)
 expect_equal(nrow(pred_data_t_float), 48L)
 
 # Test creation and validation for int subtype
