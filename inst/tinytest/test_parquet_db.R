@@ -11,10 +11,10 @@ expect_silent(
     path = test_dir
   )
 )
-expect_true(inherits(db, "parquet_db"))
+expect_inherits(db, "parquet_db")
 expect_true(dir.exists(test_dir))
 expect_true(!is.null(db$connection))
-expect_true(inherits(db$connection, "duckdb_connection"))
+expect_inherits(db$connection, "duckdb_connection")
 
 # Test 2: Initial state - no tables
 expect_identical(db$list_tables(), character(0))
@@ -310,7 +310,7 @@ db$detach_table("test_attach")
 # Test 30: get_query() method
 db$attach_table("test_attach")
 result <- db$get_query("SELECT MAX(id) as max_id FROM test_attach")
-expect_true(inherits(result, "data.table"))
+expect_inherits(result, "data.table")
 expect_true("max_id" %in% names(result))
 db$detach_table("test_attach")
 

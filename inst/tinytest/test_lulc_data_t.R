@@ -21,4 +21,4 @@ expect_silent(
   converted_lulc_data_t <- as_lulc_data_t(synthetic_lulc_data_t)
 )
 expect_equal(nrow(converted_lulc_data_t), 3L)
-expect_true(inherits(converted_lulc_data_t, "lulc_data_t"))
+expect_inherits(converted_lulc_data_t, "lulc_data_t")

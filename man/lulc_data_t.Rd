@@ -33,3 +33,6 @@ Creates an \code{lulc_data_t} table and validates that it matches the schema.
 \item \code{print(lulc_data_t)}: Print an lulc_data_t object, passing params to data.table print
 
 }}
+\seealso{
+\link{evoland_db} method \verb{$lulc_data_as_rast()} for converting to terra SpatRast
+}

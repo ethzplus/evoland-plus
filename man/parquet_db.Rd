@@ -32,6 +32,7 @@ domain-specific database classes.
 \item \href{#method-parquet_db-list_tables}{\code{parquet_db$list_tables()}}
 \item \href{#method-parquet_db-with_tables}{\code{parquet_db$with_tables()}}
 \item \href{#method-parquet_db-fetch}{\code{parquet_db$fetch()}}
+\item \href{#method-parquet_db-get_table_metadata}{\code{parquet_db$get_table_metadata()}}
 \item \href{#method-parquet_db-delete_from}{\code{parquet_db$delete_from()}}
 \item \href{#method-parquet_db-commit}{\code{parquet_db$commit()}}
 \item \href{#method-parquet_db-print}{\code{parquet_db$print()}}
@@ -226,6 +227,26 @@ Fetch data from a table
 }
 \subsection{Returns}{
 A data.table
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-parquet_db-get_table_metadata"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_db-get_table_metadata}{}}}
+\subsection{Method \code{get_table_metadata()}}{
+Get table metadata
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$get_table_metadata(table_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character string. Name of the table to query.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Named list
 }
 }
 \if{html}{\out{<hr>}}

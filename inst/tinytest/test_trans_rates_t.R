@@ -37,7 +37,7 @@ expect_equal(obs_rates[["rate"]], c(0.2, 0.3))
 
 # Test create_extr_trans_rates_t
 extrap_rates <- create_extr_trans_rates_t(obs_rates, periods)
-expect_true(inherits(extrap_rates, "trans_rates_t"))
+expect_inherits(extrap_rates, "trans_rates_t")
 expect_equal(extrap_rates[["rate"]], c(0.4, 0.5, 0.6, 0.7)) # linear trend
 
 # concat on DB, then retrieve for dinamica

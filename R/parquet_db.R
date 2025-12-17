@@ -224,6 +224,18 @@ parquet_db <- R6::R6Class(
     },
 
     #' @description
+    #' Get table metadata
+    #' @param table_name Character string. Name of the table to query.
+    #' @return Named list
+    get_table_metadata = function(table_name) {
+      file_path <- private$get_file_path(table_name)
+      if (!file.exists(file_path)) {
+        stop("Table `", table_name, "` does not exist")
+      }
+      private$read_parquet_metadata(file_path)
+    },
+
+    #' @description
     #' Delete rows from a table
     #' @param table_name Character string. Name of the table to delete from.
     #' @param where Character string. Optional WHERE clause; if NULL, deletes all rows.

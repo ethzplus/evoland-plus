@@ -159,7 +159,7 @@ expect_message(
   "Processing transition 1/2"
 )
 
-expect_true(inherits(trans_preds_result, "trans_preds_t"))
+expect_inherits(trans_preds_result, "trans_preds_t")
 expect_equal(nrow(trans_preds_result), 4L)
 
 # Verify that all id_trans in result are viable

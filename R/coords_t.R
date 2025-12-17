@@ -126,5 +126,12 @@ create_coords_t_square <- function(epsg, extent, resolution, ...) {
   # skipping geom_polygon for the square case
   data.table::set(base_grid_dt, j = "geom_polygon", value = list())
 
+  data.table::setattr(base_grid_dt, "epsg", epsg)
+  data.table::setattr(base_grid_dt, "xmin", as.numeric(extent$xmin))
+  data.table::setattr(base_grid_dt, "xmax", as.numeric(extent$xmax))
+  data.table::setattr(base_grid_dt, "ymin", as.numeric(extent$ymin))
+  data.table::setattr(base_grid_dt, "ymax", as.numeric(extent$ymax))
+  data.table::setattr(base_grid_dt, "resolution", resolution)
+
   as_coords_t(base_grid_dt)
 }

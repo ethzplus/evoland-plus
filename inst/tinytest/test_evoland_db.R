@@ -14,8 +14,8 @@ expect_silent(
     report_username = "testuser"
   )
 )
-expect_true(inherits(db, "evoland_db"))
-expect_true(inherits(db, "parquet_db")) # Should inherit from parent
+expect_inherits(db, "evoland_db")
+expect_inherits(db, "parquet_db") # Should inherit from parent
 
 # Test 2: Reporting table is created and populated
 expect_identical(db$list_tables(), "reporting_t")
@@ -197,11 +197,12 @@ intrv_masks_t <- as_intrv_masks_t(
 
 # Test 6: Active bindings - coords_t
 expect_silent(db$coords_t <- coords_t)
-expect_silent(db$coords_t <- coords_t)
-expect_identical(db$coords_t, coords_t)
-expect_identical(
+expect_warning(db$coords_t <- coords_t, "Overriding existing metadata")
+expect_equal(db$coords_t, coords_t) # integerish epsg and extent are upcast from float to int
+expect_equal(
   db$coords_minimal,
-  data.table::as.data.table(coords_t[, 1:3])
+  data.table::as.data.table(coords_t[, 1:3]),
+  check.attributes = FALSE # because as.data.table doesn't reset attrs
 )
 
 # Test 7: Active bindings - lulc_meta_t
@@ -288,23 +289,25 @@ expect_silent(
   db$lulc_data_t <- as_lulc_data_t(lulc_data_dt)
 )
 
+# fetch back as rast
+expect_silent(m <- db$lulc_data_as_rast())
+expect_equal(as.vector(m["id_period_1"]), c(1, 2, rep.int(NA_real_, 98L)))
+
 # Test 21: Domain-specific view - coords_minimal
 coords_minimal <- db$coords_minimal
-expect_true(inherits(coords_minimal, "data.table"))
+expect_inherits(coords_minimal, "data.table")
 expect_equal(ncol(coords_minimal), 3L)
 expect_true(all(c("id_coord", "lon", "lat") %in% names(coords_minimal)))
 expect_equal(nrow(coords_minimal), nrow(coords_t))
 
 # Test 22: Domain-specific view - extent
-# Set up coords first
-db$coords_t <- coords_t
 extent <- db$extent
-expect_true(inherits(extent, "SpatExtent"))
+expect_inherits(extent, "SpatExtent")
 
 # Test 23: Domain-specific view - lulc_meta_long_v
 db$lulc_meta_t <- lulc_meta_t
 lulc_long <- db$lulc_meta_long_v
-expect_true(inherits(lulc_long, "data.table"))
+expect_inherits(lulc_long, "data.table")
 expect_true("src_class" %in% names(lulc_long))
 # Should have one row per src_class
 expect_true(nrow(lulc_long) > nrow(lulc_meta_t))

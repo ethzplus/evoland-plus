@@ -52,6 +52,7 @@ Additional methods and active bindings are added to this class in separate files
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="execute"><a href='../../evoland/html/parquet_db.html#method-parquet_db-execute'><code>evoland::parquet_db$execute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="fetch"><a href='../../evoland/html/parquet_db.html#method-parquet_db-fetch'><code>evoland::parquet_db$fetch()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_query"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_query'><code>evoland::parquet_db$get_query()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_metadata"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_metadata'><code>evoland::parquet_db$get_table_metadata()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="list_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-list_tables'><code>evoland::parquet_db$list_tables()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="print"><a href='../../evoland/html/parquet_db.html#method-parquet_db-print'><code>evoland::parquet_db$print()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="row_count"><a href='../../evoland/html/parquet_db.html#method-parquet_db-row_count'><code>evoland::parquet_db$row_count()</code></a></span></li>
@@ -209,6 +210,19 @@ Add a predictor to the database
 }
 \if{html}{\out{</div>}}
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-lulc_data_as_rast"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-lulc_data_as_rast}{}}}
+\subsection{Method \code{lulc_data_as_rast()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$lulc_data_as_rast(
+  extent = NULL,
+  resolution = NULL,
+  id_period = NULL
+)}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-fit_partial_models"></a>}}

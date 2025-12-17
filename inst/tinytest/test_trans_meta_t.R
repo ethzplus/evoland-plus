@@ -3,7 +3,7 @@ library(tinytest)
 trans_meta_t <- create_trans_meta_t()
 expect_silent(trans_meta_t)
 expect_equal(nrow(trans_meta_t), 0L)
-expect_true(inherits(trans_meta_t, "trans_meta_t"))
+expect_inherits(trans_meta_t, "trans_meta_t")
 expect_stdout(print(trans_meta_t), "empty")
 
 # Test expected column structure

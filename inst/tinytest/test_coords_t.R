@@ -11,7 +11,7 @@ coords_t <- create_coords_t_square(
   resolution = 100
 )
 
-expect_true(inherits(coords_t, "coords_t"))
+expect_inherits(coords_t, "coords_t")
 expect_stdout(print(coords_t), "Coordinate Table")
 expect_equal(nrow(coords_t), 100L)
 expect_true(all(

@@ -4,7 +4,7 @@ library(tinytest)
 trans_models_empty <- as_trans_models_t()
 expect_stdout(print(trans_models_empty), "Transition Models Table")
 expect_equal(nrow(trans_models_empty), 0L)
-expect_true(inherits(trans_models_empty, "trans_models_t"))
+expect_inherits(trans_models_empty, "trans_models_t")
 
 # Test creation with data
 trans_models_t <- as_trans_models_t(data.table::data.table(
@@ -218,7 +218,7 @@ expect_equal(
 
 # Test that model deserialization works
 first_model_part <- qs2::qs_deserialize(partial_models$model_obj_part[[1]])
-expect_true(inherits(first_model_part, "glm"))
+expect_inherits(first_model_part, "glm")
 
 # test DB round trip
 expect_silent(db_tm$trans_models_t <- partial_models)
@@ -239,7 +239,7 @@ expect_message(
 expect_silent(db_tm$trans_models_t <- full_models)
 expect_identical(db_tm$trans_models_t, full_models)
 
-expect_true(inherits(full_models, "trans_models_t"))
+expect_inherits(full_models, "trans_models_t")
 expect_true(nrow(full_models) > 0L)
 
 # Check that both partial and full models are present
@@ -248,7 +248,7 @@ expect_true(all(!vapply(full_models$model_obj_full, is.null, logical(1))))
 
 # Test that full model deserialization works
 first_model_full <- qs2::qs_deserialize(full_models$model_obj_full[[1]])
-expect_true(inherits(first_model_full, "glm"))
+expect_inherits(first_model_full, "glm")
 
 # Test model selection with minimize criterion
 expect_message(
@@ -261,7 +261,7 @@ expect_message(
   "selected by mse="
 )
 
-expect_true(inherits(full_models_min, "trans_models_t"))
+expect_inherits(full_models_min, "trans_models_t")
 expect_true(nrow(full_models_min) > 0L)
 
 # Test error handling - missing fit_fun parameter

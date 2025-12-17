@@ -40,7 +40,12 @@ evoland_db$set(
     p <- self$pred_meta_t
     t <- self$trans_meta_t[is_viable == TRUE]
 
-    full <- expand.grid(id_pred = p[["id_pred"]], id_trans = t[["id_trans"]])
+    full <- expand.grid(
+      id_pred = p[["id_pred"]],
+      id_trans = t[["id_trans"]],
+      KEEP.OUT.ATTRS = FALSE
+    )
+
     self$commit(as_trans_preds_t(full), "trans_preds_t", method = "overwrite")
   }
 )
