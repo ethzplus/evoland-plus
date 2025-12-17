@@ -213,8 +213,12 @@ parquet_duckdb <- R6::R6Class(
       res <- self$get_query(sql)
 
       if (!is.null(map_cols) && nrow(res) > 0) {
-        return(convert_list_cols(res, map_cols, kv_df_to_list))
+        res <- convert_list_cols(res, map_cols, kv_df_to_list)
       }
+
+      # Restore attributes from metadata
+      metadata <- private$read_parquet_metadata(file_path)
+      restore_dt_attributes(res, metadata)
 
       res
     },
@@ -238,13 +242,17 @@ parquet_duckdb <- R6::R6Class(
         return(count_before)
       }
 
+      # Preserve existing metadata
+      existing_metadata <- private$read_parquet_metadata(file_path)
+      kv_clause <- format_kv_metadata(existing_metadata)
+
       self$execute(glue::glue(
         r"{
         copy (
           select * from read_parquet('{file_path}')
           where not ({where})
         )
-        to '{file_path}' ({self$writeopts})
+        to '{file_path}' ({self$writeopts}{kv_clause})
         }"
       ))
 
@@ -275,6 +283,9 @@ parquet_duckdb <- R6::R6Class(
     ) {
       method <- match.arg(method)
 
+      # Extract attributes from data.table before registering
+      new_attrs <- extract_dt_attributes(x)
+
       private$register_new_data_v(x, map_cols)
       on.exit(private$cleanup_new_data_v(), add = TRUE)
       all_cols <- self$get_query(
@@ -290,9 +301,14 @@ parquet_duckdb <- R6::R6Class(
           table_name = table_name,
           all_cols = all_cols,
           autoincrement_cols = autoincrement_cols,
-          file_path = file_path
+          file_path = file_path,
+          metadata = new_attrs
         ))
       }
+
+      # Read existing metadata and merge with new
+      existing_metadata <- private$read_parquet_metadata(file_path)
+      merged_metadata <- merge_metadata(new_attrs, existing_metadata)
 
       self$attach_table(table_name)
       on.exit(self$detach_table(table_name), add = TRUE)
@@ -308,7 +324,8 @@ parquet_duckdb <- R6::R6Class(
           table_name = table_name,
           all_cols = all_cols,
           autoincrement_cols = autoincrement_cols,
-          file_path = file_path
+          file_path = file_path,
+          metadata = merged_metadata
         )
       } else {
         private$commit_upsert(
@@ -316,7 +333,8 @@ parquet_duckdb <- R6::R6Class(
           all_cols = all_cols,
           key_cols = key_cols,
           autoincrement_cols = autoincrement_cols,
-          file_path = file_path
+          file_path = file_path,
+          metadata = merged_metadata
         )
       }
     },
@@ -427,7 +445,8 @@ parquet_duckdb <- R6::R6Class(
       table_name,
       all_cols,
       autoincrement_cols = character(0),
-      file_path
+      file_path,
+      metadata = NULL
     ) {
       # Warn if overriding existing IDs
       if (length(intersect(autoincrement_cols, all_cols)) > 0) {
@@ -444,12 +463,14 @@ parquet_duckdb <- R6::R6Class(
         sep = ",\n "
       )
 
+      kv_clause <- format_kv_metadata(metadata)
+
       self$execute(glue::glue(
         r"{
         copy (
           select {select_expr}
           from new_data_v
-        ) to '{file_path}' ({self$writeopts})
+        ) to '{file_path}' ({self$writeopts}{kv_clause})
         }"
       ))
     },
@@ -462,7 +483,8 @@ parquet_duckdb <- R6::R6Class(
       table_name,
       all_cols,
       autoincrement_cols = character(0),
-      file_path
+      file_path,
+      metadata = NULL
     ) {
       ordinary_cols <- setdiff(all_cols, autoincrement_cols)
       select_new <- glue::glue_collapse(
@@ -476,6 +498,8 @@ parquet_duckdb <- R6::R6Class(
       )
 
       # Concatenation using UNION ALL; "by name" handles missing columns
+      kv_clause <- format_kv_metadata(metadata)
+
       self$execute(glue::glue(
         r"{
           copy (
@@ -484,7 +508,7 @@ parquet_duckdb <- R6::R6Class(
             select {select_new}
             from new_data_v
           )
-          to '{file_path}' ({self$writeopts})
+          to '{file_path}' ({self$writeopts}{kv_clause})
           }"
       ))
     },
@@ -500,7 +524,8 @@ parquet_duckdb <- R6::R6Class(
       all_cols,
       key_cols,
       autoincrement_cols = character(0),
-      file_path
+      file_path,
+      metadata = NULL
     ) {
       # Update existing data
       ordinary_cols <- setdiff(all_cols, union(key_cols, autoincrement_cols))
@@ -555,7 +580,9 @@ parquet_duckdb <- R6::R6Class(
         }"
       ))
 
-      self$execute(glue::glue("copy {table_name} to '{file_path}' ({self$writeopts})"))
+      kv_clause <- format_kv_metadata(metadata)
+
+      self$execute(glue::glue("copy {table_name} to '{file_path}' ({self$writeopts}{kv_clause})"))
     },
 
     # Get file path for a table
@@ -656,10 +683,92 @@ parquet_duckdb <- R6::R6Class(
 
       self$execute(set_exprs)
       invisible(NULL)
+    },
+
+    # Read parquet metadata as named list
+    read_parquet_metadata = function(file_path) {
+      x <- self$get_query(glue::glue(
+        "select key, value from parquet_kv_metadata('{file_path}')"
+      ))
+      if (nrow(x) == 0) {
+        return(list())
+      }
+
+      read_raw <- \(y) y |> rawToChar() |> utils::type.convert(as.is = TRUE)
+      result <- lapply(x[["value"]], read_raw)
+      names(result) <- vapply(x[["key"]], read_raw, character(1))
+
+      result
     }
   )
 )
 
+
+# Extract attributes from data.table for storage as parquet metadata
+# param x An R object
+# return Named list of attributes
+extract_dt_attributes <- function(x) {
+  all_attrs <- attributes(x)
+  excluded <- c("class", "names", ".internal.selfref", "row.names", "sorted", "index")
+  attrs_to_keep <- setdiff(names(all_attrs), excluded)
+  all_attrs[attrs_to_keep]
+}
+
+# Format attributes as KV_METADATA SQL clause
+# param attrs Named list of attributes
+# return Character string for KV_METADATA clause (empty string if NULL/empty)
+format_kv_metadata <- function(attrs) {
+  if (length(attrs) == 0) {
+    return("")
+  }
+  stopifnot(
+    "Attributes with length > 1 are not supported for parquet metadata" = all(
+      vapply(attrs, length, integer(1)) == 1L
+    )
+  )
+  kv_str <- glue::glue_collapse(glue::glue("{names(attrs)}: '{attrs}'"), sep = ",\n  ")
+  glue::glue(",\n    KV_METADATA {{\n  {kv_str}\n  }}")
+}
+
+# Restore attributes to data.table from metadata
+#
+# param x data.table to add attributes to
+# param metadata Named list of metadata
+# return Modified data.table (invisible)
+restore_dt_attributes <- function(x, metadata) {
+  for (key in names(metadata)) {
+    data.table::setattr(x, key, metadata[[key]])
+  }
+}
+
+# Compare and merge metadata, warning if differences exist
+# param new_metadata Named list of new metadata
+# param existing_metadata Named list of existing metadata
+# return Merged metadata (new overrides existing)
+merge_metadata <- function(new_metadata, existing_metadata) {
+  common_keys <- intersect(names(new_metadata), names(existing_metadata))
+  conflicts <- character(0)
+  for (key in common_keys) {
+    if (!identical(new_metadata[[key]], existing_metadata[[key]])) {
+      conflicts <- c(conflicts, key)
+    }
+  }
+
+  if (length(conflicts) > 0) {
+    warning(
+      "Overriding existing metadata for key(s): ",
+      toString(conflicts)
+    )
+  }
+
+  # Merge: new overrides existing
+  result <- existing_metadata
+  for (key in names(new_metadata)) {
+    result[[key]] <- new_metadata[[key]]
+  }
+
+  result
+}
 
 # Helper functions for converting between list and data.frame formats for DuckDB MAPs
 convert_list_cols <- function(x, cols, fn) {

@@ -367,3 +367,73 @@ expect_stdout(
   print(db),
   "Public methods:|Active bindings:|Format|Compression"
 )
+
+# Test 36: Metadata preservation on overwrite
+test_data_with_attrs <- data.table::data.table(
+  id = 1:3,
+  name = c("a", "b", "c"),
+  value = c(1.1, 2.2, 3.3)
+)
+data.table::setkeyv(test_data_with_attrs, "id") # don't want this to come back
+data.table::setattr(test_data_with_attrs, "custom_attr", "test_value")
+data.table::setattr(test_data_with_attrs, "numeric_attr", 42)
+data.table::setattr(test_data_with_attrs, "logical_attr", TRUE)
+
+db$commit(
+  method = "overwrite",
+  test_data_with_attrs,
+  "test_metadata"
+)
+
+retrieved <- db$fetch("test_metadata")
+expect_false(data.table::haskey(retrieved))
+expect_equal(attr(retrieved, "custom_attr"), "test_value")
+expect_equal(attr(retrieved, "numeric_attr"), 42)
+expect_equal(attr(retrieved, "logical_attr"), TRUE)
+
+# Test 38: Metadata override warning on append
+test_data_diff_attrs <- data.table::data.table(
+  id = 6L,
+  name = "f",
+  value = 6.6
+)
+data.table::setattr(test_data_diff_attrs, "custom_attr", "different_value")
+data.table::setattr(test_data_diff_attrs, "new_attr", "new")
+
+expect_warning(
+  db$commit(
+    test_data_diff_attrs,
+    "test_metadata",
+    method = "append"
+  ),
+  "Overriding existing metadata"
+)
+
+retrieved <- db$fetch("test_metadata")
+expect_equal(attr(retrieved, "custom_attr"), "different_value")
+expect_equal(attr(retrieved, "new_attr"), "new")
+
+# Test 39: Metadata preservation on upsert
+test_data_upsert_base <- data.table::data.table(
+  id = 1:3,
+  name = c("whatevs", "i don't need", "your pity help"),
+  value = c(10, 20, 30)
+)
+data.table::setattr(test_data_upsert_base, "version", "1.0")
+
+db$commit(
+  method = "upsert",
+  test_data_upsert_base,
+  "test_metadata",
+  key_cols = "id"
+)
+
+retrieved <- db$fetch("test_metadata")
+expect_equal(nrow(retrieved), 4L)
+expect_equal(attr(retrieved, "version"), 1.0)
+
+# Test 40: Metadata preservation on delete_from
+db$delete_from("test_metadata", where = "id <= 2")
+retrieved <- db$fetch("test_metadata")
+expect_equal(nrow(retrieved), 2L)
+expect_equal(attr(retrieved, "version"), 1.0)
