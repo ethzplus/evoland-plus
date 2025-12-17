@@ -6,7 +6,7 @@
 #' This class uses DuckDB for in-memory SQL operations while persisting data
 #' to disk in parquet format for better compression.
 #'
-#' Inherits from [parquet_duckdb] for generic database operations.
+#' Inherits from [parquet_db] for generic database operations.
 #'
 #' @seealso
 #' Additional methods and active bindings are added to this class in separate files:
@@ -15,12 +15,12 @@
 #' - [evoland_db_views] - View active bindings (lulc_meta_long_v, etc.) and methods
 #' - [evoland_db_neighbors] - Neighbor analysis methods
 #'
-#' @include parquet_duckdb.R
+#' @include parquet_db.R
 #' @export
 
 evoland_db <- R6::R6Class(
   classname = "evoland_db",
-  inherit = parquet_duckdb,
+  inherit = parquet_db,
 
   ## Public Methods ----
   public = list(

@@ -41,7 +41,7 @@ Collate:
     'alloc_params_t.R'
     'coords_t.R'
     'covariance_filter.R'
-    'parquet_duckdb.R'
+    'parquet_db.R'
     'evoland_db.R'
     'evoland_db_neighbors.R'
     'evoland_db_tables.R'

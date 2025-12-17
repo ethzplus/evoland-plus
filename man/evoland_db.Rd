@@ -9,7 +9,7 @@ for the evoland package. Each table is stored as a parquet (or JSON) file.
 This class uses DuckDB for in-memory SQL operations while persisting data
 to disk in parquet format for better compression.
 
-Inherits from \link{parquet_duckdb} for generic database operations.
+Inherits from \link{parquet_db} for generic database operations.
 }
 \seealso{
 Additional methods and active bindings are added to this class in separate files:
@@ -20,7 +20,7 @@ Additional methods and active bindings are added to this class in separate files
 }
 }
 \section{Super class}{
-\code{\link[evoland:parquet_duckdb]{evoland::parquet_duckdb}} -> \code{evoland_db}
+\code{\link[evoland:parquet_db]{evoland::parquet_db}} -> \code{evoland_db}
 }
 \section{Methods}{
 \subsection{Public methods}{
@@ -34,6 +34,7 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
 \item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
 \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
+\item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
 \item \href{#method-evoland_db-fit_partial_models}{\code{evoland_db$fit_partial_models()}}
 \item \href{#method-evoland_db-fit_full_models}{\code{evoland_db$fit_full_models()}}
 \item \href{#method-evoland_db-set_full_trans_preds}{\code{evoland_db$set_full_trans_preds()}}
@@ -44,17 +45,17 @@ Additional methods and active bindings are added to this class in separate files
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="attach_table"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-attach_table'><code>evoland::parquet_duckdb$attach_table()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="commit"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-commit'><code>evoland::parquet_duckdb$commit()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="delete_from"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-delete_from'><code>evoland::parquet_duckdb$delete_from()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="detach_table"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-detach_table'><code>evoland::parquet_duckdb$detach_table()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="execute"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-execute'><code>evoland::parquet_duckdb$execute()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="fetch"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-fetch'><code>evoland::parquet_duckdb$fetch()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="get_query"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-get_query'><code>evoland::parquet_duckdb$get_query()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="list_tables"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-list_tables'><code>evoland::parquet_duckdb$list_tables()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="print"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-print'><code>evoland::parquet_duckdb$print()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="row_count"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-row_count'><code>evoland::parquet_duckdb$row_count()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_duckdb" data-id="with_tables"><a href='../../evoland/html/parquet_duckdb.html#method-parquet_duckdb-with_tables'><code>evoland::parquet_duckdb$with_tables()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="attach_table"><a href='../../evoland/html/parquet_db.html#method-parquet_db-attach_table'><code>evoland::parquet_db$attach_table()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="commit"><a href='../../evoland/html/parquet_db.html#method-parquet_db-commit'><code>evoland::parquet_db$commit()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="delete_from"><a href='../../evoland/html/parquet_db.html#method-parquet_db-delete_from'><code>evoland::parquet_db$delete_from()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="detach_table"><a href='../../evoland/html/parquet_db.html#method-parquet_db-detach_table'><code>evoland::parquet_db$detach_table()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="execute"><a href='../../evoland/html/parquet_db.html#method-parquet_db-execute'><code>evoland::parquet_db$execute()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="fetch"><a href='../../evoland/html/parquet_db.html#method-parquet_db-fetch'><code>evoland::parquet_db$fetch()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_query"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_query'><code>evoland::parquet_db$get_query()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="list_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-list_tables'><code>evoland::parquet_db$list_tables()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="print"><a href='../../evoland/html/parquet_db.html#method-parquet_db-print'><code>evoland::parquet_db$print()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="row_count"><a href='../../evoland/html/parquet_db.html#method-parquet_db-row_count'><code>evoland::parquet_db$row_count()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="with_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-with_tables'><code>evoland::parquet_db$with_tables()</code></a></span></li>
 </ul>
 </details>
 }}

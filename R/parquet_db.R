@@ -8,8 +8,8 @@
 #'
 #' @export
 
-parquet_duckdb <- R6::R6Class(
-  classname = "parquet_duckdb",
+parquet_db <- R6::R6Class(
+  classname = "parquet_db",
 
   ## Public Methods ----
   public = list(
@@ -23,11 +23,11 @@ parquet_duckdb <- R6::R6Class(
     writeopts = "format parquet, compression zstd",
 
     #' @description
-    #' Initialize a new parquet_duckdb object
+    #' Initialize a new parquet_db object
     #' @param path Character string. Path to the data folder.
     #' @param extensions Character vector of DuckDB extensions to load (e.g., "spatial")
     #'
-    #' @return A new `parquet_duckdb` object
+    #' @return A new `parquet_db` object
     initialize = function(
       path,
       extensions = character(0)
@@ -340,7 +340,7 @@ parquet_duckdb <- R6::R6Class(
     },
 
     #' @description
-    #' Print method for parquet_duckdb
+    #' Print method for parquet_db
     #' @param ... Not used
     #' @return self (invisibly)
     print = function(...) {

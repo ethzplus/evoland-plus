@@ -1,17 +1,17 @@
-# Test generic parquet_duckdb functionality
+# Test generic parquet_db functionality
 library(tinytest)
 
 # Create temporary directory for testing
-test_dir <- tempfile("parquet_duckdb_test_")
+test_dir <- tempfile("parquet_db_test_")
 on.exit(unlink(test_dir, recursive = TRUE), add = TRUE)
 
 # Test 1: Initialization
 expect_silent(
-  db <- parquet_duckdb$new(
+  db <- parquet_db$new(
     path = test_dir
   )
 )
-expect_true(inherits(db, "parquet_duckdb"))
+expect_true(inherits(db, "parquet_db"))
 expect_true(dir.exists(test_dir))
 expect_true(!is.null(db$connection))
 expect_true(inherits(db$connection, "duckdb_connection"))
@@ -315,10 +315,10 @@ expect_true("max_id" %in% names(result))
 db$detach_table("test_attach")
 
 # Test 31: Extension loading
-test_dir_ext <- tempfile("parquet_duckdb_ext_")
+test_dir_ext <- tempfile("parquet_db_ext_")
 on.exit(unlink(test_dir_ext, recursive = TRUE), add = TRUE)
 
-db_ext <- parquet_duckdb$new(
+db_ext <- parquet_db$new(
   path = test_dir_ext,
   extensions = "spatial"
 )
@@ -337,7 +337,7 @@ rm(db)
 gc()
 
 # Reconnect to same path
-db <- parquet_duckdb$new(path = test_dir)
+db <- parquet_db$new(path = test_dir)
 expect_true("persist_test" %in% db$list_tables())
 retrieved <- db$fetch("persist_test")
 expect_equal(retrieved, test_data_1)

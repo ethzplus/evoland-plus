@@ -1,5 +1,5 @@
 # Test evoland_db domain-specific functionality
-# Generic parquet_duckdb tests are in test_parquet_duckdb.R
+# Generic parquet_db tests are in test_parquet_db.R
 library(tinytest)
 
 # Create temporary directory for testing
@@ -15,7 +15,7 @@ expect_silent(
   )
 )
 expect_true(inherits(db, "evoland_db"))
-expect_true(inherits(db, "parquet_duckdb")) # Should inherit from parent
+expect_true(inherits(db, "parquet_db")) # Should inherit from parent
 
 # Test 2: Reporting table is created and populated
 expect_identical(db$list_tables(), "reporting_t")
