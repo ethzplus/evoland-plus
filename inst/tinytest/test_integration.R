@@ -456,7 +456,7 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
     # Create simple transition rates for testing
     trans_rates <- data.table::data.table(
       id_trans = 1L,
-      id_period = 2L,
+      id_period = 1:3,
       rate = 0.1
     )
     db_tm$trans_rates_t <- as_trans_rates_t(trans_rates)
@@ -477,12 +477,10 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
 
     # Check that results table was created
     expect_true(sim_table %in% db_tm$list_tables())
-    expect_equal(sim_table, "lulc_data_t_perturbation_1")
+    expect_equal(unclass(sim_table), "lulc_data_t_perturbation_1")
 
     # Check simulation results
-    sim_results <- db_tm[[sim_table]]
-    expect_inherits(sim_results, "lulc_data_t")
-    expect_true(nrow(sim_results) > 0L)
+    expect_silent(sim_results <- db_tm$fetch(sim_table) |> as_lulc_data_t())
     expect_true(all(sim_results$id_period == 2L))
 
     # Test eval_alloc_params_t

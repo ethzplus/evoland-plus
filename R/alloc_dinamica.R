@@ -70,7 +70,8 @@ alloc_dinamica_setup_inputs <- function(
   expansion_table <- alloc_params_full[, .(
     `From*` = id_lulc_anterior,
     `To*` = id_lulc_posterior,
-    Frac_expander = frac_expander
+    # dinamica alloc cannot do full expansion or patching, hence constrain to (0, 1)
+    Frac_expander = pmax(1e-6, pmin(1 - 1e-6, frac_expander))
   )]
 
   expansion_path <- file.path(temp_dir, "expansion_table.csv")
@@ -82,9 +83,9 @@ alloc_dinamica_setup_inputs <- function(
   patcher_table <- alloc_params_full[, .(
     `From*` = id_lulc_anterior,
     `To*` = id_lulc_posterior,
-    Mean_Patch_Size = mean_patch_size,
-    Patch_Size_Variance = patch_size_variance,
-    Patch_Isometry = patch_isometry
+    Mean_Patch_Size = ifelse(is.na(mean_patch_size), 0, mean_patch_size),
+    Patch_Size_Variance = ifelse(is.na(patch_size_variance), 0, patch_size_variance),
+    Patch_Isometry = ifelse(is.na(patch_isometry), 0, patch_isometry)
   )]
 
   patcher_path <- file.path(temp_dir, "patcher_table.csv")
@@ -94,13 +95,19 @@ alloc_dinamica_setup_inputs <- function(
 
   # 5. Write anterior.tif
   anterior_path <- file.path(temp_dir, "anterior.tif")
-  terra::writeRaster(anterior_rast, anterior_path, overwrite = TRUE)
+  terra::writeRaster(
+    anterior_rast,
+    anterior_path,
+    overwrite = TRUE,
+    datatype = "INT1U",
+    NAflag = -999 # because dinamica cannot handle nan
+  )
 
   message(glue::glue("  Wrote anterior LULC to {basename(anterior_path)}"))
-
   # 6. Generate probability maps
-  prob_map_dir <- file.path(temp_dir, "probability_maps")
-  dir.create(prob_map_dir, showWarnings = FALSE, recursive = TRUE)
+  prob_map_dir <-
+    file.path(temp_dir, "probability_map_dir") |>
+    ensure_dir()
 
   message("  Generating probability maps...")
 
@@ -153,13 +160,11 @@ alloc_dinamica_setup_inputs <- function(
     # Predict probabilities
     # Drop id_coord, id_period, result columns for prediction
     pred_cols <- grep("^id_pred_", names(pred_data_post), value = TRUE)
-    pred_df <- as.data.frame(pred_data_post[, ..pred_cols])
 
     # Predict - assuming model has predict() method that returns probabilities
     tryCatch(
       {
-        probs <- predict(model_obj, newdata = pred_df, type = "response")
-
+        probs <- predict(model_obj, newdata = pred_data_post[, ..pred_cols], type = "response")
         # Ensure probabilities are in [0, 1]
         probs <- pmax(0, pmin(1, probs))
 
@@ -192,7 +197,12 @@ alloc_dinamica_setup_inputs <- function(
           glue::glue("{prefix}_trans_{id_lulc_ant}_to_{id_lulc_post}.tif")
         )
 
-        terra::writeRaster(prob_rast, prob_path, overwrite = TRUE)
+        terra::writeRaster(
+          prob_rast,
+          prob_path,
+          overwrite = TRUE,
+          NAflag = -999 # because dinamica cannot handle nan
+        )
 
         message(glue::glue(
           "    [{i}/{nrow(viable_trans)}] Probability map: {id_lulc_ant} -> {id_lulc_post}"
@@ -390,12 +400,12 @@ evoland_db$set(
     }
 
     # Create base work directory
-    base_work_dir <- file.path(
-      work_dir,
-      format(Sys.time(), "perturbation_%s_%Y%m%d_%H%M%S") |>
-        sprintf(id_perturbation)
-    )
-    dir.create(base_work_dir, showWarnings = FALSE, recursive = TRUE)
+    base_work_dir <-
+      file.path(
+        work_dir,
+        sprintf("perturbation_%s", id_perturbation)
+      ) |>
+      ensure_dir()
 
     message(glue::glue(
       "Starting Dinamica allocation simulation\n",
@@ -475,7 +485,7 @@ evoland_db$set(
 
     message(glue::glue("Writing results to {table_name}..."))
 
-    self[[table_name]] <- final_results
+    self$commit(final_results, table_name, method = "overwrite")
 
     message(glue::glue(
       "Simulation complete!\n",
@@ -544,7 +554,7 @@ evoland_db$set(
     keep_intermediate = FALSE
   ) {
     # Get historical periods
-    historical_periods <- self$periods_t[is_extrapolated == FALSE]
+    historical_periods <- self$periods_t[is_extrapolated == FALSE & id_period > 0]
     data.table::setorder(historical_periods, id_period)
 
     id_periods_hist <- historical_periods$id_period
@@ -568,7 +578,9 @@ evoland_db$set(
 
     # Get observed data for final period
     id_period_final <- max(id_periods_hist)
-    observed_final <- self$lulc_data_t[id_period == id_period_final]
+    observed_final <-
+      self$fetch("lulc_data_t", where = glue::glue("id_period = {id_period_final}")) |>
+      as_lulc_data_t()
 
     # Storage for evaluation results
     eval_results <- list()
@@ -588,7 +600,9 @@ evoland_db$set(
           )
 
           # Get simulated data for final period
-          sim_final <- self$get_table(sim_table_name)[id_period == id_period_final]
+          sim_final <-
+            self$fetch(sim_table_name, where = glue::glue("id_period = {id_period_final}")) |>
+            as_lulc_data_t()
 
           # Compare simulated vs observed
           message("Computing accuracy metrics...")
@@ -614,7 +628,9 @@ evoland_db$set(
           # Get transitions for the final period
           id_period_penultimate <- id_periods_hist[length(id_periods_hist) - 1L]
 
-          observed_penultimate <- self$lulc_data_t[id_period == id_period_penultimate]
+          observed_penultimate <- self$lulc_data_t[
+            id_period == id_period_penultimate
+          ]
 
           # Create transition table: penultimate -> final (observed)
           trans_obs <- merge(
@@ -650,7 +666,9 @@ evoland_db$set(
               n_trans_matched <- sum(trans_cells$id_lulc_sim == id_lulc_post)
               acc_trans <- n_trans_matched / n_trans
 
-              trans_accuracy_list[[length(trans_accuracy_list) + 1L]] <- data.table::data.table(
+              trans_accuracy_list[[
+                length(trans_accuracy_list) + 1L
+              ]] <- data.table::data.table(
                 id_perturbation = id_pert,
                 id_trans = id_trans,
                 n_trans_cells = n_trans,
