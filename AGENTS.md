@@ -3,6 +3,7 @@
 Please ask for clarifications if the specifications you receive are not clear, or if edge cases exist.
 Present a work plan in a single (potentially nested) list, numbered in such a way that feedback can be given to individual points.
 Don't overwhelm the user: add 10 tests or one function at a time, then ask for feedback before continuing.
+Don't create summary documents: all that is too long for the chat needs to be part of the documentation in the codebase itself.
 
 ## How to interact with the evoland-plus codebase
 
