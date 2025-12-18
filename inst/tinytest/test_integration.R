@@ -426,8 +426,8 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
       mean_patch_size = 1.5,
       patch_size_variance = NA_real_,
       patch_isometry = 0.9996002,
-      perc_expander = 100,
-      perc_patcher = 0
+      frac_expander = 1,
+      frac_patcher = 0
     ),
     tolerance = 1e-07
   )
@@ -447,4 +447,83 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
     db_tm$create_alloc_params_t(sd = -5),
     "sd must be a positive number"
   )
+
+  # Test allocation and evaluation workflow
+  # Note: This requires Dinamica EGO to be installed and on PATH
+  # Skip if DinamicaConsole is not available
+  if (Sys.which("DinamicaConsole") != "") {
+    # We need trans_rates_t for allocation
+    # Create simple transition rates for testing
+    trans_rates <- data.table::data.table(
+      id_trans = 1L,
+      id_period = 2L,
+      rate = 0.1
+    )
+    db_tm$trans_rates_t <- as_trans_rates_t(trans_rates)
+
+    # Commit the models so they can be used for prediction
+    expect_silent(db_tm$trans_models_t <- full_models)
+
+    # Test alloc_dinamica with a simple two-period simulation
+    expect_message(
+      sim_table <- db_tm$alloc_dinamica(
+        id_periods = 1:2,
+        id_perturbation = 1L,
+        work_dir = file.path(test_dir_trans_models, "dinamica_test"),
+        keep_intermediate = FALSE
+      ),
+      "Simulation complete"
+    )
+
+    # Check that results table was created
+    expect_true(sim_table %in% db_tm$list_tables())
+    expect_equal(sim_table, "lulc_data_t_perturbation_1")
+
+    # Check simulation results
+    sim_results <- db_tm[[sim_table]]
+    expect_inherits(sim_results, "lulc_data_t")
+    expect_true(nrow(sim_results) > 0L)
+    expect_true(all(sim_results$id_period == 2L))
+
+    # Test eval_alloc_params_t
+    # This will re-run the simulation and compare against observed data
+    expect_message(
+      evaluated_params <- db_tm$eval_alloc_params_t(
+        id_perturbations = 1L,
+        work_dir = file.path(test_dir_trans_models, "dinamica_eval"),
+        keep_intermediate = FALSE
+      ),
+      "Evaluation complete"
+    )
+
+    # Check evaluation results
+    expect_inherits(evaluated_params, "alloc_params_t")
+    expect_true("accuracy_overall" %in% names(evaluated_params))
+    expect_true("accuracy_trans" %in% names(evaluated_params))
+    expect_true("n_cells_total" %in% names(evaluated_params))
+
+    # Check that accuracy metrics are reasonable (between 0 and 1)
+    expect_true(all(evaluated_params$accuracy_overall >= 0, na.rm = TRUE))
+    expect_true(all(evaluated_params$accuracy_overall <= 1, na.rm = TRUE))
+
+    # Test error handling - invalid id_periods
+    expect_error(
+      db_tm$alloc_dinamica(
+        id_periods = c(1L, 3L), # Non-contiguous
+        id_perturbation = 1L
+      ),
+      "id_periods must be contiguous and sequential"
+    )
+
+    # Test error handling - invalid id_perturbation
+    expect_error(
+      db_tm$alloc_dinamica(
+        id_periods = 1:2,
+        id_perturbation = 999L # Doesn't exist
+      ),
+      "id_perturbation=999 not found in alloc_params_t"
+    )
+  } else {
+    message("Skipping Dinamica allocation tests: DinamicaConsole not found on PATH")
+  }
 }

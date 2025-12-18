@@ -10,7 +10,7 @@ extract_using_coords_t(x, coords_t, na_omit = TRUE)
 \arguments{
 \item{x}{The object to extract from; use "simple" extraction for rasters, i.e. no resampling is done.}
 
-\item{coords_t}{A coords_t object containing coordinate points}
+\item{coords_t}{A coords_t object containing coordinate points with an "epsg" attribute}
 }
 \value{
 A long data.table with \code{id_coord}, a \code{layer}/\code{attribute} column, and a \code{value} column.

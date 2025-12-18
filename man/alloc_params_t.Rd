@@ -31,9 +31,9 @@ compute_alloc_params_single(lulc_ant, lulc_post, id_lulc_ant, id_lulc_post)
 \value{
 A data.table of class "alloc_params_t" with columns:
 \itemize{
+\item \code{id_perturbation}: The perturbation's ID - no. 1 == unperturbed
 \item \code{id_trans}: Foreign key to trans_meta_t
-\item \code{alloc_params}: Map of model (hyper) parameters
-\item \code{goodness_of_fit}: Map of various measures of fit (e.g., ROC AUC)
+\item ... various other columns describing allocation parameters and goodness of fit
 }
 
 A named list with allocation parameters:
@@ -41,8 +41,8 @@ A named list with allocation parameters:
 \item mean_patch_size: Mean area of patches (hectares)
 \item patch_size_variance: Standard deviation of patch area (hectares)
 \item patch_isometry: Measure of patch shape regularity (0-1)
-\item perc_expander: Percentage of transition cells adjacent to old patches in [0, 100]
-\item perc_patcher: Percentage of transition cells forming new patches in [0, 100]
+\item frac_expander: Fraction of transition cells adjacent to old patches in [0, 1]
+\item frac_patcher: Fraction of transition cells forming new patches in [0, 1]
 }
 }
 \description{

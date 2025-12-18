@@ -25,6 +25,8 @@ Additional methods and active bindings are added to this class in separate files
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
+\item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
+\item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
 \item \href{#method-evoland_db-create_alloc_params_t}{\code{evoland_db$create_alloc_params_t()}}
 \item \href{#method-evoland_db-set_neighbors}{\code{evoland_db$set_neighbors()}}
 \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
@@ -62,11 +64,38 @@ Additional methods and active bindings are added to this class in separate files
 </details>
 }}
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-alloc_dinamica"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-alloc_dinamica}{}}}
+\subsection{Method \code{alloc_dinamica()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$alloc_dinamica(
+  id_periods,
+  id_perturbation,
+  work_dir = "dinamica_rundir",
+  keep_intermediate = FALSE
+)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-eval_alloc_params_t"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-eval_alloc_params_t}{}}}
+\subsection{Method \code{eval_alloc_params_t()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$eval_alloc_params_t(
+  id_perturbations = NULL,
+  work_dir = "dinamica_rundir",
+  keep_intermediate = FALSE
+)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-create_alloc_params_t"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-create_alloc_params_t}{}}}
 \subsection{Method \code{create_alloc_params_t()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$create_alloc_params_t(n_perturbations = 5L, sd = 5)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$create_alloc_params_t(n_perturbations = 5L, sd = 0.05)}\if{html}{\out{</div>}}
 }
 
 }

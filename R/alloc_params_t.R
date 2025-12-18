@@ -74,8 +74,8 @@ print.alloc_params_t <- function(x, nrow = 10, ...) {
 #'   - mean_patch_size: Mean area of patches (hectares)
 #'   - patch_size_variance: Standard deviation of patch area (hectares)
 #'   - patch_isometry: Measure of patch shape regularity (0-1)
-#'   - perc_expander: Percentage of transition cells adjacent to old patches in \[0, 100\]
-#'   - perc_patcher: Percentage of transition cells forming new patches in \[0, 100\]
+#'   - frac_expander: Fraction of transition cells adjacent to old patches in \[0, 1\]
+#'   - frac_patcher: Fraction of transition cells forming new patches in \[0, 1\]
 #'
 #' @keywords internal
 compute_alloc_params_single <- function(
@@ -109,8 +109,8 @@ compute_alloc_params_single <- function(
       mean_patch_size = 0,
       patch_size_variance = 0,
       patch_isometry = 0,
-      perc_expander = 0,
-      perc_patcher = 0
+      frac_expander = 0,
+      frac_patcher = 0
     ))
   }
 
@@ -146,8 +146,8 @@ compute_alloc_params_single <- function(
   n_patchers_result <- terra::global(is_patcher, "sum", na.rm = TRUE)
   n_patchers <- as.numeric(n_patchers_result[1, 1])
 
-  perc_expander <- (n_expanders / n_trans_cells) * 100
-  perc_patcher <- (n_patchers / n_trans_cells) * 100
+  frac_expander <- n_expanders / n_trans_cells
+  frac_patcher <- n_patchers / n_trans_cells
 
   # Calculate patch statistics using landscapemetrics
   # Identify connected patches in the transition cells
@@ -183,8 +183,8 @@ compute_alloc_params_single <- function(
     mean_patch_size = mpa,
     patch_size_variance = sda,
     patch_isometry = iso,
-    perc_expander = perc_expander,
-    perc_patcher = perc_patcher
+    frac_expander = frac_expander,
+    frac_patcher = frac_patcher
   )
 }
 
@@ -212,15 +212,15 @@ compute_alloc_params_single <- function(
 #'    - Compute patch statistics using landscapemetrics package
 #' 2. Aggregate parameters across periods (mean) for each transition
 #' 3. For each transition, create N randomly perturbed versions:
-#'    - Add random noise to perc_expander (normal distribution, mean=0, sd=sd)
-#'    - Clamp perc_expander to \[0, 100\]
-#'    - Recalculate perc_patcher as 100 - perc_expander
+#'    - Add random noise to frac_expander (normal distribution, mean=0, sd=sd)
+#'    - Clamp frac_expander to \[0, 1\]
+#'    - Recalculate frac_patcher as 1 - frac_expander
 #' 4. Store all perturbed versions in the `alloc_params_t` table
 #'
 #' @param n_perturbations Integer number of perturbed parameter sets to generate
 #'   per transition (default: 5)
-#' @param sd Standard deviation for random perturbation of perc_expander in
-#'   percentage points (default: 5)
+#' @param sd Standard deviation for random perturbation of frac_expander as a
+#'   fraction (default: 0.05)
 #'
 #' @section Requirements:
 #' - The `landscapemetrics` package must be installed
@@ -244,7 +244,7 @@ NULL
 evoland_db$set(
   "public",
   "create_alloc_params_t",
-  function(n_perturbations = 5L, sd = 5) {
+  function(n_perturbations = 5L, sd = 0.05) {
     # Validate parameters
     stopifnot(
       "n_perturbations must be an int >= 0" = {
@@ -321,8 +321,8 @@ evoland_db$set(
             mean_patch_size = alloc_params$mean_patch_size,
             patch_size_variance = alloc_params$patch_size_variance,
             patch_isometry = alloc_params$patch_isometry,
-            perc_expander = alloc_params$perc_expander,
-            perc_patcher = alloc_params$perc_patcher
+            frac_expander = alloc_params$frac_expander,
+            frac_patcher = alloc_params$frac_patcher
           )
         }
       }
@@ -346,8 +346,8 @@ evoland_db$set(
         mean_patch_size = mean_na(mean_patch_size),
         patch_size_variance = mean_na(patch_size_variance),
         patch_isometry = mean_na(patch_isometry),
-        perc_expander = mean_na(perc_expander),
-        perc_patcher = mean_na(perc_patcher)
+        frac_expander = mean_na(frac_expander),
+        frac_patcher = mean_na(frac_patcher)
       ),
       by = id_trans
     ]
@@ -359,17 +359,17 @@ evoland_db$set(
     final_results[[1]] <- agg_dt
 
     for (i in seq_len(n_perturbations)) {
-      # Add random perturbation to perc_expander
-      perc_exp_perturbed <- agg_dt[["perc_expander"]] + rnorm(nrow(agg_dt), mean = 0, sd = sd)
+      # Add random perturbation to frac_expander
+      frac_exp_perturbed <- agg_dt[["frac_expander"]] + rnorm(nrow(agg_dt), mean = 0, sd = sd)
 
-      # Clamp expanded / patched to [0, 100]
-      perc_exp_perturbed <- max(0, min(100, perc_exp_perturbed))
-      perc_patch_perturbed <- 100 - perc_exp_perturbed
+      # Clamp expanded / patched to [0, 1]
+      frac_exp_perturbed <- pmax(0, pmin(1, frac_exp_perturbed))
+      frac_patch_perturbed <- 1 - frac_exp_perturbed
 
       # add to list of perturbed params
       agg_dt_perturbed <- data.table::copy(agg_dt)
-      data.table::set(agg_dt_perturbed, j = "perc_expander", value = perc_exp_perturbed)
-      data.table::set(agg_dt_perturbed, j = "perc_patcher", value = perc_patch_perturbed)
+      data.table::set(agg_dt_perturbed, j = "frac_expander", value = frac_exp_perturbed)
+      data.table::set(agg_dt_perturbed, j = "frac_patcher", value = frac_patch_perturbed)
       final_results[[i + 1L]] <- agg_dt_perturbed # offset bcoz [[1]] is unperturbed
     }
 

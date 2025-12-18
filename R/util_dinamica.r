@@ -120,21 +120,14 @@ exec_dinamica <- function(
 #' @param work_dir Working dir, where to place ego files and control table
 #' @param ... passed to [exec_dinamica()]
 #' @export
-run_evoland_dinamica_sim <- function(
-  run_modelprechecks = TRUE,
-  config = get_config(),
+run_alloc_dinamica <- function(
   work_dir = format(Sys.time(), "%Y-%m-%d_%Hh%Mm%Ss"),
-  calibration = FALSE,
   ...
 ) {
-  if (run_modelprechecks && !calibration) {
-    stopifnot(lulcc.modelprechecks())
-  }
-
   # find raw ego files with decoded R/Python code chunks
   decoded_files <- list.files(
-    path = system.file("dinamica_model", package = "evoland"),
-    pattern = "evoland.*\\.ego-decoded$",
+    path = system.file("dinamica_models", package = "evoland"),
+    pattern = "allocation*\\.ego-decoded$",
     full.names = TRUE,
     recursive = TRUE
   )
@@ -147,13 +140,6 @@ run_evoland_dinamica_sim <- function(
     dir.create(dirname(out_path), showWarnings = FALSE, recursive = TRUE)
     process_dinamica_script(decoded_file, out_path)
   }))
-
-  # move simulation control csv into place
-  file.copy(
-    if (calibration) config[["calibration_ctrl_tbl_path"]] else config[["ctrl_tbl_path"]],
-    file.path(work_dir, "simulation_control.csv"),
-    overwrite = TRUE
-  )
 
   message("Starting to run model with Dinamica EGO")
   exec_dinamica(

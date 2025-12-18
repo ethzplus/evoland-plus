@@ -5,7 +5,7 @@ alloc_params_t <- as_alloc_params_t(list(
   mean_patch_size = 1.3,
   patch_size_variance = 1.4,
   patch_isometry = 0.2,
-  share_expander = 0.8,
+  frac_expander = 0.8,
   gof_window_size = 11,
   gof_fuzzy_similarity = 0.8
 ))
@@ -63,14 +63,14 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
       mean_patch_size = 8e-04,
       patch_size_variance = NA_real_,
       patch_isometry = 0.9803922,
-      perc_expander = 100,
-      perc_patcher = 0
+      frac_expander = 1,
+      frac_patcher = 0
     ),
     tolerance = 1e-07
   )
 
-  # Percentages should sum to 100 (or close to it due to rounding)
-  expect_equal(params$perc_expander + params$perc_patcher, 100, tolerance = 0.01)
+  # Fractions should sum to 1 (or close to it due to rounding)
+  expect_equal(params$frac_expander + params$frac_patcher, 1, tolerance = 0.01)
 
   # Test with no transitions
   params_empty <- evoland:::compute_alloc_params_single(
@@ -81,6 +81,6 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
   )
 
   expect_equal(params_empty$mean_patch_size, 0)
-  expect_equal(params_empty$perc_expander, 0)
-  expect_equal(params_empty$perc_patcher, 0)
+  expect_equal(params_empty$frac_expander, 0)
+  expect_equal(params_empty$frac_patcher, 0)
 }

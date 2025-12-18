@@ -7,8 +7,8 @@
 \item{n_perturbations}{Integer number of perturbed parameter sets to generate
 per transition (default: 5)}
 
-\item{sd}{Standard deviation for random perturbation of perc_expander in
-percentage points (default: 5)}
+\item{sd}{Standard deviation for random perturbation of frac_expander as a
+fraction (default: 0.05)}
 }
 \value{
 Invisibly returns the computed \code{alloc_params_t} table. Side effect is
@@ -40,9 +40,9 @@ patches (expansion) or form new patches (patcher behavior)
 \item Aggregate parameters across periods (mean) for each transition
 \item For each transition, create N randomly perturbed versions:
 \itemize{
-\item Add random noise to perc_expander (normal distribution, mean=0, sd=sd)
-\item Clamp perc_expander to [0, 100]
-\item Recalculate perc_patcher as 100 - perc_expander
+\item Add random noise to frac_expander (normal distribution, mean=0, sd=sd)
+\item Clamp frac_expander to [0, 1]
+\item Recalculate frac_patcher as 1 - frac_expander
 }
 \item Store all perturbed versions in the \code{alloc_params_t} table
 }

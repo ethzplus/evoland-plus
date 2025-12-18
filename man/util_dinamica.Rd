@@ -3,7 +3,7 @@
 \name{util_dinamica}
 \alias{util_dinamica}
 \alias{exec_dinamica}
-\alias{run_evoland_dinamica_sim}
+\alias{run_alloc_dinamica}
 \alias{process_dinamica_script}
 \title{Dinamica Utility Functions}
 \usage{
@@ -16,11 +16,8 @@ exec_dinamica(
   echo = FALSE
 )
 
-run_evoland_dinamica_sim(
-  run_modelprechecks = TRUE,
-  config = get_config(),
+run_alloc_dinamica(
   work_dir = format(Sys.time(), "\%Y-\%m-\%d_\%Hh\%Mm\%Ss"),
-  calibration = FALSE,
   ...
 )
 
@@ -41,14 +38,7 @@ in a directory of the exact form \verb{basename(modelpath)_ego_Submodels}, \href
 
 \item{echo}{bool, direct echo to console?}
 
-\item{run_modelprechecks}{bool, Validate that everything's in place for a model run.
-Will never be run if calibration.}
-
-\item{config}{List of config params}
-
 \item{work_dir}{Working dir, where to place ego files and control table}
-
-\item{calibration}{bool, Is this a calibration run?}
 
 \item{...}{passed to \code{\link[=exec_dinamica]{exec_dinamica()}}}
 
@@ -59,6 +49,13 @@ Will never be run if calibration.}
 \item{mode}{Character, either "encode" or "decode"}
 
 \item{check}{Default TRUE, simple check to ensure that you're handling what you're expecting}
+
+\item{run_modelprechecks}{bool, Validate that everything's in place for a model run.
+Will never be run if calibration.}
+
+\item{config}{List of config params}
+
+\item{calibration}{bool, Is this a calibration run?}
 }
 \description{
 Interact with Dinamica from R, see \strong{Functions} section below.
@@ -67,7 +64,7 @@ Interact with Dinamica from R, see \strong{Functions} section below.
 \itemize{
 \item \code{exec_dinamica()}: Execute a Dinamica .ego file using \code{DinamicaConsole}
 
-\item \code{run_evoland_dinamica_sim()}: Set up evoland-specific Dinamica EGO files; execute using
+\item \code{run_alloc_dinamica()}: Set up evoland-specific Dinamica EGO files; execute using
 \code{\link[=exec_dinamica]{exec_dinamica()}}
 
 \item \code{process_dinamica_script()}: Encode or decode raw R and Python code chunks in .ego

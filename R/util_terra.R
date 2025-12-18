@@ -7,7 +7,7 @@ NULL
 
 #' @describeIn util_terra Extract values from a SpatRaster or SpatVector object using a (minimal) `coords_t`
 #' @param x The object to extract from; use "simple" extraction for rasters, i.e. no resampling is done.
-#' @param coords_t A coords_t object containing coordinate points
+#' @param coords_t A coords_t object containing coordinate points with an "epsg" attribute
 #' @return A long data.table with `id_coord`, a `layer`/`attribute` column, and a `value` column.
 #' NAs are omitted
 #' @export
@@ -20,7 +20,7 @@ extract_using_coords_t.SpatRaster <- function(x, coords_t, na_omit = TRUE) {
   pts <-
     coords_t[, .(id_coord, lon, lat)] |>
     data.table::as.data.table() |>
-    terra::vect(crs = terra::crs(x)) # TODO we need to add an EPSG attr to coords
+    terra::vect(crs = paste0("epsg:", attr(coords_t, "epsg")))
 
   out <-
     terra::extract(
@@ -52,7 +52,7 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
   pts <-
     coords_t[, .(lon, lat)] |>
     as.matrix() |>
-    terra::vect(crs = terra::crs(x)) # TODO we need to add an EPSG attr to coords
+    terra::vect(crs = paste0("epsg:", attr(coords_t, "epsg")))
 
   tmp <-
     terra::extract(
@@ -88,6 +88,3 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
 
   out
 }
-
-# TODO move this to a neighbors_t.R file that includes a formal class definition
-# for the return table, including validation, print, coercion
