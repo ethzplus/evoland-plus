@@ -65,7 +65,14 @@ exec_dinamica <- function(
       args = c(
         "-c",
         sprintf(
-          "set -o pipefail; stdbuf -oL DinamicaConsole %s 2>&1 | sed 's/\\x1b\\[[0-9;]*m//g' | tee '%s'; exit ${PIPESTATUS[0]}",
+          paste(
+            "set -o pipefail;", # propagate dinamica fails to end of pipe
+            "stdbuf -oL", # force flush - dinamica does not always flush its buffer before crashing
+            "DinamicaConsole %s 2>&1 |", # redirect stderr to stdout
+            "sed 's/\\x1b\\[[0-9;]*m//g' |", # strip ansi codes
+            "tee '%s';", # write to stdout and file
+            "exit ${PIPESTATUS[0]}"
+          ),
           paste(shQuote(args), collapse = " "),
           logfile_path
         )
@@ -125,25 +132,26 @@ run_alloc_dinamica <- function(
   ...
 ) {
   # find raw ego files with decoded R/Python code chunks
-  decoded_files <- list.files(
-    path = system.file("dinamica_models", package = "evoland"),
-    pattern = "allocation*\\.ego-decoded$",
-    full.names = TRUE,
-    recursive = TRUE
-  )
+  decoded_files <-
+    list.files(
+      path = system.file("dinamica_models", package = "evoland"),
+      full.names = TRUE,
+      recursive = TRUE
+    ) |>
+    grep(pattern = "allocation.*\\.ego-decoded$", value = TRUE)
 
-  invisible(lapply(decoded_files, function(decoded_file) {
+  lapply(decoded_files, function(decoded_file) {
     # Determine relative path and new output path with .ego extension
-    base_dir <- system.file("dinamica_model", package = "evoland")
+    base_dir <- system.file("dinamica_models", package = "evoland")
     rel_path <- substring(decoded_file, nchar(base_dir) + 2)
     out_path <- sub("\\.ego-decoded$", ".ego", file.path(work_dir, rel_path))
-    dir.create(dirname(out_path), showWarnings = FALSE, recursive = TRUE)
+    ensure_dir(dirname(out_path))
     process_dinamica_script(decoded_file, out_path)
-  }))
+  })
 
   message("Starting to run model with Dinamica EGO")
   exec_dinamica(
-    model_path = file.path(work_dir, "evoland.ego"),
+    model_path = file.path(work_dir, "allocation.ego"),
     ...
   )
 }
