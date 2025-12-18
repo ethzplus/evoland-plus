@@ -10,22 +10,21 @@
 #' @param x A list or data.frame coercible to a data.table
 #'
 #' @return A data.table of class "alloc_params_t" with columns:
+#'   - `id_perturbation`: The perturbation's ID - no. 1 == unperturbed
 #'   - `id_trans`: Foreign key to trans_meta_t
-#'   - `alloc_params`: Map of model (hyper) parameters
-#'   - `goodness_of_fit`: Map of various measures of fit (e.g., ROC AUC)
+#'   - ... various other columns describing allocation parameters and goodness of fit
 #' @export
 as_alloc_params_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
-      id_trans = integer(0),
-      alloc_params = list(),
-      goodness_of_fit = list()
+      id_perturbation = integer(0),
+      id_trans = integer(0)
     )
   }
   new_evoland_table(
     x,
     "alloc_params_t",
-    c("id_trans")
+    c("id_perturbation")
   )
 }
 
@@ -33,20 +32,11 @@ as_alloc_params_t <- function(x) {
 validate.alloc_params_t <- function(x, ...) {
   NextMethod()
 
-  data.table::setcolorder(
-    x,
-    c(
-      "id_trans",
-      "alloc_params",
-      "goodness_of_fit"
-    )
-  )
+  data.table::setcolorder(x, "id_trans")
+  # we don't know if there's an id_perturbation
+  data.table::setcolorder(x, "id_perturbation", before = "id_trans", skip_absent = TRUE)
 
-  stopifnot(
-    is.integer(x[["id_trans"]]),
-    is.list(x[["alloc_params"]]),
-    is.list(x[["goodness_of_fit"]])
-  )
+  stopifnot(is.integer(x[["id_trans"]]))
 
   return(x)
 }
@@ -383,18 +373,10 @@ evoland_db$set(
       final_results[[i + 1L]] <- agg_dt_perturbed # offset bcoz [[1]] is unperturbed
     }
 
-    # Step 4: Bind list items into data.table; nest list col; cast as alloc params table
+    # Step 4: Bind list items into data.table, add id_perturbation; cast as alloc params table
     results_dt <-
-      data.table::rbindlist(final_results)[,
-        .(
-          id_trans = id_trans,
-          alloc_params = list(as.list(.SD[, -"id_trans"])),
-          goodness_of_fit = list()
-        ),
-        by = .I # by row
-      ][,
-        -"I" # drop superfluous row ID
-      ] |>
+      final_results |>
+      data.table::rbindlist(idcol = "id_perturbation") |>
       as_alloc_params_t()
 
     message(glue::glue(

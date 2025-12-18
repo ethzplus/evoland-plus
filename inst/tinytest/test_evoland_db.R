@@ -158,24 +158,6 @@ intrv_meta_t <- create_intrv_meta_t(list(
   )
 ))
 
-alloc_params_t <- as_alloc_params_t(list(
-  id_trans = 1L,
-  alloc_params = list(
-    list(
-      mean_patch_size = 1.3,
-      patch_size_variance = 1.4,
-      patch_isometry = 0.2,
-      share_expander = 0.8
-    )
-  ),
-  goodness_of_fit = list(
-    list(
-      window_size = 11,
-      fuzzy_similarity = 0.8
-    )
-  )
-))
-
 trans_meta_t <- as_trans_meta_t(
   data.table::data.table(
     id_lulc_anterior = 1:3,
@@ -229,11 +211,6 @@ expect_equal(db$intrv_meta_t, intrv_meta_t)
 expect_silent(db$trans_meta_t <- trans_meta_t)
 expect_equal(db$trans_meta_t[, c(-1)], trans_meta_t, tolerance = 1e7)
 
-# Test 13: Active bindings - alloc_params_t (with MAP columns)
-expect_silent(db$alloc_params_t <- alloc_params_t)
-expect_equal(db$alloc_params_t, alloc_params_t)
-
-# Test 14: add_predictor method - first predictor
 # Test 15: add_predictor method - second predictor
 expect_silent(
   db$add_predictor(

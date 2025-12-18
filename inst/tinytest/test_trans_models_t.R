@@ -419,8 +419,10 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
 
   # Check that alloc_params contains expected parameters
   expect_equal(
-    alloc_params$alloc_params[[1]],
+    as.list(alloc_params[1]),
     list(
+      id_perturbation = 1L,
+      id_trans = 1L,
       mean_patch_size = 1.5,
       patch_size_variance = NA_real_,
       patch_isometry = 0.9996002,
@@ -430,10 +432,10 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
     tolerance = 1e-07
   )
 
-  # DB roundtrip (can only append to this table; first insert -> expect_identical)
+  # DB roundtrip; upsert on id_perturbation, id_trans
   expect_silent(db_tm$alloc_params_t <- alloc_params)
-  # patch size variance as NA gets re-read as logical, hence can only test for nrow
-  expect_equal(nrow(db_tm$alloc_params_t), nrow(alloc_params))
+  expect_silent(db_tm$alloc_params_t <- alloc_params)
+  expect_equal(db_tm$alloc_params_t, alloc_params)
 
   # Edge case: no perturbations
   expect_message(
