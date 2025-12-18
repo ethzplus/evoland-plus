@@ -481,7 +481,7 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
 
     # Check simulation results
     expect_silent(sim_results <- db_tm$fetch(sim_table) |> as_lulc_data_t())
-    expect_true(all(sim_results$id_period == 2L))
+    expect_equivalent(unique(sim_results$id_period), 2:3)
 
     # Test eval_alloc_params_t
     # This will re-run the simulation and compare against observed data
