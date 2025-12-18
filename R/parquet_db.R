@@ -814,15 +814,8 @@ kv_df_to_list <- function(x) {
 
   for (row in seq_len(nrow(x))) {
     key <- x$key[row]
-    val <- x$value[row]
-
-    # Try numeric conversion
-    num_val <- suppressWarnings(as.numeric(val))
-    if (!is.na(num_val)) {
-      out[[key]] <- num_val
-    } else {
-      out[[key]] <- val
-    }
+    val <- utils::type.convert(x$value[row], as.is = TRUE)
+    out[[key]] <- val
   }
 
   out

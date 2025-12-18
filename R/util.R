@@ -147,6 +147,8 @@ print_rowwise_yaml <- function(df) {
 }
 
 #' @describeIn util Cast a data.table column; invisibly returns x
+#' @param colname Name of the column
+#' @param type one of "int", "float", "bool", "factor"
 cast_dt_col <- function(x, colname, type) {
   predicate_fn <- switch(
     type,

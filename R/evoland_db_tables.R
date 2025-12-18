@@ -199,7 +199,7 @@ evoland_db$set("active", "alloc_params_t", function(x) {
     self,
     "alloc_params_t",
     as_alloc_params_t,
-    key_cols = c("id_trans", "id_period"),
+    key_cols = character(0),
     map_cols = c("alloc_params", "goodness_of_fit")
   )(x)
 })

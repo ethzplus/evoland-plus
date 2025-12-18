@@ -27,6 +27,7 @@ Imports:
 Suggests:
     base64enc,
     butcher,
+    landscapemetrics,
     pROC,
     processx,
     quarto,
@@ -38,11 +39,11 @@ LinkingTo:
     Rcpp
 Collate:
     'RcppExports.R'
+    'parquet_db.R'
+    'evoland_db.R'
     'alloc_params_t.R'
     'coords_t.R'
     'covariance_filter.R'
-    'parquet_db.R'
-    'evoland_db.R'
     'evoland_db_neighbors.R'
     'evoland_db_tables.R'
     'evoland_db_views.R'

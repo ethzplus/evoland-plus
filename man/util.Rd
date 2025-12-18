@@ -42,6 +42,10 @@ cast_dt_col(x, colname, type)
 \item{y}{Right-hand side value (fallback)}
 
 \item{lst}{The list to index into}
+
+\item{colname}{Name of the column}
+
+\item{type}{one of "int", "float", "bool", "factor"}
 }
 \value{
 NULL, called for side effect

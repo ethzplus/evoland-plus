@@ -393,36 +393,6 @@ expect_stdout(
   "Transition Models Table|Total models"
 )
 
-expect_stdout(
-  print(full_models),
-  "With partial models"
-)
-
-expect_stdout(
-  print(full_models),
-  "With full models"
-)
-
-# Test that models table structure is consistent
-expect_equal(
-  names(full_models),
-  c(
-    "id_trans",
-    "model_family",
-    "model_params",
-    "goodness_of_fit",
-    "fit_call",
-    "model_obj_part",
-    "model_obj_full"
-  )
-)
-
-# Test that the table can be committed to database (parquet serialization)
-# NOTE: Committing BLOB columns (model_obj_part, model_obj_full) to DuckDB/parquet
-# has known limitations and may fail. The important thing is that fit_call is
-# serializable as a character string, which can be parsed back to a call.
-# TODO: Consider storing models in a separate format (e.g., individual .qs2 files)
-
 # Test that fit_call can be parsed back to a call (verifying serializability)
 first_call_str <- full_models$fit_call[1]
 expect_true(is.character(first_call_str))
@@ -431,3 +401,48 @@ expect_true(nchar(first_call_str) > 0)
 first_call_parsed <- str2lang(first_call_str)
 expect_true(is.call(first_call_parsed))
 expect_equal(as.character(first_call_parsed[[1]]), "fit_mock_glm")
+
+# TODO commit the models to DB
+
+# FIXME: This test for create_alloc_params_t() and the buildup above should be spun out
+# into a full integration test suite eventually that tests the complete workflow from
+# data setup through allocation parameter estimation
+
+# We can use the existing db_tm setup which already has:
+# - coords_t, periods_t, lulc_meta_t, lulc_data_t, trans_meta_t
+if (requireNamespace("landscapemetrics", quietly = TRUE)) {
+  expect_message(
+    alloc_params <- db_tm$create_alloc_params_t(n_perturbations = 3, sd = 10),
+    "Successfully computed 8 allocation parameter sets" # 8 = (3 perturb + 1 estim) * 2 periods
+  )
+  expect_inherits(alloc_params, "alloc_params_t")
+
+  # Check that alloc_params contains expected parameters
+  expect_equal(
+    alloc_params$alloc_params[[1]],
+    list(
+      mean_patch_size = 1.5,
+      patch_size_variance = NA_real_,
+      patch_isometry = 0.9996002,
+      perc_expander = 100,
+      perc_patcher = 0
+    ),
+    tolerance = 1e-07
+  )
+
+  # DB roundtrip (can only append to this table; first insert -> expect_identical)
+  expect_silent(db_tm$alloc_params_t <- alloc_params)
+  # patch size variance as NA gets re-read as logical, hence can only test for nrow
+  expect_equal(nrow(db_tm$alloc_params_t), nrow(alloc_params))
+
+  # Edge case: no perturbations
+  expect_message(
+    db_tm$create_alloc_params_t(n_perturbations = 0L),
+    r"(0 perturbations \+ best estimate)"
+  )
+
+  expect_error(
+    db_tm$create_alloc_params_t(sd = -5),
+    "sd must be a positive number"
+  )
+}

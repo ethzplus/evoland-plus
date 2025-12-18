@@ -160,7 +160,6 @@ intrv_meta_t <- create_intrv_meta_t(list(
 
 alloc_params_t <- as_alloc_params_t(list(
   id_trans = 1L,
-  id_period = 2L,
   alloc_params = list(
     list(
       mean_patch_size = 1.3,

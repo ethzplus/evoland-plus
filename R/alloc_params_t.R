@@ -5,12 +5,12 @@
 #' structure for storing fitted models.
 #'
 #' @name alloc_params_t
+#' @include evoland_db.R
 #'
 #' @param x A list or data.frame coercible to a data.table
 #'
 #' @return A data.table of class "alloc_params_t" with columns:
 #'   - `id_trans`: Foreign key to trans_meta_t
-#'   - `id_period`: Foreign key to periods_t
 #'   - `alloc_params`: Map of model (hyper) parameters
 #'   - `goodness_of_fit`: Map of various measures of fit (e.g., ROC AUC)
 #' @export
@@ -18,7 +18,6 @@ as_alloc_params_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
       id_trans = integer(0),
-      id_period = integer(0),
       alloc_params = list(),
       goodness_of_fit = list()
     )
@@ -26,7 +25,7 @@ as_alloc_params_t <- function(x) {
   new_evoland_table(
     x,
     "alloc_params_t",
-    c("id_trans", "id_period")
+    c("id_trans")
   )
 }
 
@@ -38,7 +37,6 @@ validate.alloc_params_t <- function(x, ...) {
     x,
     c(
       "id_trans",
-      "id_period",
       "alloc_params",
       "goodness_of_fit"
     )
@@ -46,10 +44,8 @@ validate.alloc_params_t <- function(x, ...) {
 
   stopifnot(
     is.integer(x[["id_trans"]]),
-    is.integer(x[["id_period"]]),
     is.list(x[["alloc_params"]]),
-    is.list(x[["goodness_of_fit"]]),
-    !anyDuplicated(x, by = c("id_trans", "id_period"))
+    is.list(x[["goodness_of_fit"]])
   )
 
   return(x)
@@ -62,12 +58,11 @@ validate.alloc_params_t <- function(x, ...) {
 print.alloc_params_t <- function(x, nrow = 10, ...) {
   if (nrow(x) > 0) {
     n_trans <- data.table::uniqueN(x[["id_trans"]])
-    n_periods <- data.table::uniqueN(x[["id_period"]])
 
     cat(glue::glue(
       "Allocation Parameters Table\n",
       "Rows: {nrow(x)}\n",
-      "Transitions: {n_trans}, Periods: {n_periods}\n"
+      "Transitions: {n_trans}\n\n"
     ))
   } else {
     cat("Allocation Parameters Table (empty)\n")
@@ -75,3 +70,338 @@ print.alloc_params_t <- function(x, nrow = 10, ...) {
   NextMethod(nrow = nrow, ...)
   invisible(x)
 }
+
+#' @describeIn alloc_params_t
+#' Compute allocation parameters for a single transition and period pair.
+#' This is an internal function used by `create_alloc_params_t`.
+#'
+#' @param lulc_ant SpatRast with LULC data for the anterior (earlier) period
+#' @param lulc_post SpatRast with LULC data for the posterior (later) period
+#' @param id_lulc_ant Integer ID of the anterior LULC class
+#' @param id_lulc_post Integer ID of the posterior LULC class
+#'
+#' @return A named list with allocation parameters:
+#'   - mean_patch_size: Mean area of patches (hectares)
+#'   - patch_size_variance: Standard deviation of patch area (hectares)
+#'   - patch_isometry: Measure of patch shape regularity (0-1)
+#'   - perc_expander: Percentage of transition cells adjacent to old patches in \[0, 100\]
+#'   - perc_patcher: Percentage of transition cells forming new patches in \[0, 100\]
+#'
+#' @keywords internal
+compute_alloc_params_single <- function(
+  lulc_ant,
+  lulc_post,
+  id_lulc_ant,
+  id_lulc_post
+) {
+  # Check if landscapemetrics is available
+  if (!requireNamespace("landscapemetrics", quietly = TRUE)) {
+    stop(
+      "Package 'landscapemetrics' is required for allocation parameter computation.\n",
+      "Install it with: install.packages('landscapemetrics')",
+      call. = FALSE
+    )
+  }
+
+  # Create binary raster of transition cells (anterior class -> posterior class)
+  # 1 = cells that transitioned from id_lulc_ant to id_lulc_post
+  # 0 or NA = all other cells
+  trans_cells <- (lulc_ant == id_lulc_ant) & (lulc_post == id_lulc_post)
+  trans_cells[trans_cells == 0] <- NA
+
+  # Count total transition cells
+  n_trans_cells_result <- terra::global(trans_cells, "sum", na.rm = TRUE)
+  n_trans_cells <- as.numeric(n_trans_cells_result[1, 1])
+
+  if (is.na(n_trans_cells) || n_trans_cells == 0) {
+    # No transitions occurred - return NULL or default values
+    return(list(
+      mean_patch_size = 0,
+      patch_size_variance = 0,
+      patch_isometry = 0,
+      perc_expander = 0,
+      perc_patcher = 0
+    ))
+  }
+
+  # Identify patches in the posterior period for the posterior LULC class
+  # These are the "old" patches that transitions might expand from
+  post_class_patches <- lulc_ant == id_lulc_post
+  post_class_patches[post_class_patches == 0] <- NA
+
+  # Use focal operation to identify expansion vs new patches
+  # For each transition cell, check if any of its 8 neighbors were already the posterior class
+  # focal() with sum will give us the count of neighboring cells with the posterior class
+  neighbor_count <- terra::focal(
+    post_class_patches,
+    w = matrix(1, nrow = 3, ncol = 3), # 3x3 window (8-neighborhood)
+    fun = "sum",
+    na.rm = TRUE,
+    na.policy = "only"
+  )
+
+  # Classify transition cells as expanders or patchers
+  # Expander: has at least 1 neighbor that was already the posterior class
+  # Patcher: has 0 neighbors that were already the posterior class
+  expansion_or_new <- trans_cells
+  is_expander <- (trans_cells == 1) & (neighbor_count >= 1)
+  is_patcher <- (trans_cells == 1) & (neighbor_count == 0)
+
+  terra::values(expansion_or_new)[terra::values(is_expander)] <- 10
+  terra::values(expansion_or_new)[terra::values(is_patcher)] <- 5
+
+  # Calculate percentages
+  n_expanders_result <- terra::global(is_expander, "sum", na.rm = TRUE)
+  n_expanders <- as.numeric(n_expanders_result[1, 1])
+  n_patchers_result <- terra::global(is_patcher, "sum", na.rm = TRUE)
+  n_patchers <- as.numeric(n_patchers_result[1, 1])
+
+  perc_expander <- (n_expanders / n_trans_cells) * 100
+  perc_patcher <- (n_patchers / n_trans_cells) * 100
+
+  # Calculate patch statistics using landscapemetrics
+  # Identify connected patches in the transition cells
+  trans_patches <- terra::patches(trans_cells, directions = 8, zeroAsNA = TRUE)
+
+  # Calculate landscape metrics
+  # Mean patch area
+  mpa_metric <- landscapemetrics::lsm_c_area_mn(trans_patches, directions = 8)
+  mpa <- if (nrow(mpa_metric) > 0) mpa_metric$value[1] else 0
+
+  # Standard deviation of patch area
+  sda_metric <- landscapemetrics::lsm_c_area_sd(trans_patches, directions = 8)
+  sda <- if (nrow(sda_metric) > 0) sda_metric$value[1] else 0
+
+  # Patch shape metrics - using shape index as proxy for isometry
+  # The original code used aggregation index / 70, but that seems arbitrary
+  # Using para_mn (perimeter-area ratio) as alternative measure of patch shape
+  # TODO: investigate the effect of different patch metrics (shape_mn, frac_mn, etc.)
+  # on allocation quality
+  shape_metric <- landscapemetrics::lsm_c_para_mn(trans_patches, directions = 8)
+
+  # Normalize to 0-1 range (lower para_mn = more compact/isometric patches)
+  # Use inverse and cap at reasonable values
+  if (nrow(shape_metric) > 0 && !is.na(shape_metric$value[1])) {
+    para_val <- shape_metric$value[1]
+    # Normalize: more compact patches (lower para) get higher scores
+    iso <- max(0, min(1, 1 / (1 + para_val / 100)))
+  } else {
+    iso <- 0
+  }
+
+  list(
+    mean_patch_size = mpa,
+    patch_size_variance = sda,
+    patch_isometry = iso,
+    perc_expander = perc_expander,
+    perc_patcher = perc_patcher
+  )
+}
+
+#' Initialize Allocation Parameters Table
+#'
+#' @description
+#' Computes allocation parameters for all viable transitions, aggregated across
+#' observed periods and then randomly perturbed N times. This is a method
+#' on `evoland_db` that analyzes patch dynamics to determine expansion vs. patcher
+#' behavior for the Dinamica allocation procedure.
+#'
+#' The method first computes parameters for all viable transitions across observed
+#' periods (where `id_period > 1` and `is_extrapolated == FALSE`), then aggregates
+#' (mean) these parameters by transition. Finally, it creates randomly perturbed
+#' versions of these aggregated parameters and returns them together with the original
+#' estimate, i.e. the result set size is (n viable transitions) * (m perturbations + 1)
+#'
+#' @details
+#' The workflow is:
+#' 1. For each transition and period pair:
+#'    - Create rasters for the anterior and posterior periods
+#'    - Identify transition cells (cells that changed from anterior to posterior class)
+#'    - Use focal operations to determine if transition cells are adjacent to existing
+#'      patches (expansion) or form new patches (patcher behavior)
+#'    - Compute patch statistics using landscapemetrics package
+#' 2. Aggregate parameters across periods (mean) for each transition
+#' 3. For each transition, create N randomly perturbed versions:
+#'    - Add random noise to perc_expander (normal distribution, mean=0, sd=sd)
+#'    - Clamp perc_expander to \[0, 100\]
+#'    - Recalculate perc_patcher as 100 - perc_expander
+#' 4. Store all perturbed versions in the `alloc_params_t` table
+#'
+#' @param n_perturbations Integer number of perturbed parameter sets to generate
+#'   per transition (default: 5)
+#' @param sd Standard deviation for random perturbation of perc_expander in
+#'   percentage points (default: 5)
+#'
+#' @section Requirements:
+#' - The `landscapemetrics` package must be installed
+#' - `coords_t` must have `resolution` and `epsg` metadata
+#' - `trans_meta_t` must have at least one viable transition
+#' - `periods_t` must have at least one observed period with `id_period > 1`
+#'
+#' @return Invisibly returns the computed `alloc_params_t` table. Side effect is
+#'   writing to the database's `alloc_params_t` table.
+#'
+#' @examples
+#' \dontrun{
+#' db <- evoland_db$new("path/to/db")
+#' # ... populate with coords, periods, lulc_data, trans_meta ...
+#' db$create_alloc_params_t()
+#' }
+#'
+#' @name create_alloc_params_t
+NULL
+
+evoland_db$set(
+  "public",
+  "create_alloc_params_t",
+  function(n_perturbations = 5L, sd = 5) {
+    # Validate parameters
+    stopifnot(
+      "n_perturbations must be an int >= 0" = {
+        (as.integer(n_perturbations) == n_perturbations) && n_perturbations >= 0
+      },
+      "sd must be a positive number" = sd > 0
+    )
+
+    n_perturbations <- as.integer(n_perturbations)
+
+    # Get observed periods (not extrapolated, and > 1 since we need period - 1)
+    periods <- self$periods_t[is_extrapolated == FALSE & id_period > 1]
+    viable_trans <- self$trans_meta_t[is_viable == TRUE]
+    resolution <- self$get_table_metadata("coords_t")[["resolution"]]
+
+    # validate DB inputs
+    stopifnot(
+      "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L,
+      "No observed periods with id_period > 1 found in periods_t" = nrow(periods) > 0L,
+      "coords_t must have resolution and epsg metadata" = !is.null(resolution)
+    )
+
+    raw_results <- list()
+
+    message(glue::glue(
+      "Computing allocation parameters for {nrow(viable_trans)} transitions ",
+      "across {nrow(periods)} periods..."
+    ))
+
+    # Step 1: Compute parameters for all transition-period pairs
+    for (i in seq_len(nrow(periods))) {
+      period_post <- periods[i][["id_period"]]
+      period_ant <- period_post - 1L
+
+      message(glue::glue("  Processing period {period_ant} -> {period_post}"))
+
+      # Get LULC data as rasters for both periods
+      lulc_rast <- self$lulc_data_as_rast(
+        resolution = resolution,
+        id_period = c(period_ant, period_post)
+      )
+
+      # Loop over transitions
+      for (j in seq_len(nrow(viable_trans))) {
+        trans <- viable_trans[j]
+        id_trans <- trans[["id_trans"]]
+
+        # Compute allocation parameters
+        alloc_params <- tryCatch(
+          {
+            compute_alloc_params_single(
+              lulc_ant = lulc_rast[[1]],
+              lulc_post = lulc_rast[[2]],
+              id_lulc_ant = trans[["id_lulc_anterior"]],
+              id_lulc_post = trans[["id_lulc_posterior"]]
+            )
+          },
+          error = function(e) {
+            warning(
+              glue::glue(
+                "Failed to compute allocation parameters for id_trans={id_trans}, ",
+                "id_period={period_post}: {e$message}"
+              ),
+              call. = FALSE
+            )
+            NULL
+          }
+        )
+
+        if (!is.null(alloc_params)) {
+          raw_results[[length(raw_results) + 1]] <- data.table::data.table(
+            id_trans = id_trans,
+            id_period = period_post,
+            mean_patch_size = alloc_params$mean_patch_size,
+            patch_size_variance = alloc_params$patch_size_variance,
+            patch_isometry = alloc_params$patch_isometry,
+            perc_expander = alloc_params$perc_expander,
+            perc_patcher = alloc_params$perc_patcher
+          )
+        }
+      }
+    }
+
+    if (length(raw_results) == 0L) {
+      stop("No allocation parameters could be computed")
+    }
+
+    # Convert to data.table
+    raw_dt <- data.table::rbindlist(raw_results)
+
+    # Step 2: Aggregate parameters across periods (mean) for each transition
+    message("Aggregating parameters across periods...")
+
+    # fmt: skip
+    mean_na <- function(x) {m <- mean(x, na.rm = TRUE); ifelse(is.nan(m), NA_real_, m)}
+
+    agg_dt <- raw_dt[,
+      .(
+        mean_patch_size = mean_na(mean_patch_size),
+        patch_size_variance = mean_na(patch_size_variance),
+        patch_isometry = mean_na(patch_isometry),
+        perc_expander = mean_na(perc_expander),
+        perc_patcher = mean_na(perc_patcher)
+      ),
+      by = id_trans
+    ]
+
+    # Step 3: Create N perturbed versions for each transition
+    message(glue::glue("Creating {n_perturbations} randomly perturbed versions per transition..."))
+
+    final_results <- list()
+    final_results[[1]] <- agg_dt
+
+    for (i in seq_len(n_perturbations)) {
+      # Add random perturbation to perc_expander
+      perc_exp_perturbed <- agg_dt[["perc_expander"]] + rnorm(nrow(agg_dt), mean = 0, sd = sd)
+
+      # Clamp expanded / patched to [0, 100]
+      perc_exp_perturbed <- max(0, min(100, perc_exp_perturbed))
+      perc_patch_perturbed <- 100 - perc_exp_perturbed
+
+      # add to list of perturbed params
+      agg_dt_perturbed <- data.table::copy(agg_dt)
+      data.table::set(agg_dt_perturbed, j = "perc_expander", value = perc_exp_perturbed)
+      data.table::set(agg_dt_perturbed, j = "perc_patcher", value = perc_patch_perturbed)
+      final_results[[i + 1L]] <- agg_dt_perturbed # offset bcoz [[1]] is unperturbed
+    }
+
+    # Step 4: Bind list items into data.table; nest list col; cast as alloc params table
+    results_dt <-
+      data.table::rbindlist(final_results)[,
+        .(
+          id_trans = id_trans,
+          alloc_params = list(as.list(.SD[, -"id_trans"])),
+          goodness_of_fit = list()
+        ),
+        by = .I # by row
+      ][,
+        -"I" # drop superfluous row ID
+      ] |>
+      as_alloc_params_t()
+
+    message(glue::glue(
+      "Successfully computed {nrow(results_dt)} allocation parameter sets ",
+      "({nrow(agg_dt)} transitions x ({n_perturbations} perturbations + best estimate))"
+    ))
+
+    results_dt
+  }
+)

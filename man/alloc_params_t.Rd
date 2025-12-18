@@ -4,11 +4,14 @@
 \alias{alloc_params_t}
 \alias{as_alloc_params_t}
 \alias{print.alloc_params_t}
+\alias{compute_alloc_params_single}
 \title{Create Allocation Parameters Table}
 \usage{
 as_alloc_params_t(x)
 
 \method{print}{alloc_params_t}(x, nrow = 10, ...)
+
+compute_alloc_params_single(lulc_ant, lulc_post, id_lulc_ant, id_lulc_post)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -16,14 +19,30 @@ as_alloc_params_t(x)
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{lulc_ant}{SpatRast with LULC data for the anterior (earlier) period}
+
+\item{lulc_post}{SpatRast with LULC data for the posterior (later) period}
+
+\item{id_lulc_ant}{Integer ID of the anterior LULC class}
+
+\item{id_lulc_post}{Integer ID of the posterior LULC class}
 }
 \value{
 A data.table of class "alloc_params_t" with columns:
 \itemize{
 \item \code{id_trans}: Foreign key to trans_meta_t
-\item \code{id_period}: Foreign key to periods_t
 \item \code{alloc_params}: Map of model (hyper) parameters
 \item \code{goodness_of_fit}: Map of various measures of fit (e.g., ROC AUC)
+}
+
+A named list with allocation parameters:
+\itemize{
+\item mean_patch_size: Mean area of patches (hectares)
+\item patch_size_variance: Standard deviation of patch area (hectares)
+\item patch_isometry: Measure of patch shape regularity (0-1)
+\item perc_expander: Percentage of transition cells adjacent to old patches in [0, 100]
+\item perc_patcher: Percentage of transition cells forming new patches in [0, 100]
 }
 }
 \description{
@@ -36,3 +55,10 @@ structure for storing fitted models.
 \item \code{print(alloc_params_t)}: Print a alloc_params_t object, passing params to data.table print
 
 }}
+\section{Functions}{
+\itemize{
+\item \code{compute_alloc_params_single()}: Compute allocation parameters for a single transition and period pair.
+This is an internal function used by \code{create_alloc_params_t}.
+
+}}
+\keyword{internal}
