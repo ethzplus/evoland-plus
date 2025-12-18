@@ -2,44 +2,35 @@
 % Please edit documentation in R/alloc_dinamica.R
 \name{eval_alloc_params_t}
 \alias{eval_alloc_params_t}
-\title{Evaluate Allocation Parameters}
+\title{Evaluate Allocation Parameters with Fuzzy Similarity}
 \arguments{
 \item{id_perturbations}{Integer vector of perturbation IDs to evaluate.
 If NULL (default), evaluates all perturbations in \code{alloc_params_t}.}
 
-\item{work_dir}{Character, base directory for Dinamica runs. Default: "dinamica_rundir"}
+\item{work_dir}{Character path for Dinamica working directory. Default "dinamica_rundir".}
 
-\item{keep_intermediate}{Logical, keep intermediate simulation files? Default: FALSE}
-}
-\value{
-An \code{alloc_params_t} table with added goodness-of-fit columns:
-\itemize{
-\item \code{accuracy_overall}: Overall cell-by-cell accuracy
-\item \code{accuracy_per_trans}: Per-transition accuracy (for cells that transitioned)
-\item \code{n_cells_simulated}: Number of cells in simulation
-\item \code{n_cells_matched}: Number of cells that matched observations
-}
+\item{keep_intermediate}{Logical, keep intermediate Dinamica files? Default FALSE.}
 }
 \description{
-Evaluates allocation parameters by running historical simulations and comparing
-the final simulated period against observed data. Computes per-transition
-accuracy metrics.
-}
-\section{Details}{
-
-The evaluation workflow:
+Evaluates allocation parameters by running simulations over historical
+periods and comparing results against observed data using fuzzy similarity.
+For each perturbation:
 \enumerate{
-\item Identifies all historical (non-extrapolated) periods from \code{periods_t}
-\item For each \code{id_perturbation}:
-\itemize{
-\item Runs \code{alloc_dinamica()} over historical periods
-\item Compares final simulated period against observed \code{lulc_data_t}
-\item Computes accuracy metrics per transition
-}
-\item Returns updated \code{alloc_params_t} with goodness-of-fit metrics
+\item Runs \code{alloc_dinamica()} using historical periods to produce simulated final period
+\item Compares initial vs final observed and initial vs final simulated using fuzzy similarity
+\item Returns \code{alloc_params_t} augmented with per-transition similarity metrics
 }
 }
+\details{
+The evaluation uses fuzzy similarity with spatial tolerance (11x11 window,
+exponential decay with divisor=2). For each transition, compares the spatial
+pattern of changes from initial to final period between observed and simulated.
 
+Returns the \code{alloc_params_t} table augmented with:
+\itemize{
+\item \code{similarity}: Fuzzy similarity per transition (0-1, NA if no observed transitions)
+}
+}
 \examples{
 \dontrun{
 db <- evoland_db$new("path/to/db")

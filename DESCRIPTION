@@ -49,6 +49,7 @@ Collate:
     'evoland_db_neighbors.R'
     'evoland_db_tables.R'
     'evoland_db_views.R'
+    'fuzzy_similarity.R'
     'grrf_filter.r'
     'init.R'
     'intrv_masks_t.R'

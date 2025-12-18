@@ -88,3 +88,108 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
 
   out
 }
+
+#' Convert tabular LULC data to raster
+#'
+#' @description
+#' Converts a `lulc_data_t` table (with coordinates) to a SpatRaster.
+#' Useful for spatial analysis and validation that requires raster format.
+#'
+#' @param lulc_data A `lulc_data_t` object or data.table with columns:
+#'   id_coord, id_lulc, (optionally id_period)
+#' @param coords_t A coords_t object with coordinate information. Must have
+#'   `epsg` and optionally `resolution` attributes.
+#' @param resolution Numeric, raster resolution in CRS units. If NULL,
+#'   attempts to infer from coords_t attributes or data spacing.
+#'
+#' @return SpatRaster with LULC values. If multiple periods present in lulc_data,
+#'   returns a multi-layer raster with one layer per period.
+#'
+#' @export
+tabular_to_raster <- function(lulc_data, coords_t, resolution = NULL) {
+  # Validate input
+  stopifnot(
+    "lulc_data must have id_coord and id_lulc columns" = all(
+      c("id_coord", "id_lulc") %in% names(lulc_data)
+    ),
+    "coords_t must have epsg attribute" = !is.null(attr(coords_t, "epsg"))
+  )
+
+  epsg <- attr(coords_t, "epsg")
+
+  # Merge with coordinates to get lon/lat
+  dat <- merge(
+    lulc_data,
+    coords_t[, .(id_coord, lon, lat)],
+    by = "id_coord"
+  )
+
+  # Determine resolution if not provided
+  if (is.null(resolution)) {
+    # Try to get from coords_t attribute
+    resolution <- attr(coords_t, "resolution")
+
+    if (is.null(resolution)) {
+      # Estimate from minimum distance between points
+      sample_coords <- coords_t[seq_len(min(1000L, nrow(coords_t)))]
+      dists <- as.matrix(dist(sample_coords[, .(lon, lat)]))
+      diag(dists) <- Inf
+      resolution <- min(dists[dists > 0]) * 0.9 # Slightly smaller than min distance
+    }
+  }
+
+  # Get extent
+  extent <- terra::ext(
+    min(coords_t$lon) - resolution / 2,
+    max(coords_t$lon) + resolution / 2,
+    min(coords_t$lat) - resolution / 2,
+    max(coords_t$lat) + resolution / 2
+  )
+
+  # Create raster template
+  rast_template <- terra::rast(
+    x = extent,
+    crs = paste0("epsg:", epsg),
+    resolution = resolution
+  )
+
+  # Check if we have multiple periods
+  has_periods <- "id_period" %in% names(dat)
+
+  if (has_periods) {
+    periods <- sort(unique(dat[["id_period"]]))
+
+    # Create multi-layer raster
+    rast_list <- list()
+
+    for (period in periods) {
+      period_data <- dat[id_period == period]
+
+      # Rasterize
+      period_rast <- terra::rasterize(
+        x = as.matrix(period_data[, .(lon, lat)]),
+        y = rast_template,
+        values = period_data[["id_lulc"]],
+        fun = "first"
+      )
+
+      names(period_rast) <- paste0("period_", period)
+      rast_list[[length(rast_list) + 1L]] <- period_rast
+    }
+
+    # Combine into multi-layer raster
+    rast <- terra::rast(rast_list)
+  } else {
+    # Single layer
+    rast <- terra::rasterize(
+      x = as.matrix(dat[, .(lon, lat)]),
+      y = rast_template,
+      values = dat[["id_lulc"]],
+      fun = "first"
+    )
+
+    names(rast) <- "id_lulc"
+  }
+
+  rast
+}

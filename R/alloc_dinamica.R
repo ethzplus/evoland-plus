@@ -505,32 +505,28 @@ evoland_db$set(
   }
 )
 
-#' Evaluate Allocation Parameters
+#' Evaluate Allocation Parameters with Fuzzy Similarity
 #'
 #' @description
-#' Evaluates allocation parameters by running historical simulations and comparing
-#' the final simulated period against observed data. Computes per-transition
-#' accuracy metrics.
+#' Evaluates allocation parameters by running simulations over historical
+#' periods and comparing results against observed data using fuzzy similarity.
+#' For each perturbation:
+#' 1. Runs `alloc_dinamica()` using historical periods to produce simulated final period
+#' 2. Compares initial vs final observed and initial vs final simulated using fuzzy similarity
+#' 3. Returns `alloc_params_t` augmented with per-transition similarity metrics
 #'
 #' @param id_perturbations Integer vector of perturbation IDs to evaluate.
 #'   If NULL (default), evaluates all perturbations in `alloc_params_t`.
-#' @param work_dir Character, base directory for Dinamica runs. Default: "dinamica_rundir"
-#' @param keep_intermediate Logical, keep intermediate simulation files? Default: FALSE
+#' @param work_dir Character path for Dinamica working directory. Default "dinamica_rundir".
+#' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
 #'
-#' @return An `alloc_params_t` table with added goodness-of-fit columns:
-#'   - `accuracy_overall`: Overall cell-by-cell accuracy
-#'   - `accuracy_per_trans`: Per-transition accuracy (for cells that transitioned)
-#'   - `n_cells_simulated`: Number of cells in simulation
-#'   - `n_cells_matched`: Number of cells that matched observations
+#' @details
+#' The evaluation uses fuzzy similarity with spatial tolerance (11x11 window,
+#' exponential decay with divisor=2). For each transition, compares the spatial
+#' pattern of changes from initial to final period between observed and simulated.
 #'
-#' @section Details:
-#' The evaluation workflow:
-#' 1. Identifies all historical (non-extrapolated) periods from `periods_t`
-#' 2. For each `id_perturbation`:
-#'    - Runs `alloc_dinamica()` over historical periods
-#'    - Compares final simulated period against observed `lulc_data_t`
-#'    - Computes accuracy metrics per transition
-#' 3. Returns updated `alloc_params_t` with goodness-of-fit metrics
+#' Returns the `alloc_params_t` table augmented with:
+#' - `similarity`: Fuzzy similarity per transition (0-1, NA if no observed transitions)
 #'
 #' @examples
 #' \dontrun{
@@ -570,20 +566,32 @@ evoland_db$set(
       id_perturbations <- as.integer(id_perturbations)
     }
 
+    # Get initial and final periods
+    id_period_initial <- min(id_periods_hist)
+    id_period_final <- max(id_periods_hist)
+
     message(glue::glue(
-      "Evaluating allocation parameters\n",
+      "Evaluating allocation parameters with fuzzy similarity\n",
       "  Perturbations: {paste(id_perturbations, collapse = ', ')}\n",
-      "  Historical periods: {paste(id_periods_hist, collapse = ' -> ')}"
+      "  Initial period: {id_period_initial}\n",
+      "  Final period: {id_period_final}"
     ))
 
-    # Get observed data for final period
-    id_period_final <- max(id_periods_hist)
+    # Get observed data for initial and final periods
+    observed_initial <-
+      self$fetch("lulc_data_t", where = glue::glue("id_period = {id_period_initial}")) |>
+      as_lulc_data_t()
+
     observed_final <-
       self$fetch("lulc_data_t", where = glue::glue("id_period = {id_period_final}")) |>
       as_lulc_data_t()
 
-    # Storage for evaluation results
-    eval_results <- list()
+    # Get viable transitions
+    viable_trans <- self$trans_meta_t[is_viable == TRUE]
+    stopifnot("No viable transitions found" = nrow(viable_trans) > 0L)
+
+    # Storage for per-transition similarity results
+    all_similarity_results <- list()
 
     # Evaluate each perturbation
     for (id_pert in id_perturbations) {
@@ -604,158 +612,81 @@ evoland_db$set(
             self$fetch(sim_table_name, where = glue::glue("id_period = {id_period_final}")) |>
             as_lulc_data_t()
 
-          # Compare simulated vs observed
-          message("Computing accuracy metrics...")
+          message("  Converting to rasters...")
 
-          # Merge on id_coord
-          comparison <- merge(
-            observed_final,
-            sim_final,
-            by = "id_coord",
-            suffixes = c("_obs", "_sim")
-          )
+          # Convert tabular data to rasters
+          rast_initial <- tabular_to_raster(observed_initial, self$coords_t)
+          rast_obs_final <- tabular_to_raster(observed_final, self$coords_t)
+          rast_sim_final <- tabular_to_raster(sim_final, self$coords_t)
 
-          n_cells <- nrow(comparison)
-          n_matched <- sum(comparison$id_lulc_obs == comparison$id_lulc_sim)
-          accuracy_overall <- n_matched / n_cells
+          message("  Computing per-transition fuzzy similarity...")
 
-          message(glue::glue(
-            "  Overall accuracy: {round(accuracy_overall * 100, 2)}% ",
-            "({n_matched}/{n_cells} cells)"
-          ))
-
-          # Per-transition accuracy
-          # Get transitions for the final period
-          id_period_penultimate <- id_periods_hist[length(id_periods_hist) - 1L]
-
-          observed_penultimate <- self$lulc_data_t[
-            id_period == id_period_penultimate
-          ]
-
-          # Create transition table: penultimate -> final (observed)
-          trans_obs <- merge(
-            observed_penultimate[, .(id_coord, id_lulc_ant = id_lulc)],
-            observed_final[, .(id_coord, id_lulc_post = id_lulc)],
-            by = "id_coord"
-          )
-
-          # Add simulated final period
-          trans_comp <- merge(
-            trans_obs,
-            sim_final[, .(id_coord, id_lulc_sim = id_lulc)],
-            by = "id_coord"
-          )
-
-          # Compute per-transition accuracy
-          viable_trans <- self$trans_meta_t[is_viable == TRUE]
-
-          trans_accuracy_list <- list()
-
+          # Compute fuzzy similarity per transition
           for (i in seq_len(nrow(viable_trans))) {
             id_trans <- viable_trans$id_trans[i]
             id_lulc_ant <- viable_trans$id_lulc_anterior[i]
             id_lulc_post <- viable_trans$id_lulc_posterior[i]
 
-            # Cells that transitioned (observed)
-            trans_cells <- trans_comp[
-              id_lulc_ant == !!id_lulc_ant & id_lulc_post == !!id_lulc_post
-            ]
+            # Compute fuzzy similarity for this transition
+            trans_sim <- calc_transition_similarity(
+              initial_map = rast_initial,
+              observed_map = rast_obs_final,
+              simulated_map = rast_sim_final,
+              from_class = id_lulc_ant,
+              to_class = id_lulc_post,
+              window_size = 11L,
+              use_exp_decay = TRUE,
+              decay_divisor = 2.0
+            )
 
-            if (nrow(trans_cells) > 0L) {
-              n_trans <- nrow(trans_cells)
-              n_trans_matched <- sum(trans_cells$id_lulc_sim == id_lulc_post)
-              acc_trans <- n_trans_matched / n_trans
+            message(glue::glue(
+              "    Transition {id_trans} ({id_lulc_ant}->{id_lulc_post}): ",
+              "similarity = {ifelse(is.na(trans_sim$similarity), 'NA', round(trans_sim$similarity, 4))}"
+            ))
 
-              trans_accuracy_list[[
-                length(trans_accuracy_list) + 1L
-              ]] <- data.table::data.table(
-                id_perturbation = id_pert,
-                id_trans = id_trans,
-                n_trans_cells = n_trans,
-                n_trans_matched = n_trans_matched,
-                accuracy_trans = acc_trans
-              )
-            }
-          }
-
-          if (length(trans_accuracy_list) > 0L) {
-            trans_accuracy <- data.table::rbindlist(trans_accuracy_list)
-          } else {
-            trans_accuracy <- data.table::data.table(
-              id_perturbation = integer(0),
-              id_trans = integer(0),
-              n_trans_cells = integer(0),
-              n_trans_matched = integer(0),
-              accuracy_trans = numeric(0)
+            # Store result
+            all_similarity_results[[length(all_similarity_results) + 1L]] <- data.table::data.table(
+              id_perturbation = id_pert,
+              id_trans = id_trans,
+              similarity = trans_sim$similarity
             )
           }
 
-          # Store overall metrics for this perturbation
-          eval_results[[length(eval_results) + 1L]] <- list(
-            id_perturbation = id_pert,
-            accuracy_overall = accuracy_overall,
-            n_cells_total = n_cells,
-            n_cells_matched = n_matched,
-            trans_accuracy = trans_accuracy
-          )
-
-          message(glue::glue("Perturbation {id_pert} evaluation complete"))
+          # Clean up rasters
+          rm(rast_initial, rast_obs_final, rast_sim_final)
+          gc()
         },
         error = function(e) {
           warning(glue::glue(
             "Failed to evaluate perturbation {id_pert}: {e$message}"
           ))
+
+          # Add NA results for this perturbation
+          for (i in seq_len(nrow(viable_trans))) {
+            all_similarity_results[[length(all_similarity_results) + 1L]] <- data.table::data.table(
+              id_perturbation = id_pert,
+              id_trans = viable_trans$id_trans[i],
+              similarity = NA_real_
+            )
+          }
         }
       )
     }
 
-    if (length(eval_results) == 0L) {
-      stop("No perturbations could be evaluated")
-    }
+    message("\n=== Evaluation Complete ===")
 
-    # Combine results with original alloc_params_t
-    message("\nCombining evaluation results with allocation parameters...")
+    # Combine all similarity results
+    similarity_dt <- data.table::rbindlist(all_similarity_results)
 
-    # Start with original alloc_params_t
-    result_params <- data.table::copy(self$alloc_params_t)
-
-    # Add overall accuracy metrics
-    overall_metrics <- data.table::rbindlist(lapply(eval_results, function(x) {
-      data.table::data.table(
-        id_perturbation = x$id_perturbation,
-        accuracy_overall = x$accuracy_overall,
-        n_cells_total = x$n_cells_total,
-        n_cells_matched = x$n_cells_matched
-      )
-    }))
-
+    # Augment alloc_params_t with similarity metrics
     result_params <- merge(
-      result_params,
-      overall_metrics,
-      by = "id_perturbation",
-      all.x = TRUE
-    )
-
-    # Add per-transition accuracy
-    all_trans_accuracy <- data.table::rbindlist(
-      lapply(eval_results, function(x) x$trans_accuracy)
-    )
-
-    result_params <- merge(
-      result_params,
-      all_trans_accuracy,
+      self$alloc_params_t,
+      similarity_dt,
       by = c("id_perturbation", "id_trans"),
       all.x = TRUE
     )
 
-    # Cast back to alloc_params_t
-    result_params <- as_alloc_params_t(result_params)
-
-    message(glue::glue(
-      "Evaluation complete!\n",
-      "  Evaluated {length(eval_results)} perturbations\n",
-      "  Mean overall accuracy: {round(mean(overall_metrics$accuracy_overall) * 100, 2)}%"
-    ))
+    message(glue::glue("Returning augmented alloc_params_t with {nrow(result_params)} rows"))
 
     result_params
   }
