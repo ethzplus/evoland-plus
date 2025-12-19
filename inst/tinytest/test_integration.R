@@ -462,7 +462,7 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
     # Test alloc_dinamica with a simple two-period simulation
     expect_message(
       sim_table <- db_tm$alloc_dinamica(
-        id_periods = 1:2,
+        id_periods = 1:3,
         id_perturbation = 1L,
         work_dir = file.path(test_dir_trans_models, "dinamica_test"),
         keep_intermediate = FALSE
@@ -486,18 +486,19 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
         work_dir = file.path(test_dir_trans_models, "dinamica_eval"),
         keep_intermediate = FALSE
       ),
-      "Evaluation complete"
+      "Evaluation Complete"
     )
 
     # Check evaluation results
     expect_inherits(evaluated_params, "alloc_params_t")
-    expect_true("accuracy_overall" %in% names(evaluated_params))
-    expect_true("accuracy_trans" %in% names(evaluated_params))
-    expect_true("n_cells_total" %in% names(evaluated_params))
+    expect_true(all(c("similarity", "frac_patcher") %in% names(evaluated_params)))
 
     # Check that accuracy metrics are reasonable (between 0 and 1)
-    expect_true(all(evaluated_params$accuracy_overall >= 0, na.rm = TRUE))
-    expect_true(all(evaluated_params$accuracy_overall <= 1, na.rm = TRUE))
+    expect_true(all(
+      evaluated_params$similarity <= 1 &
+        evaluated_params$similarity >= 0,
+      na.rm = TRUE
+    ))
 
     # Test error handling - invalid id_periods
     expect_error(
@@ -505,7 +506,7 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
         id_periods = c(1L, 3L), # Non-contiguous
         id_perturbation = 1L
       ),
-      "id_periods must be contiguous and sequential"
+      "id_periods must be contiguous"
     )
 
     # Test error handling - invalid id_perturbation

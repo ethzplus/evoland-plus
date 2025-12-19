@@ -304,7 +304,7 @@ calc_transition_similarity <- function(
   simulated_map,
   from_class,
   to_class,
-  window_size = 11L,
+  window_size = 11L, # TODO insert warning if domain is too small for window
   use_exp_decay = TRUE,
   decay_divisor = 2.0
 ) {

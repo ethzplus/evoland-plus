@@ -100,7 +100,7 @@ alloc_dinamica_setup_inputs <- function(
     anterior_path,
     overwrite = TRUE,
     datatype = "INT1U",
-    NAflag = -999 # because dinamica cannot handle nan
+    NAflag = 255 # because dinamica cannot handle nan
   )
 
   message(glue::glue("  Wrote anterior LULC to {basename(anterior_path)}"))
@@ -368,9 +368,7 @@ evoland_db$set(
     # Validate inputs
     stopifnot(
       "id_periods must be an integer vector" = is.numeric(id_periods),
-      "id_periods must be contiguous and sequential" = {
-        all(diff(id_periods) == 1L)
-      },
+      "id_periods must be contiguous" = all(diff(id_periods) == 1L),
       "id_periods must have at least 2 elements" = length(id_periods) >= 2L,
       "id_perturbation must be a single integer" = {
         length(id_perturbation) == 1L && is.numeric(id_perturbation)
