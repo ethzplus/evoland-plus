@@ -207,8 +207,9 @@ test_lulc <- data.table::data.table(
 )
 
 rast_single <- tabular_to_raster(
-  lulc_data = test_lulc,
+  data = test_lulc,
   coords_t = test_coords,
+  value_col = "id_lulc",
   resolution = 0.5
 )
 
@@ -225,8 +226,9 @@ test_lulc_multi <- data.table::data.table(
 )
 
 rast_multi <- tabular_to_raster(
-  lulc_data = test_lulc_multi,
+  data = test_lulc_multi,
   coords_t = test_coords,
+  value_col = "id_lulc",
   resolution = 0.5
 )
 
@@ -239,8 +241,9 @@ test_coords_res <- test_coords
 attr(test_coords_res, "resolution") <- 0.5
 
 rast_auto_res <- tabular_to_raster(
-  lulc_data = test_lulc,
+  data = test_lulc,
   coords_t = test_coords_res,
+  value_col = "id_lulc",
   resolution = NULL
 )
 

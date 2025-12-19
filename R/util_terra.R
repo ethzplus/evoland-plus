@@ -89,37 +89,79 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
   out
 }
 
-#' Convert tabular LULC data to raster
+#' Convert tabular data with coordinates to raster
 #'
 #' @description
-#' Converts a `lulc_data_t` table (with coordinates) to a SpatRaster.
+#' Converts any tabular data (with an id_coord column) to a SpatRaster.
 #' Useful for spatial analysis and validation that requires raster format.
 #'
-#' @param lulc_data A `lulc_data_t` object or data.table with columns:
-#'   id_coord, id_lulc, (optionally id_period)
+#' @param data A data.table with at minimum an `id_coord` column and one or more
+#'   value columns to be rasterized. Can optionally include grouping columns
+#'   (e.g., id_period, id_pred, id_intrv) which will create separate layers.
+#' @param value_col Character string specifying the column name to rasterize.
+#'   If NULL (default), attempts to detect a suitable value column by excluding
+#'   id_coord, lat, lon, and any grouping columns starting with "id_".
 #' @param coords_t A coords_t object with coordinate information. Must have
 #'   `epsg` and optionally `resolution` attributes.
 #' @param resolution Numeric, raster resolution in CRS units. If NULL,
 #'   attempts to infer from coords_t attributes or data spacing.
+#' @param layer_cols Character vector of column names to use for creating
+#'   separate layers. If NULL (default), automatically detects grouping columns
+#'   (all columns starting with "id_" except id_coord). Set to character(0)
+#'   to force a single-layer output.
 #'
-#' @return SpatRaster with LULC values. If multiple periods present in lulc_data,
-#'   returns a multi-layer raster with one layer per period.
+#' @return SpatRaster with values from the specified column. If grouping columns
+#'   are present, returns a multi-layer raster with one layer per unique
+#'   combination of grouping values.
 #'
 #' @export
-tabular_to_raster <- function(lulc_data, coords_t, resolution = NULL) {
+tabular_to_raster <- function(
+  data,
+  coords_t,
+  value_col = NULL,
+  resolution = NULL,
+  layer_cols = NULL
+) {
   # Validate input
   stopifnot(
-    "lulc_data must have id_coord and id_lulc columns" = all(
-      c("id_coord", "id_lulc") %in% names(lulc_data)
-    ),
+    "data must have id_coord column" = "id_coord" %in% names(data),
     "coords_t must have epsg attribute" = !is.null(attr(coords_t, "epsg"))
   )
 
   epsg <- attr(coords_t, "epsg")
 
+  # Auto-detect value column if not specified
+  if (is.null(value_col)) {
+    excluded_cols <- c("id_coord", "lon", "lat")
+    candidate_cols <- setdiff(names(data), excluded_cols)
+
+    # Remove grouping columns (those starting with "id_")
+    grouping_cols <- grep("^id_", candidate_cols, value = TRUE)
+    candidate_cols <- setdiff(candidate_cols, grouping_cols)
+
+    if (length(candidate_cols) == 0L) {
+      stop(
+        "Could not auto-detect value column. ",
+        "Please specify value_col explicitly."
+      )
+    } else if (length(candidate_cols) > 1L) {
+      stop(
+        "Multiple potential value columns found: ",
+        paste(candidate_cols, collapse = ", "),
+        ". Please specify value_col explicitly."
+      )
+    }
+
+    value_col <- candidate_cols[1L]
+  }
+
+  stopifnot(
+    "value_col must be present in data" = value_col %in% names(data)
+  )
+
   # Merge with coordinates to get lon/lat
   dat <- merge(
-    lulc_data,
+    data,
     coords_t[, .(id_coord, lon, lat)],
     by = "id_coord"
   )
@@ -153,28 +195,47 @@ tabular_to_raster <- function(lulc_data, coords_t, resolution = NULL) {
     resolution = resolution
   )
 
-  # Check if we have multiple periods
-  has_periods <- "id_period" %in% names(dat)
+  # Auto-detect layer columns if not specified
+  if (is.null(layer_cols)) {
+    # Find all id_* columns except id_coord and the value column
+    all_id_cols <- grep("^id_", names(dat), value = TRUE)
+    layer_cols <- setdiff(all_id_cols, c("id_coord", value_col))
+  }
 
-  if (has_periods) {
-    periods <- sort(unique(dat[["id_period"]]))
+  # Check if we have grouping columns for layers
+  has_layers <- length(layer_cols) > 0L
+
+  if (has_layers) {
+    # Create a composite key for unique combinations of layer columns
+    dat[, layer_key := do.call(paste, c(.SD, sep = "_")), .SDcols = layer_cols]
+    layer_values <- sort(unique(dat[["layer_key"]]))
 
     # Create multi-layer raster
     rast_list <- list()
 
-    for (period in periods) {
-      period_data <- dat[id_period == period]
+    for (layer_val in layer_values) {
+      layer_data <- dat[layer_key == layer_val]
 
       # Rasterize
-      period_rast <- terra::rasterize(
-        x = as.matrix(period_data[, .(lon, lat)]),
+      layer_rast <- terra::rasterize(
+        x = as.matrix(layer_data[, .(lon, lat)]),
         y = rast_template,
-        values = period_data[["id_lulc"]],
+        values = layer_data[[value_col]],
         fun = "first"
       )
 
-      names(period_rast) <- paste0("period_", period)
-      rast_list[[length(rast_list) + 1L]] <- period_rast
+      # Create descriptive layer name
+      if (length(layer_cols) == 1L) {
+        # Single grouping column: use column name prefix
+        col_name <- sub("^id_", "", layer_cols[1L])
+        layer_name <- paste0(col_name, "_", layer_val)
+      } else {
+        # Multiple grouping columns: use composite key
+        layer_name <- layer_val
+      }
+
+      names(layer_rast) <- layer_name
+      rast_list[[length(rast_list) + 1L]] <- layer_rast
     }
 
     # Combine into multi-layer raster
@@ -184,11 +245,11 @@ tabular_to_raster <- function(lulc_data, coords_t, resolution = NULL) {
     rast <- terra::rasterize(
       x = as.matrix(dat[, .(lon, lat)]),
       y = rast_template,
-      values = dat[["id_lulc"]],
+      values = dat[[value_col]],
       fun = "first"
     )
 
-    names(rast) <- "id_lulc"
+    names(rast) <- value_col
   }
 
   rast

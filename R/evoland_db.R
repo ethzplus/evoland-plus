@@ -122,6 +122,112 @@ evoland_db <- R6::R6Class(
         paste0("pred_data_t_", pred_type),
         method = "upsert"
       )
+    },
+
+    ### Export methods ----
+    #' @description
+    #' Export all spatial tables to GeoTIFF files
+    #' @param output_dir Character string. Directory to write GeoTIFF files.
+    #'   If NULL (default), creates a "geotiffs" subdirectory in the database path.
+    #' @param resolution Numeric, raster resolution in CRS units. If NULL,
+    #'   attempts to infer from coords_t attributes.
+    #' @param overwrite Logical. Whether to overwrite existing files. Default FALSE.
+    #'
+    #' @return Character vector of file paths that were written
+    export_geotiffs = function(output_dir = NULL, resolution = NULL, overwrite = FALSE) {
+      # Set up output directory
+      if (is.null(output_dir)) {
+        output_dir <- file.path(self$path, "geotiffs")
+      }
+
+      if (!dir.exists(output_dir)) {
+        dir.create(output_dir, recursive = TRUE)
+      }
+
+      message("Exporting spatial tables to: ", output_dir)
+
+      # Get coords_t
+      coords <- self$coords_t
+      if (is.null(coords) || nrow(coords) == 0L) {
+        stop("No coordinates found in database. Cannot export spatial data.")
+      }
+
+      # List all tables
+      all_tables <- self$list_tables()
+
+      # Define tables to export and their value columns
+      export_specs <- list(
+        lulc_data_t = "id_lulc",
+        intrv_masks_t = "id_intrv"
+      )
+
+      # Add pred_data_t_* tables
+      pred_tables <- grep("^pred_data_t_(float|int|bool)$", all_tables, value = TRUE)
+      for (pred_table in pred_tables) {
+        export_specs[[pred_table]] <- "value"
+      }
+
+      # Add lulc_data_t_* tables (simulation results)
+      sim_tables <- grep("^lulc_data_t_", all_tables, value = TRUE)
+      for (sim_table in sim_tables) {
+        export_specs[[sim_table]] <- "id_lulc"
+      }
+
+      # Export each table
+      exported_files <- character(0)
+
+      for (table_name in names(export_specs)) {
+        if (!table_name %in% all_tables) {
+          next
+        }
+
+        value_col <- export_specs[[table_name]]
+        output_file <- file.path(output_dir, paste0(table_name, ".tif"))
+
+        if (file.exists(output_file) && !overwrite) {
+          message("  Skipping ", table_name, " (file exists, use overwrite = TRUE)")
+          next
+        }
+
+        message("  Exporting ", table_name, "...")
+
+        tryCatch(
+          {
+            # Fetch table
+            table_data <- self$fetch(table_name)
+
+            if (nrow(table_data) == 0L) {
+              message("    Skipping (empty table)")
+              next
+            }
+
+            # Convert to raster
+            rast <- tabular_to_raster(
+              data = table_data,
+              coords_t = coords,
+              value_col = value_col,
+              resolution = resolution
+            )
+
+            # Write to file
+            terra::writeRaster(
+              rast,
+              filename = output_file,
+              overwrite = overwrite,
+              gdal = c("COMPRESS=LZW")
+            )
+
+            exported_files <- c(exported_files, output_file)
+            message("    Written: ", basename(output_file), " (", terra::nlyr(rast), " layers)")
+          },
+          error = function(e) {
+            message("    Error exporting ", table_name, ": ", e$message)
+          }
+        )
+      }
+
+      message("Export complete. ", length(exported_files), " files written.")
+      invisible(exported_files)
     }
   )
 )

@@ -37,6 +37,7 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
 \item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
 \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
+\item \href{#method-evoland_db-export_geotiffs}{\code{evoland_db$export_geotiffs()}}
 \item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
 \item \href{#method-evoland_db-fit_partial_models}{\code{evoland_db$fit_partial_models()}}
 \item \href{#method-evoland_db-fit_full_models}{\code{evoland_db$fit_full_models()}}
@@ -248,6 +249,36 @@ Add a predictor to the database
 \item{\code{pred_type}}{Passed to \code{\link[=as_pred_data_t]{as_pred_data_t()}}; one of float, int, bool}
 }
 \if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-export_geotiffs"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-export_geotiffs}{}}}
+\subsection{Method \code{export_geotiffs()}}{
+Export all spatial tables to GeoTIFF files
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$export_geotiffs(
+  output_dir = NULL,
+  resolution = NULL,
+  overwrite = FALSE
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{output_dir}}{Character string. Directory to write GeoTIFF files.
+If NULL (default), creates a "geotiffs" subdirectory in the database path.}
+
+\item{\code{resolution}}{Numeric, raster resolution in CRS units. If NULL,
+attempts to infer from coords_t attributes.}
+
+\item{\code{overwrite}}{Logical. Whether to overwrite existing files. Default FALSE.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Character vector of file paths that were written
 }
 }
 \if{html}{\out{<hr>}}

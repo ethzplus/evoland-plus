@@ -2,25 +2,42 @@
 % Please edit documentation in R/util_terra.R
 \name{tabular_to_raster}
 \alias{tabular_to_raster}
-\title{Convert tabular LULC data to raster}
+\title{Convert tabular data with coordinates to raster}
 \usage{
-tabular_to_raster(lulc_data, coords_t, resolution = NULL)
+tabular_to_raster(
+  data,
+  coords_t,
+  value_col = NULL,
+  resolution = NULL,
+  layer_cols = NULL
+)
 }
 \arguments{
-\item{lulc_data}{A \code{lulc_data_t} object or data.table with columns:
-id_coord, id_lulc, (optionally id_period)}
+\item{data}{A data.table with at minimum an \code{id_coord} column and one or more
+value columns to be rasterized. Can optionally include grouping columns
+(e.g., id_period, id_pred, id_intrv) which will create separate layers.}
 
 \item{coords_t}{A coords_t object with coordinate information. Must have
 \code{epsg} and optionally \code{resolution} attributes.}
 
+\item{value_col}{Character string specifying the column name to rasterize.
+If NULL (default), attempts to detect a suitable value column by excluding
+id_coord, lat, lon, and any grouping columns starting with "id_".}
+
 \item{resolution}{Numeric, raster resolution in CRS units. If NULL,
 attempts to infer from coords_t attributes or data spacing.}
+
+\item{layer_cols}{Character vector of column names to use for creating
+separate layers. If NULL (default), automatically detects grouping columns
+(all columns starting with "id_" except id_coord). Set to character(0)
+to force a single-layer output.}
 }
 \value{
-SpatRaster with LULC values. If multiple periods present in lulc_data,
-returns a multi-layer raster with one layer per period.
+SpatRaster with values from the specified column. If grouping columns
+are present, returns a multi-layer raster with one layer per unique
+combination of grouping values.
 }
 \description{
-Converts a \code{lulc_data_t} table (with coordinates) to a SpatRaster.
+Converts any tabular data (with an id_coord column) to a SpatRaster.
 Useful for spatial analysis and validation that requires raster format.
 }

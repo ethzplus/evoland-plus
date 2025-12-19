@@ -613,9 +613,9 @@ evoland_db$set(
           message("  Converting to rasters...")
 
           # Convert tabular data to rasters
-          rast_initial <- tabular_to_raster(observed_initial, self$coords_t)
-          rast_obs_final <- tabular_to_raster(observed_final, self$coords_t)
-          rast_sim_final <- tabular_to_raster(sim_final, self$coords_t)
+          rast_initial <- tabular_to_raster(observed_initial, self$coords_t, value_col = "id_lulc")
+          rast_obs_final <- tabular_to_raster(observed_final, self$coords_t, value_col = "id_lulc")
+          rast_sim_final <- tabular_to_raster(sim_final, self$coords_t, value_col = "id_lulc")
 
           message("  Computing per-transition fuzzy similarity...")
 
