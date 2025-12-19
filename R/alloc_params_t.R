@@ -305,6 +305,7 @@ evoland_db$set(
         # Compute allocation parameters
         alloc_params <- tryCatch(
           {
+            stopifnot("Need data for at least 2 periods" = length(names(lulc_rast)) > 1L)
             compute_alloc_params_single(
               lulc_ant = lulc_rast[[1]],
               lulc_post = lulc_rast[[2]],
