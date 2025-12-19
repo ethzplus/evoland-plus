@@ -16,7 +16,7 @@ expect_silent(print(alloc_params_t))
 expect_inherits(alloc_params_t, "alloc_params_t")
 
 # Test create_alloc_params_t with simple synthetic rasters
-if (requireNamespace("landscapemetrics", quietly = TRUE)) {
+if (requireNamespace("SDMTools", quietly = TRUE)) {
   # Create simple test rasters
   # 5x5 grid with a simple transition pattern
   lulc_ant <- terra::rast(
@@ -62,11 +62,11 @@ if (requireNamespace("landscapemetrics", quietly = TRUE)) {
     list(
       mean_patch_size = 8e-04,
       patch_size_variance = NA_real_,
-      patch_isometry = 0.9803922,
+      patch_isometry = 1.142857,
       frac_expander = 1,
       frac_patcher = 0
     ),
-    tolerance = 1e-07
+    tolerance = 1e-06
   )
 
   # Fractions should sum to 1 (or close to it due to rounding)

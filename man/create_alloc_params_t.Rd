@@ -35,7 +35,7 @@ The workflow is:
 \item Identify transition cells (cells that changed from anterior to posterior class)
 \item Use focal operations to determine if transition cells are adjacent to existing
 patches (expansion) or form new patches (patcher behavior)
-\item Compute patch statistics using landscapemetrics package
+\item Compute patch statistics using SDMTools package
 }
 \item Aggregate parameters across periods (mean) for each transition
 \item For each transition, create N randomly perturbed versions:
@@ -50,7 +50,7 @@ patches (expansion) or form new patches (patcher behavior)
 \section{Requirements}{
 
 \itemize{
-\item The \code{landscapemetrics} package must be installed
+\item The \code{SDMTools} package must be installed (from mmyrte/SDMTools fork)
 \item \code{coords_t} must have \code{resolution} and \code{epsg} metadata
 \item \code{trans_meta_t} must have at least one viable transition
 \item \code{periods_t} must have at least one observed period with \code{id_period > 1}

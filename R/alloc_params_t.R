@@ -84,11 +84,11 @@ compute_alloc_params_single <- function(
   id_lulc_ant,
   id_lulc_post
 ) {
-  # Check if landscapemetrics is available
-  if (!requireNamespace("landscapemetrics", quietly = TRUE)) {
+  # Check if SDMTools is available
+  if (!requireNamespace("SDMTools", quietly = TRUE)) {
     stop(
-      "Package 'landscapemetrics' is required for allocation parameter computation.\n",
-      "Install it with: install.packages('landscapemetrics')",
+      "Package 'SDMTools' is required for allocation parameter computation.\n",
+      "Install it with: install.packages('remotes'); remotes::install_github('mmyrte/SDMTools')",
       call. = FALSE
     )
   }
@@ -149,34 +149,44 @@ compute_alloc_params_single <- function(
   frac_expander <- n_expanders / n_trans_cells
   frac_patcher <- n_patchers / n_trans_cells
 
-  # Calculate patch statistics using landscapemetrics
+  # Calculate patch statistics using SDMTools
   # Identify connected patches in the transition cells
   trans_patches <- terra::patches(trans_cells, directions = 8, zeroAsNA = TRUE)
 
-  # Calculate landscape metrics
-  # Mean patch area
-  mpa_metric <- landscapemetrics::lsm_c_area_mn(trans_patches, directions = 8)
-  mpa <- if (nrow(mpa_metric) > 0) mpa_metric$value[1] else 0
+  # Convert to matrix for SDMTools
+  trans_patches_mat <- terra::as.matrix(trans_patches, wide = TRUE)
 
-  # Standard deviation of patch area
-  sda_metric <- landscapemetrics::lsm_c_area_sd(trans_patches, directions = 8)
-  sda <- if (nrow(sda_metric) > 0) sda_metric$value[1] else 0
+  # Replace NA with 0 for SDMTools (it doesn't handle NA values)
+  trans_patches_mat[is.na(trans_patches_mat)] <- 0
 
-  # Patch shape metrics - using shape index as proxy for isometry
-  # The original code used aggregation index / 70, but that seems arbitrary
-  # Using para_mn (perimeter-area ratio) as alternative measure of patch shape
-  # TODO: investigate the effect of different patch metrics (shape_mn, frac_mn, etc.)
-  # on allocation quality
-  shape_metric <- landscapemetrics::lsm_c_para_mn(trans_patches, directions = 8)
+  # Get cell resolution (assuming square cells)
+  cellsize <- terra::res(trans_patches)[1]
 
-  # Normalize to 0-1 range (lower para_mn = more compact/isometric patches)
-  # Use inverse and cap at reasonable values
-  if (nrow(shape_metric) > 0 && !is.na(shape_metric$value[1])) {
-    para_val <- shape_metric$value[1]
-    # Normalize: more compact patches (lower para) get higher scores
-    iso <- max(0, min(1, 1 / (1 + para_val / 100)))
+  # Calculate class statistics using SDMTools
+  # bkgd = 0 treats 0 values as background
+  cl.data <- SDMTools::ClassStat(trans_patches_mat, bkgd = 0, cellsize = cellsize)
+
+  # Extract metrics
+  # Mean patch area (convert from m² to hectares)
+  mpa <- if (!is.null(cl.data) && nrow(cl.data) > 0) {
+    cl.data$mean.patch.area[1] / 10000
   } else {
-    iso <- 0
+    0
+  }
+
+  # Standard deviation of patch area (convert from m² to hectares)
+  sda <- if (!is.null(cl.data) && nrow(cl.data) > 0) {
+    cl.data$sd.patch.area[1] / 10000
+  } else {
+    0
+  }
+
+  # Patch isometry using aggregation index
+  # The original code divided by 70 to normalize
+  iso <- if (!is.null(cl.data) && nrow(cl.data) > 0 && !is.na(cl.data$aggregation.index[1])) {
+    cl.data$aggregation.index[1] / 70
+  } else {
+    0
   }
 
   list(
@@ -209,7 +219,7 @@ compute_alloc_params_single <- function(
 #'    - Identify transition cells (cells that changed from anterior to posterior class)
 #'    - Use focal operations to determine if transition cells are adjacent to existing
 #'      patches (expansion) or form new patches (patcher behavior)
-#'    - Compute patch statistics using landscapemetrics package
+#'    - Compute patch statistics using SDMTools package
 #' 2. Aggregate parameters across periods (mean) for each transition
 #' 3. For each transition, create N randomly perturbed versions:
 #'    - Add random noise to frac_expander (normal distribution, mean=0, sd=sd)
@@ -223,7 +233,7 @@ compute_alloc_params_single <- function(
 #'   fraction (default: 0.05)
 #'
 #' @section Requirements:
-#' - The `landscapemetrics` package must be installed
+#' - The `SDMTools` package must be installed (from mmyrte/SDMTools fork)
 #' - `coords_t` must have `resolution` and `epsg` metadata
 #' - `trans_meta_t` must have at least one viable transition
 #' - `periods_t` must have at least one observed period with `id_period > 1`

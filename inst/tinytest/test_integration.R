@@ -402,7 +402,7 @@ expect_equal(as.character(first_call_parsed[[1]]), "fit_mock_glm")
 
 # We can use the existing db_tm setup which already has:
 # - coords_t, periods_t, lulc_meta_t, lulc_data_t, trans_meta_t
-if (requireNamespace("landscapemetrics", quietly = TRUE)) {
+if (requireNamespace("SDMTools", quietly = TRUE)) {
   expect_message(
     alloc_params <- db_tm$create_alloc_params_t(n_perturbations = 3, sd = 10),
     "Successfully computed 8 allocation parameter sets" # 8 = (3 perturb + 1 estim) * 2 periods
