@@ -10,6 +10,7 @@ linters: linters_with_defaults(
     indentation_linter = NULL
   ) # see vignette("lintr")
 exclusions: list(
-  "renv"
+  "renv",
+  "src"
   )
 encoding: "UTF-8"
