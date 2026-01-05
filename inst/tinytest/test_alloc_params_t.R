@@ -16,71 +16,69 @@ expect_silent(print(alloc_params_t))
 expect_inherits(alloc_params_t, "alloc_params_t")
 
 # Test create_alloc_params_t with simple synthetic rasters
-if (requireNamespace("SDMTools", quietly = TRUE)) {
-  # Create simple test rasters
-  # 5x5 grid with a simple transition pattern
-  lulc_ant <- terra::rast(
-    ncols = 5,
-    nrows = 5,
-    xmin = 0,
-    xmax = 5,
-    ymin = 0,
-    ymax = 5,
-    crs = "epsg:4326"
-  )
-  lulc_post <- terra::rast(
-    ncols = 5,
-    nrows = 5,
-    xmin = 0,
-    xmax = 5,
-    ymin = 0,
-    ymax = 5,
-    crs = "epsg:4326"
-  )
+# Create simple test rasters
+# 5x5 grid with a simple transition pattern
+lulc_ant <- terra::rast(
+  ncols = 5,
+  nrows = 5,
+  xmin = 0,
+  xmax = 5,
+  ymin = 0,
+  ymax = 5,
+  crs = "epsg:4326"
+)
+lulc_post <- terra::rast(
+  ncols = 5,
+  nrows = 5,
+  xmin = 0,
+  xmax = 5,
+  ymin = 0,
+  ymax = 5,
+  crs = "epsg:4326"
+)
 
-  # Anterior: class 1 in center, class 2 elsewhere
-  # fmt: skip
-  terra::values(lulc_ant) <- c(
-    2, 2, 2, 2, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 2, 2, 2, 2
-  )
+# Anterior: class 1 in center, class 2 elsewhere
+# fmt: skip
+terra::values(lulc_ant) <- c(
+  2, 2, 2, 2, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 1, 1, 1, 2, 2, 2, 2, 2, 2
+)
 
-  # Posterior: class 1 expanded to edges (transition 1->2)
-  # fmt: skip
-  terra::values(lulc_post) <- c(
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
-  )
+# Posterior: class 1 expanded to edges (transition 1->2)
+# fmt: skip
+terra::values(lulc_post) <- c(
+  2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
+)
 
-  # Test transition from class 1 to class 2
-  params <- evoland:::compute_alloc_params_single(
-    lulc_ant = lulc_ant,
-    lulc_post = lulc_post,
-    id_lulc_ant = 1L,
-    id_lulc_post = 2L
-  )
-  expect_equal(
-    params,
-    list(
-      mean_patch_size = 8e-04,
-      patch_size_variance = NA_real_,
-      patch_isometry = 1.142857,
-      frac_expander = 1,
-      frac_patcher = 0
-    ),
-    tolerance = 1e-06
-  )
+# Test transition from class 1 to class 2
+params <- evoland:::compute_alloc_params_single(
+  lulc_ant = lulc_ant,
+  lulc_post = lulc_post,
+  id_lulc_ant = 1L,
+  id_lulc_post = 2L
+)
+expect_equal(
+  params,
+  list(
+    mean_patch_size = 8e-04,
+    patch_size_variance = NA_real_,
+    patch_isometry = 1.142857,
+    frac_expander = 1,
+    frac_patcher = 0
+  ),
+  tolerance = 1e-06
+)
 
-  # Fractions should sum to 1 (or close to it due to rounding)
-  expect_equal(params$frac_expander + params$frac_patcher, 1, tolerance = 0.01)
+# Fractions should sum to 1 (or close to it due to rounding)
+expect_equal(params$frac_expander + params$frac_patcher, 1, tolerance = 0.01)
 
-  # Test with no transitions
-  params_empty <- evoland:::compute_alloc_params_single(
-    lulc_ant = lulc_ant,
-    lulc_post = lulc_ant, # Same raster, no transitions
-    id_lulc_ant = 1L,
-    id_lulc_post = 2L
-  )
+# Test with no transitions
+params_empty <- evoland:::compute_alloc_params_single(
+  lulc_ant = lulc_ant,
+  lulc_post = lulc_ant, # Same raster, no transitions
+  id_lulc_ant = 1L,
+  id_lulc_post = 2L
+)
 
-  expect_equal(params_empty$mean_patch_size, 0)
-  expect_equal(params_empty$frac_expander, 0)
-  expect_equal(params_empty$frac_patcher, 0)
-}
+expect_equal(params_empty$mean_patch_size, 0)
+expect_equal(params_empty$frac_expander, 0)
+expect_equal(params_empty$frac_patcher, 0)

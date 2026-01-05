@@ -402,122 +402,120 @@ expect_equal(as.character(first_call_parsed[[1]]), "fit_mock_glm")
 
 # We can use the existing db_tm setup which already has:
 # - coords_t, periods_t, lulc_meta_t, lulc_data_t, trans_meta_t
-if (requireNamespace("SDMTools", quietly = TRUE)) {
-  expect_message(
-    alloc_params <- db_tm$create_alloc_params_t(n_perturbations = 3, sd = 10),
-    "Successfully computed 8 allocation parameter sets" # 8 = (3 perturb + 1 estim) * 2 periods
-  )
-  expect_inherits(alloc_params, "alloc_params_t")
+expect_message(
+  alloc_params <- db_tm$create_alloc_params_t(n_perturbations = 3, sd = 10),
+  "Successfully computed 8 allocation parameter sets" # 8 = (3 perturb + 1 estim) * 2 periods
+)
+expect_inherits(alloc_params, "alloc_params_t")
 
-  # Check that alloc_params contains expected parameters
-  # With 30x30 domain, values will differ from small domain
-  expect_true(nrow(alloc_params) == 8) # (3 perturb + 1 estim) * 2 periods
+# Check that alloc_params contains expected parameters
+# With 30x30 domain, values will differ from small domain
+expect_true(nrow(alloc_params) == 8) # (3 perturb + 1 estim) * 2 periods
+expect_true(all(
+  c(
+    "id_perturbation",
+    "id_trans",
+    "mean_patch_size",
+    "patch_isometry",
+    "frac_expander",
+    "frac_patcher"
+  ) %in%
+    names(alloc_params)
+))
+expect_true(all(alloc_params$frac_expander >= 0 & alloc_params$frac_expander <= 1))
+expect_true(all(alloc_params$frac_patcher >= 0 & alloc_params$frac_patcher <= 1))
+expect_true(all(alloc_params$mean_patch_size > 0, na.rm = TRUE))
+
+# DB roundtrip; upsert on id_perturbation, id_trans
+expect_silent(db_tm$alloc_params_t <- alloc_params)
+expect_silent(db_tm$alloc_params_t <- alloc_params)
+expect_equal(db_tm$alloc_params_t, alloc_params)
+
+# Edge case: no perturbations
+expect_message(
+  db_tm$create_alloc_params_t(n_perturbations = 0L),
+  r"(0 perturbations \+ best estimate)"
+)
+
+expect_error(
+  db_tm$create_alloc_params_t(sd = -5),
+  "sd must be a positive number"
+)
+
+# Test allocation and evaluation workflow
+# Note: This requires Dinamica EGO to be installed and on PATH
+# Skip if DinamicaConsole is not available
+if (Sys.which("DinamicaConsole") != "") {
+  # We need trans_rates_t for allocation
+  # Create simple transition rates for testing
+  trans_rates <- data.table::data.table(
+    id_trans = 1L,
+    id_period = 1:3,
+    rate = 0.1
+  )
+  db_tm$trans_rates_t <- as_trans_rates_t(trans_rates)
+
+  # Commit the models so they can be used for prediction
+  expect_silent(db_tm$trans_models_t <- full_models)
+
+  # Test alloc_dinamica with a simple two-period simulation
+  expect_message(
+    sim_table <- db_tm$alloc_dinamica(
+      id_periods = 1:3,
+      id_perturbation = 1L,
+      work_dir = file.path(test_dir_trans_models, "dinamica_test"),
+      keep_intermediate = FALSE
+    ),
+    "Simulation complete"
+  )
+
+  # Check that results table was created
+  expect_true(sim_table %in% db_tm$list_tables())
+  expect_equal(unclass(sim_table), "lulc_data_t_perturbation_1")
+
+  # Check simulation results
+  expect_silent(sim_results <- db_tm$fetch(sim_table) |> as_lulc_data_t())
+  expect_equivalent(unique(sim_results$id_period), 2:3)
+
+  # Test eval_alloc_params_t
+  # This will re-run the simulation and compare against observed data
+  expect_message(
+    evaluated_params <- db_tm$eval_alloc_params_t(
+      id_perturbations = 1L,
+      work_dir = file.path(test_dir_trans_models, "dinamica_eval"),
+      keep_intermediate = FALSE
+    ),
+    "Evaluation Complete"
+  )
+
+  # Check evaluation results
+  expect_inherits(evaluated_params, "alloc_params_t")
+  expect_true(all(c("similarity", "frac_patcher") %in% names(evaluated_params)))
+
+  # Check that accuracy metrics are reasonable (between 0 and 1)
   expect_true(all(
-    c(
-      "id_perturbation",
-      "id_trans",
-      "mean_patch_size",
-      "patch_isometry",
-      "frac_expander",
-      "frac_patcher"
-    ) %in%
-      names(alloc_params)
+    evaluated_params$similarity <= 1 &
+      evaluated_params$similarity >= 0,
+    na.rm = TRUE
   ))
-  expect_true(all(alloc_params$frac_expander >= 0 & alloc_params$frac_expander <= 1))
-  expect_true(all(alloc_params$frac_patcher >= 0 & alloc_params$frac_patcher <= 1))
-  expect_true(all(alloc_params$mean_patch_size > 0, na.rm = TRUE))
 
-  # DB roundtrip; upsert on id_perturbation, id_trans
-  expect_silent(db_tm$alloc_params_t <- alloc_params)
-  expect_silent(db_tm$alloc_params_t <- alloc_params)
-  expect_equal(db_tm$alloc_params_t, alloc_params)
-
-  # Edge case: no perturbations
-  expect_message(
-    db_tm$create_alloc_params_t(n_perturbations = 0L),
-    r"(0 perturbations \+ best estimate)"
-  )
-
+  # Test error handling - invalid id_periods
   expect_error(
-    db_tm$create_alloc_params_t(sd = -5),
-    "sd must be a positive number"
+    db_tm$alloc_dinamica(
+      id_periods = c(1L, 3L), # Non-contiguous
+      id_perturbation = 1L
+    ),
+    "id_periods must be contiguous"
   )
 
-  # Test allocation and evaluation workflow
-  # Note: This requires Dinamica EGO to be installed and on PATH
-  # Skip if DinamicaConsole is not available
-  if (Sys.which("DinamicaConsole") != "") {
-    # We need trans_rates_t for allocation
-    # Create simple transition rates for testing
-    trans_rates <- data.table::data.table(
-      id_trans = 1L,
-      id_period = 1:3,
-      rate = 0.1
-    )
-    db_tm$trans_rates_t <- as_trans_rates_t(trans_rates)
-
-    # Commit the models so they can be used for prediction
-    expect_silent(db_tm$trans_models_t <- full_models)
-
-    # Test alloc_dinamica with a simple two-period simulation
-    expect_message(
-      sim_table <- db_tm$alloc_dinamica(
-        id_periods = 1:3,
-        id_perturbation = 1L,
-        work_dir = file.path(test_dir_trans_models, "dinamica_test"),
-        keep_intermediate = FALSE
-      ),
-      "Simulation complete"
-    )
-
-    # Check that results table was created
-    expect_true(sim_table %in% db_tm$list_tables())
-    expect_equal(unclass(sim_table), "lulc_data_t_perturbation_1")
-
-    # Check simulation results
-    expect_silent(sim_results <- db_tm$fetch(sim_table) |> as_lulc_data_t())
-    expect_equivalent(unique(sim_results$id_period), 2:3)
-
-    # Test eval_alloc_params_t
-    # This will re-run the simulation and compare against observed data
-    expect_message(
-      evaluated_params <- db_tm$eval_alloc_params_t(
-        id_perturbations = 1L,
-        work_dir = file.path(test_dir_trans_models, "dinamica_eval"),
-        keep_intermediate = FALSE
-      ),
-      "Evaluation Complete"
-    )
-
-    # Check evaluation results
-    expect_inherits(evaluated_params, "alloc_params_t")
-    expect_true(all(c("similarity", "frac_patcher") %in% names(evaluated_params)))
-
-    # Check that accuracy metrics are reasonable (between 0 and 1)
-    expect_true(all(
-      evaluated_params$similarity <= 1 &
-        evaluated_params$similarity >= 0,
-      na.rm = TRUE
-    ))
-
-    # Test error handling - invalid id_periods
-    expect_error(
-      db_tm$alloc_dinamica(
-        id_periods = c(1L, 3L), # Non-contiguous
-        id_perturbation = 1L
-      ),
-      "id_periods must be contiguous"
-    )
-
-    # Test error handling - invalid id_perturbation
-    expect_error(
-      db_tm$alloc_dinamica(
-        id_periods = 1:2,
-        id_perturbation = 999L # Doesn't exist
-      ),
-      "id_perturbation=999 not found in alloc_params_t"
-    )
-  } else {
-    message("Skipping Dinamica allocation tests: DinamicaConsole not found on PATH")
-  }
+  # Test error handling - invalid id_perturbation
+  expect_error(
+    db_tm$alloc_dinamica(
+      id_periods = 1:2,
+      id_perturbation = 999L # Doesn't exist
+    ),
+    "id_perturbation=999 not found in alloc_params_t"
+  )
+} else {
+  message("Skipping Dinamica allocation tests: DinamicaConsole not found on PATH")
 }

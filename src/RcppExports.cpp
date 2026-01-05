@@ -24,9 +24,22 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// calculate_class_stats_cpp
+DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize);
+RcppExport SEXP _evoland_calculate_class_stats_cpp(SEXP matSEXP, SEXP cellsizeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerMatrix >::type mat(matSEXP);
+    Rcpp::traits::input_parameter< double >::type cellsize(cellsizeSEXP);
+    rcpp_result_gen = Rcpp::wrap(calculate_class_stats_cpp(mat, cellsize));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 4},
+    {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
     {NULL, NULL, 0}
 };
 

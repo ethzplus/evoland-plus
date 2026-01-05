@@ -5,3 +5,7 @@ distance_neighbors_cpp <- function(coords_t, max_distance, resolution = 100.0, q
     .Call(`_evoland_distance_neighbors_cpp`, coords_t, max_distance, resolution, quiet)
 }
 
+calculate_class_stats_cpp <- function(mat, cellsize) {
+    .Call(`_evoland_calculate_class_stats_cpp`, mat, cellsize)
+}
+

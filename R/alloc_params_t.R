@@ -84,15 +84,6 @@ compute_alloc_params_single <- function(
   id_lulc_ant,
   id_lulc_post
 ) {
-  # Check if SDMTools is available
-  if (!requireNamespace("SDMTools", quietly = TRUE)) {
-    stop(
-      "Package 'SDMTools' is required for allocation parameter computation.\n",
-      "Install it with: install.packages('remotes'); remotes::install_github('mmyrte/SDMTools')",
-      call. = FALSE
-    )
-  }
-
   # Create binary raster of transition cells (anterior class -> posterior class)
   # 1 = cells that transitioned from id_lulc_ant to id_lulc_post
   # 0 or NA = all other cells
@@ -149,22 +140,16 @@ compute_alloc_params_single <- function(
   frac_expander <- n_expanders / n_trans_cells
   frac_patcher <- n_patchers / n_trans_cells
 
-  # Calculate patch statistics using SDMTools
-  # Identify connected patches in the transition cells
-  trans_patches <- terra::patches(trans_cells, directions = 8, zeroAsNA = TRUE)
-
-  # Convert to matrix for SDMTools
-  trans_patches_mat <- terra::as.matrix(trans_patches, wide = TRUE)
-
-  # Replace NA with 0 for SDMTools (it doesn't handle NA values)
-  trans_patches_mat[is.na(trans_patches_mat)] <- 0
-
+  # Calculate patch statistics using internal cpp function
   # Get cell resolution (assuming square cells)
-  cellsize <- terra::res(trans_patches)[1]
+  cellsize <- terra::res(trans_cells)[1]
 
-  # Calculate class statistics using SDMTools
-  # bkgd = 0 treats 0 values as background
-  cl.data <- SDMTools::ClassStat(trans_patches_mat, bkgd = 0, cellsize = cellsize)
+  # Convert to matrix for cpp
+  trans_cells_mat <- terra::as.matrix(trans_cells, wide = TRUE)
+  storage.mode(trans_cells_mat) <- "integer"
+
+  # Calculate class statistics
+  cl.data <- calculate_class_stats_cpp(trans_cells_mat, cellsize = cellsize)
 
   # Extract metrics
   # Mean patch area (convert from m² to hectares)
@@ -219,7 +204,7 @@ compute_alloc_params_single <- function(
 #'    - Identify transition cells (cells that changed from anterior to posterior class)
 #'    - Use focal operations to determine if transition cells are adjacent to existing
 #'      patches (expansion) or form new patches (patcher behavior)
-#'    - Compute patch statistics using SDMTools package
+#'    - Compute patch statistics using internal C++ implementation
 #' 2. Aggregate parameters across periods (mean) for each transition
 #' 3. For each transition, create N randomly perturbed versions:
 #'    - Add random noise to frac_expander (normal distribution, mean=0, sd=sd)
@@ -233,7 +218,6 @@ compute_alloc_params_single <- function(
 #'   fraction (default: 0.05)
 #'
 #' @section Requirements:
-#' - The `SDMTools` package must be installed (from mmyrte/SDMTools fork)
 #' - `coords_t` must have `resolution` and `epsg` metadata
 #' - `trans_meta_t` must have at least one viable transition
 #' - `periods_t` must have at least one observed period with `id_period > 1`
