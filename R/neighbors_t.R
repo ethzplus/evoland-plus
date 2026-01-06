@@ -79,6 +79,7 @@ create_neighbors_t <- function(
     quiet = quiet
   )
 
+  data.table::setkeyv(dt, c("id_coord_origin", "id_coord_neighbor"))
   data.table::setalloccol(dt)
 
   # Rename distance_approx to distance
