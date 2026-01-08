@@ -32,17 +32,13 @@ as_neighbors_t <- function(x) {
   )
 }
 
-#' @describeIn neighbors_t Compute neighboring coordinates within specified distances. In
-#' order to be computationally feasible, the coordinates' IDs are rasterized before
-#' their actual Euclidean distance is calculated. If coordinates are so close that they
-#' get rasterized to the same cell, the first one is used and a warning is emitted. If
-#' this happens, try again using a lower resolution.
+#' @describeIn neighbors_t Compute neighboring coordinates within specified distances.
+#' This uses a spatial hash map for efficiency.
 #' @param max_distance Maximum distance to search for neighbors (in same units as
-#' coordinates and resolution)
+#' coordinates)
 #' @param distance_breaks Optional numeric vector defining distance class boundaries.
 #'   If NULL, no distance classification is performed.
 #'   If provided, must have at least 2 elements defining interval breaks.
-#' @param resolution Grid cell size for rasterization (default: 100.0, in same units as coordinates)
 #' @return A data.table with columns:
 #'   - id_coord_origin: ID of the origin coordinate
 #'   - id_coord_neighbor: ID of the neighboring coordinate
@@ -53,7 +49,6 @@ create_neighbors_t <- function(
   coords_t,
   max_distance,
   distance_breaks = NULL,
-  resolution = 100.0,
   quiet = FALSE
 ) {
   # Validate inputs
@@ -75,15 +70,11 @@ create_neighbors_t <- function(
   dt <- distance_neighbors_cpp(
     coords_t = coords_t,
     max_distance = max_distance,
-    resolution = resolution,
     quiet = quiet
   )
 
   data.table::setkeyv(dt, c("id_coord_origin", "id_coord_neighbor"))
   data.table::setalloccol(dt)
-
-  # Rename distance_approx to distance
-  data.table::setnames(dt, "distance_approx", "distance")
 
   # Add distance class if breaks provided
   if (!is.null(distance_breaks)) {

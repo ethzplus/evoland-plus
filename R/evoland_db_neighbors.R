@@ -6,11 +6,10 @@
 #'
 #' @section Methods Added:
 #'
-#' - `create_neighbors_t(max_distance, distance_breaks, resolution, overwrite)` -
+#' - `set_neighbors(max_distance, distance_breaks, overwrite)` -
 #'   Computes neighbor relationships between coordinates.
 #'   - `max_distance`: Maximum distance for neighbors (default: 1000)
 #'   - `distance_breaks`: Vector of breaks for distance classes (default: c(0, 100, 500, 1000))
-#'   - `resolution`: Grid resolution for distance calculations (default: 100)
 #'   - `overwrite`: Whether to overwrite existing neighbors_t (default: FALSE)
 #' - `generate_neighbor_predictors()` - Generates predictor variables based on neighbor
 #'   land use counts by distance class. Requires neighbors_t with distance_class column
@@ -26,7 +25,6 @@ evoland_db$set(
   function(
     max_distance = 1000,
     distance_breaks = c(0, 100, 500, 1000),
-    resolution = 100,
     overwrite = FALSE,
     quiet = FALSE,
     chunksize = 1e8
@@ -43,12 +41,10 @@ evoland_db$set(
     neighbors <- distance_neighbors_cpp(
       coords_minimal,
       max_distance = max_distance,
-      resolution = resolution,
       quiet = quiet
     )
     data.table::setkeyv(neighbors, c("id_coord_origin", "id_coord_neighbor"))
     data.table::setalloccol(neighbors)
-    data.table::setnames(neighbors, "distance_approx", "distance") # rename
 
     # Add distance class if breaks provided
     if (!is.null(distance_breaks)) {

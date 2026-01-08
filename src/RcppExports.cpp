@@ -11,16 +11,15 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // distance_neighbors_cpp
-List distance_neighbors_cpp(DataFrame coords_t, double max_distance, double resolution, bool quiet);
-RcppExport SEXP _evoland_distance_neighbors_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP resolutionSEXP, SEXP quietSEXP) {
+List distance_neighbors_cpp(DataFrame coords_t, double max_distance, bool quiet);
+RcppExport SEXP _evoland_distance_neighbors_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP quietSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< DataFrame >::type coords_t(coords_tSEXP);
     Rcpp::traits::input_parameter< double >::type max_distance(max_distanceSEXP);
-    Rcpp::traits::input_parameter< double >::type resolution(resolutionSEXP);
     Rcpp::traits::input_parameter< bool >::type quiet(quietSEXP);
-    rcpp_result_gen = Rcpp::wrap(distance_neighbors_cpp(coords_t, max_distance, resolution, quiet));
+    rcpp_result_gen = Rcpp::wrap(distance_neighbors_cpp(coords_t, max_distance, quiet));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -38,7 +37,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 4},
+    {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 3},
     {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
     {NULL, NULL, 0}
 };
