@@ -27,29 +27,77 @@ evoland_db$set(
     max_distance = 1000,
     distance_breaks = c(0, 100, 500, 1000),
     resolution = 100,
-    overwrite = FALSE
+    overwrite = FALSE,
+    quiet = FALSE,
+    chunksize = 1e8
   ) {
     if (!overwrite && self$row_count("neighbors_t") > 0) {
       message("neighbors_t already exists. Use overwrite = TRUE to recompute.")
       return(invisible(self))
     }
 
-    coords <- self$coords_t
+    coords_minimal <- self$coords_minimal
 
-    neighbors <- create_neighbors_t(
-      coords,
+    # may produce a very large table
+    # cannot chunk here, because we cannot subset efficiently without spatial index
+    neighbors <- distance_neighbors_cpp(
+      coords_minimal,
       max_distance = max_distance,
-      distance_breaks = distance_breaks,
-      resolution = resolution
+      resolution = resolution,
+      quiet = quiet
     )
+    data.table::setkeyv(neighbors, c("id_coord_origin", "id_coord_neighbor"))
+    data.table::setalloccol(neighbors)
+    data.table::setnames(neighbors, "distance_approx", "distance") # rename
 
-    self$commit(
-      as_neighbors_t(neighbors),
-      table_name = "neighbors_t",
-      method = "overwrite"
-    )
+    # Add distance class if breaks provided
+    if (!is.null(distance_breaks)) {
+      neighbors[,
+        distance_class := cut(
+          distance,
+          breaks = distance_breaks,
+          right = FALSE,
+          include.lowest = TRUE
+        )
+      ]
+    }
 
-    message(glue::glue("Computed {nrow(neighbors)} neighbor relationships"))
+    # chunked insert to avoid memory issues (each chunk gets copied when registering to DB)
+    n_neighbors <- nrow(neighbors)
+    chunksize <- min(chunksize, n_neighbors)
+
+    if (n_neighbors > 0) {
+      # Use a temporary prefix for the chunked files
+      temp_prefix <- "neighbors_t_temp"
+      n_chunks <- ceiling(n_neighbors / chunksize)
+
+      for (i in seq_len(n_chunks)) {
+        slice_start <- (i - 1) * chunksize + 1
+        slice_end <- min(i * chunksize, n_neighbors)
+
+        # Write each chunk to a separate parquet file using overwrite
+        self$commit(
+          as_neighbors_t(neighbors[slice_start:slice_end, ]),
+          table_name = paste0(temp_prefix, "_", i),
+          method = "overwrite"
+        )
+      }
+
+      # Remove the large object from memory and collect garbage
+      rm(neighbors)
+      gc()
+
+      # Gather all temporary parquet files into the final large file using DuckDB
+      self$execute(glue::glue(
+        "copy (
+           select * from read_parquet('{self$path}/{temp_prefix}_*.parquet')
+         ) to '{self$path}/neighbors_t.parquet' ({self$writeopts})"
+      ))
+
+      unlink(list.files(self$path, pattern = temp_prefix, full.names = TRUE))
+    }
+
+    message(glue::glue("Computed {n_neighbors} neighbor relationships"))
     invisible(self)
   }
 )

@@ -141,6 +141,15 @@ db_tm$pred_data_t_float <- as_pred_data_t(
   type = "float"
 )
 
+expect_message(
+  expect_stdout(db_tm$set_neighbors(), "Progress"),
+  "Computed 208360 neighbor relationships"
+)
+expect_message(
+  db_tm$generate_neighbor_predictors(),
+  "Generated 6 neighbor predictor variables"
+)
+
 db_tm$set_full_trans_preds()
 
 # Test trans_pred_data_v
@@ -517,5 +526,5 @@ if (Sys.which("DinamicaConsole") != "") {
     "id_perturbation=999 not found in alloc_params_t"
   )
 } else {
-  message("Skipping Dinamica allocation tests: DinamicaConsole not found on PATH")
+  message("\n  Skipping Dinamica allocation tests: DinamicaConsole not found on PATH")
 }
