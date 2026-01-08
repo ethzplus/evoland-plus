@@ -187,7 +187,7 @@ db_empty <- evoland_db$new(test_dir_empty)
 
 expect_error(
   db_empty$get_pruned_trans_preds_t(),
-  "Table `trans_meta_t` does not exist"
+  "Table `pred_meta_t` does not exist"
 )
 
 # Test with no predictors

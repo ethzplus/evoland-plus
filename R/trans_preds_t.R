@@ -65,31 +65,25 @@ evoland_db$set(
     na_value = NA,
     ...
   ) {
-    viable_trans <- self$trans_meta_t[is_viable == TRUE]
-    pred_meta <- self$pred_meta_t
-    stopifnot(
-      "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L
-    )
     if (self$row_count("trans_preds_t") == 0) {
       self$set_full_trans_preds()
     }
     trans_preds_pre <- self$trans_preds_t
+    unique_trans <- unique(trans_preds_pre$id_trans)
 
     results_list <- list()
 
+    i <- 1L
     # Iterate over transitions (anterior/posterior pairs)
-    for (i in seq_len(nrow(viable_trans))) {
-      id_trans <- viable_trans$id_trans[i]
-      id_lulc_ant <- viable_trans$id_lulc_anterior[i]
-      id_lulc_post <- viable_trans$id_lulc_posterior[i]
+    for (id_trans in unique_trans) {
       id_preds <- trans_preds_pre$id_pred[
         trans_preds_pre$id_trans == id_trans
       ]
 
       message(glue::glue(
-        "Processing transition {i}/{nrow(viable_trans)}: ",
-        "id_trans={id_trans} ({id_lulc_ant} -> {id_lulc_post})"
+        "Processing transition {i}/{length(unique_trans)}: id_trans={id_trans}"
       ))
+      i <- i + 1L
 
       if (length(id_preds) == 0L) {
         next
