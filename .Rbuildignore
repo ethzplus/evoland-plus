@@ -10,3 +10,6 @@ air.toml
 ^docs$
 ^pkgdown$
 ^.devcontainer$
+^rv$
+^rv.lock$
+^rproject.toml$
