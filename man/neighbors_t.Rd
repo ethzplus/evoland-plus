@@ -14,7 +14,6 @@ create_neighbors_t(
   coords_t,
   max_distance,
   distance_breaks = NULL,
-  resolution = 100,
   quiet = FALSE
 )
 
@@ -26,13 +25,11 @@ create_neighbors_t(
 \item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
 
 \item{max_distance}{Maximum distance to search for neighbors (in same units as
-coordinates and resolution)}
+coordinates)}
 
 \item{distance_breaks}{Optional numeric vector defining distance class boundaries.
 If NULL, no distance classification is performed.
 If provided, must have at least 2 elements defining interval breaks.}
-
-\item{resolution}{Grid cell size for rasterization (default: 100.0, in same units as coordinates)}
 
 \item{...}{Passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 
@@ -67,10 +64,7 @@ Creates a \code{neighbors_t} table and validates that it matches the schema.
 }}
 \section{Functions}{
 \itemize{
-\item \code{create_neighbors_t()}: Compute neighboring coordinates within specified distances. In
-order to be computationally feasible, the coordinates' IDs are rasterized before
-their actual Euclidean distance is calculated. If coordinates are so close that they
-get rasterized to the same cell, the first one is used and a warning is emitted. If
-this happens, try again using a lower resolution.
+\item \code{create_neighbors_t()}: Compute neighboring coordinates within specified distances.
+This uses a spatial hash map for efficiency.
 
 }}

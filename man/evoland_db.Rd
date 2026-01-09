@@ -107,8 +107,9 @@ Additional methods and active bindings are added to this class in separate files
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_neighbors(
   max_distance = 1000,
   distance_breaks = c(0, 100, 500, 1000),
-  resolution = 100,
-  overwrite = FALSE
+  overwrite = FALSE,
+  quiet = FALSE,
+  chunksize = 1e+08
 )}\if{html}{\out{</div>}}
 }
 
@@ -146,13 +147,16 @@ Additional methods and active bindings are added to this class in separate files
 \subsection{Method \code{new()}}{
 Initialize a new evoland_db object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, update_reporting = TRUE, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{path}}{Character string. Path to the data folder.}
+
+\item{\code{update_reporting}}{Logical. Whether to update the reporting table upon initialization.
+Defaults to TRUE. Set to FALSE for read-only workers to avoid lock contention.}
 
 \item{\code{...}}{passed on to \code{set_report}}
 }
@@ -274,6 +278,7 @@ Add a predictor to the database
   sample_pct = 70,
   seed = NULL,
   na_value = NA,
+  cores = 1L,
   ...
 )}\if{html}{\out{</div>}}
 }
@@ -289,7 +294,8 @@ Add a predictor to the database
   gof_criterion,
   maximize = TRUE,
   na_value = NA,
-  envir = parent.frame()
+  envir = parent.frame(),
+  cores = 1L
 )}\if{html}{\out{</div>}}
 }
 
@@ -311,6 +317,7 @@ Add a predictor to the database
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_pruned_trans_preds_t(
   filter_fun = covariance_filter,
   na_value = NA,
+  cores = 1L,
   ...
 )}\if{html}{\out{</div>}}
 }

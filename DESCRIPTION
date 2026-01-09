@@ -41,6 +41,7 @@ Collate:
     'parquet_db.R'
     'evoland_db.R'
     'alloc_params_t.R'
+    'util_parallel.R'
     'trans_models_t.R'
     'alloc_dinamica.R'
     'coords_t.R'

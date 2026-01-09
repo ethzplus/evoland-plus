@@ -10,12 +10,11 @@ These methods compute neighbor relationships and generate neighbor-based predict
 \section{Methods Added}{
 
 \itemize{
-\item \code{create_neighbors_t(max_distance, distance_breaks, resolution, overwrite)} -
+\item \code{set_neighbors(max_distance, distance_breaks, overwrite)} -
 Computes neighbor relationships between coordinates.
 \itemize{
 \item \code{max_distance}: Maximum distance for neighbors (default: 1000)
 \item \code{distance_breaks}: Vector of breaks for distance classes (default: c(0, 100, 500, 1000))
-\item \code{resolution}: Grid resolution for distance calculations (default: 100)
 \item \code{overwrite}: Whether to overwrite existing neighbors_t (default: FALSE)
 }
 \item \code{generate_neighbor_predictors()} - Generates predictor variables based on neighbor

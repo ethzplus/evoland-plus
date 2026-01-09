@@ -156,7 +156,7 @@ expect_message(
   trans_preds_result <- db_tps$get_pruned_trans_preds_t(
     corcut = 0.2
   ),
-  "Processing transition 1/2"
+  "Processing 2 transitions"
 )
 
 expect_inherits(trans_preds_result, "trans_preds_t")
@@ -177,7 +177,7 @@ expect_message(
     ),
     "Split select weights used"
   ),
-  r"{Selected [0-9] predictor\(s\) for transition}"
+  "Processing 2 transitions"
 )
 
 # Test error handling - empty database

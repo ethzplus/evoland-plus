@@ -206,7 +206,7 @@ expect_message(
     na_value = 0,
     other_param = "nonce"
   ),
-  "Fitting partial model"
+  "Fitting partial models for"
 )
 expect_equal(
   partial_models$fit_call[1],
@@ -241,7 +241,7 @@ expect_message(
     maximize = TRUE,
     na_value = 0
   ),
-  "Full model fitted"
+  "Fitting full models for"
 )
 
 # test DB round trip
@@ -264,7 +264,7 @@ expect_message(
     maximize = FALSE,
     na_value = 0
   ),
-  "selected by mse="
+  "Fitting full models for"
 )
 
 # Test error handling - missing fit_fun parameter

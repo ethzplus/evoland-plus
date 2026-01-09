@@ -5,6 +5,7 @@
 #' structure for storing fitted models.
 #'
 #' @name trans_models_t
+#' @include util_parallel.R
 #'
 #' @param x A list or data.frame coercible to a data.table
 #'
@@ -36,6 +37,195 @@ as_trans_models_t <- function(x) {
   )
 }
 
+# Worker function for partial model fitting
+# Not exported; used internally by fit_partial_models
+fit_partial_model_worker <- function(item, db, fit_fun, gof_fun, na_value, fit_fun_name, ...) {
+  id_trans <- item$id_trans
+  id_preds <- item$id_preds
+
+  if (length(id_preds) == 0L) {
+    warning(glue::glue(
+      "No predictors for transition {id_trans}, skipping"
+    ))
+    return(NULL)
+  }
+
+  tryCatch(
+    {
+      # Fetch ALL data into memory
+      trans_pred_data_full <- db$trans_pred_data_v(
+        id_trans,
+        id_preds,
+        na_value
+      )
+
+      if (nrow(trans_pred_data_full) == 0L) {
+        warning(glue::glue(
+          "No data for transition {id_trans}, skipping"
+        ))
+        return(NULL)
+      }
+
+      pred_cols <- grep("^id_pred_", names(trans_pred_data_full), value = TRUE)
+      if (length(pred_cols) == 0L) {
+        warning(glue::glue(
+          "No predictor columns for transition {id_trans}, skipping"
+        ))
+        return(NULL)
+      }
+
+      # Stratified sampling
+      # Split by result (TRUE/FALSE)
+      idx_true <- which(trans_pred_data_full$result)
+      idx_false <- which(!trans_pred_data_full$result)
+
+      # Sample from each group
+      sample_pct <- item$sample_pct
+      n_train_true <- ceiling(length(idx_true) * sample_pct / 100)
+      n_train_false <- ceiling(length(idx_false) * sample_pct / 100)
+
+      train_idx_true <- sample(idx_true, n_train_true)
+      train_idx_false <- sample(idx_false, n_train_false)
+      train_idx <- c(train_idx_true, train_idx_false)
+
+      # Test set is everything not in train
+      test_idx <- setdiff(seq_len(nrow(trans_pred_data_full)), train_idx)
+
+      train_data <- trans_pred_data_full[train_idx, ]
+      test_data <- trans_pred_data_full[test_idx, ]
+
+      # Fit model on training data and capture the actual call
+      model <- fit_fun(
+        data = train_data,
+        result_col = "result",
+        ...
+      )
+
+      # Capture the fit function call for reproducibility
+      # Store the call as a deparsed string (serializable)
+      fit_call_obj <- call(
+        fit_fun_name,
+        data = quote(data), # Placeholder to be replaced
+        result_col = "result"
+      )
+      # Add ... arguments to the call
+      dots <- list(...)
+      if (length(dots) > 0) {
+        for (arg_name in names(dots)) {
+          fit_call_obj[[arg_name]] <- dots[[arg_name]]
+        }
+      }
+      # Deparse to character string for serialization
+      fit_call <- deparse(fit_call_obj, width.cutoff = 500L)
+      fit_call <- paste(fit_call, collapse = " ")
+
+      # Evaluate on test data
+      goodness_of_fit <- gof_fun(
+        model = model,
+        test_data = test_data,
+        result_col = "result"
+      )
+
+      # Extract model family
+      model_family <- if (!is.null(attr(model, "family"))) {
+        as.character(attr(model, "family"))
+      } else if (inherits(model, "glm")) {
+        paste0("glm_", model$family$family)
+      } else {
+        class(model)[1]
+      }
+
+      # Extract model params (store metadata only, no functions)
+      model_params <- list(
+        n_predictors = length(pred_cols),
+        n_train = nrow(train_data),
+        sample_pct = sample_pct,
+        ...
+      )
+
+      # Serialize partial model
+      model_obj_part <- list(qs2::qs_serialize(model))
+
+      # Create result row
+      data.table::data.table(
+        id_trans = as.integer(id_trans),
+        model_family = model_family,
+        model_params = list(model_params),
+        goodness_of_fit = list(goodness_of_fit),
+        fit_call = fit_call,
+        model_obj_part = model_obj_part,
+        model_obj_full = list(NULL)
+      )
+    },
+    error = function(e) {
+      warning(glue::glue(
+        "Error fitting model for transition {id_trans}: {e$message}"
+      ))
+      return(NULL)
+    }
+  )
+}
+
+# Worker function for full model fitting
+# Not exported; used internally by fit_full_models
+fit_full_model_worker <- function(item, db, na_value, envir, ...) {
+  id_trans <- item$id_trans
+
+  tryCatch(
+    {
+      # Fetch full data
+      trans_pred_data_full <- db$trans_pred_data_v(id_trans, item$id_preds, na_value)
+
+      if (nrow(trans_pred_data_full) == 0L) {
+        warning(glue::glue(
+          "No data for transition {id_trans}, skipping"
+        ))
+        return(NULL)
+      }
+
+      # Retrieve the fit call from best partial model (as character string)
+      fit_call_str <- item$fit_call_str
+
+      # Check that fit_call exists
+      if (is.na(fit_call_str) || fit_call_str == "") {
+        stop(glue::glue(
+          "fit_call not found for transition {id_trans}"
+        ))
+      }
+
+      # Parse the character string back to a call object
+      fit_call <- str2lang(fit_call_str)
+
+      # Replace the data argument with actual data (not a symbol)
+      fit_call$data <- trans_pred_data_full
+
+      # Evaluate the call in the provided environment
+      # This requires the fit function to be available in that environment
+      model_full <- eval(fit_call, envir = envir)
+
+      # Serialize full model
+      model_obj_full <- list(qs2::qs_serialize(model_full))
+
+      # Create result row - copy from partial model but update model_obj_full
+      data.table::data.table(
+        id_trans = as.integer(id_trans),
+        model_family = item$model_family,
+        model_params = list(item$model_params),
+        goodness_of_fit = list(item$goodness_of_fit),
+        fit_call = item$fit_call_str,
+        model_obj_part = list(item$model_obj_part),
+        model_obj_full = model_obj_full
+      )
+    },
+    error = function(e) {
+      warning(glue::glue(
+        "Error fitting full model for transition {id_trans}: {e$message}"
+      ))
+      return(NULL)
+    }
+  )
+}
+
 #' @describeIn trans_models_t Fit partial models for each viable transition using stratified
 #' sampling. Models are trained on a subsample and evaluated on held-out data.
 #'
@@ -60,6 +250,7 @@ evoland_db$set(
     sample_pct = 70, # TODO change this to fraction
     seed = NULL,
     na_value = NA,
+    cores = 1L,
     ...
   ) {
     viable_trans <- self$trans_meta_t[is_viable == TRUE]
@@ -78,153 +269,37 @@ evoland_db$set(
       set.seed(seed)
     }
 
-    results_list <- list()
+    # Capture fit function name for call construction
+    fit_fun_name <- deparse(substitute(fit_fun))
 
-    # Iterate over transitions
-    for (i in seq_len(nrow(viable_trans))) {
-      id_trans <- viable_trans$id_trans[i]
-      id_lulc_ant <- viable_trans$id_lulc_anterior[i]
-      id_lulc_post <- viable_trans$id_lulc_posterior[i]
-      id_preds <- trans_preds$id_pred[trans_preds$id_trans == id_trans]
-
-      message(glue::glue(
-        "Fitting partial model for transition {i}/{nrow(viable_trans)}: ",
-        "id_trans={id_trans} ({id_lulc_ant} -> {id_lulc_post})"
-      ))
-
-      if (length(id_preds) == 0L) {
-        warning(glue::glue(
-          "No predictors for transition {id_trans}, skipping"
-        ))
-        next
-      }
-
-      tryCatch(
-        {
-          # Fetch ALL data into memory
-          trans_pred_data_full <- self$trans_pred_data_v(
-            id_trans,
-            id_preds,
-            na_value
-          )
-
-          if (nrow(trans_pred_data_full) == 0L) {
-            warning(glue::glue(
-              "No data for transition {id_trans}, skipping"
-            ))
-            next
-          }
-
-          pred_cols <- grep("^id_pred_", names(trans_pred_data_full), value = TRUE)
-          if (length(pred_cols) == 0L) {
-            warning(glue::glue(
-              "No predictor columns for transition {id_trans}, skipping"
-            ))
-            next
-          }
-
-          # Stratified sampling
-          # Split by result (TRUE/FALSE)
-          idx_true <- which(trans_pred_data_full$result)
-          idx_false <- which(!trans_pred_data_full$result)
-
-          # Sample from each group
-          n_train_true <- ceiling(length(idx_true) * sample_pct / 100)
-          n_train_false <- ceiling(length(idx_false) * sample_pct / 100)
-
-          train_idx_true <- sample(idx_true, n_train_true)
-          train_idx_false <- sample(idx_false, n_train_false)
-          train_idx <- c(train_idx_true, train_idx_false)
-
-          # Test set is everything not in train
-          test_idx <- setdiff(seq_len(nrow(trans_pred_data_full)), train_idx)
-
-          train_data <- trans_pred_data_full[train_idx, ]
-          test_data <- trans_pred_data_full[test_idx, ]
-
-          message(glue::glue(
-            "  Training on {nrow(train_data)} observations ",
-            "({n_train_true} TRUE, {n_train_false} FALSE)"
-          ))
-          message(glue::glue(
-            "  Testing on {nrow(test_data)} observations"
-          ))
-
-          # Fit model on training data and capture the actual call
-          model <- fit_fun(
-            data = train_data,
-            result_col = "result",
-            ...
-          )
-
-          # Capture the fit function call for reproducibility
-          # Store the call as a deparsed string (serializable)
-          fit_call_obj <- call(
-            deparse(substitute(fit_fun)),
-            data = quote(data), # Placeholder to be replaced
-            result_col = "result"
-          )
-          # Add ... arguments to the call
-          dots <- list(...)
-          if (length(dots) > 0) {
-            for (arg_name in names(dots)) {
-              fit_call_obj[[arg_name]] <- dots[[arg_name]]
-            }
-          }
-          # Deparse to character string for serialization
-          fit_call <- deparse(fit_call_obj, width.cutoff = 500L)
-          fit_call <- paste(fit_call, collapse = " ")
-
-          # Evaluate on test data
-          goodness_of_fit <- gof_fun(
-            model = model,
-            test_data = test_data,
-            result_col = "result"
-          )
-
-          # Extract model family
-          model_family <- if (!is.null(attr(model, "family"))) {
-            as.character(attr(model, "family"))
-          } else if (inherits(model, "glm")) {
-            paste0("glm_", model$family$family)
-          } else {
-            class(model)[1]
-          }
-
-          # Extract model params (store metadata only, no functions)
-          model_params <- list(
-            n_predictors = length(pred_cols),
-            n_train = nrow(train_data),
-            sample_pct = sample_pct,
-            ...
-          )
-
-          # Serialize partial model
-          model_obj_part <- list(qs2::qs_serialize(model))
-
-          message(glue::glue(
-            "  Model fitted successfully. GOF: {paste(names(goodness_of_fit), ",
-            "'=', round(unlist(goodness_of_fit), 3), collapse = ', ')}"
-          ))
-
-          # Create result row
-          results_list[[length(results_list) + 1]] <- data.table::data.table(
-            id_trans = as.integer(id_trans),
-            model_family = model_family,
-            model_params = list(model_params),
-            goodness_of_fit = list(goodness_of_fit),
-            fit_call = fit_call,
-            model_obj_part = model_obj_part,
-            model_obj_full = list(NULL)
-          )
-        },
-        error = function(e) {
-          warning(glue::glue(
-            "Error fitting model for transition {id_trans}: {e$message}"
-          ))
-        }
+    items <- lapply(seq_len(nrow(viable_trans)), function(i) {
+      list(
+        id_trans = viable_trans$id_trans[i],
+        id_lulc_ant = viable_trans$id_lulc_anterior[i],
+        id_lulc_post = viable_trans$id_lulc_posterior[i],
+        id_preds = trans_preds$id_pred[trans_preds$id_trans == viable_trans$id_trans[i]],
+        sample_pct = sample_pct
       )
-    }
+    })
+
+    message(glue::glue(
+      "Fitting partial models for {length(items)} transitions..."
+    ))
+
+    results_list <- run_parallel_task(
+      items = items,
+      worker_fun = fit_partial_model_worker,
+      db = self,
+      cores = cores,
+      fit_fun = fit_fun,
+      gof_fun = gof_fun,
+      na_value = na_value,
+      fit_fun_name = fit_fun_name,
+      ...
+    )
+
+    # Filter out NULLs
+    results_list <- Filter(Negate(is.null), results_list)
 
     # Combine all results
     if (length(results_list) == 0L) {
@@ -254,7 +329,8 @@ evoland_db$set(
     gof_criterion,
     maximize = TRUE,
     na_value = NA,
-    envir = parent.frame()
+    envir = parent.frame(),
+    cores = 1L
   ) {
     stopifnot(
       "partial_models must be a trans_models_t" = inherits(partial_models, "trans_models_t"),
@@ -289,79 +365,35 @@ evoland_db$set(
       best_models <- partial_models_dt[, .SD[which.min(gof_value)], by = id_trans]
     }
 
-    results_list <- list()
-
-    # Iterate over best models
-    for (i in seq_len(nrow(best_models))) {
-      id_trans <- best_models$id_trans[i]
-      id_preds <- trans_preds$id_pred[trans_preds$id_trans == id_trans]
-
-      message(glue::glue(
-        "Fitting full model for transition {i}/{nrow(best_models)}: ",
-        "id_trans={id_trans} (selected by {gof_criterion}={round(best_models$gof_value[i], 3)})"
-      ))
-
-      tryCatch(
-        {
-          # Fetch full data
-          trans_pred_data_full <- self$trans_pred_data_v(id_trans, id_preds, na_value)
-
-          if (nrow(trans_pred_data_full) == 0L) {
-            warning(glue::glue(
-              "No data for transition {id_trans}, skipping"
-            ))
-            next
-          }
-
-          message(glue::glue(
-            "  Fitting on {nrow(trans_pred_data_full)} observations"
-          ))
-
-          # Retrieve the fit call from best partial model (as character string)
-          fit_call_str <- best_models$fit_call[i]
-
-          # Check that fit_call exists
-          if (is.na(fit_call_str) || fit_call_str == "") {
-            stop(glue::glue(
-              "fit_call not found for transition {id_trans}"
-            ))
-          }
-
-          # Parse the character string back to a call object
-          fit_call <- str2lang(fit_call_str)
-
-          # Replace the data argument with actual data (not a symbol)
-          fit_call$data <- trans_pred_data_full
-
-          # Evaluate the call in the provided environment
-          # This requires the fit function to be available in that environment
-          model_full <- eval(fit_call, envir = envir)
-
-          # Serialize full model
-          model_obj_full <- list(qs2::qs_serialize(model_full))
-
-          message(glue::glue(
-            "  Full model fitted and serialized successfully"
-          ))
-
-          # Create result row - copy from partial model but update model_obj_full
-          results_list[[length(results_list) + 1]] <- data.table::data.table(
-            id_trans = as.integer(id_trans),
-            model_family = best_models$model_family[i],
-            model_params = list(best_models$model_params[[i]]),
-            goodness_of_fit = list(best_models$goodness_of_fit[[i]]),
-            fit_call = best_models$fit_call[i],
-            model_obj_part = list(best_models$model_obj_part[[i]]),
-            model_obj_full = model_obj_full
-          )
-        },
-        error = function(e) {
-          warning(glue::glue(
-            "Error fitting full model for transition {id_trans}: {e$message}"
-          ))
-        }
+    # Prepare items for parallel processing
+    items <- lapply(seq_len(nrow(best_models)), function(i) {
+      list(
+        id_trans = best_models$id_trans[i],
+        gof_value = best_models$gof_value[i],
+        fit_call_str = best_models$fit_call[i],
+        model_family = best_models$model_family[i],
+        model_params = best_models$model_params[[i]],
+        goodness_of_fit = best_models$goodness_of_fit[[i]],
+        model_obj_part = best_models$model_obj_part[[i]],
+        id_preds = trans_preds$id_pred[trans_preds$id_trans == best_models$id_trans[i]]
       )
-    }
+    })
+
+    message(glue::glue(
+      "Fitting full models for {length(items)} transitions..."
+    ))
+
+    results_list <- run_parallel_task(
+      items = items,
+      worker_fun = fit_full_model_worker,
+      db = self,
+      cores = cores,
+      na_value = na_value,
+      envir = envir
+    )
+
+    # Filter out NULLs
+    results_list <- Filter(Negate(is.null), results_list)
 
     # Combine all results
     if (length(results_list) == 0L) {

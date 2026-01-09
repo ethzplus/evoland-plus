@@ -6,6 +6,7 @@
 #'
 #' @name trans_preds_t
 #' @include evoland_db.R
+#' @include util_parallel.R
 #'
 #' @param db An [evoland_db] instance with populated trans_meta_t and pred_meta_t tables
 #'
@@ -50,12 +51,79 @@ evoland_db$set(
   }
 )
 
+# Worker function for parallel transition pruning
+# Not exported; used internally by get_pruned_trans_preds_t
+prune_trans_worker <- function(item, db, na_value, filter_fun, ...) {
+  id_trans <- item$id_trans
+  id_preds <- item$id_preds
+
+  if (length(id_preds) == 0L) {
+    return(NULL)
+  }
+
+  # Get wide transition-predictor data
+  tryCatch(
+    {
+      trans_pred_data <- db$trans_pred_data_v(id_trans, id_preds, na_value)
+
+      # Check if we have any data
+      if (nrow(trans_pred_data) == 0L) {
+        warning(glue::glue(
+          "No data for transition {id_trans}, skipping"
+        ))
+        return(NULL)
+      }
+
+      # Check if we have any predictor columns
+      pred_cols <- grep("^id_pred_", names(trans_pred_data), value = TRUE)
+      if (length(pred_cols) == 0L) {
+        warning(glue::glue(
+          "No predictor columns for transition {id_trans}, skipping"
+        ))
+        return(NULL)
+      }
+
+      # Return ranked + filtered predictor names as id_pred_{n}
+      filtered_preds <- filter_fun(
+        # drop vars that are irrelevant to the filtering
+        data = trans_pred_data[, .SD, .SDcols = !c("id_coord", "id_period")],
+        result_col = "result",
+        ...
+      )
+
+      if (length(filtered_preds) > 0L) {
+        # Parse id_pred values from column names (e.g., "id_pred_1" -> 1)
+        selected_ids <- as.integer(sub("^id_pred_", "", filtered_preds))
+
+        # Create result rows
+        return(data.table::data.table(
+          id_pred = selected_ids,
+          id_trans = id_trans
+        ))
+      } else {
+        return(NULL)
+      }
+    },
+    error = function(e) {
+      # do not prune on error
+      warning(glue::glue(
+        "Error processing transition {id_trans}: {e$message}"
+      ))
+      return(data.table::data.table(
+        id_pred = id_preds,
+        id_trans = id_trans
+      ))
+    }
+  )
+}
+
 #' describeIn trans_preds_t Create a transition-predictor relation, i.e. records the
 #' result of a predictor selection step. Runs covariance filtering for each viable
 #' transition and stores the selected predictors.
 #' param corcut Numeric threshold (0-1) for correlation filtering passed to [covariance_filter()]
 #' param filter_fun Defaults to [covariance_filter()], but can be any function that returns
 #' param na_value Passed to db$trans_pred_data_v - if not NA, replace all NA predictor values with this value
+#' param cores Integer, number of cores to use for parallel processing. Defaults to 1.
 #' param ... Additional arguments passed to rank_fun via [covariance_filter()]
 evoland_db$set(
   "public",
@@ -63,6 +131,7 @@ evoland_db$set(
   function(
     filter_fun = covariance_filter,
     na_value = NA,
+    cores = 1L,
     ...
   ) {
     if (self$row_count("trans_preds_t") == 0) {
@@ -71,85 +140,28 @@ evoland_db$set(
     trans_preds_pre <- self$trans_preds_t
     unique_trans <- unique(trans_preds_pre$id_trans)
 
-    results_list <- list()
-
-    i <- 1L
-    # Iterate over transitions (anterior/posterior pairs)
-    for (id_trans in unique_trans) {
-      id_preds <- trans_preds_pre$id_pred[
-        trans_preds_pre$id_trans == id_trans
-      ]
-
-      message(glue::glue(
-        "Processing transition {i}/{length(unique_trans)}: id_trans={id_trans}"
-      ))
-      i <- i + 1L
-
-      if (length(id_preds) == 0L) {
-        next
-      }
-
-      # Get wide transition-predictor data
-      tryCatch(
-        {
-          trans_pred_data <- self$trans_pred_data_v(id_trans, id_preds, na_value)
-
-          # Check if we have any data
-          if (nrow(trans_pred_data) == 0L) {
-            warning(glue::glue(
-              "No data for transition {id_trans}, skipping"
-            ))
-            next
-          }
-
-          # Check if we have any predictor columns
-          pred_cols <- grep("^id_pred_", names(trans_pred_data), value = TRUE)
-          if (length(pred_cols) == 0L) {
-            warning(glue::glue(
-              "No predictor columns for transition {id_trans}, skipping"
-            ))
-            next
-          }
-
-          # Return ranked + filtered predictor names as id_pred_{n}
-          filtered_preds <- filter_fun(
-            # drop vars that are irrelevant to the filtering
-            data = trans_pred_data[, .SD, .SDcols = !c("id_coord", "id_period")],
-            result_col = "result",
-            ...
-          )
-
-          if (length(filtered_preds) > 0L) {
-            # Parse id_pred values from column names (e.g., "id_pred_1" -> 1)
-            selected_ids <- as.integer(sub("^id_pred_", "", filtered_preds))
-
-            # Create result rows
-            results_list[[id_trans]] <- data.table::data.table(
-              id_pred = selected_ids,
-              id_trans = id_trans
-            )
-
-            message(glue::glue(
-              "  Selected {length(selected_ids)} predictor(s) for transition {id_trans}"
-            ))
-          } else {
-            message(glue::glue(
-              "  No predictors selected for transition {id_trans}"
-            ))
-          }
-        },
-        error = function(e) {
-          # do not prune on error
-          results_list[[id_trans]] <- data.table::data.table(
-            id_pred = id_preds,
-            id_trans = id_trans
-          )
-          warning(glue::glue(
-            "Error processing transition {id_trans}: {e$message}"
-          ))
-        }
+    # Prepare items for parallel processing
+    items <- lapply(unique_trans, function(tr) {
+      list(
+        id_trans = tr,
+        id_preds = trans_preds_pre$id_pred[trans_preds_pre$id_trans == tr]
       )
-    }
+    })
+
+    message(glue::glue("Processing {length(unique_trans)} transitions..."))
+
+    results_list <- run_parallel_task(
+      items = items,
+      worker_fun = prune_trans_worker,
+      db = self,
+      cores = cores,
+      na_value = na_value,
+      filter_fun = filter_fun,
+      ...
+    )
+
+    # Filter out NULLs
+    results_list <- Filter(Negate(is.null), results_list)
 
     # Combine all results
     if (length(results_list) == 0L) {

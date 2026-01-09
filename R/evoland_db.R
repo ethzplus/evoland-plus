@@ -27,11 +27,14 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Initialize a new evoland_db object
     #' @param path Character string. Path to the data folder.
+    #' @param update_reporting Logical. Whether to update the reporting table upon initialization.
+    #' Defaults to TRUE. Set to FALSE for read-only workers to avoid lock contention.
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
     initialize = function(
       path,
+      update_reporting = TRUE,
       ...
     ) {
       # Initialize parent class with spatial extension
@@ -41,7 +44,9 @@ evoland_db <- R6::R6Class(
       )
 
       # Set evoland-specific reporting metadata
-      self$set_report(...)
+      if (update_reporting) {
+        self$set_report(...)
+      }
 
       invisible(self)
     },
