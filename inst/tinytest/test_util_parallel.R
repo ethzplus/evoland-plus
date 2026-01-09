@@ -29,7 +29,7 @@ if (requireNamespace("evoland", quietly = TRUE)) {
     },
     error = function(e) {
       message(
-        "Skipping parallel tests: workers could not initialize (package likely not installed)"
+        "\n  Skipping parallel tests: workers could not initialize (package likely not installed)"
       )
     }
   )

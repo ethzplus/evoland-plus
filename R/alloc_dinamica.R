@@ -118,22 +118,27 @@ alloc_dinamica_setup_inputs <- function(
   trans_preds <- self$trans_preds_t
 
   for (i in seq_len(nrow(viable_trans))) {
-    id_trans <- viable_trans$id_trans[i]
+    id_trans_sel <- viable_trans$id_trans[i]
     id_lulc_ant <- viable_trans$id_lulc_anterior[i]
     id_lulc_post <- viable_trans$id_lulc_posterior[i]
 
     # Get model for this transition
-    model_row <- trans_models[id_trans == !!id_trans]
+    model_row <- trans_models[id_trans == id_trans_sel]
 
     if (nrow(model_row) == 0L) {
       stop(glue::glue("No model found for id_trans={id_trans}"))
+    } else if (nrow(model_row) > 1) {
+      stop(glue::glue(
+        "Multiple models found for id_trans={id_trans},",
+        "edit trans_models_t to have only one per transition"
+      ))
     }
 
     # Deserialize full model
     model_obj <- qs2::qs_deserialize(model_row$model_obj_full[[1]])
 
     # Get predictor IDs for this transition
-    id_preds <- trans_preds$id_pred[trans_preds$id_trans == id_trans]
+    id_preds <- trans_preds$id_pred[trans_preds$id_trans == id_trans_sel]
 
     if (length(id_preds) == 0L) {
       warning(glue::glue("No predictors for id_trans={id_trans}, skipping probability map"))
@@ -142,7 +147,7 @@ alloc_dinamica_setup_inputs <- function(
 
     # Get predictor data for posterior period
     pred_data <- self$trans_pred_data_v(
-      id_trans = id_trans,
+      id_trans = id_trans_sel,
       id_pred = id_preds,
       na_value = 0 # Replace NAs with 0 for prediction
     )
