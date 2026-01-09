@@ -14,6 +14,11 @@
       "source": "${localEnv:EVOLAND_CACHEDIR}",
       "target": "/mnt/evoland-cache",
       "type": "bind"
+    },
+    {
+      "source": "../evoland-experiments",
+      "target": "/workspaces/evoland-experiments",
+      "type": "bind"
     }
   ],
   "containerEnv": {
@@ -27,12 +32,15 @@
         "shellcheck.executablePath": "/usr/bin/shellcheck",
         "r.plot.useHttpgd": true,
         "r.bracketedPaste": true,
-        "rewrap.wrappingColumn": 88
+        "rewrap.wrappingColumn": 100
       },
       "extensions": [
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-vscode.cpptools-extension-pack",
+        "Posit.air-vscode",
         "RDebugger.r-debugger",
+        "REditorSupport.r-syntax",
         "REditorSupport.r",
-        "quarto.quarto",
         "timonwong.shellcheck"
       ]
     }
