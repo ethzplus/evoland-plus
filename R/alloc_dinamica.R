@@ -126,10 +126,10 @@ alloc_dinamica_setup_inputs <- function(
     model_row <- trans_models[id_trans == id_trans_sel]
 
     if (nrow(model_row) == 0L) {
-      stop(glue::glue("No model found for id_trans={id_trans}"))
+      stop(glue::glue("No model found for id_trans={id_trans_sel}"))
     } else if (nrow(model_row) > 1) {
       stop(glue::glue(
-        "Multiple models found for id_trans={id_trans},",
+        "Multiple models found for id_trans={id_trans_sel}, ",
         "edit trans_models_t to have only one per transition"
       ))
     }
@@ -141,7 +141,7 @@ alloc_dinamica_setup_inputs <- function(
     id_preds <- trans_preds$id_pred[trans_preds$id_trans == id_trans_sel]
 
     if (length(id_preds) == 0L) {
-      warning(glue::glue("No predictors for id_trans={id_trans}, skipping probability map"))
+      warning(glue::glue("No predictors for id_trans={id_trans_sel}, skipping probability map"))
       next
     }
 
@@ -157,7 +157,7 @@ alloc_dinamica_setup_inputs <- function(
 
     if (nrow(pred_data_post) == 0L) {
       warning(glue::glue(
-        "No predictor data for id_trans={id_trans}, id_period={id_period_post}"
+        "No predictor data for id_trans={id_trans_sel}, id_period={id_period_post}"
       ))
       next
     }
@@ -215,7 +215,7 @@ alloc_dinamica_setup_inputs <- function(
       },
       error = function(e) {
         warning(glue::glue(
-          "Failed to generate probability map for id_trans={id_trans}: {e$message}"
+          "Failed to generate probability map for id_trans={id_trans_sel}: {e$message}"
         ))
       }
     )
