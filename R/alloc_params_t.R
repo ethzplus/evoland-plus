@@ -105,14 +105,12 @@ compute_alloc_params_single <- function(
     ))
   }
 
-  # Identify patches in the posterior period for the posterior LULC class
+  # Identify patches in the anterior period for the posterior LULC class
   # These are the "old" patches that transitions might expand from
   post_class_patches <- lulc_ant == id_lulc_post
   post_class_patches[post_class_patches == 0] <- NA
 
-  # Use focal operation to identify expansion vs new patches
-  # For each transition cell, check if any of its 8 neighbors were already the posterior class
-  # focal() with sum will give us the count of neighboring cells with the posterior class
+  # For each cell that was not yet id_lulc_post, count the neighbors that were already id_lulc_post
   neighbor_count <- terra::focal(
     post_class_patches,
     w = matrix(1, nrow = 3, ncol = 3), # 3x3 window (8-neighborhood)
@@ -124,52 +122,49 @@ compute_alloc_params_single <- function(
   # Classify transition cells as expanders or patchers
   # Expander: has at least 1 neighbor that was already the posterior class
   # Patcher: has 0 neighbors that were already the posterior class
-  expansion_or_new <- trans_cells
   is_expander <- (trans_cells == 1) & (neighbor_count >= 1)
   is_patcher <- (trans_cells == 1) & (neighbor_count == 0)
 
-  terra::values(expansion_or_new)[terra::values(is_expander)] <- 10
-  terra::values(expansion_or_new)[terra::values(is_patcher)] <- 5
-
   # Calculate percentages
-  n_expanders_result <- terra::global(is_expander, "sum", na.rm = TRUE)
-  n_expanders <- as.numeric(n_expanders_result[1, 1])
-  n_patchers_result <- terra::global(is_patcher, "sum", na.rm = TRUE)
-  n_patchers <- as.numeric(n_patchers_result[1, 1])
+  n_expanders <-
+    terra::global(is_expander, "sum", na.rm = TRUE)[1, 1] |>
+    as.numeric()
+  n_patchers <-
+    terra::global(is_patcher, "sum", na.rm = TRUE)[1, 1] |>
+    as.numeric()
 
   frac_expander <- n_expanders / n_trans_cells
   frac_patcher <- n_patchers / n_trans_cells
 
   # Calculate patch statistics using internal cpp function
-  # Get cell resolution (assuming square cells)
-  cellsize <- terra::res(trans_cells)[1]
+  # assuming square cells
+  trans_patch_stats <-
+    terra::as.matrix(trans_cells, wide = TRUE) |>
+    as.integer() |>
+    calculate_class_stats_cpp(cellsize = terra::res(trans_cells)[1])
 
-  # Convert to matrix for cpp
-  trans_cells_mat <- terra::as.matrix(trans_cells, wide = TRUE)
-  storage.mode(trans_cells_mat) <- "integer"
-
-  # Calculate class statistics
-  cl.data <- calculate_class_stats_cpp(trans_cells_mat, cellsize = cellsize)
-
-  # Extract metrics
-  # Mean patch area (convert from m² to hectares)
-  mpa <- if (!is.null(cl.data) && nrow(cl.data) > 0) {
-    cl.data$mean.patch.area[1] / 10000
+  # Mean patch area (convert from m^2 to hectares)
+  mpa <- if (!is.null(trans_patch_stats) && nrow(trans_patch_stats) > 0) {
+    trans_patch_stats$mean.patch.area[1] / 10000
   } else {
     0
   }
 
-  # Standard deviation of patch area (convert from m² to hectares)
-  sda <- if (!is.null(cl.data) && nrow(cl.data) > 0) {
-    cl.data$sd.patch.area[1] / 10000
+  # Standard deviation of patch area (convert from m^2 to hectares)
+  sda <- if (!is.null(trans_patch_stats) && nrow(trans_patch_stats) > 0) {
+    trans_patch_stats$sd.patch.area[1] / 10000
   } else {
     0
   }
 
   # Patch isometry using aggregation index
   # The original code divided by 70 to normalize
-  iso <- if (!is.null(cl.data) && nrow(cl.data) > 0 && !is.na(cl.data$aggregation.index[1])) {
-    cl.data$aggregation.index[1] / 70
+  iso <- if (
+    !is.null(trans_patch_stats) &&
+      nrow(trans_patch_stats) > 0 &&
+      !is.na(trans_patch_stats$aggregation.index[1])
+  ) {
+    trans_patch_stats$aggregation.index[1] / 70
   } else {
     0
   }
