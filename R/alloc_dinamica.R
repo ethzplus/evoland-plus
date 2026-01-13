@@ -146,14 +146,12 @@ alloc_dinamica_setup_inputs <- function(
     }
 
     # Get predictor data for posterior period
-    pred_data <- self$trans_pred_data_v(
+    pred_data_post <- self$trans_pred_data_v(
       id_trans = id_trans_sel,
       id_pred = id_preds,
+      id_period = id_period_post,
       na_value = 0 # Replace NAs with 0 for prediction
     )
-
-    # Filter to posterior period only
-    pred_data_post <- pred_data[id_period == id_period_post]
 
     if (nrow(pred_data_post) == 0L) {
       warning(glue::glue(

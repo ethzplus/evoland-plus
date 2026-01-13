@@ -54,9 +54,9 @@ fit_partial_model_worker <- function(item, db, fit_fun, gof_fun, na_value, fit_f
     {
       # Fetch ALL data into memory
       trans_pred_data_full <- db$trans_pred_data_v(
-        id_trans,
-        id_preds,
-        na_value
+        id_trans = id_trans,
+        id_pred = id_preds,
+        na_value = na_value
       )
 
       if (nrow(trans_pred_data_full) == 0L) {
@@ -174,7 +174,11 @@ fit_full_model_worker <- function(item, db, na_value, envir, ...) {
   tryCatch(
     {
       # Fetch full data
-      trans_pred_data_full <- db$trans_pred_data_v(id_trans, item$id_preds, na_value)
+      trans_pred_data_full <- db$trans_pred_data_v(
+        id_trans = id_trans,
+        id_pred = item$id_preds,
+        na_value = na_value
+      )
 
       if (nrow(trans_pred_data_full) == 0L) {
         warning(glue::glue(

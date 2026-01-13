@@ -64,7 +64,11 @@ prune_trans_worker <- function(item, db, na_value, filter_fun, ...) {
   # Get wide transition-predictor data
   tryCatch(
     {
-      trans_pred_data <- db$trans_pred_data_v(id_trans, id_preds, na_value)
+      trans_pred_data <- db$trans_pred_data_v(
+        id_trans = id_trans,
+        id_pred = id_preds,
+        na_value = na_value
+      )
 
       # Check if we have any data
       if (nrow(trans_pred_data) == 0L) {
