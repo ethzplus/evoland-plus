@@ -84,6 +84,9 @@ compute_alloc_params_single <- function(
   id_lulc_ant,
   id_lulc_post
 ) {
+  stopifnot(
+    "cells must be square" = terra::res(lulc_ant)[1] == terra::res(lulc_ant)[2]
+  )
   # Create binary raster of transition cells (anterior class -> posterior class)
   # 1 = cells that transitioned from id_lulc_ant to id_lulc_post
   # 0 or NA = all other cells
@@ -91,8 +94,9 @@ compute_alloc_params_single <- function(
   trans_cells[trans_cells == 0] <- NA
 
   # Count total transition cells
-  n_trans_cells_result <- terra::global(trans_cells, "sum", na.rm = TRUE)
-  n_trans_cells <- as.numeric(n_trans_cells_result[1, 1])
+  n_trans_cells <-
+    terra::global(trans_cells, "sum", na.rm = TRUE)[1, 1] |>
+    as.integer()
 
   if (is.na(n_trans_cells) || n_trans_cells == 0) {
     # No transitions occurred - return NULL or default values
@@ -106,9 +110,9 @@ compute_alloc_params_single <- function(
   }
 
   # Identify patches in the anterior period for the posterior LULC class
-  # These are the "old" patches that transitions might expand from
+  # Then identify transitioned cells that we want to know if they were expanded to as NA
   post_class_patches <- lulc_ant == id_lulc_post
-  post_class_patches[post_class_patches == 0] <- NA
+  post_class_patches[post_class_patches == 0 & trans_cells == 1] <- NA
 
   # For each cell that was not yet id_lulc_post, count the neighbors that were already id_lulc_post
   neighbor_count <- terra::focal(
@@ -124,6 +128,7 @@ compute_alloc_params_single <- function(
   # Patcher: has 0 neighbors that were already the posterior class
   is_expander <- (trans_cells == 1) & (neighbor_count >= 1)
   is_patcher <- (trans_cells == 1) & (neighbor_count == 0)
+  is_patcher[is_patcher == 0] <- NA # ignore expanders in calculate_class_stats_cpp
 
   # Calculate percentages
   n_expanders <-
@@ -136,43 +141,19 @@ compute_alloc_params_single <- function(
   frac_expander <- n_expanders / n_trans_cells
   frac_patcher <- n_patchers / n_trans_cells
 
-  # Calculate patch statistics using internal cpp function
-  # assuming square cells
+  # Assuming square cells: get properties/shape of new patches
   trans_patch_stats <-
-    terra::as.matrix(trans_cells, wide = TRUE) |>
-    as.integer() |>
-    calculate_class_stats_cpp(cellsize = terra::res(trans_cells)[1])
-
-  # Mean patch area (convert from m^2 to hectares)
-  mpa <- if (!is.null(trans_patch_stats) && nrow(trans_patch_stats) > 0) {
-    trans_patch_stats$mean.patch.area[1] / 10000
-  } else {
-    0
-  }
-
-  # Standard deviation of patch area (convert from m^2 to hectares)
-  sda <- if (!is.null(trans_patch_stats) && nrow(trans_patch_stats) > 0) {
-    trans_patch_stats$sd.patch.area[1] / 10000
-  } else {
-    0
-  }
-
-  # Patch isometry using aggregation index
-  # The original code divided by 70 to normalize
-  iso <- if (
-    !is.null(trans_patch_stats) &&
-      nrow(trans_patch_stats) > 0 &&
-      !is.na(trans_patch_stats$aggregation.index[1])
-  ) {
-    trans_patch_stats$aggregation.index[1] / 70
-  } else {
-    0
-  }
+    is_patcher |>
+    as.matrix(wide = TRUE) |>
+    # cellsize = 1 because we want the patch characteristics in cell edge units
+    calculate_class_stats_cpp(cellsize = 1)
 
   list(
-    mean_patch_size = mpa,
-    patch_size_variance = sda,
-    patch_isometry = iso,
+    # Patch parameters for now intended for the Dinamica patcher
+    # https://dinamicaego.com/dokuwiki/doku.php?id=patcher
+    mean_patch_size = trans_patch_stats$patch_area_mean[1],
+    patch_size_variance = trans_patch_stats$patch_area_variance[1],
+    patch_isometry = trans_patch_stats$patch_agg_index[1] / 50, # from [0, 100] to  [0, 2]
     frac_expander = frac_expander,
     frac_patcher = frac_patcher
   )
@@ -217,8 +198,7 @@ compute_alloc_params_single <- function(
 #' - `trans_meta_t` must have at least one viable transition
 #' - `periods_t` must have at least one observed period with `id_period > 1`
 #'
-#' @return Invisibly returns the computed `alloc_params_t` table. Side effect is
-#'   writing to the database's `alloc_params_t` table.
+#' @return Invisibly returns the computed `alloc_params_t` table.
 #'
 #' @examples
 #' \dontrun{

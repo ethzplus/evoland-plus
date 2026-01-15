@@ -178,7 +178,7 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
   // Using maps ensures we iterate in increasing order of class ID
   std::vector<int> out_class;
   std::vector<double> out_mean_area;
-  std::vector<double> out_sd_area;
+  std::vector<double> out_variance_area;
   std::vector<double> out_agg_index;
 
   for (auto const &[cls, areas] : class_patch_areas) {
@@ -196,10 +196,9 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
 
     double mean = sum / n;
     double variance = (n > 1) ? (sq_sum - (sum * sum) / n) / (n - 1) : NA_REAL;
-    double sd = (n > 1) ? std::sqrt(variance) : NA_REAL;
 
     out_mean_area.push_back(mean);
-    out_sd_area.push_back(sd);
+    out_variance_area.push_back(variance);
 
     // Aggregation Index
     double g = class_internal_edges[cls];
@@ -211,7 +210,7 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
   }
 
   return DataFrame::create(Named("class") = out_class,
-                           Named("mean.patch.area") = out_mean_area,
-                           Named("sd.patch.area") = out_sd_area,
-                           Named("aggregation.index") = out_agg_index);
+                           Named("patch_area_mean") = out_mean_area,
+                           Named("patch_area_variance") = out_variance_area,
+                           Named("patch_agg_index") = out_agg_index);
 }

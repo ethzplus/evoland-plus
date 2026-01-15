@@ -11,8 +11,7 @@ per transition (default: 5)}
 fraction (default: 0.05)}
 }
 \value{
-Invisibly returns the computed \code{alloc_params_t} table. Side effect is
-writing to the database's \code{alloc_params_t} table.
+Invisibly returns the computed \code{alloc_params_t} table.
 }
 \description{
 Computes allocation parameters for all viable transitions, aggregated across
