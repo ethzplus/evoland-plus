@@ -22,6 +22,9 @@ parquet_db <- R6::R6Class(
     #' @field writeopts Write options for DuckDB parquet output
     writeopts = "format parquet, compression zstd",
 
+    #' @field partitioning Named list of character vectors defining partition columns for tables
+    partitioning = list(),
+
     #' @description
     #' Initialize a new parquet_db object
     #' @param path Character string. Path to the data folder.
@@ -43,6 +46,15 @@ parquet_db <- R6::R6Class(
         self$execute(glue::glue("install {ext}; load {ext};"))
       }
 
+      invisible(self)
+    },
+
+    #' @description
+    #' Set partitioning scheme for a table
+    #' @param table_name Character string
+    #' @param cols Character vector of column names to partition by
+    set_partitioning = function(table_name, cols) {
+      self$partitioning[[table_name]] <- cols
       invisible(self)
     },
 
@@ -90,15 +102,17 @@ parquet_db <- R6::R6Class(
     attach_table = function(table_name, columns = "*", where = NULL) {
       file_path <- private$get_file_path(table_name)
 
-      if (!file.exists(file_path)) {
+      if (!file.exists(file_path) && !dir.exists(file_path)) {
         stop(glue::glue("Table '{table_name}' does not exist at path: {self$path}"))
       }
+
+      read_expr <- private$get_read_expr(table_name)
 
       # Build SQL query
       sql <- glue::glue(
         "create temp table {table_name} as ",
         "select {paste(columns, collapse = ', ')} ",
-        "from read_parquet('{file_path}')"
+        "from {read_expr}"
       )
 
       if (!is.null(where)) {
@@ -125,12 +139,14 @@ parquet_db <- R6::R6Class(
     row_count = function(table_name) {
       file_path <- private$get_file_path(table_name)
 
-      if (!file.exists(file_path)) {
+      if (!file.exists(file_path) && !dir.exists(file_path)) {
         return(0L)
       }
 
+      read_expr <- private$get_read_expr(table_name)
+
       self$get_query(
-        glue::glue("select count(*) as n from read_parquet('{file_path}')")
+        glue::glue("select count(*) as n from {read_expr}")
       )[[1]]
     },
 
@@ -138,9 +154,10 @@ parquet_db <- R6::R6Class(
     #' List all tables (files) in storage
     #' @return Character vector of table names
     list_tables = function() {
-      list.files(self$path, pattern = "\\.parquet$", full.names = FALSE) |>
-        tools::file_path_sans_ext() |>
-        sort()
+      files <- list.files(self$path, pattern = "\\.parquet$", full.names = FALSE)
+      file_tables <- tools::file_path_sans_ext(files)
+      dir_tables <- list.dirs(self$path, full.names = FALSE, recursive = FALSE)
+      sort(unique(c(file_tables, dir_tables)))
     },
 
     #' @description
@@ -196,12 +213,14 @@ parquet_db <- R6::R6Class(
     ) {
       file_path <- private$get_file_path(table_name)
 
-      if (!file.exists(file_path)) {
+      if (!file.exists(file_path) && !dir.exists(file_path)) {
         stop("Table `", table_name, "` does not exist")
       }
 
+      read_expr <- private$get_read_expr(table_name)
+
       # build sql query
-      sql <- glue::glue("from read_parquet('{file_path}')")
+      sql <- glue::glue("from {read_expr}")
 
       if (!is.null(where)) {
         sql <- glue::glue("{sql} where {where}")
@@ -217,7 +236,7 @@ parquet_db <- R6::R6Class(
       }
 
       # Restore attributes from metadata
-      metadata <- private$read_parquet_metadata(file_path)
+      metadata <- private$read_parquet_metadata(table_name)
       restore_dt_attributes(res, metadata)
 
       res
@@ -229,10 +248,10 @@ parquet_db <- R6::R6Class(
     #' @return Named list
     get_table_metadata = function(table_name) {
       file_path <- private$get_file_path(table_name)
-      if (!file.exists(file_path)) {
+      if (!file.exists(file_path) && !dir.exists(file_path)) {
         stop("Table `", table_name, "` does not exist")
       }
-      private$read_parquet_metadata(file_path)
+      private$read_parquet_metadata(table_name)
     },
 
     #' @description
@@ -243,28 +262,31 @@ parquet_db <- R6::R6Class(
     delete_from = function(table_name, where = NULL) {
       file_path <- private$get_file_path(table_name)
 
-      if (!file.exists(file_path)) {
+      if (!file.exists(file_path) && !dir.exists(file_path)) {
         return(0L)
       }
 
       count_before <- self$row_count(table_name)
 
       if (is.null(where)) {
-        file.remove(file_path)
+        unlink(file_path, recursive = TRUE)
         return(count_before)
       }
 
       # Preserve existing metadata
-      existing_metadata <- private$read_parquet_metadata(file_path)
+      existing_metadata <- private$read_parquet_metadata(table_name)
       kv_clause <- format_kv_metadata(existing_metadata)
+
+      read_expr <- private$get_read_expr(table_name)
+      partition_clause <- private$get_partition_clause(table_name)
 
       self$execute(glue::glue(
         r"{
         copy (
-          select * from read_parquet('{file_path}')
+          select * from {read_expr}
           where not ({where})
         )
-        to '{file_path}' ({self$writeopts}{kv_clause})
+        to '{file_path}' ({self$writeopts}{kv_clause}{partition_clause})
         }"
       ))
 
@@ -282,6 +304,7 @@ parquet_db <- R6::R6Class(
     #' use all columns starting with `id_`
     #' @param autoincrement_cols Character vector of column names to auto-increment
     #' @param map_cols Character vector of columns to convert to MAP format
+    #' @param partition_cols Character vector of columns to use for partitioning
     #' @param method Character, one of "overwrite", "append", "upsert" (upsert being an
     #' update for existing rows, and insert for new rows)
     #' @return Invisible NULL (called for side effects)
@@ -291,9 +314,14 @@ parquet_db <- R6::R6Class(
       key_cols,
       autoincrement_cols = character(0),
       map_cols = character(0),
+      partition_cols = character(0),
       method = c("overwrite", "append", "upsert")
     ) {
       method <- match.arg(method)
+
+      if (length(partition_cols) > 0) {
+        self$set_partitioning(table_name, partition_cols)
+      }
 
       # Extract attributes from data.table before registering
       new_attrs <- extract_dt_attributes(x)
@@ -306,7 +334,9 @@ parquet_db <- R6::R6Class(
 
       file_path <- private$get_file_path(table_name)
 
-      if (method == "overwrite" || !file.exists(file_path)) {
+      exists <- file.exists(file_path) || dir.exists(file_path)
+
+      if (method == "overwrite" || !exists) {
         # in case overwrite explicitly required, or no previously existing data to
         # append or upsert to; rest of logic can be skipped
         return(private$commit_overwrite(
@@ -319,7 +349,7 @@ parquet_db <- R6::R6Class(
       }
 
       # Read existing metadata and merge with new
-      existing_metadata <- private$read_parquet_metadata(file_path)
+      existing_metadata <- private$read_parquet_metadata(table_name)
       merged_metadata <- merge_metadata(new_attrs, existing_metadata)
 
       self$attach_table(table_name)
@@ -471,18 +501,27 @@ parquet_db <- R6::R6Class(
       # Build SELECT expression
       ordinary_cols <- setdiff(all_cols, autoincrement_cols)
       select_expr <- glue::glue_collapse(
-        c(glue::glue("row_number() over () as {autoincrement_cols}"), ordinary_cols),
+        c(
+          glue::glue('row_number() over () as "{autoincrement_cols}"'),
+          glue::glue('"{ordinary_cols}"')
+        ),
         sep = ",\n "
       )
 
       kv_clause <- format_kv_metadata(metadata)
+      partition_clause <- private$get_partition_clause(table_name)
+
+      if (nzchar(partition_clause)) {
+        # Clean up existing directory to avoid stale partitions/files
+        unlink(file_path, recursive = TRUE)
+      }
 
       self$execute(glue::glue(
         r"{
         copy (
           select {select_expr}
           from new_data_v
-        ) to '{file_path}' ({self$writeopts}{kv_clause})
+        ) to '{file_path}' ({self$writeopts}{kv_clause}{partition_clause})
         }"
       ))
     },
@@ -499,21 +538,37 @@ parquet_db <- R6::R6Class(
       metadata = NULL
     ) {
       ordinary_cols <- setdiff(all_cols, autoincrement_cols)
+
       select_new <- glue::glue_collapse(
         c(
           glue::glue(
-            "row_number() over () + getvariable('max_{autoincrement_cols}') as {autoincrement_cols}"
+            r"(
+            row_number() over () + getvariable('max_{autoincrement_cols}') as "{autoincrement_cols}"
+            )"
           ),
-          ordinary_cols
+          glue::glue('"{ordinary_cols}"')
         ),
         sep = ",\n "
       )
 
-      # Concatenation using UNION ALL; "by name" handles missing columns
       kv_clause <- format_kv_metadata(metadata)
+      partition_clause <- private$get_partition_clause(table_name)
 
-      self$execute(glue::glue(
-        r"{
+      if (!is.null(self$partitioning[[table_name]])) {
+        # Efficient append for partitioned tables: just write new files
+        self$execute(glue::glue(
+          r"{
+          copy (
+            select {select_new}
+            from new_data_v
+          )
+          to '{file_path}' ({self$writeopts}{kv_clause}{partition_clause}, APPEND)
+          }"
+        ))
+      } else {
+        # Standard append: union and rewrite file; "by name" handles missing columns
+        self$execute(glue::glue(
+          r"{
           copy (
             select * from {table_name}
             union all by name
@@ -522,7 +577,8 @@ parquet_db <- R6::R6Class(
           )
           to '{file_path}' ({self$writeopts}{kv_clause})
           }"
-      ))
+        ))
+      }
     },
 
     #' param x Data frame to commit. If character, in-duckdb-memory table.
@@ -542,11 +598,15 @@ parquet_db <- R6::R6Class(
       # Update existing data
       ordinary_cols <- setdiff(all_cols, union(key_cols, autoincrement_cols))
       update_select_expr <- glue::glue_collapse(
-        glue::glue("{ordinary_cols} = new_data_v.{ordinary_cols}"),
+        glue::glue(
+          r"(
+          "{ordinary_cols}" = new_data_v."{ordinary_cols}"
+          )"
+        ),
         sep = ",\n "
       )
       update_join_condition <- glue::glue_collapse(
-        glue::glue("{table_name}.{key_cols} = new_data_v.{key_cols}"),
+        glue::glue(r"({table_name}."{key_cols}" = new_data_v."{key_cols}")"),
         sep = "\nand "
       )
 
@@ -561,23 +621,34 @@ parquet_db <- R6::R6Class(
       ))
 
       # Insert new data
+      insert_cols <- setdiff(all_cols, autoincrement_cols)
+      insert_target_cols <- glue::glue_collapse(
+        c(
+          glue::glue('"{autoincrement_cols}"'),
+          glue::glue('"{insert_cols}"')
+        ),
+        sep = ", "
+      )
+
       insert_select_expr <- glue::glue_collapse(
         c(
           glue::glue(
-            "row_number() over () + getvariable('max_{autoincrement_cols}') as {autoincrement_cols}"
+            r"(
+            row_number() over () + getvariable('max_{autoincrement_cols}') as "{autoincrement_cols}"
+            )"
           ),
-          glue::glue("new_data_v.{setdiff(all_cols, autoincrement_cols)}")
+          glue::glue('new_data_v."{insert_cols}"')
         ),
         sep = ",\n "
       )
       null_condition <- glue::glue_collapse(
-        glue::glue("{table_name}.{key_cols} is null"),
+        glue::glue('{table_name}."{key_cols}" is null'),
         sep = "\nand "
       )
 
       self$execute(glue::glue(
         r"{
-        insert into {table_name}
+        insert into {table_name} ({insert_target_cols})
         select
           {insert_select_expr}
         from
@@ -593,16 +664,62 @@ parquet_db <- R6::R6Class(
       ))
 
       kv_clause <- format_kv_metadata(metadata)
+      partition_clause <- private$get_partition_clause(table_name)
 
-      self$execute(glue::glue("copy {table_name} to '{file_path}' ({self$writeopts}{kv_clause})"))
+      if (nzchar(partition_clause)) {
+        # Clean up existing directory to avoid stale partitions/files
+        unlink(file_path, recursive = TRUE)
+      }
+
+      self$execute(glue::glue(
+        "copy {table_name} to '{file_path}' ({self$writeopts}{kv_clause}{partition_clause})"
+      ))
     },
 
-    # Get file path for a table
+    # Get file path (or directory path) for a table
     #
     # @param table_name Character string table name
-    # @return Character path to parquet file
+    # @return Character path
     get_file_path = function(table_name) {
+      # Known partitioning
+      if (!is.null(self$partitioning[[table_name]])) {
+        return(file.path(self$path, table_name))
+      }
+      # Check if directory exists (persisted partitioning)
+      dir_path <- file.path(self$path, table_name)
+      if (dir.exists(dir_path)) {
+        return(dir_path)
+      }
+      # Default to flat parquet file
       file.path(self$path, paste0(table_name, ".parquet"))
+    },
+
+    # Get SQL expression to read a table
+    #
+    # @param table_name Character string table name
+    # @return Character string SQL expression
+    get_read_expr = function(table_name) {
+      path <- private$get_file_path(table_name)
+      # Check if it is a directory or if we know it is partitioned
+      is_partitioned <- !is.null(self$partitioning[[table_name]]) || dir.exists(path)
+
+      if (is_partitioned) {
+        # Use glob pattern for partitioned directories
+        return(glue::glue("read_parquet('{path}/**/*.parquet', hive_partitioning = 1)"))
+      }
+      glue::glue("read_parquet('{path}')")
+    },
+
+    # Get PARTITION_BY clause if applicable
+    #
+    # @param table_name Character string table name
+    # @return Character string
+    get_partition_clause = function(table_name) {
+      cols <- self$partitioning[[table_name]]
+      if (is.null(cols)) {
+        return("")
+      }
+      glue::glue(", partition_by ({paste(glue::glue('\"{cols}\"'), collapse = ', ')})")
     },
 
     # Register new_data_v table, optionally converting MAP columns
@@ -683,8 +800,8 @@ parquet_db <- R6::R6Class(
       set_exprs <- glue::glue_collapse(
         c(
           glue::glue(
-            "set variable max_{existing_cols} =
-              (select coalesce(max({existing_cols}), 0) from {table_name});"
+            'set variable max_{existing_cols} =
+              (select coalesce(max("{existing_cols}"), 0) from {table_name});'
           ),
           glue::glue(
             "set variable max_{missing_cols} = 0;"
@@ -698,9 +815,22 @@ parquet_db <- R6::R6Class(
     },
 
     # Read parquet metadata as named list
-    read_parquet_metadata = function(file_path) {
+    read_parquet_metadata = function(table_name) {
+      file_path <- private$get_file_path(table_name)
+
+      # For partitioned tables, get metadata from the first file found
+      read_path <- if (!is.null(self$partitioning[[table_name]])) {
+        files <- list.files(file_path, pattern = "\\.parquet$", recursive = TRUE, full.names = TRUE)
+        if (length(files) == 0) {
+          return(list())
+        }
+        files[1]
+      } else {
+        file_path
+      }
+
       x <- self$get_query(glue::glue(
-        "select key, value from parquet_kv_metadata('{file_path}')"
+        "select key, value from parquet_kv_metadata('{read_path}')"
       ))
       if (nrow(x) == 0) {
         return(list())

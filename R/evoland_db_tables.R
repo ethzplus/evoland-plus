@@ -34,6 +34,7 @@ create_table_binding <- function(
   key_cols = NULL,
   autoincrement_cols = NULL,
   map_cols = NULL,
+  partition_cols = NULL,
   ...
 ) {
   function(x) {
@@ -54,6 +55,7 @@ create_table_binding <- function(
       key_cols = key_cols,
       autoincrement_cols = autoincrement_cols,
       map_cols = map_cols,
+      partition_cols = partition_cols,
       method = "upsert"
     )
   }
@@ -103,6 +105,7 @@ evoland_db$set("active", "pred_data_t_float", function(x) {
     "pred_data_t_float",
     as_pred_data_t,
     key_cols = c("id_pred", "id_coord", "id_period"),
+    partition_cols = "id_period",
     type = "float"
   )(x)
 })
@@ -113,6 +116,7 @@ evoland_db$set("active", "pred_data_t_int", function(x) {
     "pred_data_t_int",
     as_pred_data_t,
     key_cols = c("id_pred", "id_coord", "id_period"),
+    partition_cols = "id_period",
     type = "int"
   )(x)
 })
@@ -123,6 +127,7 @@ evoland_db$set("active", "pred_data_t_bool", function(x) {
     "pred_data_t_bool",
     as_pred_data_t,
     key_cols = c("id_pred", "id_coord", "id_period"),
+    partition_cols = "id_period",
     type = "bool"
   )(x)
 })

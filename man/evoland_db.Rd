@@ -59,6 +59,7 @@ Additional methods and active bindings are added to this class in separate files
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="list_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-list_tables'><code>evoland::parquet_db$list_tables()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="print"><a href='../../evoland/html/parquet_db.html#method-parquet_db-print'><code>evoland::parquet_db$print()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="row_count"><a href='../../evoland/html/parquet_db.html#method-parquet_db-row_count'><code>evoland::parquet_db$row_count()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="set_partitioning"><a href='../../evoland/html/parquet_db.html#method-parquet_db-set_partitioning'><code>evoland::parquet_db$set_partitioning()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="with_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-with_tables'><code>evoland::parquet_db$with_tables()</code></a></span></li>
 </ul>
 </details>
@@ -128,7 +129,13 @@ Additional methods and active bindings are added to this class in separate files
 \if{latex}{\out{\hypertarget{method-evoland_db-trans_pred_data_v}{}}}
 \subsection{Method \code{trans_pred_data_v()}}{
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_pred_data_v(id_trans, id_pred = NULL, na_value = NA)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_pred_data_v(
+  id_trans,
+  id_period = NULL,
+  id_pred = NULL,
+  na_value = NA,
+  include_period_0 = TRUE
+)}\if{html}{\out{</div>}}
 }
 
 }

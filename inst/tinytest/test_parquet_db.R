@@ -437,3 +437,95 @@ db$delete_from("test_metadata", where = "id <= 2")
 retrieved <- db$fetch("test_metadata")
 expect_equal(nrow(retrieved), 2L)
 expect_equal(attr(retrieved, "version"), 1.0)
+
+# Test 41: Partitioned write (overwrite)
+test_part_1 <- data.table::data.table(
+  id = 1:6,
+  group = rep(c("A", "B"), each = 3),
+  value = rnorm(6)
+)
+# Ensure columns are ordered for comparison later
+data.table::setcolorder(test_part_1, c("id", "value", "group"))
+
+expect_silent(
+  db$commit(
+    method = "overwrite",
+    test_part_1,
+    "test_partitioned",
+    partition_cols = "group"
+  )
+)
+
+expect_true(dir.exists(file.path(test_dir, "test_partitioned")))
+# Check partition directories exist (standard hive partitioning)
+expect_true(length(list.files(file.path(test_dir, "test_partitioned"), pattern = "group=")) == 2)
+
+retrieved <- db$fetch("test_partitioned")
+data.table::setorder(retrieved, id)
+data.table::setcolorder(retrieved, c("id", "value", "group"))
+
+expect_equal(retrieved, test_part_1)
+
+# Test 42: Partitioned append
+test_part_2 <- data.table::data.table(
+  id = 7:8,
+  group = c("A", "C"),
+  value = rnorm(2)
+)
+expect_silent(
+  db$commit(
+    test_part_2,
+    "test_partitioned",
+    partition_cols = "group",
+    method = "append"
+  )
+)
+
+# New partition created
+expect_true(length(list.files(file.path(test_dir, "test_partitioned"), pattern = "group=")) == 3)
+expect_equal(db$row_count("test_partitioned"), 8L)
+
+retrieved <- db$fetch("test_partitioned")
+expect_equal(nrow(retrieved), 8L)
+expect_true("C" %in% retrieved$group)
+
+# Test 43: Partitioned upsert
+test_part_3 <- data.table::data.table(
+  id = c(1L, 9L), # 1 exists in A (update), 9 is new in B (insert)
+  group = c("A", "B"),
+  value = c(99.9, 88.8)
+)
+
+expect_silent(
+  db$commit(
+    test_part_3,
+    "test_partitioned",
+    key_cols = "id",
+    partition_cols = "group",
+    method = "upsert"
+  )
+)
+
+retrieved <- db$fetch("test_partitioned")
+data.table::setorder(retrieved, id)
+
+expect_equal(retrieved[id == 1]$value, 99.9)
+expect_equal(retrieved[id == 9]$value, 88.8)
+
+# Test 44: Metadata with partitioning
+test_part_meta <- data.table::data.table(
+  id = 1:2,
+  g = c("x", "y"),
+  val = 1:2
+)
+data.table::setattr(test_part_meta, "my_meta", "exists")
+
+db$commit(
+  method = "overwrite",
+  test_part_meta,
+  "test_part_meta",
+  partition_cols = "g"
+)
+
+retrieved <- db$fetch("test_part_meta")
+expect_equal(attr(retrieved, "my_meta"), "exists")

@@ -17,6 +17,8 @@ domain-specific database classes.
 \item{\code{path}}{Character string path to the data folder}
 
 \item{\code{writeopts}}{Write options for DuckDB parquet output}
+
+\item{\code{partitioning}}{Named list of character vectors defining partition columns for tables}
 }
 \if{html}{\out{</div>}}
 }
@@ -24,6 +26,7 @@ domain-specific database classes.
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-parquet_db-new}{\code{parquet_db$new()}}
+\item \href{#method-parquet_db-set_partitioning}{\code{parquet_db$set_partitioning()}}
 \item \href{#method-parquet_db-execute}{\code{parquet_db$execute()}}
 \item \href{#method-parquet_db-get_query}{\code{parquet_db$get_query()}}
 \item \href{#method-parquet_db-attach_table}{\code{parquet_db$attach_table()}}
@@ -59,6 +62,25 @@ Initialize a new parquet_db object
 }
 \subsection{Returns}{
 A new \code{parquet_db} object
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-parquet_db-set_partitioning"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_db-set_partitioning}{}}}
+\subsection{Method \code{set_partitioning()}}{
+Set partitioning scheme for a table
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$set_partitioning(table_name, cols)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character string}
+
+\item{\code{cols}}{Character vector of column names to partition by}
+}
+\if{html}{\out{</div>}}
 }
 }
 \if{html}{\out{<hr>}}
@@ -284,6 +306,7 @@ identity columns, and list-to-MAP conversion.
   key_cols,
   autoincrement_cols = character(0),
   map_cols = character(0),
+  partition_cols = character(0),
   method = c("overwrite", "append", "upsert")
 )}\if{html}{\out{</div>}}
 }
@@ -301,6 +324,8 @@ use all columns starting with \code{id_}}
 \item{\code{autoincrement_cols}}{Character vector of column names to auto-increment}
 
 \item{\code{map_cols}}{Character vector of columns to convert to MAP format}
+
+\item{\code{partition_cols}}{Character vector of columns to use for partitioning}
 
 \item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
 update for existing rows, and insert for new rows)}
