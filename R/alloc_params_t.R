@@ -61,6 +61,47 @@ print.alloc_params_t <- function(x, nrow = 10, ...) {
   invisible(x)
 }
 
+
+#' @desribeIn alloc_params_t Map patch elongation to Dinamica "isometry" patcher
+#' parameter, c.f. fig. 3.10 in Mazy, 2022 https://theses.hal.science/tel-04382012v1
+#' @param elongation Numeric vector of elongation values
+#' @param curve Data frame with columns `isometry` and `elongation` defining the mapping curve
+#' @param clamp Logical, whether to clamp values outside the curve range to min/max or to return NA
+isometry_from_elongation <- function(
+  elongation,
+  curve = data.frame(
+    # fmt: skip
+    isometry =   c(0.0,  0.25,  0.5,   0.75,  1.0,   1.2,   1.5,   2.0),
+    elongation = c(0.34, 0.334, 0.333, 0.328, 0.320, 0.172, 0.171, 0.17)
+  ),
+  clamp = TRUE
+) {
+  stopifnot(all(c("isometry", "elongation") %in% names(curve)))
+  if (length(elongation) == 0L) {
+    return(numeric())
+  }
+  if (all(is.na(elongation))) {
+    return(rep(NA_real_, length(elongation)))
+  }
+
+  # Invert via interpolation isometry = f(elongation). For approx(), x must be increasing.
+  # Since elongation is (approximately) decreasing with isometry, we sort by elongation.
+  ord <- order(curve$elongation)
+  e_x <- curve$elongation[ord]
+  iso_y <- curve$isometry[ord]
+
+  # Clamping behavior outside the observed e range
+  rule <- if (clamp) 2 else 1 # 2 => clamp to endpoints, 1 => NA outside
+  approx(
+    x = e_x,
+    y = iso_y,
+    xout = elongation,
+    method = "linear",
+    rule = rule,
+    ties = "ordered"
+  )$y
+}
+
 #' @describeIn alloc_params_t
 #' Compute allocation parameters for a single transition and period pair.
 #' This is an internal function used by `create_alloc_params_t`.
@@ -153,7 +194,7 @@ compute_alloc_params_single <- function(
     # https://dinamicaego.com/dokuwiki/doku.php?id=patcher
     mean_patch_size = trans_patch_stats$patch_area_mean[1],
     patch_size_variance = trans_patch_stats$patch_area_variance[1],
-    patch_isometry = trans_patch_stats$patch_agg_index[1] / 50, # from [0, 100] to  [0, 2]
+    patch_isometry = isometry_from_elongation(trans_patch_stats$patch_elongation_mean[1]),
     frac_expander = frac_expander,
     frac_patcher = frac_patcher
   )

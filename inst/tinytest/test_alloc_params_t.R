@@ -69,7 +69,7 @@ expect_equal(
   list(
     mean_patch_size = 3,
     patch_size_variance = NA_real_,
-    patch_isometry = 2,
+    patch_isometry = 0,
     frac_expander = 0.72727272,
     frac_patcher = 0.27272727
   ),

@@ -6,36 +6,47 @@
 
 using namespace Rcpp;
 
-// Helper for aggregation index max_g calculation
-// see https://www.fragstats.org/index.php/fragstats-metrics/patch-based-metrics/aggregation-metrics/c3-aggregation-index
-// a: area in number of cells
-double calculate_max_g(long long a) {
-  if (a == 0)
-    return 0.0;
-  long long n = std::trunc(std::sqrt((double)a));
-  long long m = a - n * n;
-  long long maxg = 0;
-
-  if (m == 0)
-    maxg = 2 * n * (n - 1);
-  else if (m <= n)
-    maxg = 2 * n * (n - 1) + 2 * m - 1;
-  else
-    maxg = 2 * n * (n - 1) + 2 * m - 2;
-
-  return (double)maxg;
-}
-
 // Union-Find implementation for Connected Component Labeling
+// Augmented to track moments for elongation calculation
 struct UnionFind {
   std::vector<int> parent;
   std::vector<int> size;
 
-  UnionFind(int n) {
+  // Moment accumulators
+  // x corresponds to row index, y corresponds to col index
+  std::vector<double> sum_x;
+  std::vector<double> sum_y;
+  std::vector<double> sum_sq_x;
+  std::vector<double> sum_sq_y;
+  std::vector<double> sum_xy;
+
+  int nrow;
+
+  UnionFind(int n, int nrow_in) : nrow(nrow_in) {
     parent.resize(n);
     size.resize(n, 1);
-    for (int i = 0; i < n; ++i)
+
+    sum_x.resize(n);
+    sum_y.resize(n);
+    sum_sq_x.resize(n);
+    sum_sq_y.resize(n);
+    sum_xy.resize(n);
+
+    // Initialize stats for each pixel based on its position
+    for (int i = 0; i < n; ++i) {
       parent[i] = i;
+
+      // Calculate coordinates from index
+      // Column-major order: idx = r + c * nrow
+      double r = (double)(i % nrow);
+      double c = (double)(i / nrow);
+
+      sum_x[i] = r;
+      sum_y[i] = c;
+      sum_sq_x[i] = r * r;
+      sum_sq_y[i] = c * c;
+      sum_xy[i] = r * c;
+    }
   }
 
   int find(int i) {
@@ -50,20 +61,84 @@ struct UnionFind {
     if (root_i != root_j) {
       if (size[root_i] < size[root_j])
         std::swap(root_i, root_j);
+
+      // Merge j into i
       parent[root_j] = root_i;
       size[root_i] += size[root_j];
+
+      sum_x[root_i] += sum_x[root_j]; // eq. 3.I.4
+      sum_y[root_i] += sum_y[root_j]; // eq. 3.I.5
+      sum_sq_x[root_i] += sum_sq_x[root_j]; //
+      sum_sq_y[root_i] += sum_sq_y[root_j];
+      sum_xy[root_i] += sum_xy[root_j];
     }
   }
 };
 
 /**
+ * @brief Calculate patch elongation from moments of inertia.
+ *
+ * Based on François-Rémi Mazy (2022)
+ * Towards a coherent algorithmic theory and implementation of pattern-based
+ * land use and land cover change modeling
+ * https://theses.hal.science/tel-04382012, eq 3.I.12.
+ * Calculates elongation e = 1 - (lambda1 / lambda2)^(1/2)
+ * where lambda1 and lambda2 are eigenvalues of the normalized inertia tensor.
+ *
+ * @param m00 Number of pixels (0th moment)
+ * @param m10 Sum of x coordinates (1st moment x)
+ * @param m01 Sum of y coordinates (1st moment y)
+ * @param s20 Sum of x^2
+ * @param s02 Sum of y^2
+ * @param s11 Sum of x*y
+ * @return double Elongation index in [0, 1] (0 = circular, 1 = linear)
+ */
+double calculate_elongation(double m00, double m10, double m01, double s20,
+                            double s02, double s11) {
+  if (m00 <= 1.0)
+    return 0.0; // Single pixel or empty
+
+  // Normalized second order moments about the center of mass
+  double mean_x = m10 / m00;
+  double mean_y = m01 / m00;
+
+  // eqs 3.I.6, 3.I.7, 3.I.8
+  // mu20 = sum((x - mean_x)^2) / n      becomes
+  // mu20 = (sum(x^2) / n) - mean_x^2    because
+  // sum(x) = n * mean_x
+  double mu20 = (s20 / m00) - (mean_x * mean_x);
+  double mu02 = (s02 / m00) - (mean_y * mean_y);
+  double mu11 = (s11 / m00) - (mean_x * mean_y);
+
+  // Eigenvalues of the inertia tensor
+  // D = sqrt((mu20 - mu02)^2 + 4 * mu11^2)
+  double term1 = mu20 - mu02;
+  double D = std::sqrt(term1 * term1 + 4.0 * mu11 * mu11);
+
+  double lambda1 = 0.5 * (mu20 + mu02 - D);
+  double lambda2 = 0.5 * (mu20 + mu02 + D);
+
+  // lambda2 is the larger eigenvalue (major axis related variance)
+  // lambda1 is the smaller eigenvalue (minor axis related variance)
+
+  if (lambda2 <= 1e-9)
+    return 0.0; // Should not happen for >1 pixel, but check for safety
+
+  // Avoid negative values inside sqrt due to floating point precision
+  if (lambda1 < 0)
+    lambda1 = 0;
+
+  return 1.0 - std::sqrt(lambda1 / lambda2);
+}
+
+/**
  * @brief Calculate class statistics (patch metrics) for a raster matrix.
  *
- * This function computes patch statistics similar to SDMTools::ClassStat.
- * It identifies connected components (patches) using 8-connectivity and calculates:
+ * This function identifies connected components (patches) using 8-connectivity
+ * and calculates:
  * - Mean patch area
  * - Standard deviation of patch area
- * - Aggregation index
+ * - Mean patch elongation (based on moments of inertia)
  *
  * NA values in the input matrix are treated as background and ignored.
  *
@@ -77,18 +152,10 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
   int ncol = mat.ncol();
   size_t n_total = (size_t)nrow * ncol;
 
-  // 1. Connected Component Labeling using Union-Find
-  // We map 2D coordinates (r, c) to 1D index: r + c * nrow
-  // Note: R matrices are column-major.
+  // 1. Connected Component Labeling
+  UnionFind uf(n_total, nrow);
 
-  UnionFind uf(n_total);
-
-  // We also need to track internal edges for aggregation index
-  // Using map to handle arbitrary class IDs.
-  std::map<int, double> class_internal_edges;
-  std::map<int, int> class_total_area_cells; // Total cells per class
-
-  // Iterate to build components and count edges
+  // Iterate to build components
   for (int c = 0; c < ncol; ++c) {
     for (int r = 0; r < nrow; ++r) {
       int val = mat(r, c);
@@ -98,16 +165,12 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
 
       int idx = r + c * nrow;
 
-      // Update total area for class
-      class_total_area_cells[val]++;
-
       // Check Down (r+1, c)
       if (r + 1 < nrow) {
         int val_down = mat(r + 1, c);
         if (val == val_down) {
           int idx_down = (r + 1) + c * nrow;
           uf.unite(idx, idx_down);
-          class_internal_edges[val]++;
         }
       }
 
@@ -117,11 +180,10 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
         if (val == val_right) {
           int idx_right = r + (c + 1) * nrow;
           uf.unite(idx, idx_right);
-          class_internal_edges[val]++;
         }
       }
 
-      // Check Down-Right (r+1, c+1) - Diagonal for 8-connectivity
+      // Check Down-Right (r+1, c+1) - Diagonal
       if (r + 1 < nrow && c + 1 < ncol) {
         int val_dr = mat(r + 1, c + 1);
         if (val == val_dr) {
@@ -130,7 +192,7 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
         }
       }
 
-      // Check Up-Right (r-1, c+1) - Diagonal for 8-connectivity
+      // Check Up-Right (r-1, c+1) - Diagonal
       if (r - 1 >= 0 && c + 1 < ncol) {
         int val_ur = mat(r - 1, c + 1);
         if (val == val_ur) {
@@ -142,18 +204,9 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
   }
 
   // 2. Gather Patch Statistics
-  // Map: class_id -> vector of patch areas
   std::map<int, std::vector<double>> class_patch_areas;
+  std::map<int, std::vector<double>> class_patch_elongations;
 
-  // We need to find the root of each cell to identify its patch.
-  // To avoid iterating all cells again and finding roots, we can just iterate
-  // the cells that are not background.
-  // However, we only want to record each patch once.
-  // The root of the component holds the correct size.
-
-  // We track which roots we have already processed to avoid duplicates.
-  // Since root indices can be up to n_total, we use a vector<bool> or similar.
-  // Given n_total can be large, vector<bool> is space efficient.
   std::vector<bool> root_processed(n_total, false);
 
   for (int c = 0; c < ncol; ++c) {
@@ -166,51 +219,66 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
       int root = uf.find(idx);
 
       if (!root_processed[root]) {
-        int patch_cells = uf.size[root];
-        double area = patch_cells * cellsize * cellsize;
+        // Area
+        double n_pixels = (double)uf.size[root];
+        double area = n_pixels * cellsize * cellsize;
         class_patch_areas[val].push_back(area);
+
+        // Elongation
+        double elongation = calculate_elongation(
+            /*m00=*/n_pixels,
+            /*m10=*/uf.sum_x[root],
+            /*m01=*/uf.sum_y[root],
+            /*s20=*/uf.sum_sq_x[root],
+            /*s02=*/uf.sum_sq_y[root],
+            /*s11=*/uf.sum_xy[root]
+        );
+        class_patch_elongations[val].push_back(elongation);
+
         root_processed[root] = true;
       }
     }
   }
 
   // 3. Compute Final Statistics per Class
-  // Using maps ensures we iterate in increasing order of class ID
   std::vector<int> out_class;
   std::vector<double> out_mean_area;
   std::vector<double> out_variance_area;
-  std::vector<double> out_agg_index;
+  std::vector<double> out_mean_elongation;
 
+  // Using maps ensures we iterate in increasing order of class ID
   for (auto const &[cls, areas] : class_patch_areas) {
     out_class.push_back(cls);
 
-    // Mean and SD
-    double sum = 0;
-    double sq_sum = 0;
+    // Mean and SD Area
+    double sum_area = 0;
+    double sq_sum_area = 0;
     int n = areas.size();
 
     for (double a : areas) {
-      sum += a;
-      sq_sum += a * a;
+      sum_area += a;
+      sq_sum_area += a * a;
     }
 
-    double mean = sum / n;
-    double variance = (n > 1) ? (sq_sum - (sum * sum) / n) / (n - 1) : NA_REAL;
+    double mean_area = sum_area / n;
+    double variance_area =
+        (n > 1) ? (sq_sum_area - (sum_area * sum_area) / n) / (n - 1) : NA_REAL;
 
-    out_mean_area.push_back(mean);
-    out_variance_area.push_back(variance);
+    out_mean_area.push_back(mean_area);
+    out_variance_area.push_back(variance_area);
 
-    // Aggregation Index
-    double g = class_internal_edges[cls];
-    long long total_a = class_total_area_cells[cls];
-    double max_g = calculate_max_g(total_a);
-
-    double agg_idx = (max_g > 0) ? (g / max_g) * 100.0 : 0.0;
-    out_agg_index.push_back(agg_idx);
+    // Mean Elongation
+    const std::vector<double> &elongs = class_patch_elongations[cls];
+    double sum_elong = 0;
+    for (double e : elongs) {
+      sum_elong += e;
+    }
+    double mean_elong = sum_elong / n;
+    out_mean_elongation.push_back(mean_elong);
   }
 
-  return DataFrame::create(Named("class") = out_class,
-                           Named("patch_area_mean") = out_mean_area,
-                           Named("patch_area_variance") = out_variance_area,
-                           Named("patch_agg_index") = out_agg_index);
+  return DataFrame::create(
+      Named("class") = out_class, Named("patch_area_mean") = out_mean_area,
+      Named("patch_area_variance") = out_variance_area,
+      Named("patch_elongation_mean") = out_mean_elongation);
 }
