@@ -122,6 +122,20 @@ alloc_dinamica_setup_inputs <- function(
     id_lulc_ant <- viable_trans$id_lulc_anterior[i]
     id_lulc_post <- viable_trans$id_lulc_posterior[i]
 
+    # Use numerical prefix to ensure correct file ordering; if file exists, we skip the work
+    # sprintf prefix format: 0001, 0002, etc.
+    prob_path <- file.path(
+      prob_map_dir,
+      glue::glue("{sprintf('%04d', i)}_trans_{id_lulc_ant}_to_{id_lulc_post}.tif")
+    )
+
+    if (file.exists(prob_path)) {
+      message(glue::glue(
+        "    [{i}/{nrow(viable_trans)}] Found probability map: {id_lulc_ant} -> {id_lulc_post}"
+      ))
+      next
+    }
+
     # Get model for this transition
     model_row <- trans_models[id_trans == id_trans_sel]
 
@@ -167,6 +181,7 @@ alloc_dinamica_setup_inputs <- function(
     # Predict - assuming model has predict() method that returns probabilities
     tryCatch(
       {
+        # TODO only predict for those locations that could actually be changed
         probs <- predict(model_obj, newdata = pred_data_post[, ..pred_cols], type = "response")
         # Ensure probabilities are in [0, 1]
         probs <- pmax(0, pmin(1, probs))
@@ -185,19 +200,12 @@ alloc_dinamica_setup_inputs <- function(
         prob_rast <- terra::rast(anterior_rast)
 
         # Rasterize probabilities
+        # TODO normalize
         prob_rast <- terra::rasterize(
           x = prob_spatial[, .(lon, lat)],
           y = prob_rast,
           values = prob_spatial$probability,
           fun = "first"
-        )
-
-        # Use numerical prefix to ensure correct file ordering
-        # Prefix format: 0001, 0002, etc.
-        prefix <- sprintf("%04d", i)
-        prob_path <- file.path(
-          prob_map_dir,
-          glue::glue("{prefix}_trans_{id_lulc_ant}_to_{id_lulc_post}.tif")
         )
 
         terra::writeRaster(

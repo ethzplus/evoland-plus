@@ -368,7 +368,8 @@ evoland_db$set(
             trans_meta_t m
           WHERE
             r.id_trans = m.id_trans
-            AND r.id_period = {id_period}"
+            AND r.id_period = {id_period}
+            AND m.is_viable"
         ))
 
         result
