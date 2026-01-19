@@ -55,6 +55,7 @@ run_parallel_task <- function(items, worker_fun, db, cores = 1L, ...) {
       }
 
       worker_db <- evoland_db$new(db_path, update_reporting = FALSE)
+      worker_db$execute("set threads to 1")
 
       # Call the actual worker function
       worker_fun_inner(item, worker_db, ...)
