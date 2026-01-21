@@ -39,7 +39,16 @@ as_trans_models_t <- function(x) {
 
 # Worker function for partial model fitting
 # Not exported; used internally by fit_partial_models
-fit_partial_model_worker <- function(item, db, fit_fun, gof_fun, na_value, fit_fun_name, ...) {
+fit_partial_model_worker <- function(
+  item,
+  db,
+  fit_fun,
+  gof_fun,
+  na_value,
+  fit_fun_name,
+  seed = NULL,
+  ...
+) {
   id_trans <- item$id_trans
   id_preds <- item$id_preds
 
@@ -56,7 +65,9 @@ fit_partial_model_worker <- function(item, db, fit_fun, gof_fun, na_value, fit_f
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = id_trans,
         id_pred = id_preds,
-        na_value = na_value
+        na_value = na_value,
+        # if seed is set, we want ordering for reproducible sampling
+        ordered = !is.null(seed)
       )
 
       if (nrow(trans_pred_data_full) == 0L) {
@@ -84,15 +95,17 @@ fit_partial_model_worker <- function(item, db, fit_fun, gof_fun, na_value, fit_f
       n_train_true <- ceiling(length(idx_true) * sample_pct / 100)
       n_train_false <- ceiling(length(idx_false) * sample_pct / 100)
 
-      train_idx_true <- sample(idx_true, n_train_true)
-      train_idx_false <- sample(idx_false, n_train_false)
-      train_idx <- c(train_idx_true, train_idx_false)
+      if (!is.null(seed)) {
+        set.seed(seed)
+      }
 
-      # Test set is everything not in train
-      test_idx <- setdiff(seq_len(nrow(trans_pred_data_full)), train_idx)
+      train_idx <- c(
+        sample(idx_true, n_train_true),
+        sample(idx_false, n_train_false)
+      )
 
-      train_data <- trans_pred_data_full[train_idx, ]
-      test_data <- trans_pred_data_full[test_idx, ]
+      train_data <- trans_pred_data_full[train_idx]
+      test_data <- trans_pred_data_full[!train_idx]
 
       # Fit model on training data and capture the actual call
       model <- fit_fun(
@@ -116,8 +129,9 @@ fit_partial_model_worker <- function(item, db, fit_fun, gof_fun, na_value, fit_f
         }
       }
       # Deparse to character string for serialization
-      fit_call <- deparse(fit_call_obj, width.cutoff = 500L)
-      fit_call <- paste(fit_call, collapse = " ")
+      fit_call <-
+        deparse(fit_call_obj, width.cutoff = 500L) |>
+        paste(collapse = " ")
 
       # Evaluate on test data
       goodness_of_fit <- gof_fun(
@@ -268,12 +282,7 @@ evoland_db$set(
       "sample_pct must be between 0 and 100" = sample_pct > 0 && sample_pct < 100
     )
 
-    # Set seed for reproducibility if provided
-    if (!is.null(seed)) {
-      set.seed(seed)
-    }
-
-    # Capture fit function name for call construction
+    # Capture fit function name for replicable call construction
     fit_fun_name <- deparse(substitute(fit_fun))
 
     items <- lapply(seq_len(nrow(viable_trans)), function(i) {
@@ -299,6 +308,7 @@ evoland_db$set(
       gof_fun = gof_fun,
       na_value = na_value,
       fit_fun_name = fit_fun_name,
+      seed = seed,
       ...
     )
 

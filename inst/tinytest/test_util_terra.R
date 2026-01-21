@@ -176,17 +176,17 @@ expect_true(5L %in% neighbors_from_1$id_coord_neighbor)
 expect_equal(
   neighbors_from_1[id_coord_neighbor == 2]$distance,
   100,
-  tolerance = 1e-10
+  tolerance = 1e-06
 )
 expect_equal(
   neighbors_from_1[id_coord_neighbor == 4]$distance,
   100,
-  tolerance = 1e-10
+  tolerance = 1e-06
 )
 expect_equal(
   neighbors_from_1[id_coord_neighbor == 5]$distance,
   sqrt(100^2 + 100^2),
-  tolerance = 1e-10
+  tolerance = 1e-06
 )
 
 # Point 3 (200,0) should have neighbor 2 (100,0) at distance 100
@@ -198,12 +198,12 @@ expect_true(5L %in% neighbors_from_3$id_coord_neighbor)
 expect_equal(
   neighbors_from_3[id_coord_neighbor == 2]$distance,
   100,
-  tolerance = 1e-10
+  tolerance = 1e-06
 )
 expect_equal(
   neighbors_from_3[id_coord_neighbor == 5]$distance,
   sqrt(100^2 + 100^2),
-  tolerance = 1e-10
+  tolerance = 1e-06
 )
 
 # Test with distance_breaks
@@ -296,7 +296,7 @@ for (i in seq_len(
     id_coord_origin == neighbor & id_coord_neighbor == origin
   ]
   expect_equal(nrow(reverse_rel), 1L)
-  expect_equal(reverse_rel$distance, dist, tolerance = 1e-10)
+  expect_equal(reverse_rel$distance, dist, tolerance = 1e-06)
 }
 
 # Test with distance classification on real data

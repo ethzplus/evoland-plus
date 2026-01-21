@@ -209,7 +209,7 @@ expect_equal(db$intrv_meta_t, intrv_meta_t)
 
 # Test 11: Active bindings - trans_meta_t
 expect_silent(db$trans_meta_t <- trans_meta_t)
-expect_equal(db$trans_meta_t[, c(-1)], trans_meta_t, tolerance = 1e7)
+expect_equal(db$trans_meta_t[, c(-1)], trans_meta_t, tolerance = 1e-06)
 
 # Test 15: add_predictor method - second predictor
 expect_silent(

@@ -118,7 +118,8 @@ evoland_db$set(
     id_period = NULL,
     id_pred = NULL,
     na_value = NA,
-    include_period_0 = TRUE
+    include_period_0 = TRUE,
+    ordered = FALSE
   ) {
     pred_types <-
       self$list_tables() |>
@@ -131,7 +132,7 @@ evoland_db$set(
       "id_pred must be NULL or a numeric vector" = is.null(id_pred) || is.numeric(id_pred),
       "include_period_0 must be a logical" = is.logical(include_period_0) &&
         length(include_period_0) == 1L,
-      "no predictor data found" = length(pred_types) > 0
+      "no predictor tables in DB" = length(pred_types) > 0
     )
 
     self$with_tables(
@@ -266,6 +267,13 @@ evoland_db$set(
         join_string <- paste(unlist(joins), collapse = "\n")
         select_string <- paste(unlist(selects), collapse = ", \n")
 
+        order_clause <-
+          if (ordered) {
+            "order by tr.id_period, tr.id_coord"
+          } else {
+            ""
+          }
+
         query <- glue::glue(
           "
           with
@@ -277,23 +285,18 @@ evoland_db$set(
             {join_string}
           where
             tr.result is not null
+          {order_clause}
           "
         )
 
         result <- self$get_query(query)
 
-        old_names <- names(result)
-        new_names <- old_names
-        for (i in seq_along(old_names)) {
-          if (old_names[i] != "result" && grepl("^\\d+$", old_names[i])) {
-            new_names[i] <- paste0("id_pred_", old_names[i])
-          }
-        }
+        old_names <- names(result) |> Filter(\(y) grepl("^\\d+$", y), x = _)
+        new_names <- paste0("id_pred_", old_names)
         data.table::setnames(result, old_names, new_names)
 
         if (!is.na(na_value)) {
-          pred_cols <- setdiff(names(result), "result")
-          for (col in pred_cols) {
+          for (col in new_names) {
             data.table::set(result, i = which(is.na(result[[col]])), j = col, value = na_value)
           }
         }

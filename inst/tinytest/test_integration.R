@@ -218,15 +218,15 @@ expect_equal(
 )
 expect_equal(
   partial_models$model_params[[1]],
-  list(n_predictors = 3, n_train = 514, sample_pct = 70, other_param = "nonce")
+  list(n_predictors = 7, n_train = 514, sample_pct = 70, other_param = "nonce")
 )
 expect_true(all(
   !vapply(partial_models$model_obj_part, is.null, logical(1))
 ))
 expect_equal(
   partial_models$goodness_of_fit[[1]],
-  list(cor = -0.06258646, mse = 0.2519054, n_test = 219),
-  tolerance = 1e07
+  list(cor = -0.02071352, mse = 0.2500052, n_test = 219),
+  tolerance = 1e-06
 )
 
 # Test that model deserialization works
