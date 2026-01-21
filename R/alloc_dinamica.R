@@ -112,10 +112,8 @@ alloc_dinamica_setup_inputs <- function(
   message("  Generating probability maps...")
 
   # Get trans_models_t
+  # TODO read the appropriate model closer to prediction, and throw away once no longer useful
   trans_models <- self$trans_models_t
-
-  # Get predictor IDs for each transition from trans_preds_t
-  trans_preds <- self$trans_preds_t
 
   for (i in seq_len(nrow(viable_trans))) {
     id_trans_sel <- viable_trans$id_trans[i]
@@ -151,18 +149,9 @@ alloc_dinamica_setup_inputs <- function(
     # Deserialize full model
     model_obj <- qs2::qs_deserialize(model_row$model_obj_full[[1]])
 
-    # Get predictor IDs for this transition
-    id_preds <- trans_preds$id_pred[trans_preds$id_trans == id_trans_sel]
-
-    if (length(id_preds) == 0L) {
-      warning(glue::glue("No predictors for id_trans={id_trans_sel}, skipping probability map"))
-      next
-    }
-
-    # Get predictor data for posterior period
-    pred_data_post <- self$trans_pred_data_v(
+    # Get predictor data for id_period_post at coords for id_lulc_ant at id_period_post - 1
+    pred_data_post <- self$pred_data_wide_v(
       id_trans = id_trans_sel,
-      id_pred = id_preds,
       id_period = id_period_post,
       na_value = 0 # Replace NAs with 0 for prediction
     )
