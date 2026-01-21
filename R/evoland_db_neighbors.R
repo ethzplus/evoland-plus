@@ -139,7 +139,10 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     select
       NULL as id_pred,
       concat('id_lulc_', l.id_lulc, '_dist_', c.distance_class) as name,
-      concat('Count of ', l.pretty_name, ' within distance class ', c.distance_class) as pretty_name,
+      concat(
+        'Count of ', l.pretty_name,
+        ' within distance class ', c.distance_class
+        ) as pretty_name,
       'Number of neighbors by land use class and distance interval' as description,
       'land use coordinate data' as orig_format,
       NULL as sources,
@@ -157,6 +160,13 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     "create or replace view pred_meta_upsert_v as
      select name, pretty_name, description, orig_format, sources, unit, factor_levels
      from pred_meta_neighbors_t"
+  )
+  self$commit(
+    "pred_meta_upsert_v",
+    "pred_meta_t",
+    method = "upsert",
+    key_cols = "name",
+    autoincrement_cols = "id_pred"
   )
 
   self$attach_table("pred_meta_t")

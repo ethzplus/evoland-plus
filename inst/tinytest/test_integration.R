@@ -149,8 +149,12 @@ expect_message(
   db_tm$generate_neighbor_predictors(),
   "Generated 6 neighbor predictor variables"
 )
+expect_equal(
+  db_tm$pred_meta_t[["id_pred"]],
+  1:9
+)
 
-db_tm$set_full_trans_preds()
+expect_equal(db_tm$set_full_trans_preds(), 18L)
 
 # Test trans_pred_data_v
 full_data <- db_tm$trans_pred_data_v(1L)
