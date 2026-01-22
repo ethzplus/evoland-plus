@@ -100,13 +100,13 @@ parquet_db <- R6::R6Class(
     #' @param where Character. Optional SQL WHERE clause to subset the table.
     #' @return Invisible NULL (called for side effects)
     attach_table = function(table_name, columns = "*", where = NULL) {
-      file_path <- private$get_file_path(table_name)
+      file_path <- self$get_file_path(table_name)
 
       if (!file.exists(file_path) && !dir.exists(file_path)) {
         stop(glue::glue("Table '{table_name}' does not exist at path: {self$path}"))
       }
 
-      read_expr <- private$get_read_expr(table_name)
+      read_expr <- self$get_read_expr(table_name)
 
       # Build SQL query
       sql <- glue::glue(
@@ -137,13 +137,13 @@ parquet_db <- R6::R6Class(
     #' @param table_name Character string. Name of the table to query.
     #' @return Integer number of rows
     row_count = function(table_name) {
-      file_path <- private$get_file_path(table_name)
+      file_path <- self$get_file_path(table_name)
 
       if (!file.exists(file_path) && !dir.exists(file_path)) {
         return(0L)
       }
 
-      read_expr <- private$get_read_expr(table_name)
+      read_expr <- self$get_read_expr(table_name)
 
       self$get_query(
         glue::glue("select count(*) as n from {read_expr}")
@@ -211,13 +211,13 @@ parquet_db <- R6::R6Class(
       limit = NULL,
       map_cols = NULL
     ) {
-      file_path <- private$get_file_path(table_name)
+      file_path <- self$get_file_path(table_name)
 
       if (!file.exists(file_path) && !dir.exists(file_path)) {
         stop("Table `", table_name, "` does not exist")
       }
 
-      read_expr <- private$get_read_expr(table_name)
+      read_expr <- self$get_read_expr(table_name)
 
       # build sql query
       sql <- glue::glue("from {read_expr}")
@@ -247,7 +247,7 @@ parquet_db <- R6::R6Class(
     #' @param table_name Character string. Name of the table to query.
     #' @return Named list
     get_table_metadata = function(table_name) {
-      file_path <- private$get_file_path(table_name)
+      file_path <- self$get_file_path(table_name)
       if (!file.exists(file_path) && !dir.exists(file_path)) {
         stop("Table `", table_name, "` does not exist")
       }
@@ -260,7 +260,7 @@ parquet_db <- R6::R6Class(
     #' @param where Character string. Optional WHERE clause; if NULL, deletes all rows.
     #' @return Number of rows deleted
     delete_from = function(table_name, where = NULL) {
-      file_path <- private$get_file_path(table_name)
+      file_path <- self$get_file_path(table_name)
 
       if (!file.exists(file_path) && !dir.exists(file_path)) {
         return(0L)
@@ -277,8 +277,8 @@ parquet_db <- R6::R6Class(
       existing_metadata <- private$read_parquet_metadata(table_name)
       kv_clause <- format_kv_metadata(existing_metadata)
 
-      read_expr <- private$get_read_expr(table_name)
-      partition_clause <- private$get_partition_clause(table_name)
+      read_expr <- self$get_read_expr(table_name)
+      partition_clause <- self$get_partition_clause(table_name)
 
       self$execute(glue::glue(
         r"{
@@ -332,7 +332,7 @@ parquet_db <- R6::R6Class(
         "select column_name from (describe new_data_v)"
       )[[1]]
 
-      file_path <- private$get_file_path(table_name)
+      file_path <- self$get_file_path(table_name)
 
       exists <- file.exists(file_path) || dir.exists(file_path)
 
@@ -465,6 +465,52 @@ parquet_db <- R6::R6Class(
       }
 
       invisible(self)
+    },
+
+    # Get file path (or directory path) for a table
+    #
+    # @param table_name Character string table name
+    # @return Character path
+    get_file_path = function(table_name) {
+      # Known partitioning
+      if (!is.null(self$partitioning[[table_name]])) {
+        return(file.path(self$path, table_name))
+      }
+      # Check if directory exists (persisted partitioning)
+      dir_path <- file.path(self$path, table_name)
+      if (dir.exists(dir_path)) {
+        return(dir_path)
+      }
+      # Default to flat parquet file
+      file.path(self$path, paste0(table_name, ".parquet"))
+    },
+
+    # Get SQL expression to read a table
+    #
+    # @param table_name Character string table name
+    # @return Character string SQL expression
+    get_read_expr = function(table_name) {
+      path <- self$get_file_path(table_name)
+      # Check if it is a directory or if we know it is partitioned
+      is_partitioned <- !is.null(self$partitioning[[table_name]]) || dir.exists(path)
+
+      if (is_partitioned) {
+        # Use glob pattern for partitioned directories
+        return(glue::glue("read_parquet('{path}/**/*.parquet', hive_partitioning = 1)"))
+      }
+      glue::glue("read_parquet('{path}')")
+    },
+
+    # Get PARTITION_BY clause if applicable
+    #
+    # @param table_name Character string table name
+    # @return Character string
+    get_partition_clause = function(table_name) {
+      cols <- self$partitioning[[table_name]]
+      if (is.null(cols)) {
+        return("")
+      }
+      glue::glue(", partition_by ({paste(glue::glue('\"{cols}\"'), collapse = ', ')})")
     }
   ),
 
@@ -509,7 +555,7 @@ parquet_db <- R6::R6Class(
       )
 
       kv_clause <- format_kv_metadata(metadata)
-      partition_clause <- private$get_partition_clause(table_name)
+      partition_clause <- self$get_partition_clause(table_name)
 
       if (nzchar(partition_clause)) {
         # Clean up existing directory to avoid stale partitions/files
@@ -552,7 +598,7 @@ parquet_db <- R6::R6Class(
       )
 
       kv_clause <- format_kv_metadata(metadata)
-      partition_clause <- private$get_partition_clause(table_name)
+      partition_clause <- self$get_partition_clause(table_name)
 
       if (!is.null(self$partitioning[[table_name]])) {
         # Efficient append for partitioned tables: just write new files
@@ -664,7 +710,7 @@ parquet_db <- R6::R6Class(
       ))
 
       kv_clause <- format_kv_metadata(metadata)
-      partition_clause <- private$get_partition_clause(table_name)
+      partition_clause <- self$get_partition_clause(table_name)
 
       if (nzchar(partition_clause)) {
         # Clean up existing directory to avoid stale partitions/files
@@ -674,52 +720,6 @@ parquet_db <- R6::R6Class(
       self$execute(glue::glue(
         "copy {table_name} to '{file_path}' ({self$writeopts}{kv_clause}{partition_clause})"
       ))
-    },
-
-    # Get file path (or directory path) for a table
-    #
-    # @param table_name Character string table name
-    # @return Character path
-    get_file_path = function(table_name) {
-      # Known partitioning
-      if (!is.null(self$partitioning[[table_name]])) {
-        return(file.path(self$path, table_name))
-      }
-      # Check if directory exists (persisted partitioning)
-      dir_path <- file.path(self$path, table_name)
-      if (dir.exists(dir_path)) {
-        return(dir_path)
-      }
-      # Default to flat parquet file
-      file.path(self$path, paste0(table_name, ".parquet"))
-    },
-
-    # Get SQL expression to read a table
-    #
-    # @param table_name Character string table name
-    # @return Character string SQL expression
-    get_read_expr = function(table_name) {
-      path <- private$get_file_path(table_name)
-      # Check if it is a directory or if we know it is partitioned
-      is_partitioned <- !is.null(self$partitioning[[table_name]]) || dir.exists(path)
-
-      if (is_partitioned) {
-        # Use glob pattern for partitioned directories
-        return(glue::glue("read_parquet('{path}/**/*.parquet', hive_partitioning = 1)"))
-      }
-      glue::glue("read_parquet('{path}')")
-    },
-
-    # Get PARTITION_BY clause if applicable
-    #
-    # @param table_name Character string table name
-    # @return Character string
-    get_partition_clause = function(table_name) {
-      cols <- self$partitioning[[table_name]]
-      if (is.null(cols)) {
-        return("")
-      }
-      glue::glue(", partition_by ({paste(glue::glue('\"{cols}\"'), collapse = ', ')})")
     },
 
     # Register new_data_v table, optionally converting MAP columns
@@ -816,7 +816,7 @@ parquet_db <- R6::R6Class(
 
     # Read parquet metadata as named list
     read_parquet_metadata = function(table_name) {
-      file_path <- private$get_file_path(table_name)
+      file_path <- self$get_file_path(table_name)
 
       # For partitioned tables, get metadata from the first file found
       read_path <- if (!is.null(self$partitioning[[table_name]])) {

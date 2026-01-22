@@ -198,7 +198,7 @@ evoland_db$set(
 
         # read predictor data - using read_expr to enable predicate + projection pushdown
         for (pred_type in pred_types) {
-          read_expr <- private$get_read_expr(paste0("pred_data_t_", pred_type))
+          read_expr <- self$get_read_expr(paste0("pred_data_t_", pred_type))
           # union with period == 0 data before pivot
           p0_union <-
             if (include_period_0) {
@@ -358,7 +358,7 @@ evoland_db$set(
     ctes <- list()
 
     # get only those cells potentially involved in this transition
-    lulc_read_expr <- private$get_read_expr("lulc_data_t")
+    lulc_read_expr <- self$get_read_expr("lulc_data_t")
     ctes[["anterior_cells"]] <- glue::glue(
       "anterior_cells as (
         select
@@ -373,7 +373,7 @@ evoland_db$set(
 
     # read predictor data - using read_expr to enable predicate + projection pushdown
     for (pred_type in pred_types) {
-      pred_read_expr <- private$get_read_expr(paste0("pred_data_t_", pred_type))
+      pred_read_expr <- self$get_read_expr(paste0("pred_data_t_", pred_type))
 
       ctes[[paste0("pred_", pred_type, "_combined")]] <- glue::glue(
         "pred_{pred_type}_combined as (
