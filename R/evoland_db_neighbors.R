@@ -98,6 +98,7 @@ evoland_db$set(
   }
 )
 
+# Generate the neighbor predictors for the _next_ period
 evoland_db$set("public", "generate_neighbor_predictors", function() {
   if (self$row_count("neighbors_t") == 0) {
     stop("No neighbor data found. Run $set_neighbors() first.")
@@ -131,6 +132,7 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     self$detach_table("lulc_meta_t")
   })
 
+  # Generate metadata rows based on all distinct distance class / id_lulc permutations
   n_predictors <- self$execute(
     r"{
     create or replace temp table pred_meta_neighbors_t as
@@ -156,6 +158,7 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
       all_distance_classes c
     }"
   )
+  # Subset to just those columns we can upsert to the existing pred_meta_t
   self$execute(
     "create or replace view pred_meta_upsert_v as
      select name, pretty_name, description, orig_format, sources, unit, factor_levels
@@ -169,6 +172,8 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     autoincrement_cols = "id_pred"
   )
 
+  # Need to load pred_meta_t after upsert to pred_meta_neighbors_t that holds additional
+  # id_lulc column later used for join
   self$attach_table("pred_meta_t")
   on.exit(self$detach_table("pred_meta_t"), add = TRUE)
   self$execute(
@@ -180,6 +185,7 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     }"
   )
 
+  # Count the number of neighbours per origin, period, id_lulc and distance_class
   n_data_points <- self$execute(
     r"{
     create temp table pred_neighbors_t as
@@ -205,6 +211,7 @@ evoland_db$set("public", "generate_neighbor_predictors", function() {
     }"
   )
 
+  # TODO check that this actually uses the right partitioning scheme
   self$commit("pred_neighbors_t", "pred_data_t_int", method = "upsert")
 
   message(glue::glue(

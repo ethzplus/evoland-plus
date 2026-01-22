@@ -346,6 +346,9 @@ evoland_db$set(
 
     trans_preds <- self$trans_preds_t[.id == id_trans, env = list(.id = id_trans)]
     pred_filter <- glue::glue(" and id_pred in ({toString(trans_preds$id_pred)})")
+    periods_selected <- toString(
+      if (include_period_0) c(0, id_period) else id_period
+    )
 
     # gathers join expression
     joins <- list()
@@ -371,7 +374,6 @@ evoland_db$set(
     # read predictor data - using read_expr to enable predicate + projection pushdown
     for (pred_type in pred_types) {
       pred_read_expr <- private$get_read_expr(paste0("pred_data_t_", pred_type))
-      periods_selected <- if (include_period_0) c(0, id_period) else id_period
 
       ctes[[paste0("pred_", pred_type, "_combined")]] <- glue::glue(
         "pred_{pred_type}_combined as (
@@ -382,7 +384,6 @@ evoland_db$set(
           where
             id_period in ({periods_selected})
             {pred_filter}
-        {p0_union}
         )"
       )
 

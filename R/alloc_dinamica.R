@@ -104,19 +104,15 @@ alloc_dinamica_setup_inputs <- function(
   )
 
   message(glue::glue("  Wrote anterior LULC to {basename(anterior_path)}"))
+
   # 6. Generate probability maps
   prob_map_dir <-
     file.path(temp_dir, "probability_map_dir") |>
     ensure_dir()
 
   message("  Generating probability maps...")
-
-  # Get trans_models_t
-  # TODO read the appropriate model closer to prediction, and throw away once no longer useful
-  trans_models <- self$trans_models_t
-
   for (i in seq_len(nrow(viable_trans))) {
-    id_trans_sel <- viable_trans$id_trans[i]
+    id_trans <- viable_trans$id_trans[i]
     id_lulc_ant <- viable_trans$id_lulc_anterior[i]
     id_lulc_post <- viable_trans$id_lulc_posterior[i]
 
@@ -135,13 +131,16 @@ alloc_dinamica_setup_inputs <- function(
     }
 
     # Get model for this transition
-    model_row <- trans_models[id_trans == id_trans_sel]
+    model_row <- self$fetch(
+      "trans_models_t",
+      where = glue::glue("id_trans = {id_trans}")
+    )
 
     if (nrow(model_row) == 0L) {
-      stop(glue::glue("No model found for id_trans={id_trans_sel}"))
+      stop(glue::glue("No model found for id_trans={id_trans}"))
     } else if (nrow(model_row) > 1) {
       stop(glue::glue(
-        "Multiple models found for id_trans={id_trans_sel}, ",
+        "Multiple models found for id_trans={id_trans}, ",
         "edit trans_models_t to have only one per transition"
       ))
     }
@@ -151,14 +150,14 @@ alloc_dinamica_setup_inputs <- function(
 
     # Get predictor data for id_period_post at coords for id_lulc_ant at id_period_post - 1
     pred_data_post <- self$pred_data_wide_v(
-      id_trans = id_trans_sel,
+      id_trans = id_trans,
       id_period = id_period_post,
       na_value = 0 # Replace NAs with 0 for prediction
     )
 
     if (nrow(pred_data_post) == 0L) {
       warning(glue::glue(
-        "No predictor data for id_trans={id_trans_sel}, id_period={id_period_post}"
+        "No predictor data for id_trans={id_trans}, id_period={id_period_post}"
       ))
       next
     }
@@ -170,7 +169,6 @@ alloc_dinamica_setup_inputs <- function(
     # Predict - assuming model has predict() method that returns probabilities
     tryCatch(
       {
-        # TODO only predict for those locations that could actually be changed
         probs <- predict(model_obj, newdata = pred_data_post[, ..pred_cols], type = "response")
         # Ensure probabilities are in [0, 1]
         probs <- pmax(0, pmin(1, probs))
@@ -210,7 +208,7 @@ alloc_dinamica_setup_inputs <- function(
       },
       error = function(e) {
         warning(glue::glue(
-          "Failed to generate probability map for id_trans={id_trans_sel}: {e$message}"
+          "Failed to generate probability map for id_trans={id_trans}: {e$message}"
         ))
       }
     )
@@ -277,41 +275,28 @@ alloc_dinamica_single_iteration <- function(
   )
 
   # Read posterior.tif
-  posterior_path <- file.path(iteration_dir, "posterior.tif")
-
-  if (!file.exists(posterior_path)) {
-    stop(glue::glue(
-      "Expected output file not found: {posterior_path}"
-    ))
-  }
-
-  posterior_rast <- terra::rast(posterior_path)
+  posterior_rast <-
+    file.path(iteration_dir, "posterior.tif") |>
+    terra::rast()
 
   message("  Converting posterior raster to lulc_data_t...")
 
   # Extract using coords_t
   coords_t <- self$coords_t
 
-  # Get EPSG from metadata
-  coords_meta <- self$get_table_metadata("coords_t")
-  epsg <- coords_meta[["epsg"]]
-
   # Set CRS for extraction
-  terra::crs(posterior_rast) <- paste0("epsg:", epsg)
+  terra::crs(posterior_rast) <- paste0("epsg:", attr(coords_t, "epsg"))
 
   extracted <- extract_using_coords_t(posterior_rast, coords_t, na_omit = TRUE)
 
   # Convert to lulc_data_t format
-  # extracted has columns: id_coord, layer, value
-  # We need: id_coord, id_lulc, id_period
-  lulc_result <- data.table::data.table(
-    id_coord = extracted$id_coord,
-    id_lulc = as.integer(extracted$value),
-    id_period = id_period_post
-  )
-
-  # Cast to lulc_data_t
-  lulc_result <- as_lulc_data_t(lulc_result)
+  lulc_result <-
+    data.table::data.table(
+      id_coord = extracted$id_coord,
+      id_lulc = as.integer(extracted$value),
+      id_period = id_period_post
+    ) |>
+    as_lulc_data_t()
 
   message(glue::glue("  Extracted {nrow(lulc_result)} cells"))
 
@@ -450,6 +435,8 @@ evoland_db$set(
       message(glue::glue("\n=== Iteration {i}/{length(id_periods) - 1L} ==="))
 
       # Run single iteration
+      # TODO spin out the transition probability calculation and call here; should
+      # include normalization
       lulc_result <- alloc_dinamica_single_iteration(
         self = self,
         id_period_ant = id_period_ant,
@@ -470,6 +457,8 @@ evoland_db$set(
 
       # Load as current_rast for next iteration
       current_rast <- terra::rast(current_path)
+
+      # TODO recompute neighbors for next period
 
       message(glue::glue("Iteration {i} complete\n"))
     }
