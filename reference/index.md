@@ -2,13 +2,23 @@
 
 ## All functions
 
-- [`as_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_params_t.md)
-  [`print(`*`<alloc_params_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/alloc_params_t.md)
-  : Create Allocation Parameters Table
+- [`alloc_dinamica`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+  : Dinamica EGO Allocation Methods
+- [`calc_fuzzy_similarity()`](https://ethzplus.github.io/evoland-plus/reference/calc_fuzzy_similarity.md)
+  : Compute fuzzy neighborhood similarity between two categorical
+  rasters
+- [`calc_transition_similarity()`](https://ethzplus.github.io/evoland-plus/reference/calc_transition_similarity.md)
+  : Compute fuzzy similarity of differences for transition validation
 - [`as_coords_t()`](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
   [`print(`*`<coords_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
   [`create_coords_t_square()`](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
   : Coordinate Tables
+- [`create_alloc_params_t`](https://ethzplus.github.io/evoland-plus/reference/create_alloc_params_t.md)
+  : Initialize Allocation Parameters Table
+- [`create_change_map()`](https://ethzplus.github.io/evoland-plus/reference/create_change_map.md)
+  : Create change/difference map between two time periods
+- [`eval_alloc_params_t`](https://ethzplus.github.io/evoland-plus/reference/eval_alloc_params_t.md)
+  : Evaluate Allocation Parameters with Fuzzy Similarity
 - [`evoland_db`](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
   : R6 Class for Folder-Based Data Storage Interface
 - [`evoland_db_neighbors`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_neighbors.md)
@@ -21,6 +31,8 @@
   : GLM Model Fitting for Transition Models
 - [`fit_ranger()`](https://ethzplus.github.io/evoland-plus/reference/fit_ranger.md)
   : Random Forest Model Fitting for Transition Models
+- [`fuzzy_similarity`](https://ethzplus.github.io/evoland-plus/reference/fuzzy_similarity.md)
+  : Fuzzy Similarity for Spatial Validation
 - [`gof_glm()`](https://ethzplus.github.io/evoland-plus/reference/gof_glm.md)
   : Goodness of Fit Evaluation for GLM Models
 - [`gof_ranger()`](https://ethzplus.github.io/evoland-plus/reference/gof_ranger.md)
@@ -47,7 +59,7 @@
   [`validate(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`print(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   : Create Neighbors Table
-- [`parquet_duckdb`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.md)
+- [`parquet_db`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
   : R6 Base Class for Parquet-Backed DuckDB Storage
 - [`as_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
   [`create_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
@@ -62,6 +74,10 @@
   : Create Predictor Metadata Table
 - [`as_reporting_t()`](https://ethzplus.github.io/evoland-plus/reference/reporting_t.md)
   : Create Reporting Table
+- [`run_parallel_task()`](https://ethzplus.github.io/evoland-plus/reference/run_parallel_task.md)
+  : Run a function in parallel over a list of items
+- [`tabular_to_raster()`](https://ethzplus.github.io/evoland-plus/reference/tabular_to_raster.md)
+  : Convert tabular LULC data to raster
 - [`as_trans_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
   [`create_trans_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
   [`print(`*`<trans_meta_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
@@ -87,10 +103,12 @@
   [`cast_dt_col()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   : evoland utility functions
 - [`exec_dinamica()`](https://ethzplus.github.io/evoland-plus/reference/util_dinamica.md)
-  [`run_evoland_dinamica_sim()`](https://ethzplus.github.io/evoland-plus/reference/util_dinamica.md)
+  [`run_alloc_dinamica()`](https://ethzplus.github.io/evoland-plus/reference/util_dinamica.md)
   [`process_dinamica_script()`](https://ethzplus.github.io/evoland-plus/reference/util_dinamica.md)
   : Dinamica Utility Functions
 - [`download_and_verify()`](https://ethzplus.github.io/evoland-plus/reference/util_download.md)
   : Utilities to download and manage files
+- [`util_parallel`](https://ethzplus.github.io/evoland-plus/reference/util_parallel.md)
+  : Parallel Processing Utilities
 - [`extract_using_coords_t()`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
   : evoland utility functions to work with terra objects

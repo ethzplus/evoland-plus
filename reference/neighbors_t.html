@@ -49,7 +49,6 @@
 <span>  <span class="va">coords_t</span>,</span>
 <span>  <span class="va">max_distance</span>,</span>
 <span>  distance_breaks <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  resolution <span class="op">=</span> <span class="fl">100</span>,</span>
 <span>  quiet <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -70,17 +69,13 @@
 
 <dt id="arg-max-distance">max_distance<a class="anchor" aria-label="anchor" href="#arg-max-distance"></a></dt>
 <dd><p>Maximum distance to search for neighbors (in same units as
-coordinates and resolution)</p></dd>
+coordinates)</p></dd>
 
 
 <dt id="arg-distance-breaks">distance_breaks<a class="anchor" aria-label="anchor" href="#arg-distance-breaks"></a></dt>
 <dd><p>Optional numeric vector defining distance class boundaries.
 If NULL, no distance classification is performed.
 If provided, must have at least 2 elements defining interval breaks.</p></dd>
-
-
-<dt id="arg-resolution">resolution<a class="anchor" aria-label="anchor" href="#arg-resolution"></a></dt>
-<dd><p>Grid cell size for rasterization (default: 100.0, in same units as coordinates)</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -111,11 +106,8 @@ If provided, must have at least 2 elements defining interval breaks.</p></dd>
     <div class="section level2">
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
-<ul><li><p><code>create_neighbors_t()</code>: Compute neighboring coordinates within specified distances. In
-order to be computationally feasible, the coordinates' IDs are rasterized before
-their actual Euclidean distance is calculated. If coordinates are so close that they
-get rasterized to the same cell, the first one is used and a warning is emitted. If
-this happens, try again using a lower resolution.</p></li>
+<ul><li><p><code>create_neighbors_t()</code>: Compute neighboring coordinates within specified distances.
+This uses a spatial hash map for efficiency.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

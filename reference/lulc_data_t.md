@@ -42,3 +42,8 @@ A data.table of class "lulc_data_t" with columns:
 
 - `print(lulc_data_t)`: Print an lulc_data_t object, passing params to
   data.table print
+
+## See also
+
+[evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
+method `$lulc_data_as_rast()` for converting to terra SpatRast

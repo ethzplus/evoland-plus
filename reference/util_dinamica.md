@@ -14,11 +14,8 @@ exec_dinamica(
   echo = FALSE
 )
 
-run_evoland_dinamica_sim(
-  run_modelprechecks = TRUE,
-  config = get_config(),
+run_alloc_dinamica(
   work_dir = format(Sys.time(), "%Y-%m-%d_%Hh%Mm%Ss"),
-  calibration = FALSE,
   ...
 )
 
@@ -55,22 +52,9 @@ process_dinamica_script(infile, outfile, mode = "encode", check = TRUE)
 
   bool, direct echo to console?
 
-- run_modelprechecks:
-
-  bool, Validate that everything's in place for a model run. Will never
-  be run if calibration.
-
-- config:
-
-  List of config params
-
 - work_dir:
 
   Working dir, where to place ego files and control table
-
-- calibration:
-
-  bool, Is this a calibration run?
 
 - ...:
 
@@ -94,13 +78,26 @@ process_dinamica_script(infile, outfile, mode = "encode", check = TRUE)
   Default TRUE, simple check to ensure that you're handling what you're
   expecting
 
+- run_modelprechecks:
+
+  bool, Validate that everything's in place for a model run. Will never
+  be run if calibration.
+
+- config:
+
+  List of config params
+
+- calibration:
+
+  bool, Is this a calibration run?
+
 ## Functions
 
 - `exec_dinamica()`: Execute a Dinamica .ego file using
   `DinamicaConsole`
 
-- `run_evoland_dinamica_sim()`: Set up evoland-specific Dinamica EGO
-  files; execute using `exec_dinamica()`
+- `run_alloc_dinamica()`: Set up evoland-specific Dinamica EGO files;
+  execute using `exec_dinamica()`
 
 - `process_dinamica_script()`: Encode or decode raw R and Python code
   chunks in .ego files and their submodels to/from base64

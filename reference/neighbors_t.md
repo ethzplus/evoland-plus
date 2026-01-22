@@ -11,7 +11,6 @@ create_neighbors_t(
   coords_t,
   max_distance,
   distance_breaks = NULL,
-  resolution = 100,
   quiet = FALSE
 )
 
@@ -31,19 +30,14 @@ print(x, nrow = 10, ...)
 
 - max_distance:
 
-  Maximum distance to search for neighbors (in same units as coordinates
-  and resolution)
+  Maximum distance to search for neighbors (in same units as
+  coordinates)
 
 - distance_breaks:
 
   Optional numeric vector defining distance class boundaries. If NULL,
   no distance classification is performed. If provided, must have at
   least 2 elements defining interval breaks.
-
-- resolution:
-
-  Grid cell size for rasterization (default: 100.0, in same units as
-  coordinates)
 
 - ...:
 
@@ -87,8 +81,4 @@ A data.table with columns:
 ## Functions
 
 - `create_neighbors_t()`: Compute neighboring coordinates within
-  specified distances. In order to be computationally feasible, the
-  coordinates' IDs are rasterized before their actual Euclidean distance
-  is calculated. If coordinates are so close that they get rasterized to
-  the same cell, the first one is used and a warning is emitted. If this
-  happens, try again using a lower resolution.
+  specified distances. This uses a spatial hash map for efficiency.

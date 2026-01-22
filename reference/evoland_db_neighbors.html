@@ -49,10 +49,9 @@ These methods compute neighbor relationships and generate neighbor-based predict
     <h2 id="methods-added">Methods Added<a class="anchor" aria-label="anchor" href="#methods-added"></a></h2>
 
 
-<ul><li><p><code>create_neighbors_t(max_distance, distance_breaks, resolution, overwrite)</code> -
+<ul><li><p><code>set_neighbors(max_distance, distance_breaks, overwrite)</code> -
 Computes neighbor relationships between coordinates.</p><ul><li><p><code>max_distance</code>: Maximum distance for neighbors (default: 1000)</p></li>
 <li><p><code>distance_breaks</code>: Vector of breaks for distance classes (default: c(0, 100, 500, 1000))</p></li>
-<li><p><code>resolution</code>: Grid resolution for distance calculations (default: 100)</p></li>
 <li><p><code>overwrite</code>: Whether to overwrite existing neighbors_t (default: FALSE)</p></li>
 </ul></li>
 <li><p><code>generate_neighbor_predictors()</code> - Generates predictor variables based on neighbor

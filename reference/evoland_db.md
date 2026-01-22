@@ -6,7 +6,7 @@ JSON) file. This class uses DuckDB for in-memory SQL operations while
 persisting data to disk in parquet format for better compression.
 
 Inherits from
-[parquet_duckdb](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.md)
+[parquet_db](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
 for generic database operations.
 
 ## See also
@@ -25,12 +25,18 @@ separate files:
 
 ## Super class
 
-[`evoland::parquet_duckdb`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.md)
+[`evoland::parquet_db`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
 -\> `evoland_db`
 
 ## Methods
 
 ### Public methods
+
+- [`evoland_db$alloc_dinamica()`](#method-evoland_db-alloc_dinamica)
+
+- [`evoland_db$eval_alloc_params_t()`](#method-evoland_db-eval_alloc_params_t)
+
+- [`evoland_db$create_alloc_params_t()`](#method-evoland_db-create_alloc_params_t)
 
 - [`evoland_db$set_neighbors()`](#method-evoland_db-set_neighbors)
 
@@ -50,6 +56,8 @@ separate files:
 
 - [`evoland_db$add_predictor()`](#method-evoland_db-add_predictor)
 
+- [`evoland_db$lulc_data_as_rast()`](#method-evoland_db-lulc_data_as_rast)
+
 - [`evoland_db$fit_partial_models()`](#method-evoland_db-fit_partial_models)
 
 - [`evoland_db$fit_full_models()`](#method-evoland_db-fit_full_models)
@@ -62,17 +70,52 @@ separate files:
 
 Inherited methods
 
-- [`evoland::parquet_duckdb$attach_table()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-attach_table)
-- [`evoland::parquet_duckdb$commit()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-commit)
-- [`evoland::parquet_duckdb$delete_from()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-delete_from)
-- [`evoland::parquet_duckdb$detach_table()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-detach_table)
-- [`evoland::parquet_duckdb$execute()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-execute)
-- [`evoland::parquet_duckdb$fetch()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-fetch)
-- [`evoland::parquet_duckdb$get_query()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-get_query)
-- [`evoland::parquet_duckdb$list_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-list_tables)
-- [`evoland::parquet_duckdb$print()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-print)
-- [`evoland::parquet_duckdb$row_count()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-row_count)
-- [`evoland::parquet_duckdb$with_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_duckdb.html#method-with_tables)
+- [`evoland::parquet_db$attach_table()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-attach_table)
+- [`evoland::parquet_db$commit()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-commit)
+- [`evoland::parquet_db$delete_from()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-delete_from)
+- [`evoland::parquet_db$detach_table()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-detach_table)
+- [`evoland::parquet_db$execute()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-execute)
+- [`evoland::parquet_db$fetch()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-fetch)
+- [`evoland::parquet_db$get_query()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_query)
+- [`evoland::parquet_db$get_table_metadata()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_table_metadata)
+- [`evoland::parquet_db$list_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-list_tables)
+- [`evoland::parquet_db$print()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-print)
+- [`evoland::parquet_db$row_count()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-row_count)
+- [`evoland::parquet_db$set_partitioning()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-set_partitioning)
+- [`evoland::parquet_db$with_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-with_tables)
+
+------------------------------------------------------------------------
+
+### Method [`alloc_dinamica()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+
+#### Usage
+
+    evoland_db$alloc_dinamica(
+      id_periods,
+      id_perturbation,
+      work_dir = "dinamica_rundir",
+      keep_intermediate = FALSE
+    )
+
+------------------------------------------------------------------------
+
+### Method [`eval_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/eval_alloc_params_t.md)
+
+#### Usage
+
+    evoland_db$eval_alloc_params_t(
+      id_perturbations = NULL,
+      work_dir = "dinamica_rundir",
+      keep_intermediate = FALSE
+    )
+
+------------------------------------------------------------------------
+
+### Method [`create_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/create_alloc_params_t.md)
+
+#### Usage
+
+    evoland_db$create_alloc_params_t(n_perturbations = 5L, sd = 0.05)
 
 ------------------------------------------------------------------------
 
@@ -83,8 +126,9 @@ Inherited methods
     evoland_db$set_neighbors(
       max_distance = 1000,
       distance_breaks = c(0, 100, 500, 1000),
-      resolution = 100,
-      overwrite = FALSE
+      overwrite = FALSE,
+      quiet = FALSE,
+      chunksize = 1e+08
     )
 
 ------------------------------------------------------------------------
@@ -101,7 +145,13 @@ Inherited methods
 
 #### Usage
 
-    evoland_db$trans_pred_data_v(id_trans, id_pred = NULL, na_value = NA)
+    evoland_db$trans_pred_data_v(
+      id_trans,
+      id_period = NULL,
+      id_pred = NULL,
+      na_value = NA,
+      include_period_0 = TRUE
+    )
 
 ------------------------------------------------------------------------
 
@@ -119,13 +169,19 @@ Initialize a new evoland_db object
 
 #### Usage
 
-    evoland_db$new(path, ...)
+    evoland_db$new(path, update_reporting = TRUE, ...)
 
 #### Arguments
 
 - `path`:
 
   Character string. Path to the data folder.
+
+- `update_reporting`:
+
+  Logical. Whether to update the reporting table upon initialization.
+  Defaults to TRUE. Set to FALSE for read-only workers to avoid lock
+  contention.
 
 - `...`:
 
@@ -241,6 +297,18 @@ Add a predictor to the database
 
 ------------------------------------------------------------------------
 
+### Method `lulc_data_as_rast()`
+
+#### Usage
+
+    evoland_db$lulc_data_as_rast(
+      extent = NULL,
+      resolution = NULL,
+      id_period = NULL
+    )
+
+------------------------------------------------------------------------
+
 ### Method `fit_partial_models()`
 
 #### Usage
@@ -251,6 +319,7 @@ Add a predictor to the database
       sample_pct = 70,
       seed = NULL,
       na_value = NA,
+      cores = 1L,
       ...
     )
 
@@ -265,7 +334,8 @@ Add a predictor to the database
       gof_criterion,
       maximize = TRUE,
       na_value = NA,
-      envir = parent.frame()
+      envir = parent.frame(),
+      cores = 1L
     )
 
 ------------------------------------------------------------------------
@@ -285,6 +355,7 @@ Add a predictor to the database
     evoland_db$get_pruned_trans_preds_t(
       filter_fun = covariance_filter,
       na_value = NA,
+      cores = 1L,
       ...
     )
 

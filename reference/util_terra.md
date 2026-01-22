@@ -17,7 +17,8 @@ extract_using_coords_t(x, coords_t, na_omit = TRUE)
 
 - coords_t:
 
-  A coords_t object containing coordinate points
+  A coords_t object containing coordinate points with an "epsg"
+  attribute
 
 ## Value
 

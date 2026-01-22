@@ -53,6 +53,14 @@ cast_dt_col(x, colname, type)
 
   The list to index into
 
+- colname:
+
+  Name of the column
+
+- type:
+
+  one of "int", "float", "bool", "factor"
+
 ## Value
 
 NULL, called for side effect

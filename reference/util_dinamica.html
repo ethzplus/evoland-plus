@@ -52,11 +52,8 @@
 <span>  echo <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">run_evoland_dinamica_sim</span><span class="op">(</span></span>
-<span>  run_modelprechecks <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  config <span class="op">=</span> <span class="fu">get_config</span><span class="op">(</span><span class="op">)</span>,</span>
+<span><span class="fu">run_alloc_dinamica</span><span class="op">(</span></span>
 <span>  work_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"%Y-%m-%d_%Hh%Mm%Ss"</span><span class="op">)</span>,</span>
-<span>  calibration <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -93,21 +90,8 @@ in a directory of the exact form <code>basename(modelpath)_ego_Submodels</code>,
 <dd><p>bool, direct echo to console?</p></dd>
 
 
-<dt id="arg-run-modelprechecks">run_modelprechecks<a class="anchor" aria-label="anchor" href="#arg-run-modelprechecks"></a></dt>
-<dd><p>bool, Validate that everything's in place for a model run.
-Will never be run if calibration.</p></dd>
-
-
-<dt id="arg-config">config<a class="anchor" aria-label="anchor" href="#arg-config"></a></dt>
-<dd><p>List of config params</p></dd>
-
-
 <dt id="arg-work-dir">work_dir<a class="anchor" aria-label="anchor" href="#arg-work-dir"></a></dt>
 <dd><p>Working dir, where to place ego files and control table</p></dd>
-
-
-<dt id="arg-calibration">calibration<a class="anchor" aria-label="anchor" href="#arg-calibration"></a></dt>
-<dd><p>bool, Is this a calibration run?</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -129,12 +113,25 @@ Will never be run if calibration.</p></dd>
 <dt id="arg-check">check<a class="anchor" aria-label="anchor" href="#arg-check"></a></dt>
 <dd><p>Default TRUE, simple check to ensure that you're handling what you're expecting</p></dd>
 
+
+<dt id="arg-run-modelprechecks">run_modelprechecks<a class="anchor" aria-label="anchor" href="#arg-run-modelprechecks"></a></dt>
+<dd><p>bool, Validate that everything's in place for a model run.
+Will never be run if calibration.</p></dd>
+
+
+<dt id="arg-config">config<a class="anchor" aria-label="anchor" href="#arg-config"></a></dt>
+<dd><p>List of config params</p></dd>
+
+
+<dt id="arg-calibration">calibration<a class="anchor" aria-label="anchor" href="#arg-calibration"></a></dt>
+<dd><p>bool, Is this a calibration run?</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
 <ul><li><p><code>exec_dinamica()</code>: Execute a Dinamica .ego file using <code>DinamicaConsole</code></p></li>
-<li><p><code>run_evoland_dinamica_sim()</code>: Set up evoland-specific Dinamica EGO files; execute using
+<li><p><code>run_alloc_dinamica()</code>: Set up evoland-specific Dinamica EGO files; execute using
 <code>exec_dinamica()</code></p></li>
 <li><p><code>process_dinamica_script()</code>: Encode or decode raw R and Python code chunks in .ego
 files and their submodels to/from base64</p></li>

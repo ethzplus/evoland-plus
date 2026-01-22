@@ -6,16 +6,13 @@ generate neighbor-based predictors.
 
 ## Methods Added
 
-- `create_neighbors_t(max_distance, distance_breaks, resolution, overwrite)` -
-  Computes neighbor relationships between coordinates.
+- `set_neighbors(max_distance, distance_breaks, overwrite)` - Computes
+  neighbor relationships between coordinates.
 
   - `max_distance`: Maximum distance for neighbors (default: 1000)
 
   - `distance_breaks`: Vector of breaks for distance classes (default:
     c(0, 100, 500, 1000))
-
-  - `resolution`: Grid resolution for distance calculations (default:
-    100)
 
   - `overwrite`: Whether to overwrite existing neighbors_t (default:
     FALSE)
