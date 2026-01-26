@@ -5,8 +5,6 @@
 #' modelling each transition type.
 #'
 #' @name trans_preds_t
-#' @include evoland_db.R
-#' @include util_parallel.R
 #'
 #' @param db An [evoland_db] instance with populated trans_meta_t and pred_meta_t tables
 #'
@@ -31,25 +29,21 @@ as_trans_preds_t <- function(x) {
 }
 
 # set an initial full set of transition / predictor relations
-evoland_db$set(
-  "public",
-  "set_full_trans_preds",
-  function(overwrite = FALSE) {
-    if (self$row_count("trans_preds_t") > 0 && !overwrite) {
-      stop("Set overwrite to TRUE to overwrite existing trans_preds_t")
-    }
-    p <- self$pred_meta_t
-    t <- self$trans_meta_t[is_viable == TRUE]
-
-    full <- expand.grid(
-      id_pred = p[["id_pred"]],
-      id_trans = t[["id_trans"]],
-      KEEP.OUT.ATTRS = FALSE
-    )
-
-    self$commit(as_trans_preds_t(full), "trans_preds_t", method = "overwrite")
+set_full_trans_preds <- function(self, overwrite = FALSE) {
+  if (self$row_count("trans_preds_t") > 0 && !overwrite) {
+    stop("Set overwrite to TRUE to overwrite existing trans_preds_t")
   }
-)
+  p <- self$pred_meta_t
+  t <- self$trans_meta_t[is_viable == TRUE]
+
+  full <- expand.grid(
+    id_pred = p[["id_pred"]],
+    id_trans = t[["id_trans"]],
+    KEEP.OUT.ATTRS = FALSE
+  )
+
+  self$commit(as_trans_preds_t(full), "trans_preds_t", method = "overwrite")
+}
 
 # Worker function for parallel transition pruning
 # Not exported; used internally by get_pruned_trans_preds_t
@@ -121,65 +115,56 @@ prune_trans_worker <- function(item, db, na_value, filter_fun, ...) {
   )
 }
 
-#' describeIn trans_preds_t Create a transition-predictor relation, i.e. records the
-#' result of a predictor selection step. Runs covariance filtering for each viable
-#' transition and stores the selected predictors.
-#' param corcut Numeric threshold (0-1) for correlation filtering passed to [covariance_filter()]
-#' param filter_fun Defaults to [covariance_filter()], but can be any function that returns
-#' param na_value Passed to db$trans_pred_data_v - if not NA, replace all NA predictor values with this value
-#' param cores Integer, number of cores to use for parallel processing. Defaults to 1.
-#' param ... Additional arguments passed to rank_fun via [covariance_filter()]
-evoland_db$set(
-  "public",
-  "get_pruned_trans_preds_t",
-  function(
-    filter_fun = covariance_filter,
-    na_value = NA,
-    cores = 1L,
-    ...
-  ) {
-    if (self$row_count("trans_preds_t") == 0) {
-      self$set_full_trans_preds()
-    }
-    trans_preds_pre <- self$trans_preds_t
-    unique_trans <- unique(trans_preds_pre$id_trans)
-
-    # Prepare items for parallel processing
-    items <- lapply(unique_trans, function(tr) {
-      list(
-        id_trans = tr,
-        id_preds = trans_preds_pre$id_pred[trans_preds_pre$id_trans == tr]
-      )
-    })
-
-    message(glue::glue("Processing {length(unique_trans)} transitions..."))
-
-    results_list <- run_parallel_task(
-      items = items,
-      worker_fun = prune_trans_worker,
-      db = self,
-      cores = cores,
-      na_value = na_value,
-      filter_fun = filter_fun,
-      ...
-    )
-
-    # Filter out NULLs
-    results_list <- Filter(Negate(is.null), results_list)
-
-    # Combine all results
-    if (length(results_list) == 0L) {
-      warning("No predictors selected for any transition")
-      return(invisible(NULL))
-    }
-
-    result <- data.table::rbindlist(results_list)
-
-    # FIXME can we do this safely? something might go wrong in between
-    # self$commit(as_trans_preds_t(result), "trans_preds_t", method = "overwrite")
-    as_trans_preds_t(result)
+get_pruned_trans_preds_t <- function(
+  self,
+  filter_fun = covariance_filter,
+  na_value = NA,
+  cores = 1L,
+  ...
+) {
+  if (self$row_count("trans_preds_t") == 0) {
+    self$set_full_trans_preds()
   }
-)
+  trans_preds_pre <- self$trans_preds_t
+  unique_trans <- unique(trans_preds_pre$id_trans)
+
+  # Prepare items for parallel processing
+  items <- lapply(unique_trans, function(tr) {
+    list(
+      id_trans = tr,
+      id_preds = trans_preds_pre$id_pred[trans_preds_pre$id_trans == tr]
+    )
+  })
+
+  message(glue::glue("Processing {length(unique_trans)} transitions..."))
+
+  # don't care about collation here because this is not evaluated upon sourcing package
+  results_list <- run_parallel_task(
+    items = items,
+    worker_fun = prune_trans_worker,
+    db = self,
+    cores = cores,
+    na_value = na_value,
+    filter_fun = filter_fun,
+    ...
+  )
+
+  # Filter out NULLs
+  results_list <- Filter(Negate(is.null), results_list)
+
+  # Combine all results
+  if (length(results_list) == 0L) {
+    warning("No predictors selected for any transition")
+    return(invisible(NULL))
+  }
+
+  result <- data.table::rbindlist(results_list)
+
+  # FIXME can we do this safely? something might go wrong in between
+  # self$commit(as_trans_preds_t(result), "trans_preds_t", method = "overwrite")
+  as_trans_preds_t(result)
+}
+
 
 #' @export
 validate.trans_preds_t <- function(x, ...) {

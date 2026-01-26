@@ -467,10 +467,9 @@ parquet_db <- R6::R6Class(
       invisible(self)
     },
 
-    # Get file path (or directory path) for a table
-    #
-    # @param table_name Character string table name
-    # @return Character path
+    #' @description Get file path (or directory path) for a table
+    #' @param table_name Character string table name
+    #' @return Character path
     get_file_path = function(table_name) {
       # Known partitioning
       if (!is.null(self$partitioning[[table_name]])) {
@@ -485,10 +484,9 @@ parquet_db <- R6::R6Class(
       file.path(self$path, paste0(table_name, ".parquet"))
     },
 
-    # Get SQL expression to read a table
-    #
-    # @param table_name Character string table name
-    # @return Character string SQL expression
+    #' @description Get SQL expression to read a table
+    #' @param table_name Character string table name
+    #' @return Character string SQL expression
     get_read_expr = function(table_name) {
       path <- self$get_file_path(table_name)
       # Check if it is a directory or if we know it is partitioned
@@ -501,10 +499,9 @@ parquet_db <- R6::R6Class(
       glue::glue("read_parquet('{path}')")
     },
 
-    # Get PARTITION_BY clause if applicable
-    #
-    # @param table_name Character string table name
-    # @return Character string
+    #' @description Get PARTITION_BY clause if applicable
+    #' @param table_name Character string table name
+    #' @return Character string
     get_partition_clause = function(table_name) {
       cols <- self$partitioning[[table_name]]
       if (is.null(cols)) {

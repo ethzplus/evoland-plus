@@ -5,7 +5,6 @@
 #' structure for storing fitted models.
 #'
 #' @name alloc_params_t
-#' @include evoland_db.R
 #'
 #' @param x A list or data.frame coercible to a data.table
 #'
@@ -62,7 +61,7 @@ print.alloc_params_t <- function(x, nrow = 10, ...) {
 }
 
 
-#' @desribeIn alloc_params_t Map patch elongation to Dinamica "isometry" patcher
+#' @describeIn alloc_params_t Map patch elongation to Dinamica "isometry" patcher
 #' parameter, c.f. fig. 3.10 in Mazy, 2022 https://theses.hal.science/tel-04382012v1
 #' @param elongation Numeric vector of elongation values
 #' @param curve Data frame with columns `isometry` and `elongation` defining the mapping curve
@@ -200,201 +199,146 @@ compute_alloc_params_single <- function(
   )
 }
 
-#' Initialize Allocation Parameters Table
-#'
-#' @description
-#' Computes allocation parameters for all viable transitions, aggregated across
-#' observed periods and then randomly perturbed N times. This is a method
-#' on `evoland_db` that analyzes patch dynamics to determine expansion vs. patcher
-#' behavior for the Dinamica allocation procedure.
-#'
-#' The method first computes parameters for all viable transitions across observed
-#' periods (where `id_period > 1` and `is_extrapolated == FALSE`), then aggregates
-#' (mean) these parameters by transition. Finally, it creates randomly perturbed
-#' versions of these aggregated parameters and returns them together with the original
-#' estimate, i.e. the result set size is (n viable transitions) * (m perturbations + 1)
-#'
-#' @details
-#' The workflow is:
-#' 1. For each transition and period pair:
-#'    - Create rasters for the anterior and posterior periods
-#'    - Identify transition cells (cells that changed from anterior to posterior class)
-#'    - Use focal operations to determine if transition cells are adjacent to existing
-#'      patches (expansion) or form new patches (patcher behavior)
-#'    - Compute patch statistics using internal C++ implementation
-#' 2. Aggregate parameters across periods (mean) for each transition
-#' 3. For each transition, create N randomly perturbed versions:
-#'    - Add random noise to frac_expander (normal distribution, mean=0, sd=sd)
-#'    - Clamp frac_expander to \[0, 1\]
-#'    - Recalculate frac_patcher as 1 - frac_expander
-#' 4. Store all perturbed versions in the `alloc_params_t` table
-#'
-#' @param n_perturbations Integer number of perturbed parameter sets to generate
-#'   per transition (default: 5)
-#' @param sd Standard deviation for random perturbation of frac_expander as a
-#'   fraction (default: 0.05)
-#'
-#' @section Requirements:
-#' - `coords_t` must have `resolution` and `epsg` metadata
-#' - `trans_meta_t` must have at least one viable transition
-#' - `periods_t` must have at least one observed period with `id_period > 1`
-#'
-#' @return Invisibly returns the computed `alloc_params_t` table.
-#'
-#' @examples
-#' \dontrun{
-#' db <- evoland_db$new("path/to/db")
-#' # ... populate with coords, periods, lulc_data, trans_meta ...
-#' db$create_alloc_params_t()
-#' }
-#'
-#' @name create_alloc_params_t
-NULL
+create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
+  # Validate parameters
+  stopifnot(
+    "n_perturbations must be an int >= 0" = {
+      (as.integer(n_perturbations) == n_perturbations) && n_perturbations >= 0
+    },
+    "sd must be a positive number" = sd > 0
+  )
 
-evoland_db$set(
-  "public",
-  "create_alloc_params_t",
-  function(n_perturbations = 5L, sd = 0.05) {
-    # Validate parameters
-    stopifnot(
-      "n_perturbations must be an int >= 0" = {
-        (as.integer(n_perturbations) == n_perturbations) && n_perturbations >= 0
-      },
-      "sd must be a positive number" = sd > 0
+  n_perturbations <- as.integer(n_perturbations)
+
+  # Get observed periods (not extrapolated, and > 1 since we need period - 1)
+  periods <- self$periods_t[is_extrapolated == FALSE & id_period > 1]
+  viable_trans <- self$trans_meta_t[is_viable == TRUE]
+  resolution <- self$get_table_metadata("coords_t")[["resolution"]]
+
+  # validate DB inputs
+  stopifnot(
+    "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L,
+    "No observed periods with id_period > 1 found in periods_t" = nrow(periods) > 0L,
+    "coords_t must have resolution and epsg metadata" = !is.null(resolution)
+  )
+
+  raw_results <- list()
+
+  message(glue::glue(
+    "Computing allocation parameters for {nrow(viable_trans)} transitions ",
+    "across {nrow(periods)} periods..."
+  ))
+
+  # Step 1: Compute parameters for all transition-period pairs
+  for (i in seq_len(nrow(periods))) {
+    period_post <- periods[i][["id_period"]]
+    period_ant <- period_post - 1L
+
+    message(glue::glue("  Processing period {period_ant} -> {period_post}"))
+
+    # Get LULC data as rasters for both periods
+    lulc_rast <- self$lulc_data_as_rast(
+      resolution = resolution,
+      id_period = c(period_ant, period_post)
     )
 
-    n_perturbations <- as.integer(n_perturbations)
+    # Loop over transitions
+    for (j in seq_len(nrow(viable_trans))) {
+      trans <- viable_trans[j]
+      id_trans <- trans[["id_trans"]]
 
-    # Get observed periods (not extrapolated, and > 1 since we need period - 1)
-    periods <- self$periods_t[is_extrapolated == FALSE & id_period > 1]
-    viable_trans <- self$trans_meta_t[is_viable == TRUE]
-    resolution <- self$get_table_metadata("coords_t")[["resolution"]]
-
-    # validate DB inputs
-    stopifnot(
-      "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L,
-      "No observed periods with id_period > 1 found in periods_t" = nrow(periods) > 0L,
-      "coords_t must have resolution and epsg metadata" = !is.null(resolution)
-    )
-
-    raw_results <- list()
-
-    message(glue::glue(
-      "Computing allocation parameters for {nrow(viable_trans)} transitions ",
-      "across {nrow(periods)} periods..."
-    ))
-
-    # Step 1: Compute parameters for all transition-period pairs
-    for (i in seq_len(nrow(periods))) {
-      period_post <- periods[i][["id_period"]]
-      period_ant <- period_post - 1L
-
-      message(glue::glue("  Processing period {period_ant} -> {period_post}"))
-
-      # Get LULC data as rasters for both periods
-      lulc_rast <- self$lulc_data_as_rast(
-        resolution = resolution,
-        id_period = c(period_ant, period_post)
+      # Compute allocation parameters
+      alloc_params <- tryCatch(
+        {
+          stopifnot("Need data for at least 2 periods" = length(names(lulc_rast)) > 1L)
+          compute_alloc_params_single(
+            lulc_ant = lulc_rast[[1]],
+            lulc_post = lulc_rast[[2]],
+            id_lulc_ant = trans[["id_lulc_anterior"]],
+            id_lulc_post = trans[["id_lulc_posterior"]]
+          )
+        },
+        error = function(e) {
+          warning(
+            glue::glue(
+              "Failed to compute allocation parameters for id_trans={id_trans}, ",
+              "id_period={period_post}: {e$message}"
+            ),
+            call. = FALSE
+          )
+          NULL
+        }
       )
 
-      # Loop over transitions
-      for (j in seq_len(nrow(viable_trans))) {
-        trans <- viable_trans[j]
-        id_trans <- trans[["id_trans"]]
-
-        # Compute allocation parameters
-        alloc_params <- tryCatch(
-          {
-            stopifnot("Need data for at least 2 periods" = length(names(lulc_rast)) > 1L)
-            compute_alloc_params_single(
-              lulc_ant = lulc_rast[[1]],
-              lulc_post = lulc_rast[[2]],
-              id_lulc_ant = trans[["id_lulc_anterior"]],
-              id_lulc_post = trans[["id_lulc_posterior"]]
-            )
-          },
-          error = function(e) {
-            warning(
-              glue::glue(
-                "Failed to compute allocation parameters for id_trans={id_trans}, ",
-                "id_period={period_post}: {e$message}"
-              ),
-              call. = FALSE
-            )
-            NULL
-          }
+      if (!is.null(alloc_params)) {
+        raw_results[[length(raw_results) + 1]] <- data.table::data.table(
+          id_trans = id_trans,
+          id_period = period_post,
+          mean_patch_size = alloc_params$mean_patch_size,
+          patch_size_variance = alloc_params$patch_size_variance,
+          patch_isometry = alloc_params$patch_isometry,
+          frac_expander = alloc_params$frac_expander,
+          frac_patcher = alloc_params$frac_patcher
         )
-
-        if (!is.null(alloc_params)) {
-          raw_results[[length(raw_results) + 1]] <- data.table::data.table(
-            id_trans = id_trans,
-            id_period = period_post,
-            mean_patch_size = alloc_params$mean_patch_size,
-            patch_size_variance = alloc_params$patch_size_variance,
-            patch_isometry = alloc_params$patch_isometry,
-            frac_expander = alloc_params$frac_expander,
-            frac_patcher = alloc_params$frac_patcher
-          )
-        }
       }
     }
-
-    if (length(raw_results) == 0L) {
-      stop("No allocation parameters could be computed")
-    }
-
-    # Convert to data.table
-    raw_dt <- data.table::rbindlist(raw_results)
-
-    # Step 2: Aggregate parameters across periods (mean) for each transition
-    message("Aggregating parameters across periods...")
-
-    # fmt: skip
-    mean_na <- function(x) {m <- mean(x, na.rm = TRUE); ifelse(is.nan(m), NA_real_, m)}
-
-    agg_dt <- raw_dt[,
-      .(
-        mean_patch_size = mean_na(mean_patch_size),
-        patch_size_variance = mean_na(patch_size_variance),
-        patch_isometry = mean_na(patch_isometry),
-        frac_expander = mean_na(frac_expander),
-        frac_patcher = mean_na(frac_patcher)
-      ),
-      by = id_trans
-    ]
-
-    # Step 3: Create N perturbed versions for each transition
-    message(glue::glue("Creating {n_perturbations} randomly perturbed versions per transition..."))
-
-    final_results <- list()
-    final_results[[1]] <- agg_dt
-
-    for (i in seq_len(n_perturbations)) {
-      # Add random perturbation to frac_expander
-      frac_exp_perturbed <- agg_dt[["frac_expander"]] + rnorm(nrow(agg_dt), mean = 0, sd = sd)
-
-      # Clamp expanded / patched to [0, 1]
-      frac_exp_perturbed <- pmax(0, pmin(1, frac_exp_perturbed))
-      frac_patch_perturbed <- 1 - frac_exp_perturbed
-
-      # add to list of perturbed params
-      agg_dt_perturbed <- data.table::copy(agg_dt)
-      data.table::set(agg_dt_perturbed, j = "frac_expander", value = frac_exp_perturbed)
-      data.table::set(agg_dt_perturbed, j = "frac_patcher", value = frac_patch_perturbed)
-      final_results[[i + 1L]] <- agg_dt_perturbed # offset bcoz [[1]] is unperturbed
-    }
-
-    # Step 4: Bind list items into data.table, add id_perturbation; cast as alloc params table
-    results_dt <-
-      final_results |>
-      data.table::rbindlist(idcol = "id_perturbation") |>
-      as_alloc_params_t()
-
-    message(glue::glue(
-      "Successfully computed {nrow(results_dt)} allocation parameter sets ",
-      "({nrow(agg_dt)} transitions x ({n_perturbations} perturbations + best estimate))"
-    ))
-
-    results_dt
   }
-)
+
+  if (length(raw_results) == 0L) {
+    stop("No allocation parameters could be computed")
+  }
+
+  # Convert to data.table
+  raw_dt <- data.table::rbindlist(raw_results)
+
+  # Step 2: Aggregate parameters across periods (mean) for each transition
+  message("Aggregating parameters across periods...")
+
+  # fmt: skip
+  mean_na <- function(x) {m <- mean(x, na.rm = TRUE); ifelse(is.nan(m), NA_real_, m)}
+
+  agg_dt <- raw_dt[,
+    .(
+      mean_patch_size = mean_na(mean_patch_size),
+      patch_size_variance = mean_na(patch_size_variance),
+      patch_isometry = mean_na(patch_isometry),
+      frac_expander = mean_na(frac_expander),
+      frac_patcher = mean_na(frac_patcher)
+    ),
+    by = id_trans
+  ]
+
+  # Step 3: Create N perturbed versions for each transition
+  message(glue::glue("Creating {n_perturbations} randomly perturbed versions per transition..."))
+
+  final_results <- list()
+  final_results[[1]] <- agg_dt
+
+  for (i in seq_len(n_perturbations)) {
+    # Add random perturbation to frac_expander
+    frac_exp_perturbed <- agg_dt[["frac_expander"]] + rnorm(nrow(agg_dt), mean = 0, sd = sd)
+
+    # Clamp expanded / patched to [0, 1]
+    frac_exp_perturbed <- pmax(0, pmin(1, frac_exp_perturbed))
+    frac_patch_perturbed <- 1 - frac_exp_perturbed
+
+    # add to list of perturbed params
+    agg_dt_perturbed <- data.table::copy(agg_dt)
+    data.table::set(agg_dt_perturbed, j = "frac_expander", value = frac_exp_perturbed)
+    data.table::set(agg_dt_perturbed, j = "frac_patcher", value = frac_patch_perturbed)
+    final_results[[i + 1L]] <- agg_dt_perturbed # offset bcoz [[1]] is unperturbed
+  }
+
+  # Step 4: Bind list items into data.table, add id_perturbation; cast as alloc params table
+  results_dt <-
+    final_results |>
+    data.table::rbindlist(idcol = "id_perturbation") |>
+    as_alloc_params_t()
+
+  message(glue::glue(
+    "Successfully computed {nrow(results_dt)} allocation parameter sets ",
+    "({nrow(agg_dt)} transitions x ({n_perturbations} perturbations + best estimate))"
+  ))
+
+  results_dt
+}

@@ -19,7 +19,7 @@
 #' - Applies butcher::butcher() if the package is available to reduce model size
 #'
 #' @export
-fit_glm <- function(data, result_col = "result", ...) {
+fit_glm <- function(data, ...) {
   pred_cols <- grep("^id_pred_", names(data), value = TRUE)
 
   if (length(pred_cols) == 0) {

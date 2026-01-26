@@ -153,9 +153,7 @@ expect_equal(
 
 # Test pruning
 expect_message(
-  trans_preds_result <- db_tps$get_pruned_trans_preds_t(
-    corcut = 0.2
-  ),
+  trans_preds_result <- db_tps$get_pruned_trans_preds_t(corcut = 0.2),
   "Processing 2 transitions"
 )
 

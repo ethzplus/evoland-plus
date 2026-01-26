@@ -23,11 +23,10 @@
 #'
 #' Default hyperparameters:
 #' - num.trees = 500
-#' - mtry = floor(sqrt(n_predictors))
 #' - min.node.size = 1
 #'
 #' @export
-fit_ranger <- function(data, result_col = "result", num.trees = 500, ...) {
+fit_ranger <- function(data, num.trees = 500, max.depth = 100, ...) {
   if (!requireNamespace("ranger", quietly = TRUE)) {
     stop(
       "Package 'ranger' is required but is not installed.\n",
@@ -61,6 +60,7 @@ fit_ranger <- function(data, result_col = "result", num.trees = 500, ...) {
     case.weights = weights,
     probability = TRUE, # For probability predictions
     importance = "impurity",
+    max.depth = max.depth,
     ...
   )
 
@@ -98,7 +98,7 @@ fit_ranger <- function(data, result_col = "result", num.trees = 500, ...) {
 #' installed, AUC will be NA.
 #'
 #' @export
-gof_ranger <- function(model, test_data, result_col = "result", ...) {
+gof_ranger <- function(model, test_data) {
   pred_cols <- grep("^id_pred_", names(test_data), value = TRUE)
   x_test <- test_data[, ..pred_cols]
 

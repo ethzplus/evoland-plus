@@ -39,6 +39,9 @@ domain-specific database classes.
 \item \href{#method-parquet_db-delete_from}{\code{parquet_db$delete_from()}}
 \item \href{#method-parquet_db-commit}{\code{parquet_db$commit()}}
 \item \href{#method-parquet_db-print}{\code{parquet_db$print()}}
+\item \href{#method-parquet_db-get_file_path}{\code{parquet_db$get_file_path()}}
+\item \href{#method-parquet_db-get_read_expr}{\code{parquet_db$get_read_expr()}}
+\item \href{#method-parquet_db-get_partition_clause}{\code{parquet_db$get_partition_clause()}}
 \item \href{#method-parquet_db-clone}{\code{parquet_db$clone()}}
 }
 }
@@ -354,6 +357,66 @@ Print method for parquet_db
 }
 \subsection{Returns}{
 self (invisibly)
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-parquet_db-get_file_path"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_db-get_file_path}{}}}
+\subsection{Method \code{get_file_path()}}{
+Get file path (or directory path) for a table
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$get_file_path(table_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character string table name}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Character path
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-parquet_db-get_read_expr"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_db-get_read_expr}{}}}
+\subsection{Method \code{get_read_expr()}}{
+Get SQL expression to read a table
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$get_read_expr(table_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character string table name}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Character string SQL expression
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-parquet_db-get_partition_clause"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_db-get_partition_clause}{}}}
+\subsection{Method \code{get_partition_clause()}}{
+Get PARTITION_BY clause if applicable
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$get_partition_clause(table_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character string table name}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Character string
 param x Data frame to commit. If character, in-duckdb-memory table.
 param table_name Character string table name
 param autoincrement_cols Character vector of column names to auto-increment

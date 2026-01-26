@@ -4,12 +4,20 @@
 \alias{alloc_params_t}
 \alias{as_alloc_params_t}
 \alias{print.alloc_params_t}
+\alias{isometry_from_elongation}
 \alias{compute_alloc_params_single}
 \title{Create Allocation Parameters Table}
 \usage{
 as_alloc_params_t(x)
 
 \method{print}{alloc_params_t}(x, nrow = 10, ...)
+
+isometry_from_elongation(
+  elongation,
+  curve = data.frame(isometry = c(0, 0.25, 0.5, 0.75, 1, 1.2, 1.5, 2), elongation =
+    c(0.34, 0.334, 0.333, 0.328, 0.32, 0.172, 0.171, 0.17)),
+  clamp = TRUE
+)
 
 compute_alloc_params_single(lulc_ant, lulc_post, id_lulc_ant, id_lulc_post)
 }
@@ -19,6 +27,12 @@ compute_alloc_params_single(lulc_ant, lulc_post, id_lulc_ant, id_lulc_post)
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{elongation}{Numeric vector of elongation values}
+
+\item{curve}{Data frame with columns \code{isometry} and \code{elongation} defining the mapping curve}
+
+\item{clamp}{Logical, whether to clamp values outside the curve range to min/max or to return NA}
 
 \item{lulc_ant}{SpatRast with LULC data for the anterior (earlier) period}
 
@@ -57,6 +71,9 @@ structure for storing fitted models.
 }}
 \section{Functions}{
 \itemize{
+\item \code{isometry_from_elongation()}: Map patch elongation to Dinamica "isometry" patcher
+parameter, c.f. fig. 3.10 in Mazy, 2022 https://theses.hal.science/tel-04382012v1
+
 \item \code{compute_alloc_params_single()}: Compute allocation parameters for a single transition and period pair.
 This is an internal function used by \code{create_alloc_params_t}.
 

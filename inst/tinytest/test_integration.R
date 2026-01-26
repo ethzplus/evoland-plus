@@ -16,7 +16,7 @@ trans_models_t <- as_trans_models_t(data.table::data.table(
   goodness_of_fit = list(
     list(auc = 0.8, rmse = 0.15)
   ),
-  fit_call = "fit_fun(data = data, result_col = \"result\")",
+  fit_call = "fit_fun(data = data)",
   model_obj_part = list(
     charToRaw("partial model data")
   ),
@@ -165,7 +165,7 @@ expect_true("id_period" %in% names(full_data))
 expect_true(any(grepl("^id_pred_", names(full_data))))
 
 # Define a simple mock fit function for testing
-fit_mock_glm <- function(data, result_col = "result", ...) {
+fit_mock_glm <- function(data, ...) {
   pred_cols <- grep("^id_pred_", names(data), value = TRUE)
 
   if (length(pred_cols) == 0) {
@@ -173,7 +173,7 @@ fit_mock_glm <- function(data, result_col = "result", ...) {
   }
 
   # Create a simple formula
-  formula_str <- paste(result_col, "~", paste(pred_cols, collapse = " + "))
+  formula_str <- paste("result", "~", paste(pred_cols, collapse = " + "))
   formula <- as.formula(formula_str)
 
   # Fit a simple GLM
@@ -183,9 +183,9 @@ fit_mock_glm <- function(data, result_col = "result", ...) {
 }
 
 # Define a goodness of fit function
-gof_mock <- function(model, test_data, result_col = "result", ...) {
+gof_mock <- function(model, test_data) {
   predictions <- predict(model, newdata = test_data, type = "response")
-  actual <- test_data[[result_col]]
+  actual <- test_data[["result"]]
 
   # Simple correlation-based metric
   cor_metric <- cor(predictions, actual, use = "complete.obs")
@@ -202,23 +202,26 @@ gof_mock <- function(model, test_data, result_col = "result", ...) {
 
 # Test fit_partial_models
 expect_message(
-  partial_models <- db_tm$fit_partial_models(
-    fit_fun = fit_mock_glm,
-    gof_fun = gof_mock,
-    sample_pct = 70,
-    seed = 123,
-    na_value = 0,
-    other_param = "nonce"
+  expect_length(
+    partial_models <- db_tm$fit_partial_models(
+      fit_fun = fit_mock_glm,
+      gof_fun = gof_mock,
+      sample_frac = 0.7,
+      seed = 123,
+      na_value = 0,
+      other_param = "nonce"
+    ),
+    7L # length is NULL if all fail
   ),
-  "Fitting partial models for"
+  "Fitting partial models for 2 transitions..."
 )
-expect_equal(
-  partial_models$fit_call[1],
-  r"{fit_mock_glm(data = data, result_col = "result", other_param = "nonce")}"
+expect_match(
+  partial_models$fit_call,
+  r"{function \(data, ..., other_param = "nonce"\)}"
 )
 expect_equal(
   partial_models$model_params[[1]],
-  list(n_predictors = 7, n_train = 514, sample_pct = 70, other_param = "nonce")
+  list(n_predictors = 7, n_train = 514, sample_frac = 0.7, other_param = "nonce")
 )
 expect_true(all(
   !vapply(partial_models$model_obj_part, is.null, logical(1))
@@ -275,7 +278,7 @@ expect_message(
 expect_error(
   db_tm$fit_partial_models(
     gof_fun = gof_mock,
-    sample_pct = 70
+    sample_frac = 0.7
   ),
   "argument \"fit_fun\" is missing"
 )
@@ -284,7 +287,7 @@ expect_error(
 expect_error(
   db_tm$fit_partial_models(
     fit_fun = fit_mock_glm,
-    sample_pct = 70
+    sample_frac = 0.7
   ),
   "argument \"gof_fun\" is missing"
 )
@@ -307,23 +310,23 @@ expect_error(
   "gof_fun must be a function"
 )
 
-# Test error handling - invalid sample_pct
+# Test error handling - invalid sample_frac
 expect_error(
   db_tm$fit_partial_models(
     fit_fun = fit_mock_glm,
     gof_fun = gof_mock,
-    sample_pct = 0
+    sample_frac = 0
   ),
-  "sample_pct must be between 0 and 100"
+  "sample_frac must be between 0 and 1"
 )
 
 expect_error(
   db_tm$fit_partial_models(
     fit_fun = fit_mock_glm,
     gof_fun = gof_mock,
-    sample_pct = 100
+    sample_frac = 1
   ),
-  "sample_pct must be between 0 and 100"
+  "sample_frac must be between 0 and 1"
 )
 
 # Test error handling - empty trans_preds_t
@@ -385,7 +388,7 @@ expect_warning(
     db_tm$fit_partial_models(
       fit_fun = fit_error,
       gof_fun = gof_mock,
-      sample_pct = 70,
+      sample_frac = 0.7,
       seed = 123
     ),
   "No models fitted for any transition"
@@ -399,15 +402,6 @@ expect_stdout(
   print(full_models),
   "Transition Models Table|Total models"
 )
-
-# Test that fit_call can be parsed back to a call (verifying serializability)
-first_call_str <- full_models$fit_call[1]
-expect_true(is.character(first_call_str))
-expect_true(nchar(first_call_str) > 0)
-
-first_call_parsed <- str2lang(first_call_str)
-expect_true(is.call(first_call_parsed))
-expect_equal(as.character(first_call_parsed[[1]]), "fit_mock_glm")
 
 # FIXME: This test for create_alloc_params_t() and the buildup above should be spun out
 # into a full integration test suite eventually that tests the complete workflow from
