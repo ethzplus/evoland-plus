@@ -213,13 +213,11 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
   # Get observed periods (not extrapolated, and > 1 since we need period - 1)
   periods <- self$periods_t[is_extrapolated == FALSE & id_period > 1]
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
-  resolution <- self$get_table_metadata("coords_t")[["resolution"]]
 
   # validate DB inputs
   stopifnot(
     "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L,
-    "No observed periods with id_period > 1 found in periods_t" = nrow(periods) > 0L,
-    "coords_t must have resolution and epsg metadata" = !is.null(resolution)
+    "No observed periods with id_period > 1 found in periods_t" = nrow(periods) > 0L
   )
 
   raw_results <- list()
@@ -237,10 +235,7 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
     message(glue::glue("  Processing period {period_ant} -> {period_post}"))
 
     # Get LULC data as rasters for both periods
-    lulc_rast <- self$lulc_data_as_rast(
-      resolution = resolution,
-      id_period = c(period_ant, period_post)
-    )
+    lulc_rast <- self$lulc_data_as_rast(id_period = c(period_ant, period_post))
 
     # Loop over transitions
     for (j in seq_len(nrow(viable_trans))) {

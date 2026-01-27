@@ -354,25 +354,11 @@ alloc_dinamica <- function(
     "  Work directory: {base_work_dir}"
   ))
 
-  # Get metadata for raster creation
-  coords_meta <- self$get_table_metadata("coords_t")
-  resolution <- coords_meta[["resolution"]]
-  epsg <- coords_meta[["epsg"]]
-
-  stopifnot(
-    "coords_t must have resolution metadata" = !is.null(resolution),
-    "coords_t must have epsg metadata" = !is.null(epsg)
-  )
-
   # Initialize with first period as observed data
   id_period_origin <- id_periods[1]
 
   message(glue::glue("Loading origin period {id_period_origin} from lulc_data_t..."))
-
-  current_rast <- self$lulc_data_as_rast(
-    resolution = resolution,
-    id_period = id_period_origin
-  )
+  current_rast <- self$lulc_data_as_rast(id_period = id_period_origin)
 
   # Store all results
   all_results <- list()
