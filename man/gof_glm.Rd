@@ -4,15 +4,13 @@
 \alias{gof_glm}
 \title{Goodness of Fit Evaluation for GLM Models}
 \usage{
-gof_glm(model, test_data, result_col = "result", ...)
+gof_glm(model, test_data, ...)
 }
 \arguments{
 \item{model}{A fitted GLM model object (from fit_glm)}
 
 \item{test_data}{A data.table containing test data with the same structure as
 training data}
-
-\item{result_col}{Name of the column representing the transition results}
 
 \item{...}{Additional arguments (currently unused, for future extensibility)}
 }

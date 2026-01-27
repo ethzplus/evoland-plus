@@ -9,9 +9,8 @@
 \usage{
 covariance_filter(
   data,
-  result_col = "result",
   rank_fun = rank_poly_glm,
-  weights = compute_balanced_weights(data[[result_col]]),
+  weights = compute_balanced_weights(data[["result"]]),
   corcut = 0.7,
   ...
 )
@@ -23,11 +22,8 @@ compute_balanced_weights(trans_result, legacy = FALSE)
 select_by_correlation(cor_mat, corcut)
 }
 \arguments{
-\item{data}{A data.table of target variable and candidate covariates to be filtered;
-wide format with one predictor per column.}
-
-\item{result_col}{Name of the column representing the transition results (0: no
-trans, 1: trans)}
+\item{data}{A data.table of target variable and candidate covariates to be filtered; wide format
+with one predictor per column, except a binary "result" column (0: no trans, 1: trans)}
 
 \item{rank_fun}{Optional function to compute ranking scores for each covariate.
 Should take arguments (x, y, weights, ...) and return a single numeric value

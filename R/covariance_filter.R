@@ -10,10 +10,8 @@
 #' until no further columns are left to investigate. The columns that were iterated over
 #' are those returned as a character vector of selected variable names.
 #'
-#' @param data A data.table of target variable and candidate covariates to be filtered;
-#'        wide format with one predictor per column.
-#' @param result_col Name of the column representing the transition results (0: no
-#'        trans, 1: trans)
+#' @param data A data.table of target variable and candidate covariates to be filtered; wide format
+#' with one predictor per column, except a binary "result" column (0: no trans, 1: trans)
 #' @param rank_fun Optional function to compute ranking scores for each covariate.
 #'        Should take arguments (x, y, weights, ...) and return a single numeric value
 #'        (lower = better). Defaults to polynomial GLM p-value ranking.
@@ -40,9 +38,8 @@
 
 covariance_filter <- function(
   data,
-  result_col = "result",
   rank_fun = rank_poly_glm,
-  weights = compute_balanced_weights(data[[result_col]]),
+  weights = compute_balanced_weights(data[["result"]]),
   corcut = 0.7,
   ...
 ) {
@@ -60,10 +57,10 @@ covariance_filter <- function(
 
   # Compute ranking scores for all covariates (vectorized where possible)
   scores <- vapply(
-    data[, -..result_col],
+    data[, -"result"],
     rank_fun,
     FUN.VALUE = numeric(1),
-    y = data[[result_col]],
+    y = data[["result"]],
     weights = weights,
     ...
   )

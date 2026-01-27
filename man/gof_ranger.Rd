@@ -12,8 +12,6 @@ gof_ranger(model, test_data)
 \item{test_data}{A data.table containing test data with the same structure as
 training data}
 
-\item{result_col}{Name of the column representing the transition results}
-
 \item{...}{Additional arguments (currently unused, for future extensibility)}
 }
 \value{

@@ -236,14 +236,10 @@ expect_equal(
 first_model_part <- qs2::qs_deserialize(partial_models$model_obj_part[[1]])
 expect_inherits(first_model_part, "glm")
 
-# test DB round trip
-expect_silent(db_tm$trans_models_t <- partial_models)
-expect_equivalent(db_tm$trans_models_t, partial_models)
-
-# Test fit_full_models
+# Test fit_full_models, which ensures we can retrieve and evaluate the embedded model fun
 expect_message(
   full_models <- db_tm$fit_full_models(
-    partial_models = db_tm$trans_models_t,
+    partial_models = partial_models,
     gof_criterion = "cor",
     maximize = TRUE,
     na_value = 0
@@ -251,9 +247,41 @@ expect_message(
   "Fitting full models for"
 )
 
+# test the package's standard rf fit
+expect_message(
+  db_tm$trans_models_t <- db_tm$fit_partial_models(
+    fit_fun = fit_ranger,
+    gof_fun = gof_ranger,
+    seed = 1244244,
+    na_value = 0
+  )
+)
+# test the package's standard glm quasibinomial fit
+expect_message(
+  db_tm$trans_models_t <- db_tm$fit_partial_models(
+    fit_fun = fit_glm,
+    gof_fun = gof_glm,
+    seed = 1244244,
+    na_value = 0
+  )
+)
+expect_message(
+  full_models <- db_tm$fit_full_models(
+    partial_models = db_tm$trans_models_t,
+    gof_criterion = "auc",
+    maximize = TRUE,
+    na_value = 0
+  ),
+  "Fitting full models for"
+)
+
 # test DB round trip
+expect_equal(nrow(full_models), 2L)
 expect_silent(db_tm$trans_models_t <- full_models)
-expect_identical(db_tm$trans_models_t, full_models)
+expect_identical(
+  db_tm$trans_models_t[id_trans == 2L & model_family == "ranger"],
+  full_models[2, ]
+)
 
 # Check that both partial and full models are present
 expect_true(all(!vapply(full_models$model_obj_part, is.null, logical(1))))
@@ -379,7 +407,7 @@ expect_error(
 )
 
 # Test fit function that throws an error
-fit_error <- function(data, result_col = "result", ...) {
+fit_error <- function(data, ...) {
   stop("Intentional error for testing")
 }
 

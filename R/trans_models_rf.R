@@ -6,9 +6,9 @@
 #'
 #' @param data A data.table containing the result column and predictor columns
 #'   (prefixed with "id_pred_")
-#' @param result_col Name of the column representing the transition results
-#'   (logical: TRUE = transition occurred, FALSE = no transition)
-#' @param ... Additional arguments (currently unused, for future extensibility)
+#' @param num.trees Number of trees to grow in the random forest (default: 100)
+#' @param max.depth Maximum depth of each tree (default: 100)
+#' @param ... Additional arguments passed to [ranger::ranger()]
 #'
 #' @return A fitted ranger model object, optionally butchered to reduce memory footprint
 #'
@@ -26,7 +26,7 @@
 #' - min.node.size = 1
 #'
 #' @export
-fit_ranger <- function(data, num.trees = 500, max.depth = 100, ...) {
+fit_ranger <- function(data, num.trees = 100, max.depth = 100, ...) {
   if (!requireNamespace("ranger", quietly = TRUE)) {
     stop(
       "Package 'ranger' is required but is not installed.\n",
@@ -43,10 +43,10 @@ fit_ranger <- function(data, num.trees = 500, max.depth = 100, ...) {
 
   # Prepare data
   x <- data[, ..pred_cols]
-  y <- as.factor(data[[result_col]])
+  y <- as.factor(data[["result"]])
 
   # Compute observation-based weights (same approach as grrf_filter)
-  weights <- compute_balanced_weights(data[[result_col]])
+  weights <- compute_balanced_weights(data[["result"]])
 
   # Get minority class size for downsampling
   class_counts <- table(y)
@@ -82,7 +82,6 @@ fit_ranger <- function(data, num.trees = 500, max.depth = 100, ...) {
 #' @param model A fitted ranger model object (from fit_ranger)
 #' @param test_data A data.table containing test data with the same structure as
 #'   training data
-#' @param result_col Name of the column representing the transition results
 #' @param ... Additional arguments (currently unused, for future extensibility)
 #'
 #' @return A named list containing:
@@ -104,7 +103,7 @@ gof_ranger <- function(model, test_data) {
 
   # Get probability predictions for the TRUE class
   predictions <- predict(model, data = x_test)$predictions[, "TRUE"]
-  actual <- as.numeric(test_data[[result_col]])
+  actual <- as.numeric(test_data[["result"]])
 
   # Correlation-based metric
   cor_metric <- cor(predictions, actual, use = "complete.obs")
