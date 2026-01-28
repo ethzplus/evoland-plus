@@ -43,6 +43,7 @@ Collate:
     'alloc_dinamica.R'
     'coords_t.R'
     'covariance_filter.R'
+    'trans_pot_t.R'
     'trans_preds_t.R'
     'lulc_data_t.R'
     'parquet_db.R'

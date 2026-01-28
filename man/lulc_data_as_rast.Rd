@@ -57,6 +57,7 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-fit_partial_models}{\code{evoland_db$fit_partial_models()}}
 \item \href{#method-evoland_db-set_full_trans_preds}{\code{evoland_db$set_full_trans_preds()}}
 \item \href{#method-evoland_db-get_pruned_trans_preds_t}{\code{evoland_db$get_pruned_trans_preds_t()}}
+\item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -561,6 +562,23 @@ with this value}
 \item{\code{cores}}{Integer, number of cores to use for parallel processing. Defaults to 1.}
 
 \item{\code{...}}{Additional arguments passed to rank_fun via \code{\link[=covariance_filter]{covariance_filter()}}}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-predict_trans_pot"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-predict_trans_pot}{}}}
+\subsection{Method \code{predict_trans_pot()}}{
+Predict the transition potential for a given period, see \code{\link[=trans_pot_t]{trans_pot_t()}}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$predict_trans_pot(id_period)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{id_period_post}}{Integerish, period for which to predict}
 }
 \if{html}{\out{</div>}}
 }

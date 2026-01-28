@@ -15,7 +15,7 @@
 #' - [evoland_db_views] - View active bindings (lulc_meta_long_v, etc.) and methods
 #' - [evoland_db_neighbors] - Neighbor analysis methods
 #'
-#' @include parquet_db.R alloc_dinamica.R lulc_data_t.R trans_preds_t.R
+#' @include parquet_db.R alloc_dinamica.R lulc_data_t.R trans_preds_t.R trans_pot_t.R
 #' @export
 
 evoland_db <- R6::R6Class(
@@ -316,6 +316,13 @@ evoland_db <- R6::R6Class(
       ...
     ) {
       bind_helper(get_pruned_trans_preds_t)
+    },
+
+    #' @description
+    #' Predict the transition potential for a given period, see [trans_pot_t()]
+    #' @param id_period_post Integerish, period for which to predict
+    predict_trans_pot = function(id_period) {
+      bind_helper(predict_trans_pot)
     }
   )
 )
