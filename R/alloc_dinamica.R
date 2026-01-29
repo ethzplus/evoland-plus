@@ -25,7 +25,8 @@ alloc_dinamica_setup_inputs <- function(
   id_period_post,
   id_perturbation,
   anterior_rast,
-  temp_dir
+  temp_dir,
+  trans_pots_t
 ) {
   # Get metadata
   coords_meta <- self$get_table_metadata("coords_t")
@@ -54,14 +55,15 @@ alloc_dinamica_setup_inputs <- function(
   message(glue::glue("  Wrote transition rates to {basename(trans_rates_path)}"))
 
   # 2. Get allocation parameters for this perturbation
-  alloc_params <- self$alloc_params_t[id_perturbation == !!id_perturbation]
-
-  # Join with trans_meta to get From/To columns
-  alloc_params_full <- merge(
-    alloc_params,
-    viable_trans[, .(id_trans, id_lulc_anterior, id_lulc_posterior)],
-    by = "id_trans"
-  )
+  alloc_params_full <-
+    self$alloc_params_t[
+      .id == id_perturbation,
+      env = list(.id = id_perturbation)
+    ] |>
+    merge(
+      viable_trans[, .(id_trans, id_lulc_anterior, id_lulc_posterior)],
+      by = "id_trans"
+    )
 
   # Sort to match transition order
   data.table::setorder(alloc_params_full, id_lulc_anterior, id_lulc_posterior)
@@ -110,108 +112,28 @@ alloc_dinamica_setup_inputs <- function(
     file.path(temp_dir, "probability_map_dir") |>
     ensure_dir()
 
-  message("  Generating probability maps...")
-  for (i in seq_len(nrow(viable_trans))) {
-    id_trans <- viable_trans$id_trans[i]
-    id_lulc_ant <- viable_trans$id_lulc_anterior[i]
-    id_lulc_post <- viable_trans$id_lulc_posterior[i]
+  message("  Writing probability maps...")
+  coords_minimal <- self$coords_minimal
 
-    # Use numerical prefix to ensure correct file ordering; if file exists, we skip the work
-    # sprintf prefix format: 0001, 0002, etc.
-    prob_path <- file.path(
-      prob_map_dir,
-      glue::glue("{sprintf('%04d', i)}_trans_{id_lulc_ant}_to_{id_lulc_post}.tif")
-    )
+  # Iterate over
+  for (id_trans_sel in viable_trans$id_trans) {
+    prob_dt <- coords_minimal[
+      trans_pots_t[id_trans == id_trans_sel],
+      .(lon, lat, value),
+      on = "id_coord"
+    ]
 
-    if (file.exists(prob_path)) {
-      message(glue::glue(
-        "    [{i}/{nrow(viable_trans)}] Found probability map: {id_lulc_ant} -> {id_lulc_post}"
-      ))
-      next
-    }
-
-    # Get model for this transition
-    model_row <- self$fetch(
-      "trans_models_t",
-      where = glue::glue("id_trans = {id_trans}")
-    )
-
-    if (nrow(model_row) == 0L) {
-      stop(glue::glue("No model found for id_trans={id_trans}"))
-    } else if (nrow(model_row) > 1) {
-      stop(glue::glue(
-        "Multiple models found for id_trans={id_trans}, ",
-        "edit trans_models_t to have only one per transition"
-      ))
-    }
-
-    # Deserialize full model
-    model_obj <- qs2::qs_deserialize(model_row$model_obj_full[[1]])
-
-    # Get predictor data for id_period_post at coords for id_lulc_ant at id_period_post - 1
-    pred_data_post <- self$pred_data_wide_v(
-      id_trans = id_trans,
-      id_period = id_period_post,
-      na_value = 0 # Replace NAs with 0 for prediction
-    )
-
-    if (nrow(pred_data_post) == 0L) {
-      warning(glue::glue(
-        "No predictor data for id_trans={id_trans}, id_period={id_period_post}"
-      ))
-      next
-    }
-
-    # Predict probabilities
-    # Drop id_coord, id_period, result columns for prediction
-    pred_cols <- grep("^id_pred_", names(pred_data_post), value = TRUE)
-
-    # Predict - assuming model has predict() method that returns probabilities
-    tryCatch(
-      {
-        probs <- predict(model_obj, newdata = pred_data_post[, ..pred_cols], type = "response")
-        # Ensure probabilities are in [0, 1]
-        probs <- pmax(0, pmin(1, probs))
-
-        # Create a data.table with id_coord and probability
-        prob_dt <- data.table::data.table(
-          id_coord = pred_data_post$id_coord,
-          probability = probs
-        )
-
-        # Join with coords to get spatial locations
-        coords_minimal <- self$coords_minimal
-        prob_spatial <- merge(coords_minimal, prob_dt, by = "id_coord")
-
-        # Create raster template matching anterior_rast
-        prob_rast <- terra::rast(anterior_rast)
-
-        # Rasterize probabilities
-        # TODO normalize
-        prob_rast <- terra::rasterize(
-          x = prob_spatial[, .(lon, lat)],
-          y = prob_rast,
-          values = prob_spatial$probability,
-          fun = "first"
-        )
-
-        terra::writeRaster(
-          prob_rast,
-          prob_path,
-          overwrite = TRUE,
-          NAflag = -999 # because dinamica cannot handle nan
-        )
-
-        message(glue::glue(
-          "    [{i}/{nrow(viable_trans)}] Probability map: {id_lulc_ant} -> {id_lulc_post}"
-        ))
-      },
-      error = function(e) {
-        warning(glue::glue(
-          "Failed to generate probability map for id_trans={id_trans}: {e$message}"
-        ))
-      }
-    )
+    terra::rasterize(
+      x = prob_spatial[, .(lon, lat)],
+      y = anterior_rast,
+      values = prob_spatial[["value"]],
+      fun = "first"
+    ) |>
+      terra::writeRaster(
+        filename = prob_path,
+        overwrite = TRUE,
+        NAflag = -999 # because dinamica cannot handle nan
+      )
   }
 
   list(
@@ -253,25 +175,19 @@ alloc_dinamica_single_iteration <- function(
     id_period_post = id_period_post,
     id_perturbation = id_perturbation,
     anterior_rast = anterior_rast,
-    temp_dir = iteration_dir
+    temp_dir = iteration_dir,
+    trans_pots_t = self$predict_trans_pot(id_period_post)
   )
+
+  gc() # just in case
 
   # Run Dinamica
   message("  Executing Dinamica EGO...")
 
-  tryCatch(
-    {
-      run_alloc_dinamica(
-        work_dir = iteration_dir,
-        echo = FALSE,
-        write_logfile = TRUE
-      )
-    },
-    error = function(e) {
-      stop(glue::glue(
-        "Dinamica EGO failed for period {id_period_ant} -> {id_period_post}: {e$message}"
-      ))
-    }
+  run_alloc_dinamica(
+    work_dir = iteration_dir,
+    echo = FALSE,
+    write_logfile = TRUE
   )
 
   # Read posterior.tif
@@ -320,13 +236,9 @@ alloc_dinamica <- function(
     }
   )
 
-  id_periods <- as.integer(id_periods)
-  id_perturbation <- as.integer(id_perturbation)
-
   # Check that periods exist
   available_periods <- self$periods_t$id_period
   missing_periods <- setdiff(id_periods, available_periods)
-
   if (length(missing_periods) > 0L) {
     stop(glue::glue(
       "Periods not found in periods_t: {paste(missing_periods, collapse = ', ')}"
@@ -378,9 +290,6 @@ alloc_dinamica <- function(
     message(glue::glue("\n=== Iteration {i}/{length(id_periods) - 1L} ==="))
 
     # Run single iteration
-    # TODO spin out the transition probability calculation and call here; should
-    # include normalization
-
     lulc_result <- alloc_dinamica_single_iteration(
       self = self,
       id_period_ant = id_period_ant,
@@ -577,8 +486,6 @@ eval_alloc_params_t <- function(
     by = c("id_perturbation", "id_trans"),
     all.x = TRUE
   )
-
-  message(glue::glue("Returning augmented alloc_params_t with {nrow(result_params)} rows"))
 
   result_params
 }

@@ -10,7 +10,8 @@ alloc_dinamica_setup_inputs(
   id_period_post,
   id_perturbation,
   anterior_rast,
-  temp_dir
+  temp_dir,
+  trans_pots_t
 )
 }
 \arguments{
