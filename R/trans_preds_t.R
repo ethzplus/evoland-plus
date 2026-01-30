@@ -9,6 +9,7 @@
 #' @param db An [evoland_db] instance with populated trans_meta_t and pred_meta_t tables
 #'
 #' @return A data.table of class "trans_preds_t" with columns:
+#'   - `id_run`: Foreign key to runs_t
 #'   - `id_pred`: Foreign key to pred_meta_t
 #'   - `id_trans`: Foreign key to trans_meta_t
 #' @export

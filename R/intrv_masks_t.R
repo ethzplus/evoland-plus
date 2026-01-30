@@ -7,8 +7,8 @@
 #'
 #' @param x An object that is accepted by [data.table::setDT()]
 #'
-#' @return A data.table-inheriting object with the columns `id_intrv` and `id_coord`,
-#' creating a relation between coordinates to apply a
+#' @return A data.table-inheriting object with the columns `id_run`, `id_intrv`, and `id_coord`,
+#' creating a relation between coordinates to apply an intervention mask.
 #'
 #' @export
 as_intrv_masks_t <- function(x) {

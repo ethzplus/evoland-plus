@@ -9,6 +9,7 @@
 #' @param x A list or data.frame coercible to a data.table
 #'
 #' @return A data.table of class "trans_models_t" with columns:
+#'   - `id_run`: Foreign key to runs_t
 #'   - `id_trans`: Foreign key to trans_meta_t
 #'   - `model_family`: Model family (e.g., "rf", "glm", "bayesian")
 #'   - `model_params`: Map of model (hyper) parameters

@@ -10,6 +10,7 @@
 #' @param type Character string specifying the data type: "float", "int", or "bool"
 #'
 #' @return A data.table of class "pred_data_t_<type>" and "pred_data_t" with columns:
+#'   - `id_run`: Foreign key to runs_t
 #'   - `id_pred`: Foreign key to pred_meta_t
 #'   - `id_coord`: Foreign key to coords_t
 #'   - `id_period`: Foreign key to periods_t

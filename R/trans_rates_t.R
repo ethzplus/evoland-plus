@@ -9,6 +9,7 @@
 #' @param x A list or data.frame coercible to a data.table
 #'
 #' @return A data.table of class "trans_rates_t" with columns:
+#'   - `id_run`: Foreign key to runs_t
 #'   - `id_period`: Foreign key to periods_t
 #'   - `id_trans`: Foreign key to trans_meta_t
 #'   - `rate`: Transition rate (0 to 1)

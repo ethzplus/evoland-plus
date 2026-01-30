@@ -1,17 +1,21 @@
 #' Create Allocation Parameters Table
 #'
-#' Creates a alloc_params_t table for storing transition model metadata and
-#' serialized model objects. This function creates an empty table with proper
-#' structure for storing fitted models.
+#' Creates an alloc_params_t table for storing allocation parameters for each
+#' transition and run. This function creates an empty table with the proper
+#' structure for storing allocation parameters.
 #'
 #' @name alloc_params_t
 #'
 #' @param x A list or data.frame coercible to a data.table
 #'
 #' @return A data.table of class "alloc_params_t" with columns:
-#'   - `id_perturbation`: The perturbation's ID - no. 1 == unperturbed
+#'   - `id_run`: Foreign key to runs_t
 #'   - `id_trans`: Foreign key to trans_meta_t
-#'   - ... various other columns describing allocation parameters and goodness of fit
+#'   - `mean_patch_size`: Mean area of new patches (in cell units)
+#'   - `patch_size_variance`: Standard deviation of patch area
+#'   - `patch_isometry`: Measure of patch shape regularity
+#'   - `frac_expander`: Fraction of transition cells adjacent to existing patches
+#'   - `frac_patcher`: Fraction of transition cells forming new patches
 #' @export
 as_alloc_params_t <- function(x) {
   if (missing(x)) {
