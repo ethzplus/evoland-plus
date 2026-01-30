@@ -51,6 +51,73 @@ evoland_db <- R6::R6Class(
       invisible(self)
     },
 
+    #' @description
+    #' Set the active run for read operations
+    #' @param id_run Integer run ID. Must exist in runs_t.
+    #' @return Invisibly returns self
+    set_active_run = function(id_run) {
+      stopifnot(
+        "id_run must be a single integer" = length(id_run) == 1L && is.numeric(id_run)
+      )
+
+      id_run <- as.integer(id_run)
+
+      if (!"runs_t" %in% self$list_tables()) {
+        stop("runs_t does not exist; cannot set active run")
+      }
+
+      lineage <- self$with_tables("runs_t", function() {
+        self$get_query(glue::glue(
+          r"{
+          with recursive lineage as (
+            select
+              id_run,
+              parent_id_run
+            from
+              runs_t
+            where
+              id_run = {id_run}
+            union all
+            select
+              r.id_run,
+              r.parent_id_run
+            from
+              runs_t r
+            inner join
+              lineage l
+              on r.id_run = l.parent_id_run
+          )
+          select
+            id_run
+          from
+            lineage
+          }"
+        ))
+      })
+
+      if (nrow(lineage) == 0L) {
+        stop(glue::glue("id_run={id_run} not found in runs_t"))
+      }
+
+      ids <- lineage[["id_run"]]
+
+      if (anyDuplicated(ids)) {
+        stop(glue::glue("Detected cycle in runs_t lineage for id_run={id_run}"))
+      }
+
+      private$active_run_id <- id_run
+      private$run_lineage <- ids
+
+      invisible(self)
+    },
+
+    #' @description
+    #' Get the active run ID
+    #' @return Integer run ID
+    get_active_run = function() {
+      private$active_run_id
+    },
+
     ### Setter methods ----
     #' @description
     #' Set reporting metadata
@@ -324,6 +391,11 @@ evoland_db <- R6::R6Class(
     predict_trans_pot = function(id_period) {
       bind_helper(predict_trans_pot)
     }
+  ),
+
+  private = list(
+    active_run_id = 0L,
+    run_lineage = 0L
   )
 )
 
