@@ -116,12 +116,20 @@ alloc_dinamica_setup_inputs <- function(
   coords_minimal <- self$coords_minimal
 
   # Iterate over
-  for (id_trans_sel in viable_trans$id_trans) {
-    prob_dt <- coords_minimal[
+  for (i in seq_len(nrow(viable_trans))) {
+    id_trans_sel <- viable_trans$id_trans[i]
+    prob_spatial <- coords_minimal[
       trans_pots_t[id_trans == id_trans_sel],
       .(lon, lat, value),
       on = "id_coord"
     ]
+
+    # prefixing with 001, 002... so these files are sorted the same as the transition,
+    # expansion, and patcher tables on all sorts of filesystems
+    prob_path <- file.path(
+      prob_map_dir,
+      glue::glue("{sprintf('%03d', i)}_id_trans_{id_trans_sel}.tif")
+    )
 
     terra::rasterize(
       x = prob_spatial[, .(lon, lat)],
