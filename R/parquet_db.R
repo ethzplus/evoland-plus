@@ -352,6 +352,7 @@ parquet_db <- R6::R6Class(
       existing_metadata <- private$read_parquet_metadata(table_name)
       merged_metadata <- merge_metadata(new_attrs, existing_metadata)
 
+      # TODO move this attachment to only the upsert logic, and only attach those partitions that we actually use.
       self$attach_table(table_name)
       on.exit(self$detach_table(table_name), add = TRUE)
       private$set_autoincrement_vars(table_name, autoincrement_cols)
@@ -776,6 +777,8 @@ parquet_db <- R6::R6Class(
     # @param autoincrement_cols Character vector of column names
     # @return NULL (called for side effects)
     set_autoincrement_vars = function(table_name, autoincrement_cols) {
+      # TODO do not require a table to be attached, but simply retrieve the maximum
+      # using a read_parquet query
       if (length(autoincrement_cols) == 0L) {
         return(NULL)
       }
