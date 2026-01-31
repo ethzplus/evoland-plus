@@ -28,24 +28,30 @@ validate.evoland_t <- function(x, ...) {
 #' @describeIn util Add evoland_t class
 #' @param class_name The class name to attach before "evoland_t"
 #' @param keycols The columns to be set as key, see [data.table::setkey()]
-new_evoland_table <- function(x, class_name, keycols) {
+new_evoland_table <- function(
+  x,
+  class_name,
+  key_cols = character(),
+  autoincrement_cols = NULL,
+  map_cols = NULL,
+  partition_cols = NULL
+) {
   data.table::setDT(x)
 
   # key cols may be missing if identities are not yet known
-  if (!missing(keycols)) {
-    keycols_present <- intersect(keycols, names(x))
-    if (length(keycols_present) > 0) data.table::setkeyv(x, keycols_present)
+  keycols_present <- intersect(key_cols, names(x))
+  if (length(keycols_present) > 0) {
+    data.table::setkeyv(x, keycols_present)
   }
 
-  data.table::setattr(
-    x,
-    "class",
-    unique(c(
-      class_name,
-      "evoland_t",
-      class(x)
-    ))
-  )
+  distinct_classes <- unique(c(class_name, "evoland_t", class(x)))
+  data.table::setattr(x, "class", distinct_classes)
+
+  # without effect if NULL
+  data.table::setattr(x, "autoincrement_cols", autoincrement_cols)
+  data.table::setattr(x, "map_cols", map_cols)
+  data.table::setattr(x, "partition_cols", partition_cols)
+
   validate(x)
 }
 

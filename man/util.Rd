@@ -13,8 +13,14 @@
 \usage{
 validate(x, ...)
 
-new_evoland_table(x, class_name, keycols)
-
+new_evoland_table(
+  x,
+  class_name,
+  key_cols = character(),
+  autoincrement_cols = NULL,
+  map_cols = NULL,
+  partition_cols = NULL
+)
 
 x \%||\% y
 
@@ -33,7 +39,14 @@ cast_dt_col(x, colname, type)
 
 \item{class_name}{The class name to attach before "evoland_t"}
 
-\item{keycols}{The columns to be set as key, see \code{\link[data.table:setkey]{data.table::setkey()}}}
+\item{key_cols}{Optional, columns to be set as key, see \code{\link[data.table:setkey]{data.table::setkey()}}}
+
+\item{autoincrement_cols}{Optional "autoincrement_cols" attribute to set}
+
+\item{map_cols}{Optional "map_cols" attribute to set}
+
+\item{partition_cols}{Optional "partition_cols" attribute to set}
+
 \item{y}{Right-hand side value (fallback)}
 
 \item{lst}{The list to index into}
