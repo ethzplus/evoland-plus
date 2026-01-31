@@ -27,7 +27,10 @@ validate.evoland_t <- function(x, ...) {
 
 #' @describeIn util Add evoland_t class
 #' @param class_name The class name to attach before "evoland_t"
-#' @param keycols The columns to be set as key, see [data.table::setkey()]
+#' @param key_cols Optional, columns to be set as key, see [data.table::setkey()]
+#' @param autoincrement_cols  Optional "autoincrement_cols" attribute to set
+#' @param map_cols            Optional "map_cols" attribute to set
+#' @param partition_cols      Optional "partition_cols" attribute to set
 new_evoland_table <- function(
   x,
   class_name,

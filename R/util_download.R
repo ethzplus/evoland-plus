@@ -106,7 +106,7 @@ download_and_verify <- function(
   # throw warning on mismatch (most likely file has changed but is still usable)
   if (nrow(mismatches <- df_out[md5sum != md5sum_actual])) {
     o <- options(datatable.prettyprint.char = 32L)
-    on.exit(options(o))
+    on.exit(options(o), add = TRUE)
     warning(
       "Hash mismatch for \n",
       paste(
