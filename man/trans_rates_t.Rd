@@ -36,6 +36,7 @@ id_lulc_anterior, and id_lulc_posterior}
 \value{
 A data.table of class "trans_rates_t" with columns:
 \itemize{
+\item \code{id_run}: Foreign key to runs_t
 \item \code{id_period}: Foreign key to periods_t
 \item \code{id_trans}: Foreign key to trans_meta_t
 \item \code{rate}: Transition rate (0 to 1)

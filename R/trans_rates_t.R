@@ -17,15 +17,20 @@
 as_trans_rates_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
+      id_run = integer(0),
       id_period = integer(0),
       id_trans = integer(0),
       rate = numeric(0)
     )
   }
+
+  cast_dt_col(x, "id_run", "int")
+  cast_dt_col(x, "id_period", "int")
+  cast_dt_col(x, "id_trans", "int")
   new_evoland_table(
     x,
-    "trans_rates_t",
-    c("id_period", "id_trans")
+    class_name = "trans_rates_t",
+    key_cols = c("id_run", "id_period", "id_trans")
   )
 }
 
@@ -80,7 +85,12 @@ create_obs_trans_rates_t <- function(trans_v, trans_meta) {
     on = .(id_lulc_anterior, id_lulc_posterior),
     nomatch = NULL
   ][,
-    .(id_period, id_trans, rate)
+    .(
+      id_run = 0L,
+      id_period,
+      id_trans,
+      rate
+    )
   ]
 
   as_trans_rates_t(result)
@@ -92,9 +102,10 @@ create_obs_trans_rates_t <- function(trans_v, trans_meta) {
 #'
 #' @param obs_rates A trans_rates_t table with observed historical rates
 #' @param periods A periods_t table defining the time periods
+#' @param id_run A scalar integer to attribute the extrapolation to a run [as_runs_t()]
 #'
 #' @export
-create_extr_trans_rates_t <- function(obs_rates, periods) {
+create_extr_trans_rates_t <- function(obs_rates, periods, id_run = 0L) {
   stopifnot(
     inherits(obs_rates, "trans_rates_t"),
     inherits(periods, "periods_t")
@@ -172,6 +183,7 @@ validate.trans_rates_t <- function(x, ...) {
   data.table::setcolorder(
     x,
     c(
+      "id_run",
       "id_period",
       "id_trans",
       "rate"
@@ -179,11 +191,15 @@ validate.trans_rates_t <- function(x, ...) {
   )
 
   stopifnot(
+    "id_run is not integer" = is.integer(x[["id_run"]]),
     "id_period is not integer" = is.integer(x[["id_period"]]),
     "id_trans is not integer" = is.integer(x[["id_trans"]]),
     "rate is not numeric" = is.numeric(x[["rate"]]),
     "rate is negative" = all(x[["rate"]] >= 0, na.rm = TRUE),
-    "duplicated id_period, id_trans tuple" = !anyDuplicated(x, by = c("id_period", "id_trans"))
+    "duplicated id_run, id_period, id_trans tuple" = !anyDuplicated(
+      x,
+      by = c("id_run", "id_period", "id_trans")
+    )
   )
 
   return(x)
