@@ -100,53 +100,6 @@ create_intrv_meta_t <- function(intrv_spec) {
   as_intrv_meta_t(x)
 }
 
-#' @describeIn intrv_meta_t Creates an metadata entry / row
-#' @param name Name for use in code and queries
-#' @param pretty_name Name for plots/output
-#' @param description Long description / operationalisation
-#' @param id_period_list Array of associated period IDs
-#' @param id_trans_list Array of associated transition IDs
-#' @param pre_allocation Boolean indicating if intervention is pre-allocation
-#' @param sources Data frame of sources with columns `url` and `md5sum
-#' @param params A list of parameters, depth 1; children can only have length 1
-#' @export
-create_intrv_meta_t_row <- function(
-  name = character(),
-  pretty_name = character(),
-  description = NA_character_,
-  id_period_list = integer(),
-  id_trans_list = integer(),
-  pre_allocation = logical(),
-  sources = data.frame(url = character(), md5sum = character()),
-  params
-) {
-  stopifnot(
-    "name is not scalar character" = length(name) == 1L && is.character(name),
-    "pretty_name is not scalar character" = length(pretty_name) == 1L && is.character(pretty_name),
-    "description is not scalar character" = length(description) == 1L && is.character(description),
-    is.integer(id_period_list),
-    is.integer(id_trans_list),
-    "pre_allocation is not scalar logical" = length(pre_allocation) == 1L &&
-      is.logical(pre_allocation),
-    inherits(sources, "data.frame"),
-  )
-  check_missing_names(sources, c("url", "md5sum"))
-
-  x <- data.table::data.table(
-    id_intrv = NA_integer_,
-    id_period_list = list(id_period_list),
-    id_trans_list = list(id_trans_list),
-    pre_allocation = pre_allocation,
-    name = name,
-    pretty_name = pretty_name,
-    description = description,
-    sources = list(sources),
-    params = list(params)
-  )
-
-  as_intrv_meta_t(x)
-}
-
 #' @export
 validate.intrv_meta_t <- function(x, ...) {
   NextMethod()

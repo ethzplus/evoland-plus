@@ -49,19 +49,6 @@ new_evoland_table <- function(x, class_name, keycols) {
   validate(x)
 }
 
-#' @describeIn util Check that all required names are present
-#' @param x A named object
-#' @param required_names Vector of required names
-#' @return NULL, called for side effect
-check_missing_names <- function(x, required_names) {
-  missing_names <- setdiff(required_names, names(x))
-  if (length(missing_names) > 0) {
-    stop(glue::glue(
-      "missing required names: {paste(missing_names, collapse = ', ')}"
-    ))
-  }
-}
-
 #' @describeIn util Null coalescing operator
 #' @param x Left-hand side value
 #' @param y Right-hand side value (fallback)

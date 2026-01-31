@@ -22,7 +22,9 @@ download_and_verify <- function(
   target_dir = getOption("evoland.cachedir"),
   overwrite = FALSE
 ) {
-  check_missing_names(df_in, c("url", "md5sum"))
+  stopifnot(
+    "need url and md5 as input" = all(c("url", "md5sum") %in% names(df_in))
+  )
   ensure_dir(target_dir)
 
   # makes a copy while ensuring DT semantics

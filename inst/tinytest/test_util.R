@@ -16,17 +16,6 @@ non_dt <- data.frame(x = 1:3)
 class(non_dt) <- c("test_class", "evoland_t", class(non_dt))
 expect_error(validate(non_dt), "inherits.*data.table.*is not TRUE")
 
-# Test check_missing_names
-test_list <- list(a = 1, b = 2, c = 3)
-expect_silent(evoland:::check_missing_names(test_list, c("a", "b")))
-expect_error(
-  evoland:::check_missing_names(test_list, c("a", "d", "e")),
-  "missing required names: d, e"
-)
-
-# Test empty requirements
-expect_silent(evoland:::check_missing_names(test_list, character(0)))
-
 # Test %||% operator
 expect_equal(NULL %||% "default", "default")
 expect_equal("value" %||% "default", "value")

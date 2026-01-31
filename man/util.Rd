@@ -4,7 +4,6 @@
 \alias{util}
 \alias{validate}
 \alias{new_evoland_table}
-\alias{check_missing_names}
 \alias{\%||\%}
 \alias{pluck_wildcard}
 \alias{ensure_dir}
@@ -16,7 +15,6 @@ validate(x, ...)
 
 new_evoland_table(x, class_name, keycols)
 
-check_missing_names(x, required_names)
 
 x \%||\% y
 
@@ -36,9 +34,6 @@ cast_dt_col(x, colname, type)
 \item{class_name}{The class name to attach before "evoland_t"}
 
 \item{keycols}{The columns to be set as key, see \code{\link[data.table:setkey]{data.table::setkey()}}}
-
-\item{required_names}{Vector of required names}
-
 \item{y}{Right-hand side value (fallback)}
 
 \item{lst}{The list to index into}
@@ -48,8 +43,6 @@ cast_dt_col(x, colname, type)
 \item{type}{one of "int", "float", "bool", "factor"}
 }
 \value{
-NULL, called for side effect
-
 The indexed result, which may be a single element or a list of elements
 }
 \description{
@@ -60,8 +53,6 @@ These are mostly used to validate evoland S3 objects.
 \item \code{validate()}: Provides an S3 validation generic
 
 \item \code{new_evoland_table()}: Add evoland_t class
-
-\item \code{check_missing_names()}: Check that all required names are present
 
 \item \code{x \%||\% y}: Null coalescing operator
 
