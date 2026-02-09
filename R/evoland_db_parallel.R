@@ -5,21 +5,22 @@
 #' serially. **If** a cluster is passed, each worker gets its own database instance
 #' derived from the parent database.
 #'
-#' @param cluster An optional cluster object created by [parallel::makeCluster()] or
-#' [mirai::make_cluster()].
 #' @param worker_fun A function to apply to each item, with signature `worker_fun(item,
 #' db, ...)`. The `db` argument will be a new `evoland_db` instance for each worker.
 #' @param items A list of items to iterate over
-#' @param parent_db An [evoland_db] instance; used for its `path` and `id_run`.
+#' @param parent_db An [evoland_db] instance; used for its `path` and `id_run`; or
+#' passed directly to the worker for serial case.
+#' @param cluster An optional cluster object created by [parallel::makeCluster()] or
+#' [mirai::make_cluster()].
 #' @param ... Additional arguments passed to `worker_fun`.
 #'
 #' @return A list of results
 #' @export
-run_parallel_task <- function(
-  cluster,
+run_parallel_evoland <- function(
   items,
   worker_fun,
   parent_db,
+  cluster = NULL,
   ...
 ) {
   if (is.null(cluster)) {
