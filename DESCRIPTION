@@ -49,6 +49,7 @@ Collate:
     'parquet_db.R'
     'evoland_db.R'
     'evoland_db_neighbors.R'
+    'evoland_db_parallel.R'
     'evoland_db_tables.R'
     'evoland_db_views.R'
     'fuzzy_similarity.R'
@@ -69,5 +70,4 @@ Collate:
     'util.R'
     'util_dinamica.r'
     'util_download.R'
-    'util_parallel.R'
     'util_terra.R'
