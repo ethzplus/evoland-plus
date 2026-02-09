@@ -148,7 +148,7 @@ print_rowwise_yaml <- function(df) {
 cast_dt_col <- function(x, colname, type) {
   predicate_fn <- switch(
     type,
-    float = is.numeric,
+    float = is.double,
     int = is.integer,
     bool = is.logical,
     factor = is.factor
@@ -159,7 +159,7 @@ cast_dt_col <- function(x, colname, type) {
 
   coercion_fn <- switch(
     type,
-    float = as.numeric,
+    float = as.double,
     int = as.integer,
     bool = as.logical,
     factor = as.factor
