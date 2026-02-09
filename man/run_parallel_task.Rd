@@ -2,27 +2,28 @@
 % Please edit documentation in R/util_parallel.R
 \name{run_parallel_task}
 \alias{run_parallel_task}
-\title{Run a function in parallel over a list of items}
+\title{Run parallel tasks on cloned \code{evoland_db} instances}
 \usage{
-run_parallel_task(items, worker_fun, db, cores = 1L, ...)
+run_parallel_task(cluster, items, worker_fun, parent_db, ...)
 }
 \arguments{
-\item{items}{A list or vector of items to iterate over.}
+\item{cluster}{An optional cluster object created by \code{\link[parallel:makeCluster]{parallel::makeCluster()}} or
+\code{\link[mirai:make_cluster]{mirai::make_cluster()}}.}
 
-\item{worker_fun}{A function to apply to each item. Must accept \code{item} as the first argument
-and \code{db} (the database instance) as the second argument.}
+\item{items}{A list of items to iterate over}
 
-\item{db}{The current \link{evoland_db} instance (typically \code{self}).}
+\item{worker_fun}{A function to apply to each item, with signature \code{worker_fun(item, db, ...)}. The \code{db} argument will be a new \code{evoland_db} instance for each worker.}
 
-\item{cores}{Integer. Number of cores to use.}
+\item{parent_db}{An \link{evoland_db} instance; used for its \code{path} and \code{id_run}.}
 
 \item{...}{Additional arguments passed to \code{worker_fun}.}
 }
 \value{
-A list of results, same as \code{\link[=lapply]{lapply()}}.
+A list of results
 }
 \description{
-A wrapper around \code{\link[parallel:clusterApply]{parallel::parLapply()}} that handles \code{evoland_db} connection management.
-It uses a PSOCK cluster (via \code{\link[parallel:makeCluster]{parallel::makeCluster()}}) to support Windows and ensures a clean
-environment for each worker.
+This wrapper takes an (optional) worker cluster, a worker function, a set of items,
+and a parent \code{evoland_db} instance. If \strong{no} cluster is passed, apply the worker
+serially. \strong{If} a cluster is passed, each worker gets its own database instance
+derived from the parent database.
 }
