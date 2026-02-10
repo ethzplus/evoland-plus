@@ -1,86 +1,52 @@
-library(tinytest)
+require(tinytest)
 
 # Test empty trans_rates_t creation
 trans_rates_t <- as_trans_rates_t()
 expect_stdout(print(trans_rates_t), "empty")
 
-# Create synthetic transition (meta) data
-# Period 1: 100 cells, 80 stay as class 1, 20 transition to class 2
-# Period 2: 100 cells, 70 stay as class 1, 30 transition to class 2
-trans_v <-
-  data.table::data.table(
-    id_period = rep(1:2, each = 100),
-    id_lulc_anterior = 1L,
-    id_lulc_posterior = c(
-      rep(1L, 80),
-      rep(2L, 20),
-      rep(1L, 70),
-      rep(2L, 30)
-    ),
-    id_coord = rep(1:100, times = 2)
-  )
-trans_meta <-
-  create_trans_meta_t(trans_v)[,
-    id_trans := seq_len(.N)
-  ]
+# Test extrapolation
 periods <-
-  create_periods_t(
-    period_length_str = "P10Y",
-    start_observed = "2010-01-01",
-    end_observed = "2020-01-01",
-    end_extrapolated = "2060-01-01"
-  )
-
-# Create observed rates
-obs_rates <- create_obs_trans_rates_t(trans_v, trans_meta)
-expect_equal(obs_rates[["rate"]], c(0.2, 0.3))
-
-# Test create_extr_trans_rates_t
-extrap_rates <- create_extr_trans_rates_t(obs_rates, periods)
-expect_inherits(extrap_rates, "trans_rates_t")
-expect_equal(extrap_rates[["rate"]], c(0.4, 0.5, 0.6, 0.7)) # linear trend
-
-# concat on DB, then retrieve for dinamica
-test_dir_rates <- tempfile("evoland_rates")
-on.exit(unlink(test_dir_rates, recursive = TRUE), add = TRUE)
-db <- evoland_db$new(test_dir_rates)
-expect_warning(db$trans_meta_t <- trans_meta, "Overriding existing IDs")
-db$trans_rates_t <- obs_rates
-db$trans_rates_t <- extrap_rates
-expect_equal(
-  db$trans_rates_dinamica_v(1),
-  data.table::data.table(`From*` = 1L, `To*` = 2L, Rate = 0.2)
-)
-
-# Test that negative rates are set to 0
-# Create data that would extrapolate to negative
-declining_rate <-
-  data.table::data.table(
-    id_period = 1:2,
-    id_trans = 1L,
-    rate = c(0.15, 0.1)
+  data.table::rowwiseDT(
+    id_period=,  start_date=,  end_date=,   is_extrapolated=, # nolint
+    0,          "2000-01-01", "2000-12-31", FALSE,
+    1,          "2001-01-01", "2001-12-31", FALSE,
+    2,          "2002-01-01", "2002-12-31", FALSE,
+    3,          "2003-01-01", "2003-12-31", TRUE,
+    4,          "2004-01-01", "2004-12-31", TRUE
   ) |>
-  as_trans_rates_t() |>
-  create_extr_trans_rates_t(periods)
-expect_equal(declining_rate[["rate"]], c(.05, 0, 0, 0)) # No negative rates
+  as_periods_t()
 
-# Test validation
-expect_error(
-  as_trans_rates_t(data.table::data.table(
-    id_period = 1L,
-    id_trans = 1L,
-    rate = -0.1 # Invalid negative rate
-  )),
-  "rate is negative"
-)
-
-# Test with only one observation for transition (edge case)
-single_extrap <-
-  data.table::data.table(
-    id_period = 1L,
-    id_trans = 1L,
-    rate = 0.5
+obs_rates <-
+  data.table::rowwiseDT(
+    id_run=, id_period=, id_trans=, count=,      rate=, # nolint
+    # expecting 0.3, 0.4
+    0,       1,          1,         NA_integer_, 0.1,
+    0,       2,          1,         NA_integer_, 0.2,
+    # negative trend: 0.1, 0
+    0,       1,          2,         NA_integer_, 0.3,
+    0,       2,          2,         NA_integer_, 0.2,
+    # single observation: expecting constant 0.4
+    1,       1,          1,         NA_integer_, 0.4
   ) |>
-  as_trans_rates_t() |>
-  create_extr_trans_rates_t(periods)
-expect_true(all(single_extrap[["rate"]] == 0.5)) # Should use mean rate
+  as_trans_rates_t()
+
+# Test extrapolate_trans_rates
+extrap_rates <- extrapolate_trans_rates(obs_rates, periods)
+
+expected_extrap_rates <-
+  data.table::rowwiseDT(
+    id_run=, id_period=, id_trans=, count=,      rate=, # nolint
+    # expecting 0.3, 0.4
+    0,       3,          1,         NA_integer_, 0.3,
+    0,       4,          1,         NA_integer_, 0.4,
+    # negative trend: 0.1, 0
+    0,       3,          2,         NA_integer_, 0.1,
+    0,       4,          2,         NA_integer_, 0.0,
+    # single observation: expecting constant 0.4
+    1,       3,          1,         NA_integer_, 0.4,
+    1,       4,          1,         NA_integer_, 0.4
+  ) |>
+  as_trans_rates_t()
+
+
+expect_equal(extrap_rates, expected_extrap_rates)

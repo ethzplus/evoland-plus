@@ -3,31 +3,23 @@
 \name{trans_rates_t}
 \alias{trans_rates_t}
 \alias{as_trans_rates_t}
-\alias{create_obs_trans_rates_t}
-\alias{create_extr_trans_rates_t}
+\alias{get_obs_trans_rates}
+\alias{extrapolate_trans_rates}
 \alias{print.trans_rates_t}
 \title{Create Transition Rates Table}
 \usage{
 as_trans_rates_t(x)
 
-create_obs_trans_rates_t(trans_v, trans_meta)
+get_obs_trans_rates(self)
 
-create_extr_trans_rates_t(obs_rates, periods)
+extrapolate_trans_rates(obs_rates, periods)
 
 \method{print}{trans_rates_t}(x, nrow = 10, ...)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
 
-\item{trans_v}{A transitions view table with columns: id_period, id_lulc_anterior,
-id_lulc_posterior, id_coord}
-
-\item{trans_meta}{A trans_meta_t table with transition metadata including id_trans,
-id_lulc_anterior, and id_lulc_posterior}
-
-\item{obs_rates}{A trans_rates_t table with observed historical rates}
-
-\item{periods}{A periods_t table defining the time periods}
+\item{self}{a DB instance}
 
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
@@ -39,7 +31,8 @@ A data.table of class "trans_rates_t" with columns:
 \item \code{id_run}: Foreign key to runs_t
 \item \code{id_period}: Foreign key to periods_t
 \item \code{id_trans}: Foreign key to trans_meta_t
-\item \code{rate}: Transition rate (0 to 1)
+\item \code{count}: Absolute count of transitions
+\item \code{rate}: Transition rate: count of transitions in (id_trans, id_period) over (id_period)
 }
 }
 \description{
@@ -54,12 +47,13 @@ transitions, and future rates are extrapolated using linear regression.
 }}
 \section{Functions}{
 \itemize{
-\item \code{create_obs_trans_rates_t()}: Calculate observed transition rates from historical data.
+\item \code{get_obs_trans_rates()}: Calculate observed transition rates from historical data.
 For each period and transition type, calculates the rate as the proportion of
 id_lulc_anterior cells that transitioned to id_lulc_posterior.
 
-\item \code{create_extr_trans_rates_t()}: Extrapolate future transition rates using linear regression.
-For each transition type (id_trans), fits a linear model of rate vs period number
-and extrapolates to future periods. Negative predicted rates are set to 0.
+\item \code{extrapolate_trans_rates()}: Return future transition rates using linear regression. For
+each id_run + id_trans, fits a linear model of rate vs period number and extrapolates
+to future periods. Negative predicted rates are set to 0.
 
 }}
+\keyword{internal}

@@ -136,6 +136,9 @@ print_rowwise_yaml <- function(df) {
     cat(sprintf("- row %d:\n", i))
     for (col in names(df)) {
       value <- df[[col]][i]
+      if (is.raw(value[[1]]) || is.raw(value)) {
+        value <- "<raw vector>"
+      }
       cat(sprintf("  %s: %s\n", col, value))
     }
     cat("\n")
@@ -151,7 +154,8 @@ cast_dt_col <- function(x, colname, type) {
     float = is.double,
     int = is.integer,
     bool = is.logical,
-    factor = is.factor
+    factor = is.factor,
+    date = \(x) is(x, "Date")
   )
   if (predicate_fn(x[[colname]])) {
     return(invisible(x))
@@ -162,7 +166,8 @@ cast_dt_col <- function(x, colname, type) {
     float = as.double,
     int = as.integer,
     bool = as.logical,
-    factor = as.factor
+    factor = as.factor,
+    date = as.Date
   )
   data.table::set(
     x = x,
