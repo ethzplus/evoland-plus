@@ -94,16 +94,18 @@ predict_trans_pot <- function(
   self,
   id_period_post
 ) {
+  # TODO parallelize
+  # TODO move into integration test
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
   gather <- list()
   message(glue::glue("Predicting transition potential for {nrow(viable_trans)} transitions"))
 
-  for (i in seq_len(nrow(viable_trans))) {
-    id_trans <- viable_trans$id_trans[i]
-    id_lulc_ant <- viable_trans$id_lulc_anterior[i]
-    id_lulc_post <- viable_trans$id_lulc_posterior[i]
-    message(glue::glue("Predicting trans {i}/{nrow(viable_trans)} (id_trans {id_trans})"))
+  for (id_trans in viable_trans$id_trans) {
+    message(glue::glue(
+      "Predicting trans {which(viable_trans$id_trans == id_trans)}/",
+      "{nrow(viable_trans)} (id_trans {id_trans})"
+    ))
 
     # Get model for this transition. Only expect one non-null full model.
     model_row <- self$fetch(
