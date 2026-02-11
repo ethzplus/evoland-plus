@@ -16,155 +16,23 @@
 as_trans_preds_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
+      id_run = integer(0),
       id_pred = integer(0),
       id_trans = integer(0)
     )
   }
-  cast_dt_col(x, "id_pred", "int")
-  cast_dt_col(x, "id_trans", "int")
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_run", "int") |>
+    cast_dt_col("id_pred", "int") |>
+    cast_dt_col("id_trans", "int")
+
   new_evoland_table(
     x,
     "trans_preds_t",
-    c("id_pred", "id_trans")
+    key_cols = c("id_run", "id_pred", "id_trans")
   )
 }
-
-# set an initial full set of transition / predictor relations
-set_full_trans_preds <- function(self, overwrite = FALSE) {
-  if (self$row_count("trans_preds_t") > 0 && !overwrite) {
-    stop("Set overwrite to TRUE to overwrite existing trans_preds_t")
-  }
-  p <- self$pred_meta_t
-  t <- self$trans_meta_t[is_viable == TRUE]
-
-  full <- expand.grid(
-    id_pred = p[["id_pred"]],
-    id_trans = t[["id_trans"]],
-    KEEP.OUT.ATTRS = FALSE
-  )
-
-  self$commit(as_trans_preds_t(full), "trans_preds_t", method = "overwrite")
-}
-
-# Worker function for parallel transition pruning
-# Not exported; used internally by get_pruned_trans_preds_t
-prune_trans_worker <- function(item, db, na_value, filter_fun, ...) {
-  id_trans <- item$id_trans
-  id_preds <- item$id_preds
-
-  if (length(id_preds) == 0L) {
-    return(NULL)
-  }
-
-  # Get wide transition-predictor data
-  tryCatch(
-    {
-      trans_pred_data <- db$trans_pred_data_v(
-        id_trans = id_trans,
-        id_pred = id_preds,
-        na_value = na_value
-      )
-
-      # Check if we have any data
-      if (nrow(trans_pred_data) == 0L) {
-        warning(glue::glue(
-          "No data for transition {id_trans}, skipping"
-        ))
-        return(NULL)
-      }
-
-      # Check if we have any predictor columns
-      pred_cols <- grep("^id_pred_", names(trans_pred_data), value = TRUE)
-      if (length(pred_cols) == 0L) {
-        warning(glue::glue(
-          "No predictor columns for transition {id_trans}, skipping"
-        ))
-        return(NULL)
-      }
-
-      # Return ranked + filtered predictor names as id_pred_{n}
-      filtered_preds <- filter_fun(
-        # drop vars that are irrelevant to the filtering
-        data = trans_pred_data[, .SD, .SDcols = !c("id_coord", "id_period")],
-        ...
-      )
-
-      if (length(filtered_preds) > 0L) {
-        # Parse id_pred values from column names (e.g., "id_pred_1" -> 1)
-        selected_ids <- as.integer(sub("^id_pred_", "", filtered_preds))
-
-        # Create result rows
-        return(data.table::data.table(
-          id_pred = selected_ids,
-          id_trans = id_trans
-        ))
-      } else {
-        return(NULL)
-      }
-    },
-    error = function(e) {
-      # do not prune on error
-      warning(glue::glue(
-        "Error processing transition {id_trans}: {e$message}"
-      ))
-      return(data.table::data.table(
-        id_pred = id_preds,
-        id_trans = id_trans
-      ))
-    }
-  )
-}
-
-get_pruned_trans_preds_t <- function(
-  self,
-  filter_fun = covariance_filter,
-  na_value = NA,
-  cores = 1L,
-  ...
-) {
-  if (self$row_count("trans_preds_t") == 0) {
-    self$set_full_trans_preds()
-  }
-  trans_preds_pre <- self$trans_preds_t
-  unique_trans <- unique(trans_preds_pre$id_trans)
-
-  # Prepare items for parallel processing
-  items <- lapply(unique_trans, function(tr) {
-    list(
-      id_trans = tr,
-      id_preds = trans_preds_pre$id_pred[trans_preds_pre$id_trans == tr]
-    )
-  })
-
-  message(glue::glue("Processing {length(unique_trans)} transitions..."))
-
-  # don't care about collation here because this is not evaluated upon sourcing package
-  results_list <- run_parallel_task(
-    items = items,
-    worker_fun = prune_trans_worker,
-    db = self,
-    cores = cores,
-    na_value = na_value,
-    filter_fun = filter_fun,
-    ...
-  )
-
-  # Filter out NULLs
-  results_list <- Filter(Negate(is.null), results_list)
-
-  # Combine all results
-  if (length(results_list) == 0L) {
-    warning("No predictors selected for any transition")
-    return(invisible(NULL))
-  }
-
-  result <- data.table::rbindlist(results_list)
-
-  # FIXME can we do this safely? something might go wrong in between
-  # self$commit(as_trans_preds_t(result), "trans_preds_t", method = "overwrite")
-  as_trans_preds_t(result)
-}
-
 
 #' @export
 validate.trans_preds_t <- function(x, ...) {
@@ -173,6 +41,7 @@ validate.trans_preds_t <- function(x, ...) {
   data.table::setcolorder(
     x,
     c(
+      "id_run",
       "id_pred",
       "id_trans"
     )
@@ -184,9 +53,10 @@ validate.trans_preds_t <- function(x, ...) {
   }
 
   stopifnot(
+    is.integer(x[["id_run"]]),
     is.integer(x[["id_pred"]]),
     is.integer(x[["id_trans"]]),
-    !anyDuplicated(x, by = c("id_pred", "id_trans")),
+    !anyDuplicated(x, by = c("id_run", "id_pred", "id_trans")),
     all(x[["id_pred"]] > 0),
     all(x[["id_trans"]] > 0)
   )
@@ -217,4 +87,121 @@ print.trans_preds_t <- function(x, nrow = 10, ...) {
   }
   NextMethod(nrow = nrow, ...)
   invisible(x)
+}
+
+#' @describeIn trans_preds_t Set an initial full set of transition / predictor relations
+#' @param overwrite Bool, should a potentially existing table be overwritten?
+set_full_trans_preds <- function(self, overwrite = FALSE) {
+  if (!overwrite && self$row_count("trans_preds_t") > 0) {
+    stop("Set overwrite to TRUE to overwrite existing trans_preds_t")
+  }
+  p <- self$pred_meta_t
+  t <- self$trans_meta_t[is_viable == TRUE]
+
+  full <- expand.grid(
+    id_run = 0L,
+    id_pred = p[["id_pred"]],
+    id_trans = t[["id_trans"]],
+    KEEP.OUT.ATTRS = FALSE
+  )
+
+  self$commit(
+    as_trans_preds_t(full),
+    "trans_preds_t",
+    method = "overwrite"
+  )
+}
+
+# Worker function for parallel transition pruning
+# Not exported; used internally by get_pruned_trans_preds_t
+prune_trans_worker <- function(item, db, na_value, filter_fun, ...) {
+  # item is just a data.table slice. expecting scalar id_run and id_trans
+  id_run <- item[["id_run"]][1L]
+  id_trans <- item[["id_trans"]][1L]
+  id_pred <- item[["id_pred"]]
+
+  tryCatch(
+    {
+      # Get wide transition-predictor data
+      trans_pred_data <- db$trans_pred_data_v(
+        id_trans = id_trans,
+        id_pred = id_pred,
+        na_value = na_value
+      )
+
+      # Check if we have any data
+      pred_cols <- grep("^id_pred_", names(trans_pred_data), value = TRUE)
+      if (nrow(trans_pred_data) == 0L || length(pred_cols) == 0L) {
+        stop(glue::glue(
+          "No data for transition {id_trans}; not pruning"
+        ))
+      }
+
+      # Return ranked + filtered predictor names as id_pred_{n}
+      filtered_preds <- filter_fun(
+        # drop vars that are irrelevant to the filtering
+        data = trans_pred_data[, .SD, .SDcols = !c("id_coord", "id_period")],
+        ...
+      )
+
+      if (length(filtered_preds) == 0L) {
+        stop(glue::glue(
+          "Filter dropped all predictors for {id_trans}; not pruning"
+        ))
+      }
+      # Parse id_pred values from column names (e.g., "id_pred_1" -> 1)
+      selected_ids <- as.integer(sub("^id_pred_", "", filtered_preds))
+
+      # Create result rows
+      return(data.table::data.table(
+        id_run = id_run,
+        id_pred = selected_ids,
+        id_trans = id_trans
+      ))
+    },
+    error = function(e) {
+      # do not prune on error
+      warning(glue::glue(
+        "Error processing transition {id_trans}: {e$message}"
+      ))
+      return(data.table::data.table(
+        id_run = id_run,
+        id_pred = id_pred,
+        id_trans = id_trans
+      ))
+    }
+  )
+}
+
+#' @describeIn trans_preds_t Get a pruned set of transition-predictor relationships
+#' based on a filtering function
+#' @param filter_fun A function that takes a transition-predictor data (cf. [trans_pred_data_v]) and
+#' returns a character vector of column names to keep, see e.g. [covariance_filter]
+#' @param na_value Value to use for missing data when retrieving predictor data
+#' @param cluster An optional cluster object, see [run_parallel_evoland]
+get_pruned_trans_preds_t <- function(
+  self,
+  filter_fun = covariance_filter,
+  na_value = NA,
+  cluster = NULL,
+  ...
+) {
+  if (self$row_count("trans_preds_t") == 0) {
+    self$set_full_trans_preds()
+  }
+  items <- split(self$trans_preds_t, by = c("id_run", "id_trans"))
+
+  message(glue::glue("Processing {length(items)} transitions..."))
+
+  run_parallel_evoland(
+    items = items,
+    worker_fun = prune_trans_worker,
+    parent_db = self,
+    cluster = cluster,
+    na_value = na_value,
+    filter_fun = filter_fun,
+    ...
+  ) |>
+    data.table::rbindlist() |>
+    as_trans_preds_t()
 }
