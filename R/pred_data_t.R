@@ -21,19 +21,28 @@ as_pred_data_t <- function(x, type) {
 
   if (missing(x)) {
     x <- data.table::data.table(
+      id_run = integer(0),
+      id_period = integer(0),
       id_pred = integer(0),
       id_coord = integer(0),
-      id_period = integer(0),
       value = integer(0)
     )
   }
 
-  data.table::setDT(x, key = c("id_pred", "id_coord", "id_period")) |>
-    cast_dt_col("value", type) |>
-    cast_dt_col("id_coord", "int")
+  data.table::setDT(x) |>
+    cast_dt_col("id_run", "int") |>
+    cast_dt_col("id_period", "int") |>
+    cast_dt_col("id_pred", "int") |>
+    cast_dt_col("id_coord", "int") |>
+    cast_dt_col("value", type)
 
   class_name <- paste0("pred_data_t_", type)
-  new_evoland_table(x, c(class_name, "pred_data_t"))
+  new_evoland_table(
+    x,
+    class_name = c(class_name, "pred_data_t"),
+    key_cols = c("id_run", "id_period", "id_pred"),
+    partition_cols = c("id_run", "id_period")
+  )
 }
 
 #' @export
@@ -43,18 +52,20 @@ validate.pred_data_t <- function(x, ...) {
   data.table::setcolorder(
     x,
     c(
+      "id_run",
+      "id_period",
       "id_pred",
       "id_coord",
-      "id_period",
       "value"
     )
   )
 
   stopifnot(
+    is.integer(x[["id_run"]]),
+    is.integer(x[["id_period"]]),
     is.integer(x[["id_pred"]]),
     is.integer(x[["id_coord"]]),
-    is.integer(x[["id_period"]]),
-    !anyDuplicated(x, by = c("id_pred", "id_coord", "id_period"))
+    !anyDuplicated(x, by = c("id_run", "id_pred", "id_coord", "id_period"))
   )
 
   return(x)
@@ -104,14 +115,15 @@ print.pred_data_t <- function(x, nrow = 10, ...) {
   }
 
   if (nrow(x) > 0) {
+    n_runs <- data.table::uniqueN(x[["id_run"]])
+    n_periods <- data.table::uniqueN(x[["id_period"]])
     n_preds <- data.table::uniqueN(x[["id_pred"]])
     n_coords <- data.table::uniqueN(x[["id_coord"]])
-    n_periods <- data.table::uniqueN(x[["id_period"]])
 
     cat(glue::glue(
       "Predictor Data Table ({subtype})\n",
       "Observations: {nrow(x)}\n",
-      "Predictors: {n_preds}, Coordinates: {n_coords}, Periods: {n_periods}\n\n"
+      "Runs: {n_runs}, Periods: {n_periods}, Predictors: {n_preds}, Coordinates: {n_coords}\n\n"
     ))
   } else {
     cat(glue::glue("Predictor Data Table ({subtype}) (empty)\n"))

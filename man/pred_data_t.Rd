@@ -22,6 +22,7 @@ as_pred_data_t(x, type)
 \value{
 A data.table of class "pred_data_t_\if{html}{\out{<type>}}" and "pred_data_t" with columns:
 \itemize{
+\item \code{id_run}: Foreign key to runs_t
 \item \code{id_pred}: Foreign key to pred_meta_t
 \item \code{id_coord}: Foreign key to coords_t
 \item \code{id_period}: Foreign key to periods_t
