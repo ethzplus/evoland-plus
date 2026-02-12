@@ -4,22 +4,44 @@
 \alias{trans_preds_t}
 \alias{as_trans_preds_t}
 \alias{print.trans_preds_t}
+\alias{set_full_trans_preds}
+\alias{get_pruned_trans_preds_t}
 \title{Create Transition-Predictor Relationship Table}
 \usage{
 as_trans_preds_t(x)
 
 \method{print}{trans_preds_t}(x, nrow = 10, ...)
+
+set_full_trans_preds(self, overwrite = FALSE)
+
+get_pruned_trans_preds_t(
+  self,
+  filter_fun = covariance_filter,
+  na_value = NA,
+  cluster = NULL,
+  ...
+)
 }
 \arguments{
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 
+\item{overwrite}{Bool, should a potentially existing table be overwritten?}
+
+\item{filter_fun}{A function that takes a transition-predictor data (cf. \link{trans_pred_data_v}) and
+returns a character vector of column names to keep, see e.g. \link{covariance_filter}}
+
+\item{na_value}{Value to use for missing data when retrieving predictor data}
+
+\item{cluster}{An optional cluster object, see \link{run_parallel_evoland}}
+
 \item{db}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
 }
 \value{
 A data.table of class "trans_preds_t" with columns:
 \itemize{
+\item \code{id_run}: Foreign key to runs_t
 \item \code{id_pred}: Foreign key to pred_meta_t
 \item \code{id_trans}: Foreign key to trans_meta_t
 }
@@ -32,5 +54,13 @@ modelling each transition type.
 \section{Methods (by generic)}{
 \itemize{
 \item \code{print(trans_preds_t)}: Print a trans_preds_t object, passing params to data.table print
+
+}}
+\section{Functions}{
+\itemize{
+\item \code{set_full_trans_preds()}: Set an initial full set of transition / predictor relations
+
+\item \code{get_pruned_trans_preds_t()}: Get a pruned set of transition-predictor relationships
+based on a filtering function
 
 }}

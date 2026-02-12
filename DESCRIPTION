@@ -69,6 +69,6 @@ Collate:
     'trans_models_rf.R'
     'trans_rates_t.R'
     'util.R'
-    'util_dinamica.r'
+    'util_dinamica.R'
     'util_download.R'
     'util_terra.R'

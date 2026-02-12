@@ -2,7 +2,9 @@
 #'
 #' Creates a trans_meta_t table based on observed land use transitions in the
 #' LULC data. This function analyzes transition patterns and creates metadata
-#' entries for each viable transition type.
+#' entries for each viable transition type. The metadata is kept constant across
+#' runs, since comparisons of model performance should be based on the same set
+#' of transitions.
 #'
 #' @name trans_meta_t
 #'
