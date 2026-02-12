@@ -2,6 +2,12 @@
 % Please edit documentation in R/evoland_db_views.R
 \name{evoland_db_views}
 \alias{evoland_db_views}
+\alias{lulc_meta_long_v}
+\alias{pred_sources_v}
+\alias{trans_v}
+\alias{coords_minimal}
+\alias{trans_pred_data_v}
+\alias{trans_rates_dinamica_v}
 \title{Views on the evoland-plus data model}
 \description{
 This file adds view active bindings and methods to the \code{evoland_db} class using R6's \verb{$set()}
