@@ -495,7 +495,7 @@ parquet_db <- R6::R6Class(
 
       if (is_partitioned) {
         # Use glob pattern for partitioned directories
-        return(glue::glue("read_parquet('{path}/**/*.parquet', hive_partitioning = 1)"))
+        return(glue::glue("read_parquet('{path}/**/*.parquet', hive_partitioning = true)"))
       }
       glue::glue("read_parquet('{path}')")
     },
@@ -851,7 +851,17 @@ parquet_db <- R6::R6Class(
 # return Named list of attributes
 extract_dt_attributes <- function(x) {
   all_attrs <- attributes(x)
-  excluded <- c("class", "names", ".internal.selfref", "row.names", "sorted", "index")
+  excluded <- c(
+    "class",
+    "names",
+    ".internal.selfref",
+    "row.names",
+    "sorted",
+    "index",
+    "autoincrement_cols",
+    "map_cols",
+    "partition_cols"
+  )
   attrs_to_keep <- setdiff(names(all_attrs), excluded)
   all_attrs[attrs_to_keep]
 }
