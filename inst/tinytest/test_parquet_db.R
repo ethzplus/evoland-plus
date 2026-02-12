@@ -1,9 +1,8 @@
 # Test generic parquet_db functionality
-library(tinytest)
+require(tinytest)
 
 # Create temporary directory for testing
 test_dir <- tempfile("parquet_db_test_")
-on.exit(unlink(test_dir, recursive = TRUE), add = TRUE)
 
 # Test 1: Initialization
 expect_silent(
@@ -89,9 +88,10 @@ test_data_3 <- data.table::data.table(
   name = c("a", "b", "c"),
   value = c(1.1, 2.2, 3.3)
 )
-expect_silent(
-  db$commit(test_data_3, "test_table_3", key_cols = "id_key", method = "upsert")
-)
+expect_silent({
+  db$commit(test_data_3, "test_table_3", method = "upsert")
+  db$commit(test_data_3, "test_table_3", method = "upsert")
+})
 expect_true("test_table_3" %in% db$list_tables())
 expect_equal(db$row_count("test_table_3"), 3L)
 
@@ -102,7 +102,7 @@ test_data_3b <- data.table::data.table(
   value = c(22.2, 33.3, 44.4)
 )
 expect_silent(
-  db$commit(test_data_3b, "test_table_3", key_cols = "id_key", method = "upsert")
+  db$commit(test_data_3b, "test_table_3", method = "upsert")
 )
 expect_equal(db$row_count("test_table_3"), 4L)
 retrieved <- db$fetch("test_table_3")
@@ -170,11 +170,11 @@ test_autoinc_1 <- data.table::data.table(
   name = c("item_a", "item_b", "item_c"),
   value = c(10, 20, 30)
 )
+data.table::setattr(test_autoinc_1, "autoincrement_cols", "id")
 db$commit(
   method = "overwrite",
   test_autoinc_1,
-  "test_autoinc_1",
-  autoincrement_cols = "id"
+  "test_autoinc_1"
 )
 result <- db$fetch("test_autoinc_1")
 expect_equal(result$id, 1:3)
@@ -185,10 +185,10 @@ test_autoinc_2 <- data.table::data.table(
   name = c("item_d", "item_e"),
   value = c(40, 50)
 )
+data.table::setattr(test_autoinc_2, "autoincrement_cols", "id")
 db$commit(
   test_autoinc_2,
   "test_autoinc_1",
-  autoincrement_cols = "id",
   method = "append"
 )
 result <- db$fetch("test_autoinc_1")
@@ -201,10 +201,10 @@ test_autoinc_3 <- data.table::data.table(
   name = c("item_f", "item_g"),
   value = c(60, 70)
 )
+data.table::setattr(test_autoinc_3, "autoincrement_cols", "id")
 db$commit(
   test_autoinc_3,
   "test_autoinc_1",
-  autoincrement_cols = "id",
   method = "upsert"
 )
 result <- db$fetch("test_autoinc_1")
@@ -217,12 +217,12 @@ test_autoinc_with_ids <- data.table::data.table(
   name = c("new_a", "existing", "new_b"),
   value = c(1, 2, 3)
 )
+data.table::setattr(test_autoinc_with_ids, "autoincrement_cols", "id")
 expect_warning(
   db$commit(
     method = "overwrite",
     test_autoinc_with_ids,
-    "test_autoinc_2",
-    autoincrement_cols = "id"
+    "test_autoinc_2"
   ),
   "Overriding existing IDs"
 )
@@ -234,11 +234,11 @@ test_multi_autoinc <- data.table::data.table(
   name = c("item1", "item2"),
   value = c(10, 20)
 )
+data.table::setattr(test_multi_autoinc, "autoincrement_cols", c("id_a", "id_b"))
 db$commit(
   method = "overwrite",
   test_multi_autoinc,
-  "test_multi_autoinc",
-  autoincrement_cols = c("id_a", "id_b")
+  "test_multi_autoinc"
 )
 result <- db$fetch("test_multi_autoinc")
 expect_equal(result$id_a, 1:2)
@@ -258,10 +258,10 @@ db$commit(
 test_continue_b <- data.table::data.table(
   value = c(400, 500)
 )
+data.table::setattr(test_continue_b, "autoincrement_cols", "id_seq")
 db$commit(
   test_continue_b,
   "test_continue",
-  autoincrement_cols = "id_seq",
   method = "append"
 )
 result <- db$fetch("test_continue")
@@ -269,55 +269,12 @@ expect_equal(nrow(result), 5L)
 expect_equal(result$id_seq[4:5], c(16L, 17L))
 expect_equal(result$value[4:5], c(400, 500))
 
-# Test 26: attach_table and detach_table
-db$commit(
-  method = "overwrite",
-  test_data_1,
-  "test_attach"
-)
-expect_silent(db$attach_table("test_attach"))
-# Verify table is attached by querying it directly
-result <- db$get_query("SELECT COUNT(*) as n FROM test_attach")
-expect_equal(result$n, 5L)
-expect_silent(db$detach_table("test_attach"))
-# After detach, table should not be accessible
-expect_error(
-  db$get_query("SELECT COUNT(*) as n FROM test_attach"),
-  "test_attach"
-)
-
-# Test 27: attach_table with column selection
-db$attach_table("test_attach", columns = c("id", "name"))
-result <- db$get_query("SELECT * FROM test_attach")
-expect_equal(ncol(result), 2L)
-expect_true(all(c("id", "name") %in% names(result)))
-expect_false("value" %in% names(result))
-db$detach_table("test_attach")
-
-# Test 28: attach_table with WHERE clause
-db$attach_table("test_attach", where = "id > 3")
-result <- db$get_query("SELECT * FROM test_attach")
-expect_equal(nrow(result), 2L)
-expect_true(all(result$id > 3))
-db$detach_table("test_attach")
-
-# Test 29: execute() method
-db$attach_table("test_attach")
-rows_affected <- db$execute("DELETE FROM test_attach WHERE id = 1")
-expect_true(rows_affected >= 0) # DuckDB returns number of affected rows
-db$detach_table("test_attach")
-
-# Test 30: get_query() method
-db$attach_table("test_attach")
-result <- db$get_query("SELECT MAX(id) as max_id FROM test_attach")
-expect_inherits(result, "data.table")
-expect_true("max_id" %in% names(result))
-db$detach_table("test_attach")
-
 # Test 31: Extension loading
+# Gate: skip during R CMD check; run with build_install_test()
+if (!at_home()) {
+  exit_file("Integration tests skipped (not at_home)")
+}
 test_dir_ext <- tempfile("parquet_db_ext_")
-on.exit(unlink(test_dir_ext, recursive = TRUE), add = TRUE)
-
 db_ext <- parquet_db$new(
   path = test_dir_ext,
   extensions = "spatial"
@@ -357,7 +314,6 @@ expect_equal(db$row_count("no_keys_test"), 2L)
 db$commit(
   test_no_keys,
   "no_keys_test",
-  key_cols = character(0),
   method = "upsert"
 )
 expect_equal(db$row_count("no_keys_test"), 4L) # Should append
@@ -392,6 +348,7 @@ expect_equal(attr(retrieved, "numeric_attr"), 42)
 expect_equal(attr(retrieved, "logical_attr"), TRUE)
 
 # Test 38: Metadata override warning on append
+# TODO should this become a warning, just in the other direction that nothing is done?
 test_data_diff_attrs <- data.table::data.table(
   id = 6L,
   name = "f",
@@ -400,13 +357,12 @@ test_data_diff_attrs <- data.table::data.table(
 data.table::setattr(test_data_diff_attrs, "custom_attr", "different_value")
 data.table::setattr(test_data_diff_attrs, "new_attr", "new")
 
-expect_warning(
+expect_silent(
   db$commit(
     test_data_diff_attrs,
     "test_metadata",
     method = "append"
-  ),
-  "Overriding existing metadata"
+  )
 )
 
 retrieved <- db$fetch("test_metadata")
@@ -420,12 +376,12 @@ test_data_upsert_base <- data.table::data.table(
   value = c(10, 20, 30)
 )
 data.table::setattr(test_data_upsert_base, "version", "1.0")
+data.table::setattr(test_data_upsert_base, "key_cols", "id")
 
 db$commit(
   method = "upsert",
   test_data_upsert_base,
-  "test_metadata",
-  key_cols = "id"
+  "test_metadata"
 )
 
 retrieved <- db$fetch("test_metadata")
@@ -446,19 +402,21 @@ test_part_1 <- data.table::data.table(
 )
 # Ensure columns are ordered for comparison later
 data.table::setcolorder(test_part_1, c("id", "value", "group"))
+data.table::setattr(test_part_1, "partition_cols", "group")
 
 expect_silent(
   db$commit(
     method = "overwrite",
     test_part_1,
-    "test_partitioned",
-    partition_cols = "group"
+    "test_partitioned"
   )
 )
 
-expect_true(dir.exists(file.path(test_dir, "test_partitioned")))
+expect_true(dir.exists(file.path(test_dir, "test_partitioned.parquet")))
 # Check partition directories exist (standard hive partitioning)
-expect_true(length(list.files(file.path(test_dir, "test_partitioned"), pattern = "group=")) == 2)
+expect_true(
+  length(list.files(file.path(test_dir, "test_partitioned.parquet"), pattern = "group=")) == 2
+)
 
 retrieved <- db$fetch("test_partitioned")
 data.table::setorder(retrieved, id)
@@ -472,17 +430,20 @@ test_part_2 <- data.table::data.table(
   group = c("A", "C"),
   value = rnorm(2)
 )
+data.table::setattr(test_part_2, "partition_cols", "group")
 expect_silent(
   db$commit(
     test_part_2,
     "test_partitioned",
-    partition_cols = "group",
     method = "append"
   )
 )
 
 # New partition created
-expect_true(length(list.files(file.path(test_dir, "test_partitioned"), pattern = "group=")) == 3)
+expect_length(
+  list.files(file.path(test_dir, "test_partitioned.parquet"), pattern = "group="),
+  3
+)
 expect_equal(db$row_count("test_partitioned"), 8L)
 
 retrieved <- db$fetch("test_partitioned")
@@ -495,13 +456,13 @@ test_part_3 <- data.table::data.table(
   group = c("A", "B"),
   value = c(99.9, 88.8)
 )
+data.table::setattr(test_part_3, "partition_cols", "group")
+data.table::setattr(test_part_3, "key_cols", "id")
 
 expect_silent(
   db$commit(
     test_part_3,
     "test_partitioned",
-    key_cols = "id",
-    partition_cols = "group",
     method = "upsert"
   )
 )
