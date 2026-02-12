@@ -139,6 +139,9 @@ print_rowwise_yaml <- function(df) {
       if (is.raw(value[[1]]) || is.raw(value)) {
         value <- "<raw vector>"
       }
+      if (is.character(value) && grepl("\n", value)) {
+        value <- paste0(sub("\n.*", "", value), " [...truncated multiline string]")
+      }
       cat(sprintf("  %s: %s\n", col, value))
     }
     cat("\n")
