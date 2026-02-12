@@ -277,34 +277,11 @@ evoland_db <- R6::R6Class(
       bind_helper(create_alloc_params_t)
     },
 
-    #' @description
-    #' Converts `lulc_data_t` to a terra `SpatRast` object by joining with `coords_t`
-    #' and rasterizing the point data. Each period becomes a separate layer in the
-    #' output raster.
-    #'
-    #' @param epsg Integer EPSG code for the coordinate reference system
-    #' @param resolution Numeric scalar specifying the raster cell size (in units of the CRS)
-    #' @param id_period Optional integer vector of period IDs to include. If NULL (default),
-    #'   all periods are included.
-    #'
-    #' @return A terra `SpatRast` object with one layer per period. Layer names are
-    #'   formatted as "period_X" where X is the period ID. Values are LULC class IDs.
-    #'
-    #' @details
-    #' The method performs the following steps:
-    #' If multiple points fall within a single raster cell, a warning is emitted and
-    #' the first value is kept. This can happen when the resolution is too coarse
-    #' relative to the point spacing, or when points are irregularly distributed.
-    #'
-    #' @examples
-    #' \dontrun{
-    #' db <- evoland_db$new("path/to/db")
-    #' lulc_rast <- db$lulc_data_as_rast(epsg = 2056, resolution = 100)
-    #' lulc_rast_subset <- db$lulc_data_as_rast(epsg = 2056, resolution = 100, id_period = c(1, 2))
-    #' }
-    #'
-    #' @name lulc_data_as_rast
-    lulc_data_as_rast = function(extent = NULL, resolution = NULL, id_period = NULL) {
+    #' @description Retrieve LULC data as a SpatRaster object for a given
+    #' period. See [lulc_data_as_rast()]
+    #' @param id_period Optional integer vector of period IDs to include. If
+    #'   NULL (default), all periods are included.
+    lulc_data_as_rast = function(extent = NULL, id_period = NULL) {
       bind_helper(lulc_data_as_rast)
     },
 
