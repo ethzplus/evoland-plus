@@ -8,18 +8,15 @@
 \usage{
 as_trans_models_t(x)
 
-\method{print}{trans_models_t}(x, nrow = 10, ...)
+\method{print}{trans_models_t}(x)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
-
-\item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
-
-\item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 }
 \value{
 A data.table of class "trans_models_t" with columns:
 \itemize{
+\item \code{id_run}: Foreign key to runs_t
 \item \code{id_trans}: Foreign key to trans_meta_t
 \item \code{model_family}: Model family (e.g., "rf", "glm", "bayesian")
 \item \code{model_params}: Map of model (hyper) parameters
@@ -36,6 +33,6 @@ structure for storing fitted models.
 }
 \section{Methods (by generic)}{
 \itemize{
-\item \code{print(trans_models_t)}: Print a trans_models_t object, passing params to data.table print
+\item \code{print(trans_models_t)}: Print a trans_models_t object as yaml-style list
 
 }}

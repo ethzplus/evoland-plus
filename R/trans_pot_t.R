@@ -108,6 +108,8 @@ predict_trans_pot <- function(
     ))
 
     # Get model for this transition. Only expect one non-null full model.
+    # TODO should use a GOF criterion to select one if multiple models exist, but for
+    # now just error out
     model_row <- self$fetch(
       "trans_models_t",
       where = glue::glue("id_trans = {id_trans} and model_obj_full is not null")

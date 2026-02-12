@@ -38,7 +38,6 @@ make_test_db <- function(
   }
 
   if (include_trans_preds) {
-    stopifnot(include_neighbors)
     db$set_full_trans_preds()
   }
 

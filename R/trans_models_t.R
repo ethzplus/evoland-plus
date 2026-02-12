@@ -21,6 +21,7 @@
 as_trans_models_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
+      id_run = integer(0),
       id_trans = integer(0),
       model_family = character(0),
       model_params = list(),
@@ -33,7 +34,9 @@ as_trans_models_t <- function(x) {
   new_evoland_table(
     x,
     "trans_models_t",
-    c("id_trans")
+    key_cols = c("id_run", "id_trans", "fit_call"),
+    map_cols = c("model_params", "goodness_of_fit"),
+    partition_cols = "id_run"
   )
 }
 
@@ -46,39 +49,46 @@ fit_partial_model_worker <- function(
   gof_fun,
   na_value = NA,
   seed = NULL,
+  sample_frac = 0.7,
   ...
 ) {
-  if (length(item[["id_preds"]]) == 0L) {
-    warning(glue::glue(
-      "No predictors for transition {item[['id_trans']]}, skipping"
-    ))
-    return(NULL)
-  }
+  id_run_orig <- db$get_active_run()
+  on.exit(db$set_active_run(id_run_orig), add = TRUE)
+  db$set_active_run(item[["id_run"]])
+
+  # We modify the fit_fun by attaching the fit_fun_args to its formals. This allows
+  # us to deparse it so as to store a string representation. When calling the
+  # function object - possibly reconstructed using str2lang - only the data argument
+  # should change (subsampled/partial or full)
+  formals(fit_fun) <- c(formals(fit_fun), list(...))
+
+  # Deparse to character string for storage
+  fit_call_str <-
+    deparse(fit_fun, width.cutoff = 500L) |>
+    paste(collapse = "\n ")
 
   tryCatch(
     {
       # Fetch ALL data into memory
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
-        id_pred = item[["id_preds"]],
+        id_pred = item[["id_pred"]][[1L]],
         na_value = na_value,
         # if seed is set, we want ordering for reproducible sampling
         ordered = !is.null(seed)
       )
 
       if (nrow(trans_pred_data_full) == 0L) {
-        warning(glue::glue(
+        stop(glue::glue(
           "No data for transition {item[['id_trans']]}, skipping"
         ))
-        return(NULL)
       }
 
       pred_cols <- grep("^id_pred_", names(trans_pred_data_full), value = TRUE)
       if (length(pred_cols) == 0L) {
-        warning(glue::glue(
+        stop(glue::glue(
           "No predictor columns for transition {item[['id_trans']]}, skipping"
         ))
-        return(NULL)
       }
 
       # Stratified sampling
@@ -87,8 +97,8 @@ fit_partial_model_worker <- function(
       idx_false <- which(!trans_pred_data_full$result)
 
       # Sample from each group
-      n_train_true <- ceiling(length(idx_true) * item[["sample_frac"]])
-      n_train_false <- ceiling(length(idx_false) * item[["sample_frac"]])
+      n_train_true <- ceiling(length(idx_true) * sample_frac)
+      n_train_false <- ceiling(length(idx_false) * sample_frac)
 
       if (!is.null(seed)) {
         set.seed(seed)
@@ -101,17 +111,6 @@ fit_partial_model_worker <- function(
 
       train_data <- trans_pred_data_full[train_idx]
       test_data <- trans_pred_data_full[!train_idx]
-
-      # We modify the fit_fun by attaching the fit_fun_args to its formals. This allows
-      # us to deparse it so as to store a string representation. When calling the
-      # function object - possibly reconstructed using str2lang - only the data argument
-      # should change (subsampled/partial or full)
-      formals(fit_fun) <- c(formals(fit_fun), list(...))
-
-      # Deparse to character string for storage
-      fit_call_str <-
-        deparse(fit_fun, width.cutoff = 500L) |>
-        paste(collapse = "\n ")
 
       # actually evaluate the fit_fun
       model <- fit_fun(data = train_data)
@@ -132,13 +131,14 @@ fit_partial_model_worker <- function(
       model_params <- list(
         n_predictors = length(pred_cols),
         n_train = nrow(train_data),
-        sample_frac = item[["sample_frac"]],
+        sample_frac = sample_frac,
         ...
       )
 
       # Create result row
       data.table::data.table(
-        id_trans = as.integer(item[["id_trans"]]),
+        id_run = item[["id_run"]],
+        id_trans = item[["id_trans"]],
         model_family = model_family,
         model_params = list(model_params),
         goodness_of_fit = list(goodness_of_fit),
@@ -151,32 +151,40 @@ fit_partial_model_worker <- function(
       warning(glue::glue(
         "Error fitting model for transition {item[['id_trans']]}: {e$message}"
       ))
-      return(NULL)
+      return(data.table::data.table(
+        id_run = item[["id_run"]],
+        id_trans = item[["id_trans"]],
+        model_family = "error",
+        model_params = list(NULL),
+        goodness_of_fit = list(list(failed = TRUE, message = e$message)),
+        fit_call = fit_call_str,
+        model_obj_part = list(NULL),
+        model_obj_full = list(NULL)
+      ))
     }
   )
 }
 
 # Worker function for full model fitting
 # Not exported; used internally by fit_full_models
-fit_full_model_worker <- function(item, db, na_value, envir, ...) {
+fit_full_model_worker <- function(item, db, na_value, ...) {
   tryCatch(
     {
       # Fetch full data
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
-        id_pred = item$id_preds,
+        id_pred = item[["id_pred"]][[1L]],
         na_value = na_value
       )
 
       if (nrow(trans_pred_data_full) == 0L) {
-        warning(glue::glue(
+        stop(glue::glue(
           "No data for transition {item[['id_trans']]}, skipping"
         ))
-        return(NULL)
       }
 
       # Retrieve the fit call from best partial model (as character string)
-      fit_call_str <- item$fit_call_str
+      fit_call_str <- item[["fit_call"]]
 
       # Check that fit_call exists
       if (is.na(fit_call_str) || fit_call_str == "") {
@@ -190,13 +198,9 @@ fit_full_model_worker <- function(item, db, na_value, envir, ...) {
       model_full <- fit_fun(data = trans_pred_data_full)
 
       # Create result row - copy from partial model but update model_obj_full
-      data.table::data.table(
-        id_trans = as.integer(item[["id_trans"]]),
-        model_family = item$model_family,
-        model_params = list(item$model_params),
-        goodness_of_fit = list(item$goodness_of_fit),
-        fit_call = item$fit_call_str,
-        model_obj_part = list(item$model_obj_part),
+      list(
+        id_run = item[["id_run"]],
+        id_trans = item[["id_trans"]],
         model_obj_full = list(qs2::qs_serialize(model_full))
       )
     },
@@ -204,7 +208,11 @@ fit_full_model_worker <- function(item, db, na_value, envir, ...) {
       warning(glue::glue(
         "Error fitting full model for transition {item[['id_trans']]}: {e$message}"
       ))
-      return(NULL)
+      return(list(
+        id_run = item[["id_run"]],
+        id_trans = item[["id_trans"]],
+        model_obj_full = list(NULL)
+      ))
     }
   )
 }
@@ -216,58 +224,52 @@ fit_partial_models <- function(
   sample_frac = 0.7,
   seed = NULL,
   na_value = NA,
-  cores = 1L,
+  cluster = NULL,
   ...
 ) {
-  viable_trans <- self$trans_meta_t[is_viable == TRUE]
-  trans_preds <- self$trans_preds_t
+  trans_preds_nested <-
+    data.table::as.data.table(self$trans_preds_t)[,
+      .(id_pred = list(id_pred)),
+      by = .(id_run, id_trans)
+    ]
+
+  viable_trans <-
+    self$trans_meta_t[
+      is_viable == TRUE,
+      .(id_trans, id_lulc_anterior, id_lulc_posterior)
+    ][
+      trans_preds_nested,
+      on = "id_trans"
+    ]
 
   stopifnot(
-    "No viable transitions found in trans_meta_t" = nrow(viable_trans) > 0L,
+    "No viable transitions" = nrow(viable_trans) > 0L,
     "fit_fun must be a function" = is.function(fit_fun),
     "gof_fun must be a function" = is.function(gof_fun),
-    "trans_preds_t is empty - run prune_trans_preds first" = nrow(trans_preds) > 0L,
     "sample_frac must be between 0 and 1" = sample_frac > 0 && sample_frac < 1
   )
 
-  items <- lapply(seq_len(nrow(viable_trans)), function(i) {
-    list(
-      id_trans = viable_trans$id_trans[i],
-      id_lulc_ant = viable_trans$id_lulc_anterior[i],
-      id_lulc_post = viable_trans$id_lulc_posterior[i],
-      id_preds = trans_preds$id_pred[trans_preds$id_trans == viable_trans$id_trans[i]],
-      sample_frac = sample_frac
-    )
-  })
-
+  n_trans <- data.table::uniqueN(viable_trans, by = c("id_run", "id_trans"))
   message(glue::glue(
-    "Fitting partial models for {length(items)} transitions..."
+    "Fitting partial models for {n_trans} transitions..."
   ))
 
-  results_list <- run_parallel_task(
-    items = items,
-    worker_fun = fit_partial_model_worker,
-    db = self,
-    cores = cores,
-    fit_fun = fit_fun,
-    gof_fun = gof_fun,
-    na_value = na_value,
-    seed = seed,
-    ...
-  )
-
-  # Filter out NULLs
-  results_list <- Filter(Negate(is.null), results_list)
-
-  # Combine all results
-  if (length(results_list) == 0L) {
-    warning("No models fitted for any transition")
-    return(invisible(NULL))
-  }
-
-  result <- data.table::rbindlist(results_list, fill = TRUE)
-
-  as_trans_models_t(result)
+  viable_trans |>
+    split(by = c("id_run", "id_trans")) |>
+    run_parallel_evoland(
+      items = _,
+      worker_fun = fit_partial_model_worker,
+      parent_db = self,
+      cluster = cluster,
+      fit_fun = fit_fun,
+      gof_fun = gof_fun,
+      na_value = na_value,
+      seed = seed,
+      sample_frac = sample_frac,
+      ...
+    ) |>
+    data.table::rbindlist() |>
+    as_trans_models_t()
 }
 
 fit_full_models <- function(
@@ -276,8 +278,7 @@ fit_full_models <- function(
   gof_criterion,
   maximize = TRUE,
   na_value = NA,
-  envir = parent.frame(),
-  cores = 1L
+  cluster = NULL
 ) {
   stopifnot(
     "partial_models must be a trans_models_t" = inherits(partial_models, "trans_models_t"),
@@ -286,10 +287,18 @@ fit_full_models <- function(
       length(gof_criterion) == 1L
   )
 
-  # get "appears that attributes have been reassigned" warning without this
-  partial_models_dt <- data.table::as.data.table(partial_models)
+  trans_preds_nested <-
+    data.table::as.data.table(self$trans_preds_t)[,
+      .(id_pred = list(id_pred)),
+      by = .(id_run, id_trans)
+    ]
 
-  trans_preds <- self$trans_preds_t
+  partial_models_dt <-
+    merge(
+      data.table::as.data.table(partial_models),
+      trans_preds_nested,
+      by = c("id_run", "id_trans")
+    )
 
   # Extract GOF criterion values
   data.table::set(
@@ -305,53 +314,35 @@ fit_full_models <- function(
     )
   )
 
-  # Select best model per transition
-  # TODO should we also use this logic for retrieving the correct model for transition probability?
+  # Select best model per transition based on GOF criterion
   if (maximize) {
-    best_models <- partial_models_dt[, .SD[which.max(gof_value)], by = id_trans]
+    best_models <- partial_models_dt[, .SD[which.max(gof_value)], by = .(id_run, id_trans)]
   } else {
-    best_models <- partial_models_dt[, .SD[which.min(gof_value)], by = id_trans]
+    best_models <- partial_models_dt[, .SD[which.min(gof_value)], by = .(id_run, id_trans)]
   }
-
-  # Prepare items for parallel processing
-  items <- lapply(seq_len(nrow(best_models)), function(i) {
-    list(
-      id_trans = best_models$id_trans[i],
-      gof_value = best_models$gof_value[i],
-      fit_call_str = best_models$fit_call[i],
-      model_family = best_models$model_family[i],
-      model_params = best_models$model_params[[i]],
-      goodness_of_fit = best_models$goodness_of_fit[[i]],
-      model_obj_part = best_models$model_obj_part[[i]],
-      id_preds = trans_preds$id_pred[trans_preds$id_trans == best_models$id_trans[i]]
-    )
-  })
 
   message(glue::glue(
-    "Fitting full models for {length(items)} transitions..."
+    "Fitting full models for {nrow(best_models)} transitions..."
   ))
 
-  results_list <- run_parallel_task(
-    items = items,
-    worker_fun = fit_full_model_worker,
-    db = self,
-    cores = cores,
-    na_value = na_value,
-    envir = envir
-  )
+  results_list <-
+    best_models[, .(id_run, id_trans, id_pred, fit_call)] |>
+    split(by = c("id_run", "id_trans")) |>
+    run_parallel_evoland(
+      items = _,
+      worker_fun = fit_full_model_worker,
+      parent_db = self,
+      cluster = cluster,
+      na_value = na_value
+    ) |>
+    data.table::rbindlist()
 
-  # Filter out NULLs
-  results_list <- Filter(Negate(is.null), results_list)
-
-  # Combine all results
-  if (length(results_list) == 0L) {
-    warning("No full models fitted for any transition")
-    return(invisible(NULL))
-  }
-
-  result <- data.table::rbindlist(results_list, fill = TRUE)
-
-  as_trans_models_t(result)
+  merge(
+    best_models[, -c("model_obj_full", "gof_value", "id_pred")],
+    results_list,
+    by = c("id_run", "id_trans")
+  ) |>
+    as_trans_models_t()
 }
 
 
@@ -362,6 +353,7 @@ validate.trans_models_t <- function(x, ...) {
   data.table::setcolorder(
     x,
     c(
+      "id_run",
       "id_trans",
       "model_family",
       "model_params",
@@ -378,6 +370,7 @@ validate.trans_models_t <- function(x, ...) {
   }
 
   stopifnot(
+    is.integer(x[["id_run"]]),
     is.integer(x[["id_trans"]]),
     is.character(x[["model_family"]]),
     is.list(x[["model_params"]]),
@@ -393,10 +386,8 @@ validate.trans_models_t <- function(x, ...) {
 }
 
 #' @export
-#' @describeIn trans_models_t Print a trans_models_t object, passing params to data.table print
-#' @param nrow see [data.table::print.data.table]
-#' @param ... passed to [data.table::print.data.table]
-print.trans_models_t <- function(x, nrow = 10, ...) {
+#' @describeIn trans_models_t Print a trans_models_t object as yaml-style list
+print.trans_models_t <- function(x) {
   if (nrow(x) > 0) {
     n_trans <- data.table::uniqueN(x[["id_trans"]])
     model_families <- unique(x[["model_family"]])
@@ -413,6 +404,6 @@ print.trans_models_t <- function(x, nrow = 10, ...) {
   } else {
     cat("Transition Models Table (empty)\n")
   }
-  NextMethod(nrow = nrow, ...)
+  print_rowwise_yaml(x)
   invisible(x)
 }

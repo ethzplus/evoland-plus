@@ -11,7 +11,6 @@ source(file.path(
   "helper_testdb.R"
 ))
 db <- make_test_db(include_neighbors = FALSE, include_trans_preds = FALSE)
-on.exit(unlink(db$path, recursive = TRUE), add = TRUE)
 
 # Test empty table
 expect_stdout(print(as_trans_preds_t()), "Transition-Predictor Relationships")
@@ -61,3 +60,5 @@ grrf_expected <-
       0,        3,        2
   ))
 expect_equal(grrf_results, grrf_expected)
+
+# TODO add test for parallel worker function
