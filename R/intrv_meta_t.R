@@ -20,6 +20,7 @@
 as_intrv_meta_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
+      id_run = integer(0),
       id_intrv = integer(0),
       id_period_list = list(),
       id_trans_list = list(),
@@ -33,8 +34,9 @@ as_intrv_meta_t <- function(x) {
   }
   as_parquet_db_t(
     x,
-    "intrv_meta_t",
-    "id_intrv"
+    class_name = "intrv_meta_t",
+    key_cols = c("id_run", "id_intrv"),
+    map_cols = "params"
   )
 }
 

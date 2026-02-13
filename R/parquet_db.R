@@ -106,6 +106,7 @@ parquet_db <- R6::R6Class(
     #' @description
     #' Fetch data from a table
     #' @param table_name Character string. Name of the table to query.
+    #' @param cols SQL column selection string (e.g., "col1, col2" or "*")
     #' @param where Character string. Optional WHERE clause for the SQL query.
     #' @param limit Integer. Optional limit on number of rows to return.
     #' @param map_cols Vector of columns to be converted from key/value structs to R lists
@@ -113,6 +114,7 @@ parquet_db <- R6::R6Class(
     #' @return A data.table
     fetch = function(
       table_name,
+      cols = "*",
       where = NULL,
       limit = NULL
     ) {
@@ -125,7 +127,7 @@ parquet_db <- R6::R6Class(
       read_expr <- self$get_read_expr(table_name)
 
       # build sql query
-      sql <- glue::glue("from {read_expr}")
+      sql <- glue::glue("select {cols} from {read_expr}")
 
       if (!is.null(where)) {
         sql <- glue::glue("{sql} where {where}")
@@ -136,6 +138,7 @@ parquet_db <- R6::R6Class(
 
       res <- self$get_query(sql)
 
+      # convert MAP columns back to list-columns if needed
       if (!is.null(map_cols) && nrow(res) > 0) {
         res <- convert_list_cols(res, map_cols, kv_df_to_list)
       }
@@ -251,10 +254,6 @@ parquet_db <- R6::R6Class(
       }
 
       private$set_autoincrement_vars(table_path, autoincrement_cols)
-
-      if (length(key_cols) == 0L) {
-        key_cols <- grep("^id_[a-z]+$", all_cols, value = TRUE)
-      }
 
       if (method == "append" || length(key_cols) == 0L) {
         # if there are no key columns to join on, upsert becomes append

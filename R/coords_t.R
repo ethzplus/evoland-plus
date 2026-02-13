@@ -40,8 +40,8 @@ as_coords_t <- function(x) {
   }
   as_parquet_db_t(
     x,
-    "coords_t",
-    "id_coord"
+    class_name = "coords_t",
+    key_cols = "id_coord"
   )
 }
 

@@ -18,8 +18,8 @@ as_reporting_t <- function(x) {
   }
   as_parquet_db_t(
     x,
-    "reporting_t",
-    "key"
+    class_name = "reporting_t",
+    key_cols = "key"
   )
 }
 

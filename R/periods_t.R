@@ -34,8 +34,8 @@ as_periods_t <- function(x) {
 
   as_parquet_db_t(
     x,
-    "periods_t",
-    "id_period"
+    class_name = "periods_t",
+    key_cols = "id_period"
   )
 }
 

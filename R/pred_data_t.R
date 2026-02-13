@@ -16,16 +16,14 @@
 #'   - `id_period`: Foreign key to periods_t
 #'   - `value`: Predictor value (type depends on subclass)
 #' @export
-as_pred_data_t <- function(x, type) {
-  stopifnot(type %in% c("float", "int", "bool"))
-
+as_pred_data_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
       id_run = integer(0),
       id_period = integer(0),
       id_pred = integer(0),
       id_coord = integer(0),
-      value = integer(0)
+      value = double(0)
     )
   }
 
@@ -33,14 +31,12 @@ as_pred_data_t <- function(x, type) {
     cast_dt_col("id_run", "int") |>
     cast_dt_col("id_period", "int") |>
     cast_dt_col("id_pred", "int") |>
-    cast_dt_col("id_coord", "int") |>
-    cast_dt_col("value", type)
+    cast_dt_col("id_coord", "int")
 
-  class_name <- paste0("pred_data_t_", type)
   as_parquet_db_t(
     x,
-    class_name = c(class_name, "pred_data_t"),
-    key_cols = c("id_run", "id_period", "id_pred"),
+    class_name = "pred_data_t",
+    key_cols = c("id_run", "id_period", "id_pred", "id_coord"),
     partition_cols = c("id_run", "id_period")
   )
 }
@@ -67,33 +63,6 @@ validate.pred_data_t <- function(x, ...) {
     is.integer(x[["id_coord"]]),
     !anyDuplicated(x, by = c("id_run", "id_pred", "id_coord", "id_period"))
   )
-
-  return(x)
-}
-
-#' @export
-validate.pred_data_t_float <- function(x, ...) {
-  x <- NextMethod()
-
-  stopifnot(is.numeric(x[["value"]]))
-
-  return(x)
-}
-
-#' @export
-validate.pred_data_t_int <- function(x, ...) {
-  x <- NextMethod()
-
-  stopifnot(is.integer(x[["value"]]))
-
-  return(x)
-}
-
-#' @export
-validate.pred_data_t_bool <- function(x, ...) {
-  x <- NextMethod()
-
-  stopifnot(is.logical(x[["value"]]))
 
   return(x)
 }

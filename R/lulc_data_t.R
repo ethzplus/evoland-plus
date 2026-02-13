@@ -32,7 +32,8 @@ as_lulc_data_t <- function(x) {
   as_parquet_db_t(
     x = x,
     class_name = "lulc_data_t",
-    key_cols = c("id_run", "id_lulc", "id_period") # keying on lower cardinalities
+    key_cols = c("id_run", "id_coord", "id_period"),
+    partition_cols = "id_run"
   )
 }
 

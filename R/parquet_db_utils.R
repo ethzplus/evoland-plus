@@ -24,7 +24,7 @@ NULL
 as_parquet_db_t <- function(
   x,
   class_name = character(),
-  key_cols = character(),
+  key_cols = NULL,
   autoincrement_cols = NULL,
   map_cols = NULL,
   partition_cols = NULL
@@ -44,6 +44,7 @@ as_parquet_db_t <- function(
   data.table::setattr(x, "autoincrement_cols", autoincrement_cols)
   data.table::setattr(x, "map_cols", map_cols)
   data.table::setattr(x, "partition_cols", partition_cols)
+  data.table::setattr(x, "key_cols", key_cols)
 
   validate(x)
 }
@@ -66,8 +67,8 @@ validate.parquet_db_t <- function(x, ...) {
     "needs to be a data.table" = inherits(x, "data.table"),
     "attributes need to be atomic" = all(
       vapply(
-        attr(x, attrs_to_check),
-        is.atomic,
+        attrs_to_check,
+        function(y) is.atomic(attr(x, y)),
         logical(1)
       )
     )
@@ -162,6 +163,10 @@ resolve_metadata_clause <- function(x, metadata) {
     }
   }
 
+  if (inherits(x, "parquet_db_t")) {
+    out[["parquet_db_t_class"]] <- class(x)[1L]
+  }
+
   kv_str <- glue::glue_collapse(
     glue::glue("{names(out)}: '{out}'"),
     sep = ",\n  "
@@ -176,6 +181,10 @@ resolve_metadata_clause <- function(x, metadata) {
 #' @keywords internal
 convert_list_cols <- function(x, cols, fn) {
   for (col in cols) {
+    if (!col %in% names(x)) {
+      warning(glue::glue("Column '{col}' not found in data; skipping conversion"))
+      next
+    }
     x[[col]] <- lapply(x[[col]], fn)
   }
   x
@@ -216,4 +225,60 @@ kv_df_to_list <- function(x) {
   }
 
   out
+}
+
+#' @describeIn parquet_db_utils Create a binding function for a table, which can be used
+#' to fetch or commit data to that table. The active binding either returns the table
+#' (missing argument), or upserts to it (assignment operation)
+#' @param table_name The name of the table to bind to.
+create_table_binding <- function(table_name, mode = c("write_once", "upsert", "append")) {
+  force(table_name)
+  mode <- match.arg(mode)
+  # Use bquote to "bake in" the table_name value directly into the function body,
+  # so it doesn't depend on the enclosing environment (which R6 will replace).
+  fn <- eval(bquote(
+    function(x) {
+      tbl <- .(table_name)
+      md <- .(mode)
+
+      if (missing(x)) {
+        fetched <- self$fetch(table_name = tbl)
+        as_fn <- paste0("as_", tbl) |> get()
+        return(as_fn(fetched))
+      }
+
+      if (md == "write_once" && file.exists(self$get_table_path(tbl))) {
+        warning(
+          glue::glue("Table '{tbl}' is read-only; delete manually!"),
+          .call = FALSE
+        )
+        return(NULL)
+      } else if (md == "write_once") {
+        md <- "overwrite"
+      }
+      stopifnot(inherits(x, tbl))
+      self$commit(x, table_name = tbl, method = md)
+    }
+  ))
+  fn
+}
+
+#' @describeIn parquet_db_utils Helper function to bind a function as a method to an R6
+#' generator. Simply passes the R6 method's arguments as-is to the underlying "pure"
+#' function, passing the R6 reference to `self`, but not to `private`.
+#' @keywords internal
+#' @param fun The underlying function to bind as an R6 method, which must have a `self`
+#' parameter as its first argument.
+create_method_binding <- function(fun) {
+  # Capture the original call (e.g., obj$method(arg1 = 1)); expands ... arguments
+  cl <- match.call(definition = sys.function(-1), call = sys.call(-1))
+
+  # Modify 'obj$method' to 'fun' instead
+  cl[[1]] <- fun
+
+  # Inject 'self' as named arg. Use get() to retrieve R6 instance's self from calling env
+  cl[["self"]] <- get("self", envir = parent.frame())
+
+  # Evaluate in original environment. Preserves lazy evaluation of arguments.
+  eval(cl, envir = parent.frame(2))
 }

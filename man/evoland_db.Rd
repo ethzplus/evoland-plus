@@ -14,13 +14,86 @@ Inherits from \link{parquet_db} for generic database operations.
 \seealso{
 Additional methods and active bindings are added to this class in separate files:
 \itemize{
-\item \link{evoland_db_tables} - Table active bindings (coords_t, lulc_data_t, etc.)
 \item \link{evoland_db_views} - View active bindings (lulc_meta_long_v, etc.) and methods
 \item \link{evoland_db_neighbors} - Neighbor analysis methods
 }
 }
 \section{Super class}{
 \code{\link[evoland:parquet_db]{evoland::parquet_db}} -> \code{evoland_db}
+}
+\section{Public fields}{
+\if{html}{\out{<div class="r6-fields">}}
+\describe{
+\item{\code{Get}}{or upsert \link{coords_t}}
+
+\item{\code{Get}}{or upsert \link{periods_t}}
+
+\item{\code{Get}}{or upsert \link{lulc_meta_t}}
+
+\item{\code{Get}}{or upsert \link{lulc_data_t}}
+
+\item{\code{Get}}{or upsert \link{pred_data_t}}
+
+\item{\code{Get}}{or upsert \link{pred_meta_t}}
+
+\item{\code{Get}}{or upsert \link{trans_meta_t}}
+
+\item{\code{Get}}{or upsert \link{trans_preds_t}}
+
+\item{\code{Get}}{or upsert \link{trans_rates_t}}
+
+\item{\code{Get}}{or upsert \link{intrv_meta_t}}
+
+\item{\code{Get}}{or upsert \link{intrv_masks_t}}
+
+\item{\code{Get}}{or upsert \link{trans_models_t}}
+
+\item{\code{Get}}{or upsert \link{alloc_params_t}}
+
+\item{\code{Get}}{or upsert \link{neighbors_t}}
+
+\item{\code{Get}}{or upsert \link{reporting_t}}
+
+\item{\code{Get}}{or upsert \link{runs_t}}
+}
+\if{html}{\out{</div>}}
+}
+\section{Active bindings}{
+\if{html}{\out{<div class="r6-active-bindings">}}
+\describe{
+\item{\code{Get}}{or upsert \link{coords_t}}
+
+\item{\code{Get}}{or upsert \link{periods_t}}
+
+\item{\code{Get}}{or upsert \link{lulc_meta_t}}
+
+\item{\code{Get}}{or upsert \link{lulc_data_t}}
+
+\item{\code{Get}}{or upsert \link{pred_data_t}}
+
+\item{\code{Get}}{or upsert \link{pred_meta_t}}
+
+\item{\code{Get}}{or upsert \link{trans_meta_t}}
+
+\item{\code{Get}}{or upsert \link{trans_preds_t}}
+
+\item{\code{Get}}{or upsert \link{trans_rates_t}}
+
+\item{\code{Get}}{or upsert \link{intrv_meta_t}}
+
+\item{\code{Get}}{or upsert \link{intrv_masks_t}}
+
+\item{\code{Get}}{or upsert \link{trans_models_t}}
+
+\item{\code{Get}}{or upsert \link{alloc_params_t}}
+
+\item{\code{Get}}{or upsert \link{neighbors_t}}
+
+\item{\code{Get}}{or upsert \link{reporting_t}}
+
+\item{\code{Get}}{or upsert \link{runs_t}}
+}
+\if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
@@ -35,9 +108,6 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-get_active_run}{\code{evoland_db$get_active_run()}}
 \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
 \item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
-\item \href{#method-evoland_db-set_coords}{\code{evoland_db$set_coords()}}
-\item \href{#method-evoland_db-set_periods}{\code{evoland_db$set_periods()}}
-\item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
 \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
 \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
 \item \href{#method-evoland_db-create_alloc_params_t}{\code{evoland_db$create_alloc_params_t()}}
@@ -54,21 +124,16 @@ Additional methods and active bindings are added to this class in separate files
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="attach_table"><a href='../../evoland/html/parquet_db.html#method-parquet_db-attach_table'><code>evoland::parquet_db$attach_table()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="commit"><a href='../../evoland/html/parquet_db.html#method-parquet_db-commit'><code>evoland::parquet_db$commit()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="delete_from"><a href='../../evoland/html/parquet_db.html#method-parquet_db-delete_from'><code>evoland::parquet_db$delete_from()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="detach_table"><a href='../../evoland/html/parquet_db.html#method-parquet_db-detach_table'><code>evoland::parquet_db$detach_table()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="execute"><a href='../../evoland/html/parquet_db.html#method-parquet_db-execute'><code>evoland::parquet_db$execute()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="fetch"><a href='../../evoland/html/parquet_db.html#method-parquet_db-fetch'><code>evoland::parquet_db$fetch()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_file_path"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_file_path'><code>evoland::parquet_db$get_file_path()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_partition_clause"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_partition_clause'><code>evoland::parquet_db$get_partition_clause()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_query"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_query'><code>evoland::parquet_db$get_query()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_metadata"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_metadata'><code>evoland::parquet_db$get_table_metadata()</code></a></span></li>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_path"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_path'><code>evoland::parquet_db$get_table_path()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="list_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-list_tables'><code>evoland::parquet_db$list_tables()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="print"><a href='../../evoland/html/parquet_db.html#method-parquet_db-print'><code>evoland::parquet_db$print()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="row_count"><a href='../../evoland/html/parquet_db.html#method-parquet_db-row_count'><code>evoland::parquet_db$row_count()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="set_partitioning"><a href='../../evoland/html/parquet_db.html#method-parquet_db-set_partitioning'><code>evoland::parquet_db$set_partitioning()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="with_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-with_tables'><code>evoland::parquet_db$with_tables()</code></a></span></li>
 </ul>
 </details>
 }}
@@ -149,7 +214,7 @@ Initialize a new evoland_db object
 \describe{
 \item{\code{path}}{Character string. Path to the data folder.}
 
-\item{\code{id_run}}{Atomic integer run ID, defaults to 0}
+\item{\code{id_run}}{Atomic integer run ID, defaults to 0. Can be set to NULL}
 
 \item{\code{update_reporting}}{Logical. Whether to update the reporting table upon initialization.
 Defaults to TRUE. Set to FALSE for read-only workers to avoid lock contention.}
@@ -219,7 +284,7 @@ Character string SQL expression
 \if{html}{\out{<a id="method-evoland_db-set_report"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-set_report}{}}}
 \subsection{Method \code{set_report()}}{
-Set reporting metadata
+Set reporting metadata, see \code{\link[=db_set_report]{db_set_report()}}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_report(...)}\if{html}{\out{</div>}}
 }
@@ -234,114 +299,19 @@ as its key}
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-set_coords"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-set_coords}{}}}
-\subsection{Method \code{set_coords()}}{
-Set coordinates for DB. Cannot overwrite existing table (would mean cascading deletion)
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_coords(type = c("square"), ...)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{type}}{string; which type of coordinates to set, see \link{coords_t}}
-
-\item{\code{...}}{named arguments are passed to the appropriate coordinate creator function}
-}
-\if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-set_periods"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-set_periods}{}}}
-\subsection{Method \code{set_periods()}}{
-Set periods for DB. See \code{\link{periods_t}}
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_periods(
-  period_length_str = "P10Y",
-  start_observed = "1985-01-01",
-  end_observed = "2020-01-01",
-  end_extrapolated = "2060-01-01"
-)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{period_length_str}}{ISO 8601 duration string specifying the length of each
-period (currently only accepting years, e.g., "P5Y" for 5 years)}
-
-\item{\code{start_observed}}{Start date of the observed data (YYYY-MM-DD)}
-
-\item{\code{end_observed}}{End date of the observed data (YYYY-MM-DD)}
-
-\item{\code{end_extrapolated}}{End date for extrapolation time range (YYYY-MM-DD)}
-}
-\if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-add_predictor"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-add_predictor}{}}}
-\subsection{Method \code{add_predictor()}}{
-Add a predictor to the database
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$add_predictor(pred_spec, pred_data, pred_type)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{pred_spec}}{List of predictor specification; see \code{\link[=create_pred_meta_t]{create_pred_meta_t()}}}
-
-\item{\code{pred_data}}{An object that can be coerced to \code{\link{pred_data_t}}, but doesn't have an
-\code{id_pred}}
-
-\item{\code{pred_type}}{Passed to \code{\link[=as_pred_data_t]{as_pred_data_t()}}; one of float, int, bool}
-}
-\if{html}{\out{</div>}}
-}
-}
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-alloc_dinamica"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-alloc_dinamica}{}}}
 \subsection{Method \code{alloc_dinamica()}}{
-Runs a path-dependent Monte Carlo simulation using Dinamica EGO for land use
-allocation. Iterates through a sequence of contiguous periods, using the
-simulated output from one period as the input to the next. \strong{Requirements}:
-\itemize{
-\item \code{trans_models_t} must have full models fitted
-\item \code{alloc_params_t} must exist with specified \code{id_perturbation}
-\item \code{periods_t} must contain all specified \code{id_periods}
-\item Dinamica EGO must be installed and \code{DinamicaConsole} must be on PATH
-}
+Runs a path-dependent Monte Carlo simulation using Dinamica
+EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$alloc_dinamica(
   id_periods,
-  id_perturbation,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 )}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{id_periods}}{Integer vector of contiguous period IDs to simulate.
-Must be in sequential order. The first period is used as the origin state.}
-
-\item{\code{id_perturbation}}{Integer, perturbation ID for selecting allocation
-parameters from \code{alloc_params_t}}
-
-\item{\code{work_dir}}{Character, base directory for Dinamica runs. A subdirectory
-will be created for this simulation. Default: "dinamica_rundir"}
-
-\item{\code{keep_intermediate}}{Logical, keep intermediate files after successful
-completion? Default: FALSE}
-}
-\if{html}{\out{</div>}}
-}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-eval_alloc_params_t"></a>}}

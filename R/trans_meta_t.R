@@ -42,7 +42,8 @@ as_trans_meta_t <- function(x) {
   as_parquet_db_t(
     x,
     "trans_meta_t",
-    "id_trans"
+    key_cols = c("id_lulc_anterior", "id_lulc_posterior"),
+    autoincrement_cols = "id_trans"
   )
 }
 

@@ -139,13 +139,15 @@ Character vector of table names
 \subsection{Method \code{fetch()}}{
 Fetch data from a table
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$fetch(table_name, where = NULL, limit = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$fetch(table_name, cols = "*", where = NULL, limit = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{table_name}}{Character string. Name of the table to query.}
+
+\item{\code{cols}}{SQL column selection string (e.g., "col1, col2" or "*")}
 
 \item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
 

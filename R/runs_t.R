@@ -29,8 +29,7 @@ as_runs_t <- function(x) {
   as_parquet_db_t(
     x,
     class_name = "runs_t",
-    key_cols = "id_run",
-    autoincrement_cols = "id_run"
+    key_cols = "id_run"
   )
 }
 

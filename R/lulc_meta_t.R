@@ -23,8 +23,8 @@ as_lulc_meta_t <- function(x) {
   }
   as_parquet_db_t(
     x,
-    "lulc_meta_t",
-    "id_lulc"
+    class_name = "lulc_meta_t",
+    key_cols = "id_lulc"
   )
 }
 

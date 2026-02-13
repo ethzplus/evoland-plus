@@ -31,8 +31,8 @@ as_alloc_params_t <- function(x) {
   }
   as_parquet_db_t(
     x,
-    "alloc_params_t",
-    c("id_run", "id_trans")
+    class_name = "alloc_params_t",
+    key_cols = c("id_run", "id_trans")
   )
 }
 
@@ -340,11 +340,13 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
     final_results[[i + 1L]] <- agg_dt_perturbed # offset bcoz [[1]] is unperturbed
   }
 
-  # Step 4: Bind list items into data.table, add id_perturbation; cast as alloc params table
+  # Step 4: Bind list items into data.table, add id_run; cast as alloc params table
   results_dt <-
     final_results |>
-    data.table::rbindlist(idcol = "id_perturbation") |>
+    data.table::rbindlist(idcol = "id_run") |>
     as_alloc_params_t()
+
+  results_dt[id_run == 1L, id_run := 0L]
 
   message(glue::glue(
     "Successfully computed {nrow(results_dt)} allocation parameter sets ",

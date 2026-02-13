@@ -9,12 +9,14 @@
 \alias{convert_list_cols}
 \alias{list_to_kv_df}
 \alias{kv_df_to_list}
+\alias{create_table_binding}
+\alias{create_method_binding}
 \title{Parquet database utility functions}
 \usage{
 as_parquet_db_t(
   x,
   class_name = character(),
-  key_cols = character(),
+  key_cols = NULL,
   autoincrement_cols = NULL,
   map_cols = NULL,
   partition_cols = NULL
@@ -31,6 +33,10 @@ convert_list_cols(x, cols, fn)
 list_to_kv_df(x)
 
 kv_df_to_list(x)
+
+create_table_binding(table_name, mode = c("write_once", "upsert", "append"))
+
+create_method_binding(fun)
 }
 \arguments{
 \item{x}{The data to be committed.}
@@ -58,6 +64,11 @@ hive style parquet file partitioning.}
 \item{cols}{The list columns to convert.}
 
 \item{fn}{The function to apply to each element of the list columns}
+
+\item{table_name}{The name of the table to bind to.}
+
+\item{fun}{The underlying function to bind as an R6 method, which must have a \code{self}
+parameter as its first argument.}
 }
 \description{
 A set of utility functions for working with \link{parquet_db}.
@@ -88,6 +99,14 @@ with a warning.
 
 \item \code{kv_df_to_list()}: Convert a data.frame with "key" and "value" columns to a
 named list.
+
+\item \code{create_table_binding()}: Create a binding function for a table, which can be used
+to fetch or commit data to that table. The active binding either returns the table
+(missing argument), or upserts to it (assignment operation)
+
+\item \code{create_method_binding()}: Helper function to bind a function as a method to an R6
+generator. Simply passes the R6 method's arguments as-is to the underlying "pure"
+function, passing the R6 reference to \code{self}, but not to \code{private}.
 
 }}
 \keyword{internal}

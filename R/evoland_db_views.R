@@ -89,6 +89,7 @@ evoland_db$set("active", "extent", function() {
 
 evoland_db$set("active", "coords_minimal", function() {
   coords_read_expr <- self$get_read_expr("coords_t")
+  metadata <- self$get_table_metadata("coords_t")
   self$get_query(glue::glue(
     r"{
       select id_coord, lon, lat
@@ -96,7 +97,13 @@ evoland_db$set("active", "coords_minimal", function() {
       }"
   )) |>
     cast_dt_col("id_coord", "int") |>
-    data.table::setkeyv("id_coord")
+    data.table::setkeyv("id_coord") |>
+    data.table::setattr("epsg", metadata[["epsg"]]) |>
+    data.table::setattr("xmin", metadata[["xmin"]]) |>
+    data.table::setattr("xmax", metadata[["xmax"]]) |>
+    data.table::setattr("ymin", metadata[["ymin"]]) |>
+    data.table::setattr("ymax", metadata[["ymax"]]) |>
+    data.table::setattr("resolution", metadata[["resolution"]])
 })
 
 # get transitions along with their predictor data in a wide data.table

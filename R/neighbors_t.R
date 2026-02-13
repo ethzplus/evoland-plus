@@ -20,15 +20,18 @@ as_neighbors_t <- function(x) {
       distance = numeric(0)
     )
   }
-  cast_dt_col(x, "id_coord_origin", "int")
-  cast_dt_col(x, "id_coord_neighbor", "int")
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_coord_origin", "int") |>
+    cast_dt_col("id_coord_neighbor", "int")
+
   if ("distance_class" %in% names(x)) {
     cast_dt_col(x, "distance_class", "factor")
   }
   as_parquet_db_t(
     x,
-    "neighbors_t",
-    c("id_coord_origin", "id_coord_neighbor")
+    class_name = "neighbors_t",
+    key_cols = c("id_coord_origin", "id_coord_neighbor")
   )
 }
 

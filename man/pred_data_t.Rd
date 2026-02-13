@@ -6,18 +6,18 @@
 \alias{print.pred_data_t}
 \title{Create Predictor Data Table}
 \usage{
-as_pred_data_t(x, type)
+as_pred_data_t(x)
 
 \method{print}{pred_data_t}(x, nrow = 10, ...)
 }
 \arguments{
 \item{x}{Coercible to data.table}
 
-\item{type}{Character string specifying the data type: "float", "int", or "bool"}
-
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{type}{Character string specifying the data type: "float", "int", or "bool"}
 }
 \value{
 A data.table of class "pred_data_t_\if{html}{\out{<type>}}" and "pred_data_t" with columns:

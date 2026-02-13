@@ -22,8 +22,8 @@ as_intrv_masks_t <- function(x) {
   cast_dt_col(x, "id_coord", "int")
   as_parquet_db_t(
     x,
-    "intrv_masks_t",
-    c("id_intrv", "id_coord")
+    class_name = "intrv_masks_t",
+    key_cols = c("id_run", "id_intrv", "id_coord")
   )
 }
 

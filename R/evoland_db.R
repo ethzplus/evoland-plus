@@ -11,11 +11,10 @@
 #' @seealso
 #' Additional methods and active bindings are added to this class in separate files:
 #'
-#' - [evoland_db_tables] - Table active bindings (coords_t, lulc_data_t, etc.)
 #' - [evoland_db_views] - View active bindings (lulc_meta_long_v, etc.) and methods
 #' - [evoland_db_neighbors] - Neighbor analysis methods
 #'
-#' @include parquet_db.R alloc_dinamica.R lulc_data_t.R trans_preds_t.R trans_pot_t.R
+#' @include parquet_db.R parquet_db_utils.R
 #' @export
 
 evoland_db <- R6::R6Class(
@@ -27,6 +26,7 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Initialize a new evoland_db object
     #' @param path Character string. Path to the data folder.
+    #' @param id_run Atomic integer run ID, defaults to 0. Can be set to NULL
     #' @param update_reporting Logical. Whether to update the reporting table upon initialization.
     #' Defaults to TRUE. Set to FALSE for read-only workers to avoid lock contention.
     #' @param ... passed on to `set_report`
@@ -34,6 +34,7 @@ evoland_db <- R6::R6Class(
     #' @return A new `evoland_db` object
     initialize = function(
       path,
+      id_run = 0L,
       update_reporting = TRUE,
       ...
     ) {
@@ -48,6 +49,10 @@ evoland_db <- R6::R6Class(
         self$set_report(...)
       }
 
+      # ensure there is a minimal runs_t
+      self$commit(as_runs_t(), "runs_t", method = "upsert")
+      # self$set_active_run(id_run)
+
       invisible(self)
     },
 
@@ -57,7 +62,7 @@ evoland_db <- R6::R6Class(
     #' @return Invisibly returns self
     set_active_run = function(id_run) {
       stopifnot(
-        "id_run must be a single integer" = length(id_run) == 1L && is.numeric(id_run)
+        "id_run must be single integerish" = length(id_run) == 1L && as.integer(id_run) == id_run
       )
 
       id_run <- as.integer(id_run)
@@ -72,7 +77,8 @@ evoland_db <- R6::R6Class(
           with recursive lineage as (
             select
               id_run,
-              parent_id_run
+              parent_id_run,
+              0 as depth
             from
               runs_t
             where
@@ -80,7 +86,8 @@ evoland_db <- R6::R6Class(
             union all
             select
               r.id_run,
-              r.parent_id_run
+              r.parent_id_run,
+              l.depth + 1 as depth
             from
               runs_t r
             inner join
@@ -91,6 +98,8 @@ evoland_db <- R6::R6Class(
             id_run
           from
             lineage
+          order by
+            depth
           }"
         ))
       })
@@ -105,7 +114,7 @@ evoland_db <- R6::R6Class(
         stop(glue::glue("Detected cycle in runs_t lineage for id_run={id_run}"))
       }
 
-      private$active_run_id <- id_run
+      private$id_run <- id_run
       private$run_lineage <- ids
 
       invisible(self)
@@ -115,112 +124,61 @@ evoland_db <- R6::R6Class(
     #' Get the active run ID
     #' @return Integer run ID
     get_active_run = function() {
-      private$active_run_id
+      # TODO make active binding
+      private$id_run
+    },
+
+    #' @description
+    #' Get SQL expression to read a table, respecting active run hierarchy
+    #' @param table_name Character string table name
+    #' @return Character string SQL expression
+    get_read_expr = function(table_name) {
+      # instead of using the run scoping, just describe the table for an id_run
+
+      lineage <- private$run_lineage
+      if (!table_name %in% private$run_scoped_tables || length(lineage) == 1L) {
+        return(super$get_read_expr(table_name))
+      }
+
+      path <- self$get_table_path(table_name)
+      is_partitioned <- !is.null(self$partitioning[[table_name]]) || dir.exists(path)
+
+      base_expr <- super$get_table_path(table_name)
+      run_case <- paste0(
+        "case id_run ",
+        paste(
+          sprintf("when %s then %s", lineage, seq_along(lineage)),
+          collapse = " "
+        ),
+        " else 999999 end"
+      )
+      glue::glue(
+        "(select * from {base_expr} where id_run = (",
+        "select id_run from {base_expr} ",
+        "where id_run in ({toString(lineage)}) ",
+        "order by {run_case} limit 1",
+        "))"
+      )
     },
 
     ### Setter methods ----
-    #' @description
-    #' Set reporting metadata
+    #' @description Set reporting metadata, see [db_set_report()]
     #' @param ... each named argument is entered into the table with the argument name
     #' as its key
     set_report = function(...) {
-      bind_helper(db_set_report)
-    },
-
-    #' @description
-    #' Set coordinates for DB. Cannot overwrite existing table (would mean cascading deletion)
-    #' @param type string; which type of coordinates to set, see [coords_t]
-    #' @param ... named arguments are passed to the appropriate coordinate creator function
-    set_coords = function(type = c("square"), ...) {
-      if (self$row_count("coords_t") > 0L) {
-        warning("coords_t is not empty! Refusing to overwrite; start with fresh DB")
-        return(invisible(NULL))
-      }
-      create_fun <- switch(
-        type,
-        square = create_coords_t_square,
-        function(x) stop("Unsupported coordinate type specified.")
-      )
-
-      self$commit(create_fun(...), "coords_t", method = "overwrite")
-    },
-
-    #' @description
-    #' Set periods for DB. See [`periods_t`]
-    #' @param period_length_str ISO 8601 duration string specifying the length of each
-    #' period (currently only accepting years, e.g., "P5Y" for 5 years)
-    #' @param start_observed Start date of the observed data (YYYY-MM-DD)
-    #' @param end_observed End date of the observed data (YYYY-MM-DD)
-    #' @param end_extrapolated End date for extrapolation time range (YYYY-MM-DD)
-    set_periods = function(
-      period_length_str = "P10Y",
-      start_observed = "1985-01-01",
-      end_observed = "2020-01-01",
-      end_extrapolated = "2060-01-01"
-    ) {
-      if (self$row_count("periods_t") > 0L) {
-        warning("periods_t is not empty! Refusing to overwrite; start with fresh DB")
-        return(invisible(NULL))
-      }
-
-      self$commit(
-        do.call(create_periods_t, as.list(environment())),
-        "periods_t"
-      )
-    },
-
-    ### Adder methods ----
-    #' @description
-    #' Add a predictor to the database
-    #' @param pred_spec List of predictor specification; see [create_pred_meta_t()]
-    #' @param pred_data An object that can be coerced to [`pred_data_t`], but doesn't have an
-    #' `id_pred`
-    #' @param pred_type Passed to [as_pred_data_t()]; one of float, int, bool
-    add_predictor = function(pred_spec, pred_data, pred_type) {
-      stopifnot(length(pred_spec) == 1)
-
-      self$pred_meta_t <- create_pred_meta_t(pred_spec)
-
-      existing_meta <- self$fetch(
-        "pred_meta_t",
-        where = glue::glue("name = '{names(pred_spec)}'")
-      )
-
-      data.table::set(pred_data, j = "id_pred", value = as.integer(existing_meta[["id_pred"]]))
-      data.table::setcolorder(pred_data, c("id_pred", "id_coord", "id_period", "value"))
-
-      self$commit(
-        as_pred_data_t(pred_data, pred_type),
-        paste0("pred_data_t_", pred_type),
-        method = "upsert"
-      )
+      create_method_binding(db_set_report)
     },
 
     ### Allocation methods ---
-    #' @description
-    #' Runs a path-dependent Monte Carlo simulation using Dinamica EGO for land use
-    #' allocation. Iterates through a sequence of contiguous periods, using the
-    #' simulated output from one period as the input to the next. **Requirements**:
-    #' - `trans_models_t` must have full models fitted
-    #' - `alloc_params_t` must exist with specified `id_perturbation`
-    #' - `periods_t` must contain all specified `id_periods`
-    #' - Dinamica EGO must be installed and `DinamicaConsole` must be on PATH
-    #'
-    #' @param id_periods Integer vector of contiguous period IDs to simulate.
-    #'   Must be in sequential order. The first period is used as the origin state.
-    #' @param id_perturbation Integer, perturbation ID for selecting allocation
-    #'   parameters from `alloc_params_t`
-    #' @param work_dir Character, base directory for Dinamica runs. A subdirectory
-    #'   will be created for this simulation. Default: "dinamica_rundir"
-    #' @param keep_intermediate Logical, keep intermediate files after successful
-    #'   completion? Default: FALSE
+    #' @description Runs a path-dependent Monte Carlo simulation using Dinamica
+    #' EGO, see [alloc_dinamica()]
+    #' @inheritParams alloc_dinamica
     alloc_dinamica = function(
       id_periods,
-      id_perturbation,
       work_dir = "dinamica_rundir",
       keep_intermediate = FALSE
     ) {
-      bind_helper(alloc_dinamica)
+      create_method_binding(alloc_dinamica)
     },
 
     #' @description
@@ -239,7 +197,7 @@ evoland_db <- R6::R6Class(
       work_dir = "dinamica_rundir",
       keep_intermediate = FALSE
     ) {
-      bind_helper(eval_alloc_params_t)
+      create_method_binding(eval_alloc_params_t)
     },
 
     #' @description
@@ -274,7 +232,7 @@ evoland_db <- R6::R6Class(
     #' @param sd Standard deviation for random perturbation of frac_expander as a
     #'   fraction (default: 0.05)
     create_alloc_params_t = function(n_perturbations = 5L, sd = 0.05) {
-      bind_helper(create_alloc_params_t)
+      create_method_binding(create_alloc_params_t)
     },
 
     #' @description Retrieve LULC data as a SpatRaster object for a given
@@ -282,7 +240,7 @@ evoland_db <- R6::R6Class(
     #' @param id_period Optional integer vector of period IDs to include. If
     #'   NULL (default), all periods are included.
     lulc_data_as_rast = function(extent = NULL, id_period = NULL) {
-      bind_helper(lulc_data_as_rast)
+      create_method_binding(lulc_data_as_rast)
     },
 
     #' @description
@@ -300,9 +258,9 @@ evoland_db <- R6::R6Class(
       maximize = TRUE,
       na_value = NA,
       envir = parent.frame(),
-      cores = 1L
+      cluster = NULL
     ) {
-      bind_helper(fit_full_models)
+      create_method_binding(fit_full_models)
     },
 
     #' @description Fit partial models for each viable transition using stratified
@@ -330,17 +288,17 @@ evoland_db <- R6::R6Class(
       gof_fun,
       seed = NULL,
       na_value = NA,
-      cores = 1L,
+      cluster = NULL,
       ...
     ) {
-      bind_helper(fit_partial_models)
+      create_method_binding(fit_partial_models)
     },
 
     #' @description
     #' Set an initial full set of transition / predictor relations
     #' @param overwrite Logical, whether to overwrite existing `trans_preds_t` table. Default FALSE.
     set_full_trans_preds = function(overwrite = FALSE) {
-      bind_helper(set_full_trans_preds)
+      create_method_binding(set_full_trans_preds)
     },
 
     #' @description
@@ -356,40 +314,63 @@ evoland_db <- R6::R6Class(
     get_pruned_trans_preds_t = function(
       filter_fun = covariance_filter,
       na_value = NA,
-      cores = 1L,
+      cluster = NULL,
       ...
     ) {
-      bind_helper(get_pruned_trans_preds_t)
+      create_method_binding(get_pruned_trans_preds_t)
     },
 
     #' @description
     #' Predict the transition potential for a given period, see [trans_pot_t()]
     #' @param id_period_post Integerish, period for which to predict
     predict_trans_pot = function(id_period) {
-      bind_helper(predict_trans_pot)
+      create_method_binding(predict_trans_pot)
+    },
+
+    #' @description Get the transition rates that were observed, see [trans_rates_t]
+    get_obs_trans_rates = function() {
+      create_method_binding(get_obs_trans_rates)
     }
   ),
 
+  # Active Bindings ----
+  active = list(
+    #' @field Get or upsert [coords_t]
+    coords_t = create_table_binding("coords_t", "write_once"),
+    #' @field Get or upsert [periods_t]
+    periods_t = create_table_binding("periods_t", "write_once"),
+    #' @field Get or upsert [lulc_meta_t]
+    lulc_meta_t = create_table_binding("lulc_meta_t", "upsert"),
+    #' @field Get or upsert [lulc_data_t]
+    lulc_data_t = create_table_binding("lulc_data_t", "append"),
+    #' @field Get or upsert [pred_data_t]
+    pred_data_t = create_table_binding("pred_data_t", "append"),
+    #' @field Get or upsert [pred_meta_t]
+    pred_meta_t = create_table_binding("pred_meta_t", "upsert"),
+    #' @field Get or upsert [trans_meta_t]
+    trans_meta_t = create_table_binding("trans_meta_t", "upsert"),
+    #' @field Get or upsert [trans_preds_t]
+    trans_preds_t = create_table_binding("trans_preds_t", "write_once"),
+    #' @field Get or upsert [trans_rates_t]
+    trans_rates_t = create_table_binding("trans_rates_t", "upsert"),
+    #' @field Get or upsert [intrv_meta_t]
+    intrv_meta_t = create_table_binding("intrv_meta_t", "upsert"),
+    #' @field Get or upsert [intrv_masks_t]
+    intrv_masks_t = create_table_binding("intrv_masks_t", "upsert"),
+    #' @field Get or upsert [trans_models_t]
+    trans_models_t = create_table_binding("trans_models_t", "upsert"),
+    #' @field Get or upsert [alloc_params_t]
+    alloc_params_t = create_table_binding("alloc_params_t", "upsert"),
+    #' @field Get or upsert [neighbors_t]
+    neighbors_t = create_table_binding("neighbors_t", "write_once"),
+    #' @field Get or upsert [reporting_t]
+    reporting_t = create_table_binding("reporting_t", "upsert"),
+    #' @field Get or upsert [runs_t]
+    runs_t = create_table_binding("runs_t", "upsert")
+  ),
+
   private = list(
-    active_run_id = 0L,
-    run_lineage = 0L
+    active_id_run = NULL,
+    active_id_run_lineage = 0L
   )
 )
-
-
-# Helper function to bind a function as a method to an R6 generator. Simply passes the
-# R6 method's arguments as-is to the underlying "pure" function (that passes the R6
-# object as the `self` parameter)
-bind_helper <- function(fun) {
-  # Capture the original call (e.g., obj$method(arg1 = 1)); expands ... arguments
-  cl <- match.call(definition = sys.function(-1), call = sys.call(-1))
-
-  # Modify 'obj$method' to 'fun' instead
-  cl[[1]] <- fun
-
-  # Inject 'self' as named arg. Use get() to retrieve R6 instance's self from calling env
-  cl[["self"]] <- get("self", envir = parent.frame())
-
-  # Evaluate in original environment. Preserves lazy evaluation of arguments.
-  eval(cl, envir = parent.frame(2))
-}
