@@ -3,7 +3,6 @@
 \name{util}
 \alias{util}
 \alias{validate}
-\alias{as_parquet_db_t}
 \alias{\%||\%}
 \alias{pluck_wildcard}
 \alias{ensure_dir}
@@ -12,15 +11,6 @@
 \title{evoland utility functions}
 \usage{
 validate(x, ...)
-
-as_parquet_db_t(
-  x,
-  class_name = character(),
-  key_cols = character(),
-  autoincrement_cols = NULL,
-  map_cols = NULL,
-  partition_cols = NULL
-)
 
 x \%||\% y
 
@@ -36,23 +26,6 @@ cast_dt_col(x, colname, type)
 \item{x}{Left-hand side value}
 
 \item{...}{Index arguments. Use NA to match all elements at that level}
-
-\item{class_name}{Optional class name to prepend before "parquet_db_t". Used
-to create more specific subclasses that still work with evoland's
-parquet_db methods.}
-
-\item{key_cols}{Optional character vector. Used for upsert operations to identify
-rows. May be missing if identities are not yet known, but must be
-present for upsert operations.}
-
-\item{autoincrement_cols}{Optional character vector. Used to create unique
-identifiers, i.e. automatically incrementing integers.}
-
-\item{map_cols}{Optional character vector. Used to coerce columns to DuckDB's
-MAP type, used to store named unnested lists from R.}
-
-\item{partition_cols}{Optional character vector. Used to specify columns for
-hive style parquet file partitioning.}
 
 \item{y}{Right-hand side value (fallback)}
 
@@ -71,10 +44,6 @@ These are mostly used to validate evoland S3 objects.
 \section{Functions}{
 \itemize{
 \item \code{validate()}: Provides an S3 validation generic
-
-\item \code{as_parquet_db_t()}: Coerce to parquet_db_t subclass. It coerces an object to a
-data.table and adds attributes that \link{parquet_db} relies on for database-like
-operations. See the paramaters for details.
 
 \item \code{x \%||\% y}: Null coalescing operator
 

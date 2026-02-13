@@ -19,56 +19,6 @@ validate.default <- function(x, ...) {
   stop("No validate method defined for class ", class(x))
 }
 
-# TODO move this to a new parquet_db_utils.R file and add more parquet_db
-# specific validation functions, e.g. for checking that attributes can be stored.
-#' @export
-validate.parquet_db_t <- function(x, ...) {
-  stopifnot(inherits(x, "data.table"))
-  invisible(x)
-}
-
-#' @describeIn util Coerce to parquet_db_t subclass. It coerces an object to a
-#' data.table and adds attributes that [parquet_db] relies on for database-like
-#' operations. See the paramaters for details.
-#' @param class_name Optional class name to prepend before "parquet_db_t". Used
-#'        to create more specific subclasses that still work with evoland's
-#'        parquet_db methods.
-#' @param key_cols Optional character vector. Used for upsert operations to identify
-#'        rows. May be missing if identities are not yet known, but must be
-#'        present for upsert operations.
-#' @param autoincrement_cols Optional character vector. Used to create unique
-#'        identifiers, i.e. automatically incrementing integers.
-#' @param map_cols Optional character vector. Used to coerce columns to DuckDB's
-#'        MAP type, used to store named unnested lists from R.
-#' @param partition_cols Optional character vector. Used to specify columns for
-#'        hive style parquet file partitioning.
-as_parquet_db_t <- function(
-  x,
-  class_name = character(),
-  key_cols = character(),
-  autoincrement_cols = NULL,
-  map_cols = NULL,
-  partition_cols = NULL
-) {
-  data.table::setDT(x)
-
-  # key cols may be missing if identities are not yet known
-  keycols_present <- intersect(key_cols, names(x))
-  if (length(keycols_present) > 0) {
-    data.table::setkeyv(x, keycols_present)
-  }
-
-  distinct_classes <- unique(c(class_name, "parquet_db_t", class(x)))
-  data.table::setattr(x, "class", distinct_classes)
-
-  # without effect if NULL
-  data.table::setattr(x, "autoincrement_cols", autoincrement_cols)
-  data.table::setattr(x, "map_cols", map_cols)
-  data.table::setattr(x, "partition_cols", partition_cols)
-
-  validate(x)
-}
-
 #' @describeIn util Null coalescing operator
 #' @param x Left-hand side value
 #' @param y Right-hand side value (fallback)
