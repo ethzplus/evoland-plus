@@ -27,7 +27,7 @@ as_trans_preds_t <- function(x) {
     cast_dt_col("id_pred", "int") |>
     cast_dt_col("id_trans", "int")
 
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "trans_preds_t",
     key_cols = c("id_run", "id_pred", "id_trans")

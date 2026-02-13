@@ -32,7 +32,7 @@ as_periods_t <- function(x) {
     cast_dt_col("end_date", "date") |>
     cast_dt_col("is_extrapolated", "bool")
 
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "periods_t",
     "id_period"

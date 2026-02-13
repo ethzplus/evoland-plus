@@ -20,14 +20,19 @@
 as_alloc_params_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
-      id_perturbation = integer(0),
-      id_trans = integer(0)
+      id_run = integer(0),
+      id_trans = integer(0),
+      mean_patch_size = numeric(0),
+      patch_size_variance = numeric(0),
+      patch_isometry = numeric(0),
+      frac_expander = numeric(0),
+      frac_patcher = numeric(0)
     )
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "alloc_params_t",
-    c("id_perturbation")
+    c("id_run", "id_trans")
   )
 }
 
@@ -35,11 +40,18 @@ as_alloc_params_t <- function(x) {
 validate.alloc_params_t <- function(x, ...) {
   NextMethod()
 
-  data.table::setcolorder(x, "id_trans")
-  # we don't know if there's an id_perturbation
-  data.table::setcolorder(x, "id_perturbation", before = "id_trans", skip_absent = TRUE)
+  data.table::setcolorder(
+    x,
+    c(
+      "id_run",
+      "id_trans"
+    )
+  )
 
-  stopifnot(is.integer(x[["id_trans"]]))
+  stopifnot(
+    is.integer(x[["id_run"]]),
+    is.integer(x[["id_trans"]])
+  )
 
   return(x)
 }

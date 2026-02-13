@@ -3,7 +3,7 @@
 \name{util}
 \alias{util}
 \alias{validate}
-\alias{new_evoland_table}
+\alias{as_parquet_db_t}
 \alias{\%||\%}
 \alias{pluck_wildcard}
 \alias{ensure_dir}
@@ -13,9 +13,9 @@
 \usage{
 validate(x, ...)
 
-new_evoland_table(
+as_parquet_db_t(
   x,
-  class_name,
+  class_name = character(),
   key_cols = character(),
   autoincrement_cols = NULL,
   map_cols = NULL,
@@ -37,15 +37,22 @@ cast_dt_col(x, colname, type)
 
 \item{...}{Index arguments. Use NA to match all elements at that level}
 
-\item{class_name}{The class name to attach before "evoland_t"}
+\item{class_name}{Optional class name to prepend before "parquet_db_t". Used
+to create more specific subclasses that still work with evoland's
+parquet_db methods.}
 
-\item{key_cols}{Optional, columns to be set as key, see \code{\link[data.table:setkey]{data.table::setkey()}}}
+\item{key_cols}{Optional character vector. Used for upsert operations to identify
+rows. May be missing if identities are not yet known, but must be
+present for upsert operations.}
 
-\item{autoincrement_cols}{Optional "autoincrement_cols" attribute to set}
+\item{autoincrement_cols}{Optional character vector. Used to create unique
+identifiers, i.e. automatically incrementing integers.}
 
-\item{map_cols}{Optional "map_cols" attribute to set}
+\item{map_cols}{Optional character vector. Used to coerce columns to DuckDB's
+MAP type, used to store named unnested lists from R.}
 
-\item{partition_cols}{Optional "partition_cols" attribute to set}
+\item{partition_cols}{Optional character vector. Used to specify columns for
+hive style parquet file partitioning.}
 
 \item{y}{Right-hand side value (fallback)}
 
@@ -65,7 +72,9 @@ These are mostly used to validate evoland S3 objects.
 \itemize{
 \item \code{validate()}: Provides an S3 validation generic
 
-\item \code{new_evoland_table()}: Add evoland_t class
+\item \code{as_parquet_db_t()}: Coerce to parquet_db_t subclass. It coerces an object to a
+data.table and adds attributes that \link{parquet_db} relies on for database-like
+operations. See the paramaters for details.
 
 \item \code{x \%||\% y}: Null coalescing operator
 

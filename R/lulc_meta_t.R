@@ -21,7 +21,7 @@ as_lulc_meta_t <- function(x) {
       src_classes = list()
     )
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "lulc_meta_t",
     "id_lulc"

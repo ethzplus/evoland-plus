@@ -45,9 +45,13 @@ compute_alloc_params_single(lulc_ant, lulc_post, id_lulc_ant, id_lulc_post)
 \value{
 A data.table of class "alloc_params_t" with columns:
 \itemize{
-\item \code{id_perturbation}: The perturbation's ID - no. 1 == unperturbed
+\item \code{id_run}: Foreign key to runs_t
 \item \code{id_trans}: Foreign key to trans_meta_t
-\item ... various other columns describing allocation parameters and goodness of fit
+\item \code{mean_patch_size}: Mean area of new patches (in cell units)
+\item \code{patch_size_variance}: Standard deviation of patch area
+\item \code{patch_isometry}: Measure of patch shape regularity
+\item \code{frac_expander}: Fraction of transition cells adjacent to existing patches
+\item \code{frac_patcher}: Fraction of transition cells forming new patches
 }
 
 A named list with allocation parameters:
@@ -60,9 +64,9 @@ A named list with allocation parameters:
 }
 }
 \description{
-Creates a alloc_params_t table for storing transition model metadata and
-serialized model objects. This function creates an empty table with proper
-structure for storing fitted models.
+Creates an alloc_params_t table for storing allocation parameters for each
+transition and run. This function creates an empty table with the proper
+structure for storing allocation parameters.
 }
 \section{Methods (by generic)}{
 \itemize{

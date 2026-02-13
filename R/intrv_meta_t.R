@@ -31,7 +31,7 @@ as_intrv_meta_t <- function(x) {
       params = list()
     )
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "intrv_meta_t",
     "id_intrv"

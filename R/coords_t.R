@@ -38,7 +38,7 @@ as_coords_t <- function(x) {
   if (!is.null(x[["region"]])) {
     cast_dt_col(x, "region", "factor")
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "coords_t",
     "id_coord"

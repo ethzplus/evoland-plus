@@ -37,7 +37,7 @@ as_pred_data_t <- function(x, type) {
     cast_dt_col("value", type)
 
   class_name <- paste0("pred_data_t_", type)
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     class_name = c(class_name, "pred_data_t"),
     key_cols = c("id_run", "id_period", "id_pred"),

@@ -18,8 +18,8 @@ as_intrv_masks_t(x)
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 }
 \value{
-A data.table-inheriting object with the columns \code{id_intrv} and \code{id_coord},
-creating a relation between coordinates to apply a
+A data.table-inheriting object with the columns \code{id_run}, \code{id_intrv}, and \code{id_coord},
+creating a relation between coordinates to apply an intervention mask.
 }
 \description{
 Construct and validate (part of) an \code{intrv_masks_t} object. This is used to

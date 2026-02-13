@@ -12,7 +12,6 @@
 #'   - `id_lulc`: Foreign key to lulc_meta_t
 #'   - `id_coord`: Foreign key to coords_t
 #'
-#' @seealso [evoland_db] method `$lulc_data_as_rast()` for converting to terra SpatRast
 #' @export
 as_lulc_data_t <- function(x) {
   if (missing(x)) {
@@ -30,7 +29,7 @@ as_lulc_data_t <- function(x) {
     cast_dt_col("id_lulc", "int") |>
     cast_dt_col("id_coord", "int")
 
-  new_evoland_table(
+  as_parquet_db_t(
     x = x,
     class_name = "lulc_data_t",
     key_cols = c("id_run", "id_lulc", "id_period") # keying on lower cardinalities

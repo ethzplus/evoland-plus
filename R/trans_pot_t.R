@@ -25,7 +25,7 @@ as_trans_pot_t <- function(x) {
   cast_dt_col(x, "id_trans", "int")
   cast_dt_col(x, "id_period_post", "int")
   cast_dt_col(x, "id_coord", "int")
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "trans_pot_t",
     c("id_trans", "id_period_post", "id_coord")

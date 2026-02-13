@@ -30,7 +30,7 @@ as_pred_meta_t <- function(x) {
       factor_levels = list()
     )
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "pred_meta_t",
     "id_pred"

@@ -16,13 +16,16 @@ as_reporting_t <- function(x) {
       value = character()
     )
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "reporting_t",
     "key"
   )
 }
 
+#' @describeIn reporting_t Set or update reporting metadata in the database.
+#' @param ... Each named argument is entered into the table with the argument name as its key.
+#' @keywords internal
 db_set_report <- function(self, ...) {
   params <- list(...)
   if (self$row_count("reporting_t") == 0L) {

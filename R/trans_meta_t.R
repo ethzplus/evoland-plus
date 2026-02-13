@@ -39,7 +39,7 @@ as_trans_meta_t <- function(x) {
   if (!is.null(x[["id_trans"]])) {
     cast_dt_col(x, "id_trans", "int")
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "trans_meta_t",
     "id_trans"

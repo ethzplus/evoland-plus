@@ -31,7 +31,7 @@ as_trans_rates_t <- function(x) {
     cast_dt_col("id_period", "int") |>
     cast_dt_col("id_trans", "int")
 
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     class_name = "trans_rates_t",
     key_cols = c("id_run", "id_period", "id_trans")

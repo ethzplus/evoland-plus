@@ -25,7 +25,7 @@ as_neighbors_t <- function(x) {
   if ("distance_class" %in% names(x)) {
     cast_dt_col(x, "distance_class", "factor")
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "neighbors_t",
     c("id_coord_origin", "id_coord_neighbor")

@@ -31,7 +31,7 @@ as_trans_models_t <- function(x) {
       model_obj_full = list()
     )
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
     "trans_models_t",
     key_cols = c("id_run", "id_trans", "fit_call"),
