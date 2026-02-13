@@ -765,23 +765,25 @@ resolve_metadata_clause <- function(x, metadata) {
     )
   )
 
-  # Filter to atomic only and serialize e.g. c("a", "b") -> "\"a\", \"b\""
-  valid_names <- character(0)
-  for (name in names_to_add) {
-    val <- new_metadata[[name]]
-    if (is.atomic(val)) {
-      new_metadata[[name]] <- paste0('"', val, '"', collapse = ", ")
-      valid_names <- c(valid_names, name)
-    }
-  }
-  names_to_add <- valid_names
-
   # nothing to do
   if (length(names_to_add) == 0 && length(metadata) == 0L) {
     return("")
   }
 
+  # Filter to atomic only and serialize e.g. c("a", "b") -> "\"a\", \"b\""
   out <- c(metadata, new_metadata[names_to_add])
+
+  for (key in names(out)) {
+    val <- out[[key]]
+    if (is.atomic(val)) {
+      out[[key]] <- paste0('"', val, '"', collapse = ", ")
+    } else {
+      warning(glue::glue(
+        "Metadata key '{key}' has non-atomic value; dropping metadata"
+      ))
+      out[[key]] <- NULL
+    }
+  }
 
   kv_str <- glue::glue_collapse(
     glue::glue("{names(out)}: '{out}'"),

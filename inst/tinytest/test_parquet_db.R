@@ -366,7 +366,8 @@ expect_silent(
 )
 
 retrieved <- db$fetch("test_metadata")
-expect_equal(attr(retrieved, "custom_attr"), "different_value")
+# Original attributes preserved, new ones ignored
+expect_equal(attr(retrieved, "custom_attr"), "test_value") # original preserved
 expect_equal(attr(retrieved, "new_attr"), "new")
 
 # Test 39: Metadata preservation on upsert
@@ -480,13 +481,14 @@ test_part_meta <- data.table::data.table(
   val = 1:2
 )
 data.table::setattr(test_part_meta, "my_meta", "exists")
+data.table::setattr(test_part_meta, "partition_cols", "g")
 
 db$commit(
   method = "overwrite",
   test_part_meta,
-  "test_part_meta",
-  partition_cols = "g"
+  "test_part_meta"
 )
 
 retrieved <- db$fetch("test_part_meta")
 expect_equal(attr(retrieved, "my_meta"), "exists")
+expect_equal(attr(retrieved, "partition_cols"), "g")
