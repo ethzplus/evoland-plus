@@ -1,3 +1,2 @@
 [format]
 line-width = 100
-skip = ["tribble", "rowwiseDT"]
