@@ -55,11 +55,11 @@ create_periods_t <- function(
   end_extrapolated = "2060-01-01"
 ) {
   # Parse the period length (ISO 8601 duration)
-  if (!stringi::stri_detect_regex(period_length_str, "^P\\d+Y$")) {
+  if (!grepl("^P\\d+Y$", period_length_str)) {
     stop("Only yearly period lengths are currently supported (e.g., P5Y)")
   }
   period_length_years <-
-    stringi::stri_match_first_regex(period_length_str, "P(\\d+)Y")[2] |>
+    sub("^P(\\d+)Y$", "\\1", period_length_str) |>
     as.integer()
 
   # Parse dates
