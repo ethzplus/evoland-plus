@@ -6,6 +6,7 @@
 \alias{print.pred_data_t}
 \alias{pred_data_available_v}
 \alias{trans_pred_data_v}
+\alias{pred_data_wide_v}
 \alias{set_pred_coltypes}
 \title{Create Predictor Data Table}
 \usage{
@@ -16,6 +17,8 @@ as_pred_data_t(x)
 pred_data_available_v(self)
 
 trans_pred_data_v(self, id_trans, id_pred, ordered = FALSE)
+
+pred_data_wide_v(self, id_trans, id_period_anterior)
 
 set_pred_coltypes(result, pred_meta_t)
 }
@@ -38,6 +41,9 @@ missing, use all predictor IDs from \link{pred_meta_t}}
 guaranteed order; need ordering for reproducible subsampling)
 }}
 
+\item{id_period_anterior}{Scalar integerish of anterior period ID, i.e. we
+get the predictors that explain the processes over the next N years}
+
 \item{result}{data.table with predictor columns named id_pred_{n}}
 
 \item{pred_meta_t}{see \link{pred_meta_t}}
@@ -54,8 +60,8 @@ A data.table of class "pred_data_t_\if{html}{\out{<type>}}" and "pred_data_t" wi
 \item \code{value}: Predictor value (type depends on subclass)
 }
 
-data.table with columns id_coord, id_period, result (bool), and one column
-per predictor (id_pred_{n})
+data.table with columns id_coord, id_period, did_transition (bool),
+and one column per predictor (id_pred_{n})
 }
 \description{
 Construct and validate a \code{pred_data_t} objects, which are used to store predictor
@@ -73,6 +79,9 @@ data. Different data types (float, int, bool) have different subclasses
 \link{pred_meta_t} is either present in period 0 or for all other periods for a given run.
 
 \item \code{trans_pred_data_v()}: Get transitions along with their predictor data in a wide data.table
+
+\item \code{pred_data_wide_v()}: Get predictor data in a wide data.table for transition potential
+prediction (cols id_coord, id_pred_{n})
 
 \item \code{set_pred_coltypes()}: In-place casting of predictor columns to their
 correct data types based on pred_meta_t; also fills NA values with fill_value
