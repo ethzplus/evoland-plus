@@ -40,7 +40,8 @@ renv*
 rv*
 rproject.toml
 
-# generally ignore databases, like .evolanddb, .duckdb, anything.db
+# ignore duckdb database files and parquet
 *db
+*.parquet
 # ignore drafts
 *suddel*
