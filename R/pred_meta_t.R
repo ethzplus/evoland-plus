@@ -13,9 +13,14 @@
 #'   - `pretty_name`: Name for plots/output
 #'   - `description`: Long description / operationalisation
 #'   - `orig_format`: Original format description
-#'   - `sources`: Sources, a data.frame with cols `url` and `md5sum`
-#'   - `unit`: SI-compatible unit (nullable for categorical)
-#'   - `factor_levels`: Map of factor levels (nullable)
+#'   - `sources`: Sources, list column of data.frames with cols `url` and `md5sum`
+#'   - `unit`: SI units for physical properties, or more complex descriptors
+#'     like "number of annual visitors"
+#'   - `data_type`: Factor with levels "int", "float", "bool", "factor".
+#'     Used for coercion.
+#'   - `fill_value`: Value to use for missing data for [coords_t] coordinate points that
+#'     are not explicitly stored.
+#'   - `factor_levels`: list of character vectors; order matters!
 #' @export
 as_pred_meta_t <- function(x) {
   if (missing(x)) {
@@ -27,13 +32,18 @@ as_pred_meta_t <- function(x) {
       orig_format = character(0),
       sources = list(),
       unit = character(0),
-      factor_levels = list()
+      data_type = factor(
+        character(0),
+        levels = c("int", "float", "bool", "factor")
+      ),
+      fill_value = NA,
+      factor_levels = list(character(0))
     )
   }
   as_parquet_db_t(
     x,
-    "pred_meta_t",
-    "id_pred"
+    class_name = "pred_meta_t",
+    key_cols = "id_pred"
   )
 }
 
@@ -109,6 +119,18 @@ create_pred_meta_t <- function(pred_spec) {
     unit = unlist(
       lapply(pluck_wildcard(pred_spec, NA, "unit"), function(x) x %||% NA_character_)
     ),
+    data_type = {
+      lapply(pluck_wildcard(pred_spec, NA, "data_type"), function(x) {
+        x %||% NA_character_
+      }) |>
+        unlist() |>
+        factor(
+          levels = c("int", "float", "bool", "factor")
+        )
+    },
+    fill_value = unlist(
+      lapply(pluck_wildcard(pred_spec, NA, "fill_value"), function(x) x %||% NA)
+    ),
     factor_levels = pluck_wildcard(pred_spec, NA, "factor_levels")
   )
 
@@ -143,10 +165,16 @@ validate.pred_meta_t <- function(x, ...) {
     is.character(x[["orig_format"]]),
     is.list(x[["sources"]]),
     is.character(x[["unit"]]),
+    is.factor(x[["data_type"]]),
+    "data_type must be set" = !any(is.na(x[["data_type"]])),
+    "data_type can only be one of 'integer', 'double','factor', or 'boolean'" = setequal(
+      levels(x[["data_type"]]),
+      c("int", "float", "bool", "factor")
+    ),
     is.list(x[["factor_levels"]]),
-    !anyDuplicated(x[["name"]]),
-    !any(x[["name"]] == ""),
-    !anyDuplicated(sources_dt[["url"]])
+    "no duplicate names" = !anyDuplicated(x[["name"]]),
+    "name cannot be empty" = !any(x[["name"]] == ""),
+    "single URL with multiple checksums present" = !anyDuplicated(sources_dt[["url"]])
   )
 
   return(x)

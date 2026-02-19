@@ -28,9 +28,14 @@ A data.table of class "pred_meta_t" with columns:
 \item \code{pretty_name}: Name for plots/output
 \item \code{description}: Long description / operationalisation
 \item \code{orig_format}: Original format description
-\item \code{sources}: Sources, a data.frame with cols \code{url} and \code{md5sum}
-\item \code{unit}: SI-compatible unit (nullable for categorical)
-\item \code{factor_levels}: Map of factor levels (nullable)
+\item \code{sources}: Sources, list column of data.frames with cols \code{url} and \code{md5sum}
+\item \code{unit}: SI units for physical properties, or more complex descriptors
+like "number of annual visitors"
+\item \code{data_type}: Factor with levels "int", "float", "bool", "factor".
+Used for coercion.
+\item \code{fill_value}: Value to use for missing data for \link{coords_t} coordinate points that
+are not explicitly stored.
+\item \code{factor_levels}: list of character vectors; order matters!
 }
 }
 \description{
