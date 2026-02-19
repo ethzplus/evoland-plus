@@ -4,11 +4,20 @@
 \alias{pred_data_t}
 \alias{as_pred_data_t}
 \alias{print.pred_data_t}
+\alias{pred_data_available_v}
+\alias{trans_pred_data_v}
+\alias{set_pred_coltypes}
 \title{Create Predictor Data Table}
 \usage{
 as_pred_data_t(x)
 
 \method{print}{pred_data_t}(x, nrow = 10, ...)
+
+pred_data_available_v(self)
+
+trans_pred_data_v(self, id_trans, id_pred, ordered = FALSE)
+
+set_pred_coltypes(result, pred_meta_t)
 }
 \arguments{
 \item{x}{Coercible to data.table}
@@ -16,6 +25,22 @@ as_pred_data_t(x)
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{self, }{\link{evoland_db} instance to query}
+
+\item{id_trans}{Integer transition ID, see \link{trans_meta_t}}
+
+\item{id_pred}{Optional integer vector of predictor IDs to include; if
+missing, use all predictor IDs from \link{pred_meta_t}}
+
+\item{ordered}{\itemize{
+\item if TRUE, order output by id_period then id_coord (otherwise no
+guaranteed order; need ordering for reproducible subsampling)
+}}
+
+\item{result}{data.table with predictor columns named id_pred_{n}}
+
+\item{pred_meta_t}{see \link{pred_meta_t}}
 
 \item{type}{Character string specifying the data type: "float", "int", or "bool"}
 }
@@ -28,6 +53,9 @@ A data.table of class "pred_data_t_\if{html}{\out{<type>}}" and "pred_data_t" wi
 \item \code{id_period}: Foreign key to periods_t
 \item \code{value}: Predictor value (type depends on subclass)
 }
+
+data.table with columns id_coord, id_period, result (bool), and one column
+per predictor (id_pred_{n})
 }
 \description{
 Construct and validate a \code{pred_data_t} objects, which are used to store predictor
@@ -39,3 +67,16 @@ data. Different data types (float, int, bool) have different subclasses
 \item \code{print(pred_data_t)}: Print a pred_data_t object, passing params to data.table print
 
 }}
+\section{Functions}{
+\itemize{
+\item \code{pred_data_available_v()}: Check if predictor data is complete, i.e. each entry in
+\link{pred_meta_t} is either present in period 0 or for all other periods for a given run.
+
+\item \code{trans_pred_data_v()}: Get transitions along with their predictor data in a wide data.table
+
+\item \code{set_pred_coltypes()}: In-place casting of predictor columns to their
+correct data types based on pred_meta_t; also fills NA values with fill_value
+from pred_meta_t if specified
+
+}}
+\keyword{internal}

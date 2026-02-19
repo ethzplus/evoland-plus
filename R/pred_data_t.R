@@ -100,3 +100,109 @@ print.pred_data_t <- function(x, nrow = 10, ...) {
   NextMethod(nrow = nrow, ...)
   invisible(x)
 }
+
+#' @describeIn pred_data_t Check if predictor data is complete, i.e. each entry in
+#' [pred_meta_t] is either present in period 0 or for all other periods for a given run.
+pred_data_available_v <- function(self) {
+  system.file("pred_data_present.sql", package = "evoland") |>
+    readLines() |>
+    paste(collapse = "\n") |>
+    glue::glue() |>
+    self$get_query(
+      pred_data_read_expr = self$get_read_expr("pred_data_t"),
+      periods_read_expr = self$get_read_expr("periods_t"),
+      pred_meta_read_expr = self$get_read_expr("pred_meta_t"),
+      runs_read_expr = self$get_read_expr("runs_t")
+    )
+}
+
+#' @describeIn pred_data_t Get transitions along with their predictor data in a wide data.table
+#' @param self, [evoland_db] instance to query
+#' @param id_trans Integer transition ID, see [trans_meta_t]
+#' @param id_pred Optional integer vector of predictor IDs to include; if
+#'        missing, use all predictor IDs from [pred_meta_t]
+#' @param ordered - if TRUE, order output by id_period then id_coord (otherwise no
+#'        guaranteed order; need ordering for reproducible subsampling)
+#' @return data.table with columns id_coord, id_period, result (bool), and one column
+#' per predictor (id_pred_{n})
+trans_pred_data_v <- function(
+  self,
+  id_trans,
+  id_pred,
+  ordered = FALSE
+) {
+  stopifnot(
+    "id_trans must be a single integer" = {
+      length(id_trans) == 1L && as.integer(id_trans) == id_trans
+    },
+    "id_pred must be missing or a numeric vector" = {
+      missing(id_pred) || all(as.integer(id_pred) == id_pred)
+    },
+    "run_id must be set" = !is.null(self$run_id)
+  )
+
+  pred_meta_t <- self$pred_meta_t
+  if (missing(id_pred)) {
+    id_pred <- pred_meta_t[["id_pred"]]
+  }
+
+  result <-
+    system.file("trans_pred_data.sql", package = "evoland") |>
+    readLines() |>
+    paste(collapse = "\n") |>
+    glue::glue(
+      lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
+      period_read_expr = self$get_read_expr("periods_t"),
+      pred_data_read_expr = self$get_read_expr("pred_data_t"),
+      trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
+      id_trans = id_trans,
+      id_pred = id_pred
+    ) |>
+    self$get_query()
+
+  set_pred_coltypes(result, pred_meta_t)
+
+  if (ordered) {
+    data.table::setkeys(result, c("id_coord", "id_period"))
+  }
+
+  result
+}
+
+
+#' @describeIn pred_data_t In-place casting of predictor columns to their
+#' correct data types based on pred_meta_t; also fills NA values with fill_value
+#' from pred_meta_t if specified
+#' @param result data.table with predictor columns named id_pred_{n}
+#' @param pred_meta_t see [pred_meta_t]
+#' @keywords internal
+set_pred_coltypes <- function(result, pred_meta_t) {
+  # look up data type for each predictor and cast accordingly; also convert factors to R
+  # factors with correct levels
+  for (col in grep("^id_pred_", names(result), value = TRUE)) {
+    meta_row <- pred_meta_t[paste0("id_pred_", id_pred) == col]
+    if (nrow(meta_row) != 1L) {
+      # should never happen, but just in case
+      next
+    }
+    cast_type <- dtype <- as.character(meta_row$data_type)
+    cast_type <- if (dtype == "factor") "integer" # cast to int, then add attrs
+
+    cast_dt_col(result, col, cast_type)
+    if (dtype == "factor") {
+      lvls <- meta_row$factor_levels[[1L]]
+      data.table::setattr(result[[col]], "levels", lvls)
+      data.table::setattr(result[[col]], "class", "factor")
+    }
+
+    fill_value <- meta_row$fill_value |> type.convert()
+    if (!is.na(fill_value)) {
+      data.table::set(
+        result,
+        i = which(is.na(result[[col]])),
+        j = col,
+        value = meta_row$fill_value
+      )
+    }
+  }
+}
