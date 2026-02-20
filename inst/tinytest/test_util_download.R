@@ -56,6 +56,10 @@ test_cases <- list(
   list(
     cd = "attachment; filename=ag-b-00.03-37-area-all-csv-APPENDIX.zip",
     expected = "ag-b-00.03-37-area-all-csv-APPENDIX.zip"
+  ),
+  list(
+    cd = "attachment; filenameag-b-00.03-37-area-all-csv-APPENDIX.zip",
+    expected = NULL
   )
 )
 
