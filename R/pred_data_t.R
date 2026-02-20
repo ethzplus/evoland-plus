@@ -107,13 +107,13 @@ pred_data_available_v <- function(self) {
   system.file("pred_data_present.sql", package = "evoland") |>
     readLines() |>
     paste(collapse = "\n") |>
-    glue::glue() |>
-    self$get_query(
+    glue::glue(
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
       periods_read_expr = self$get_read_expr("periods_t"),
       pred_meta_read_expr = self$get_read_expr("pred_meta_t"),
       runs_read_expr = self$get_read_expr("runs_t")
-    )
+    ) |>
+    self$get_query()
 }
 
 #' @describeIn pred_data_t Get transitions along with their predictor data in a wide data.table
