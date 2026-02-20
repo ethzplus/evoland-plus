@@ -125,9 +125,9 @@ evoland_db$set(
     result <- self$get_query(glue::glue(
       r"{
       select
-        m.id_lulc_anterior as \"from*\",
-        m.id_lulc_posterior as \"to*\",
-        r.rate as \"rate\"
+        m.id_lulc_anterior as "From*",
+        m.id_lulc_posterior as "To*",
+        r.rate as "Rate"
       from
         {rates_read_expr} r,
         {meta_read_expr} m
