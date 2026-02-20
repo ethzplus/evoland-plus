@@ -4,11 +4,14 @@
 \alias{runs_t}
 \alias{as_runs_t}
 \alias{print.runs_t}
+\alias{db_active_id_run}
 \title{Create Runs Table}
 \usage{
 as_runs_t(x)
 
 \method{print}{runs_t}(x, nrow = 10, ...)
+
+db_active_id_run(self, private, x)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -33,5 +36,10 @@ Defaults to a table with one row with the base \code{id_run := 0}
 \section{Methods (by generic)}{
 \itemize{
 \item \code{print(runs_t)}: Print a runs_t object, passing params to data.table print
+
+}}
+\section{Functions}{
+\itemize{
+\item \code{db_active_id_run()}: Get or set the active run ID; error if no lineage is found
 
 }}

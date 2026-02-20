@@ -73,3 +73,51 @@ print.runs_t <- function(x, nrow = 10, ...) {
   NextMethod(nrow = nrow, ...)
   invisible(x)
 }
+
+#' @describeIn runs_t Get or set the active run ID; error if no lineage is found
+db_active_id_run <- function(self, private, x) {
+  if (missing(x)) {
+    return(private$active_id_run)
+  }
+  stopifnot(
+    "id_run must be scalar integerish or NULL" = {
+      is.null(x) || length(x) == 1L && as.integer(x) == x
+    }
+  )
+
+  lineage <- get_lineage(self$runs_t, x)
+
+  if (length(lineage) == 0L) {
+    stop("requested run not found in runs_t")
+  }
+
+  cat(glue::glue(
+    "Active run set to id_run {x}\n",
+    "Lineage: {lineage}\n"
+  ))
+
+  private$active_id_run <- x
+  private$active_run_lineage <- lineage
+
+  invisible(x)
+}
+
+# lineage is ordered from most recent to oldest (i.e. id_run, parent_id_run,
+# grandparent_id_run, etc.)
+get_lineage <- function(runs_t, id_run) {
+  lineage <- integer(0)
+  current_id <- id_run
+
+  while (!is.na(current_id)) {
+    lineage <- c(lineage, current_id)
+    parent_id <- runs_t[id_run == current_id, parent_id_run]
+
+    if (length(parent_id) == 0L) {
+      stop(glue::glue("id_run {current_id} not found in runs_t"))
+    }
+
+    current_id <- parent_id
+  }
+
+  lineage
+}
