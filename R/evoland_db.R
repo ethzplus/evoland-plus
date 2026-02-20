@@ -51,81 +51,9 @@ evoland_db <- R6::R6Class(
 
       # ensure there is a minimal runs_t
       self$commit(as_runs_t(), "runs_t", method = "upsert")
-      # self$set_active_run(id_run)
+      self$id_run <- id_run
 
       invisible(self)
-    },
-
-    #' @description
-    #' Set the active run for read operations
-    #' @param id_run Integer run ID. Must exist in runs_t.
-    #' @return Invisibly returns self
-    set_active_run = function(id_run) {
-      stopifnot(
-        "id_run must be single integerish" = length(id_run) == 1L && as.integer(id_run) == id_run
-      )
-
-      id_run <- as.integer(id_run)
-
-      if (!"runs_t" %in% self$list_tables()) {
-        stop("runs_t does not exist; cannot set active run")
-      }
-
-      lineage <- self$with_tables("runs_t", function() {
-        self$get_query(glue::glue(
-          r"{
-          with recursive lineage as (
-            select
-              id_run,
-              parent_id_run,
-              0 as depth
-            from
-              runs_t
-            where
-              id_run = {id_run}
-            union all
-            select
-              r.id_run,
-              r.parent_id_run,
-              l.depth + 1 as depth
-            from
-              runs_t r
-            inner join
-              lineage l
-              on r.id_run = l.parent_id_run
-          )
-          select
-            id_run
-          from
-            lineage
-          order by
-            depth
-          }"
-        ))
-      })
-
-      if (nrow(lineage) == 0L) {
-        stop(glue::glue("id_run={id_run} not found in runs_t"))
-      }
-
-      ids <- lineage[["id_run"]]
-
-      if (anyDuplicated(ids)) {
-        stop(glue::glue("Detected cycle in runs_t lineage for id_run={id_run}"))
-      }
-
-      private$id_run <- id_run
-      private$run_lineage <- ids
-
-      invisible(self)
-    },
-
-    #' @description
-    #' Get the active run ID
-    #' @return Integer run ID
-    get_active_run = function() {
-      # TODO make active binding
-      private$id_run
     },
 
     #' @description
@@ -366,11 +294,18 @@ evoland_db <- R6::R6Class(
     #' @field Get or upsert [reporting_t]
     reporting_t = create_table_binding("reporting_t", "upsert"),
     #' @field Get or upsert [runs_t]
-    runs_t = create_table_binding("runs_t", "upsert")
+    runs_t = create_table_binding("runs_t", "upsert"),
+
+    #' @field Get or set active id_run, see [runs_t]
+    id_run = function(x) create_method_binding(db_active_id_run, with_private = TRUE),
+    #' @field Get id_run, see [runs_t]
+    run_lineage = function() {
+      private$active_run_lineage
+    }
   ),
 
   private = list(
     active_id_run = NULL,
-    active_id_run_lineage = 0L
+    active_run_lineage = NULL
   )
 )

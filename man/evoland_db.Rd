@@ -55,6 +55,10 @@ Additional methods and active bindings are added to this class in separate files
 \item{\code{Get}}{or upsert \link{reporting_t}}
 
 \item{\code{Get}}{or upsert \link{runs_t}}
+
+\item{\code{Get}}{or set active id_run, see \link{runs_t}}
+
+\item{\code{Get}}{id_run, see \link{runs_t}}
 }
 \if{html}{\out{</div>}}
 }
@@ -92,6 +96,10 @@ Additional methods and active bindings are added to this class in separate files
 \item{\code{Get}}{or upsert \link{reporting_t}}
 
 \item{\code{Get}}{or upsert \link{runs_t}}
+
+\item{\code{Get}}{or set active id_run, see \link{runs_t}}
+
+\item{\code{Get}}{id_run, see \link{runs_t}}
 }
 \if{html}{\out{</div>}}
 }
@@ -100,11 +108,8 @@ Additional methods and active bindings are added to this class in separate files
 \itemize{
 \item \href{#method-evoland_db-set_neighbors}{\code{evoland_db$set_neighbors()}}
 \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
-\item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
 \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
-\item \href{#method-evoland_db-set_active_run}{\code{evoland_db$set_active_run()}}
-\item \href{#method-evoland_db-get_active_run}{\code{evoland_db$get_active_run()}}
 \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
 \item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
 \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
@@ -161,20 +166,6 @@ Additional methods and active bindings are added to this class in separate files
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-pred_data_wide_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-pred_data_wide_v}{}}}
-\subsection{Method \code{pred_data_wide_v()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$pred_data_wide_v(
-  id_trans,
-  id_period,
-  na_value = NA,
-  include_period_0 = TRUE
-)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
 \subsection{Method \code{trans_rates_dinamica_v()}}{
@@ -208,39 +199,6 @@ Defaults to TRUE. Set to FALSE for read-only workers to avoid lock contention.}
 }
 \subsection{Returns}{
 A new \code{evoland_db} object
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-set_active_run"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-set_active_run}{}}}
-\subsection{Method \code{set_active_run()}}{
-Set the active run for read operations
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_active_run(id_run)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{id_run}}{Integer run ID. Must exist in runs_t.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Invisibly returns self
-}
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-get_active_run"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-get_active_run}{}}}
-\subsection{Method \code{get_active_run()}}{
-Get the active run ID
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_active_run()}\if{html}{\out{</div>}}
-}
-
-\subsection{Returns}{
-Integer run ID
 }
 }
 \if{html}{\out{<hr>}}

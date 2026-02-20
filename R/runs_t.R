@@ -91,9 +91,9 @@ db_active_id_run <- function(self, private, x) {
     stop("requested run not found in runs_t")
   }
 
-  cat(glue::glue(
+  message(glue::glue(
     "Active run set to id_run {x}\n",
-    "Lineage: {lineage}\n"
+    "Lineage: {paste(lineage, collapse = ' -> ')}\n"
   ))
 
   private$active_id_run <- x
