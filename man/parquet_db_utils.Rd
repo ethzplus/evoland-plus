@@ -36,7 +36,7 @@ kv_df_to_list(x)
 
 create_table_binding(table_name, mode = c("write_once", "upsert", "append"))
 
-create_method_binding(fun)
+create_method_binding(fun, with_private = FALSE)
 }
 \arguments{
 \item{x}{The data to be committed.}
@@ -67,7 +67,9 @@ hive style parquet file partitioning.}
 
 \item{table_name}{The name of the table to bind to.}
 
-\item{fun}{The underlying function to bind as an R6 method, which must have a \code{self}
+\item{fun}{The underlying function to bind as an R6 method, which must have a \code{self} argument}
+
+\item{with_private}{Whether to also pass the R6 reference to \code{private} as an argument
 parameter as its first argument.}
 }
 \description{

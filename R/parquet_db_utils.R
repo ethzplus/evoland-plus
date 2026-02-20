@@ -267,9 +267,10 @@ create_table_binding <- function(table_name, mode = c("write_once", "upsert", "a
 #' generator. Simply passes the R6 method's arguments as-is to the underlying "pure"
 #' function, passing the R6 reference to `self`, but not to `private`.
 #' @keywords internal
-#' @param fun The underlying function to bind as an R6 method, which must have a `self`
+#' @param fun The underlying function to bind as an R6 method, which must have a `self` argument
+#' @param with_private Whether to also pass the R6 reference to `private` as an argument
 #' parameter as its first argument.
-create_method_binding <- function(fun) {
+create_method_binding <- function(fun, with_private = FALSE) {
   # Capture the original call (e.g., obj$method(arg1 = 1)); expands ... arguments
   cl <- match.call(definition = sys.function(-1), call = sys.call(-1))
 
@@ -278,6 +279,9 @@ create_method_binding <- function(fun) {
 
   # Inject 'self' as named arg. Use get() to retrieve R6 instance's self from calling env
   cl[["self"]] <- get("self", envir = parent.frame())
+  if (with_private) {
+    cl[["private"]] <- get("private", envir = parent.frame())
+  }
 
   # Evaluate in original environment. Preserves lazy evaluation of arguments.
   eval(cl, envir = parent.frame(2))
