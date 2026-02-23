@@ -101,8 +101,13 @@ expect_null(
 # test actual transfer
 dir <- tempdir()
 df_in <- data.frame(
-  url = file.path("file:/", system.file("schema.sql", package = "evoland")),
-  md5sum = tools::md5sum(system.file("schema.sql", package = "evoland")),
+  url = file.path(
+    "file:/",
+    system.file("tinytest", "test_util_download.R", package = "evoland")
+  ),
+  md5sum = tools::md5sum(
+    system.file("tinytest", "test_util_download.R", package = "evoland")
+  ),
   additional_data = "this data should pass through"
 )
 expect_message(

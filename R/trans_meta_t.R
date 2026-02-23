@@ -9,7 +9,8 @@
 #' @name trans_meta_t
 #'
 #' @param transitions A trans_v table, with columns id_coord, id_lulc_anterior,
-#' id_lulc_posterior, id_period
+#' id_lulc_posterior, id_period; contains transitions and non-transitions (where
+#' anterior == posterior)
 #' @param min_cardinality_abs Minimum absolute number of transitions for viability (optional)
 #' @param min_frequency_rel Minimum relative frequency of transitions for viability (optional)
 #' @param exclude_anterior Vector of id_lulc values to exclude as anterior (source) classes
@@ -80,7 +81,7 @@ create_trans_meta_t <- function(
       )
     ]
 
-  # Determine viability
+  # default: all viable until determined otherwise
   trans_summary[, is_viable := TRUE]
 
   # Apply exclusions

@@ -31,7 +31,8 @@ as_pred_data_t <- function(x) {
     cast_dt_col("id_run", "int") |>
     cast_dt_col("id_period", "int") |>
     cast_dt_col("id_pred", "int") |>
-    cast_dt_col("id_coord", "int")
+    cast_dt_col("id_coord", "int") |>
+    cast_dt_col("value", "float")
 
   as_parquet_db_t(
     x,
@@ -72,17 +73,6 @@ validate.pred_data_t <- function(x, ...) {
 #' @param nrow see [data.table::print.data.table]
 #' @param ... passed to [data.table::print.data.table]
 print.pred_data_t <- function(x, nrow = 10, ...) {
-  # Determine subtype
-  subtype <- if (inherits(x, "pred_data_t_float")) {
-    "float"
-  } else if (inherits(x, "pred_data_t_int")) {
-    "int"
-  } else if (inherits(x, "pred_data_t_bool")) {
-    "bool"
-  } else {
-    "unknown"
-  }
-
   if (nrow(x) > 0) {
     n_runs <- data.table::uniqueN(x[["id_run"]])
     n_periods <- data.table::uniqueN(x[["id_period"]])
@@ -90,12 +80,12 @@ print.pred_data_t <- function(x, nrow = 10, ...) {
     n_coords <- data.table::uniqueN(x[["id_coord"]])
 
     cat(glue::glue(
-      "Predictor Data Table ({subtype})\n",
+      "Raw Predictor Data Table\n",
       "Observations: {nrow(x)}\n",
       "Runs: {n_runs}, Periods: {n_periods}, Predictors: {n_preds}, Coordinates: {n_coords}\n\n"
     ))
   } else {
-    cat(glue::glue("Predictor Data Table ({subtype}) (empty)\n"))
+    cat(glue::glue("Raw Predictor Data Table (empty)\n"))
   }
   NextMethod(nrow = nrow, ...)
   invisible(x)
@@ -223,7 +213,9 @@ set_pred_coltypes <- function(result, pred_meta_t) {
       next
     }
     cast_type <- dtype <- as.character(meta_row$data_type)
-    cast_type <- if (dtype == "factor") "integer" # cast to int, then add attrs
+
+    # manually reconstructing factors: cast to int, then add attrs
+    cast_type <- ifelse(dtype == "factor", "int", cast_type)
 
     cast_dt_col(result, col, cast_type)
     if (dtype == "factor") {
@@ -232,7 +224,7 @@ set_pred_coltypes <- function(result, pred_meta_t) {
       data.table::setattr(result[[col]], "class", "factor")
     }
 
-    fill_value <- meta_row$fill_value |> type.convert()
+    fill_value <- meta_row$fill_value |> type.convert(as.is = TRUE)
     if (!is.na(fill_value)) {
       data.table::set(
         result,

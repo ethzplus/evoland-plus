@@ -29,81 +29,94 @@ set.seed(42)
 n_coords <- nrow(test_coords_t)
 test_lulc_data_t <- as_lulc_data_t(rbindlist(list(
   data.table(
+    id_run = 0L,
     id_coord = 1:n_coords,
     id_lulc = sample(1:2, n_coords, TRUE, c(0.7, 0.3)),
     id_period = 1L
   ),
   data.table(
+    id_run = 0L,
     id_coord = 1:n_coords,
     id_lulc = sample(1:2, n_coords, TRUE, c(0.5, 0.5)),
     id_period = 2L
   ),
   data.table(
+    id_run = 0L,
     id_coord = 1:n_coords,
     id_lulc = sample(1:2, n_coords, TRUE, c(0.4, 0.6)),
     id_period = 3L
   )
 )))
 
-# Predictor metadata
+# Predictor metadata (one for each data type)
 test_pred_spec <- list(
   elevation = list(
     unit = "m",
     pretty_name = "Elevation",
     description = "Elevation above sea level",
+    data_type = "float",
     sources = list(list(url = "https://example.com/elevation.tif", md5sum = "abc123"))
   ),
-  slope = list(
-    unit = "degrees",
-    pretty_name = "Slope",
-    description = "Terrain slope",
-    sources = list(list(url = "https://example.com/slope.tif", md5sum = "def456"))
+  population = list(
+    unit = "count",
+    pretty_name = "Population",
+    description = "Population count",
+    data_type = "int",
+    sources = list(list(url = "https://example.com/pop.tif", md5sum = "def456"))
   ),
-  distance_to_road = list(
-    unit = "m",
-    pretty_name = "Distance to road",
-    description = "Distance to nearest road",
-    sources = list(list(url = "https://example.com/roads.gpkg", md5sum = "ghi789"))
+  is_protected = list(
+    unit = "boolean",
+    pretty_name = "Protected Area",
+    description = "Is the area protected",
+    data_type = "bool",
+    sources = list(list(url = "https://example.com/protected.gpkg", md5sum = "ghi789"))
+  ),
+  soil_type = list(
+    unit = "category",
+    pretty_name = "Soil Type",
+    description = "Type of soil",
+    data_type = "factor",
+    factor_levels = c("Sandy", "Loamy", "Clay", "Peaty", "Chalky"),
+    sources = list(list(url = "https://example.com/soil.tif", md5sum = "jkl012"))
   )
 )
-test_pred_meta_t <- create_pred_meta_t(test_pred_spec)
+test_pred_meta_t <- create_pred_meta_t(test_pred_spec, with_id_pred = TRUE)
 
 # Predictor data (static + time-varying)
 set.seed(43)
-test_pred_data_t_float <- as_pred_data_t(
+test_pred_data_t <- as_pred_data_t(
   rbind(
     # Static predictors (period 0)
     data.table(
+      id_run = 0L,
       id_pred = 1L,
       id_coord = 1:n_coords,
       id_period = 0L,
       value = runif(n_coords, 400, 800)
     ),
-    data.table(id_pred = 2L, id_coord = 1:n_coords, id_period = 0L, value = runif(n_coords, 0, 30)),
-    # Time-varying predictor
-    rbindlist(lapply(1:3, function(p) {
-      data.table(
-        id_pred = 3L,
-        id_coord = 1:n_coords,
-        id_period = p,
-        value = runif(n_coords, 0, 5000)
-      )
-    }))
-  ),
-  type = "float"
+    data.table(
+      id_run = 0L,
+      id_pred = 2L,
+      id_coord = 1:n_coords,
+      id_period = 0L,
+      value = sample(0:1000, n_coords, replace = TRUE)
+    ),
+    data.table(
+      id_run = 0L,
+      id_pred = 3L,
+      id_coord = 1:n_coords,
+      id_period = 0L,
+      value = sample(c(0, 1), n_coords, replace = TRUE)
+    ),
+    data.table(
+      id_run = 0L,
+      id_pred = 4L,
+      id_coord = 1:n_coords,
+      id_period = 0L,
+      value = sample(1:5, n_coords, replace = TRUE)
+    )
+  )
 )
-
-# TODO add int, bool, factor predictors
-# pred_data_int <- data.table::data.table(
-#   id_pred = 5L,
-#   id_coord = 1:n_coords,
-#   id_period = 0L,
-#   value = factor(
-#     sample(1:5, n_coords, replace = TRUE),
-#     levels = 1:5,
-#     labels = c("Sandy", "Loamy", "Clay", "Peaty", "Chalky")
-#   )
-# )
 
 # Save all fixtures
 usethis::use_data(
@@ -113,7 +126,7 @@ usethis::use_data(
   test_lulc_data_t,
   test_pred_spec,
   test_pred_meta_t,
-  test_pred_data_t_float,
+  test_pred_data_t,
   overwrite = TRUE,
   compress = "xz",
   internal = TRUE

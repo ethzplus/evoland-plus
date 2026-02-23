@@ -14,7 +14,7 @@ expect_silent(validate(dt))
 # Test with non-data.table object
 non_dt <- data.frame(x = 1:3)
 class(non_dt) <- c("test_class", "parquet_db_t", class(non_dt))
-expect_error(validate(non_dt), "inherits.*data.table.*is not TRUE")
+expect_error(validate(non_dt), "needs to be a data.table")
 
 # Test %||% operator
 expect_equal(NULL %||% "default", "default")

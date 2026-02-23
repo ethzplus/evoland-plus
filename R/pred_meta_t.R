@@ -81,7 +81,7 @@ as_pred_meta_t <- function(x) {
 #'  ))
 # nolint end
 #' @export
-create_pred_meta_t <- function(pred_spec) {
+create_pred_meta_t <- function(pred_spec, with_id_pred = FALSE) {
   # Extract predictor names
   pred_names <- names(pred_spec)
   if (is.null(pred_names) || any(pred_names == "")) {
@@ -133,6 +133,10 @@ create_pred_meta_t <- function(pred_spec) {
     ),
     factor_levels = pluck_wildcard(pred_spec, NA, "factor_levels")
   )
+
+  if (with_id_pred) {
+    x[, id_pred := seq_len(.N)]
+  }
 
   as_pred_meta_t(x)
 }
