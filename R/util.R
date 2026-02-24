@@ -112,7 +112,8 @@ print_rowwise_yaml <- function(df) {
 #' @describeIn util Cast a data.table column; invisibly returns x
 #' @param colname Name of the column
 #' @param type one of "int", "float", "bool", "factor"
-cast_dt_col <- function(x, colname, type) {
+#' @param levels Optional character vector of factor levels (only used when type = "factor")
+cast_dt_col <- function(x, colname, type, levels = NULL) {
   predicate_fn <- switch(
     type,
     float = is.double,
@@ -130,7 +131,23 @@ cast_dt_col <- function(x, colname, type) {
     float = as.double,
     int = as.integer,
     bool = as.logical,
-    factor = as.factor,
+    factor = {
+      if (!is.null(levels)) {
+        function(col) {
+          result <- factor(col, levels = levels)
+          if (anyNA(result) && !anyNA(col)) {
+            bad_values <- unique(col[is.na(result)])
+            stop(glue::glue(
+              "Casting to factor produced NAs.",
+              "The following values are not in the provided levels: {toString(bad_values)}"
+            ))
+          }
+          result
+        }
+      } else {
+        as.factor
+      }
+    },
     date = as.Date
   )
   data.table::set(

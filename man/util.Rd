@@ -20,7 +20,7 @@ ensure_dir(dir)
 
 print_rowwise_yaml(df)
 
-cast_dt_col(x, colname, type)
+cast_dt_col(x, colname, type, levels = NULL)
 }
 \arguments{
 \item{x}{Left-hand side value}
@@ -34,6 +34,8 @@ cast_dt_col(x, colname, type)
 \item{colname}{Name of the column}
 
 \item{type}{one of "int", "float", "bool", "factor"}
+
+\item{levels}{Optional character vector of factor levels (only used when type = "factor")}
 }
 \value{
 The indexed result, which may be a single element or a list of elements
