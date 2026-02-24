@@ -114,7 +114,7 @@ set_full_trans_preds <- function(self, overwrite = FALSE) {
 
 # Worker function for parallel transition pruning
 # Not exported; used internally by get_pruned_trans_preds_t
-prune_trans_worker <- function(item, db, na_value, filter_fun, ...) {
+prune_trans_worker <- function(item, db, filter_fun, ...) {
   # item is just a data.table slice. expecting scalar id_run and id_trans
   id_run <- item[["id_run"]][1L]
   id_trans <- item[["id_trans"]][1L]
@@ -125,8 +125,7 @@ prune_trans_worker <- function(item, db, na_value, filter_fun, ...) {
       # Get wide transition-predictor data
       trans_pred_data <- db$trans_pred_data_v(
         id_trans = id_trans,
-        id_pred = id_pred,
-        na_value = na_value
+        id_pred = id_pred
       )
 
       # Check if we have any data
@@ -182,7 +181,6 @@ prune_trans_worker <- function(item, db, na_value, filter_fun, ...) {
 get_pruned_trans_preds_t <- function(
   self,
   filter_fun = covariance_filter,
-  na_value = NA,
   cluster = NULL,
   ...
 ) {
@@ -198,7 +196,6 @@ get_pruned_trans_preds_t <- function(
     worker_fun = prune_trans_worker,
     parent_db = self,
     cluster = cluster,
-    na_value = na_value,
     filter_fun = filter_fun,
     ...
   ) |>

@@ -240,12 +240,14 @@ Number of rows written
 \subsection{Method \code{print()}}{
 Print method for parquet_db
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$print(...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$print(subheaders = character(0), ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
+\item{\code{subheaders}}{optional character vector; insert as subheaders lines}
+
 \item{\code{...}}{Not used}
 }
 \if{html}{\out{</div>}}

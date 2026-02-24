@@ -47,7 +47,6 @@ fit_partial_model_worker <- function(
   db,
   fit_fun,
   gof_fun,
-  na_value = NA,
   seed = NULL,
   sample_frac = 0.7,
   ...
@@ -73,7 +72,7 @@ fit_partial_model_worker <- function(
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
         id_pred = item[["id_pred"]][[1L]],
-        na_value = na_value,
+
         # if seed is set, we want ordering for reproducible sampling
         ordered = !is.null(seed)
       )
@@ -167,14 +166,13 @@ fit_partial_model_worker <- function(
 
 # Worker function for full model fitting
 # Not exported; used internally by fit_full_models
-fit_full_model_worker <- function(item, db, na_value, ...) {
+fit_full_model_worker <- function(item, db, ...) {
   tryCatch(
     {
       # Fetch full data
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
         id_pred = item[["id_pred"]][[1L]],
-        na_value = na_value
       )
 
       if (nrow(trans_pred_data_full) == 0L) {
@@ -217,13 +215,29 @@ fit_full_model_worker <- function(item, db, na_value, ...) {
   )
 }
 
+
+#' @describeIn trans_models_t Fit partial models for each viable transition and store
+#' results in a trans_models_t table.
+#' @param self, [evoland_db] instance to query for transitions and predictor data
+#' @param fit_fun Function that takes a data.frame with predictors and result columns
+#' and returns a fitted model object. The data argument is passed as the first argument
+#' to the function, and additional arguments can be passed via ...
+#' @param gof_fun Function that takes a fitted model object and a test data.frame and
+#' returns a list of goodness-of-fit metrics. The model argument is passed as the first
+#' argument and the test_data argument is passed as the second argument.
+#' @param sample_frac Numeric between 0 and 1 indicating
+#' the fraction of data to use for training the partial models. The rest is used for
+#' testing and calculating goodness-of-fit metrics. Default is 0.7 (70% training, 30%
+#' testing).
+#' @param seed Optional integer seed for reproducible subsampling.
+#' @param cluster An optional cluster object created by [parallel::makeCluster()] or
+#' [mirai::make_cluster()].
 fit_partial_models <- function(
   self,
   fit_fun,
   gof_fun,
   sample_frac = 0.7,
   seed = NULL,
-  na_value = NA,
   cluster = NULL,
   ...
 ) {
@@ -263,7 +277,6 @@ fit_partial_models <- function(
       cluster = cluster,
       fit_fun = fit_fun,
       gof_fun = gof_fun,
-      na_value = na_value,
       seed = seed,
       sample_frac = sample_frac,
       ...
@@ -272,12 +285,23 @@ fit_partial_models <- function(
     as_trans_models_t()
 }
 
+#' @describeIn trans_models_t Fit full models for each transition based on the best
+#' partial model according to a specified goodness-of-fit criterion.
+#' @param self, [evoland_db] instance to query for transitions and predictor data
+#' @param partial_models A trans_models_t table containing the fitted partial models and
+#' their goodness-of-fit metrics.
+#' @param gof_criterion Character string specifying which goodness-of-fit metric to use for
+#' selecting the best partial model for each transition (e.g., "roc_auc", "rmse").
+#' @param maximize Logical indicating whether to select the model with the maximum
+#' (TRUE) or minimum (FALSE) value of the specified goodness-of-fit criterion. Default
+#' is TRUE.
+#' @param cluster An optional cluster object created by [parallel::makeCluster()] or
+#' [mirai::make_cluster()].
 fit_full_models <- function(
   self,
   partial_models,
   gof_criterion,
   maximize = TRUE,
-  na_value = NA,
   cluster = NULL
 ) {
   stopifnot(
@@ -333,7 +357,6 @@ fit_full_models <- function(
       worker_fun = fit_full_model_worker,
       parent_db = self,
       cluster = cluster,
-      na_value = na_value
     ) |>
     data.table::rbindlist()
 

@@ -278,9 +278,10 @@ parquet_db <- R6::R6Class(
 
     #' @description
     #' Print method for parquet_db
+    #' @param subheaders optional character vector; insert as subheaders lines
     #' @param ... Not used
     #' @return self (invisibly)
-    print = function(...) {
+    print = function(subheaders = character(0), ...) {
       # gather data to be printed
       classes <- class(self)
       classes <- classes[classes != "R6"]
@@ -320,18 +321,18 @@ parquet_db <- R6::R6Class(
 
       # actually start printing
       if (length(classes) == 1) {
-        cat("<", classes[1], "> Object\n")
+        cat("<", classes[1], "> Object", sep = "")
       } else {
-        cat(classes[1], "Object. Inherits from", toString(classes[-1]), "\n")
+        cat("<", classes[1], "> Object. Inherits from <", toString(classes[-1]), ">", sep = "")
       }
 
-      # Database info on one line
-      cat(
-        glue::glue(
-          "Database: {self$path} | Write Options: {self$writeopts}"
-        ),
-        "\n\n"
-      )
+      # Basic DB descriptors
+      cat("\n | Database:", self$path)
+      cat("\n | Write Options:", self$writeopts)
+      if (length(subheaders) > 0) {
+        cat("\n |", paste(subheaders, collapse = "\n | "))
+      }
+      cat("\n\n")
 
       tables <- self$list_tables()
       if (length(tables) > 0) {

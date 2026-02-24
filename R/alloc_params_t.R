@@ -215,6 +215,13 @@ compute_alloc_params_single <- function(
   )
 }
 
+#' @describeIn alloc_params_t Create allocation parameters for each transition by
+#' estimating patch shape and expansion/patch ratio from observed periods, then
+#' aggregate and perturb parameters for use in runs.
+#' @param self [evoland_db] instance to query
+#' @param n_perturbations Integer number of randomly perturbed parameter sets to create
+#' per transition (default: 5)
+#' @param sd Numeric standard deviation for random perturbations (default: 0.05)
 create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
   # Validate parameters
   stopifnot(

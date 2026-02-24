@@ -17,7 +17,6 @@ set_full_trans_preds(self, overwrite = FALSE)
 get_pruned_trans_preds_t(
   self,
   filter_fun = covariance_filter,
-  na_value = NA,
   cluster = NULL,
   ...
 )
@@ -32,11 +31,11 @@ get_pruned_trans_preds_t(
 \item{filter_fun}{A function that takes a transition-predictor data (cf. \link{trans_pred_data_v}) and
 returns a character vector of column names to keep, see e.g. \link{covariance_filter}}
 
-\item{na_value}{Value to use for missing data when retrieving predictor data}
-
 \item{cluster}{An optional cluster object, see \link{run_parallel_evoland}}
 
 \item{db}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
+
+\item{na_value}{Value to use for missing data when retrieving predictor data}
 }
 \value{
 A data.table of class "trans_preds_t" with columns:

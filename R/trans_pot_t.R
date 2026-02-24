@@ -130,8 +130,7 @@ predict_trans_pot <- function(
     # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
     pred_data_post <- self$pred_data_wide_v(
       id_trans = id_trans,
-      id_period = id_period_post,
-      na_value = 0 # Replace NAs with 0 for prediction
+      id_period = id_period_post
     )
 
     if (nrow(pred_data_post) == 0L) {

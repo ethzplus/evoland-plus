@@ -21,7 +21,8 @@ create_trans_meta_t(
 }
 \arguments{
 \item{transitions}{A trans_v table, with columns id_coord, id_lulc_anterior,
-id_lulc_posterior, id_period}
+id_lulc_posterior, id_period; contains transitions and non-transitions (where
+anterior == posterior)}
 
 \item{min_cardinality_abs}{Minimum absolute number of transitions for viability (optional)}
 

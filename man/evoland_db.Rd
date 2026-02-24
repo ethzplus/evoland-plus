@@ -21,85 +21,44 @@ Additional methods and active bindings are added to this class in separate files
 \section{Super class}{
 \code{\link[evoland:parquet_db]{evoland::parquet_db}} -> \code{evoland_db}
 }
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{Get}}{or upsert \link{coords_t}}
-
-\item{\code{Get}}{or upsert \link{periods_t}}
-
-\item{\code{Get}}{or upsert \link{lulc_meta_t}}
-
-\item{\code{Get}}{or upsert \link{lulc_data_t}}
-
-\item{\code{Get}}{or upsert \link{pred_data_t}}
-
-\item{\code{Get}}{or upsert \link{pred_meta_t}}
-
-\item{\code{Get}}{or upsert \link{trans_meta_t}}
-
-\item{\code{Get}}{or upsert \link{trans_preds_t}}
-
-\item{\code{Get}}{or upsert \link{trans_rates_t}}
-
-\item{\code{Get}}{or upsert \link{intrv_meta_t}}
-
-\item{\code{Get}}{or upsert \link{intrv_masks_t}}
-
-\item{\code{Get}}{or upsert \link{trans_models_t}}
-
-\item{\code{Get}}{or upsert \link{alloc_params_t}}
-
-\item{\code{Get}}{or upsert \link{neighbors_t}}
-
-\item{\code{Get}}{or upsert \link{reporting_t}}
-
-\item{\code{Get}}{or upsert \link{runs_t}}
-
-\item{\code{Get}}{or set active id_run, see \link{runs_t}}
-
-\item{\code{Get}}{id_run, see \link{runs_t}}
-}
-\if{html}{\out{</div>}}
-}
 \section{Active bindings}{
 \if{html}{\out{<div class="r6-active-bindings">}}
 \describe{
-\item{\code{Get}}{or upsert \link{coords_t}}
+\item{\code{coords_t}}{Get or upsert \link{coords_t}}
 
-\item{\code{Get}}{or upsert \link{periods_t}}
+\item{\code{periods_t}}{Get or upsert \link{periods_t}}
 
-\item{\code{Get}}{or upsert \link{lulc_meta_t}}
+\item{\code{lulc_meta_t}}{Get or upsert \link{lulc_meta_t}}
 
-\item{\code{Get}}{or upsert \link{lulc_data_t}}
+\item{\code{lulc_data_t}}{Get or upsert \link{lulc_data_t}}
 
-\item{\code{Get}}{or upsert \link{pred_data_t}}
+\item{\code{pred_data_t}}{Get or upsert \link{pred_data_t}}
 
-\item{\code{Get}}{or upsert \link{pred_meta_t}}
+\item{\code{pred_meta_t}}{Get or upsert \link{pred_meta_t}}
 
-\item{\code{Get}}{or upsert \link{trans_meta_t}}
+\item{\code{trans_meta_t}}{Get or upsert \link{trans_meta_t}}
 
-\item{\code{Get}}{or upsert \link{trans_preds_t}}
+\item{\code{trans_preds_t}}{Get or upsert \link{trans_preds_t}}
 
-\item{\code{Get}}{or upsert \link{trans_rates_t}}
+\item{\code{trans_rates_t}}{Get or upsert \link{trans_rates_t}}
 
-\item{\code{Get}}{or upsert \link{intrv_meta_t}}
+\item{\code{intrv_meta_t}}{Get or upsert \link{intrv_meta_t}}
 
-\item{\code{Get}}{or upsert \link{intrv_masks_t}}
+\item{\code{intrv_masks_t}}{Get or upsert \link{intrv_masks_t}}
 
-\item{\code{Get}}{or upsert \link{trans_models_t}}
+\item{\code{trans_models_t}}{Get or upsert \link{trans_models_t}}
 
-\item{\code{Get}}{or upsert \link{alloc_params_t}}
+\item{\code{alloc_params_t}}{Get or upsert \link{alloc_params_t}}
 
-\item{\code{Get}}{or upsert \link{neighbors_t}}
+\item{\code{neighbors_t}}{Get or upsert \link{neighbors_t}}
 
-\item{\code{Get}}{or upsert \link{reporting_t}}
+\item{\code{reporting_t}}{Get or upsert \link{reporting_t}}
 
-\item{\code{Get}}{or upsert \link{runs_t}}
+\item{\code{runs_t}}{Get or upsert \link{runs_t}}
 
-\item{\code{Get}}{or set active id_run, see \link{runs_t}}
+\item{\code{id_run}}{Get or set active id_run, see \link{runs_t}}
 
-\item{\code{Get}}{id_run, see \link{runs_t}}
+\item{\code{run_lineage}}{Get id_run, see \link{runs_t}}
 }
 \if{html}{\out{</div>}}
 }
@@ -111,6 +70,7 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
 \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
+\item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
 \item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
 \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
 \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
@@ -136,7 +96,6 @@ Additional methods and active bindings are added to this class in separate files
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_metadata"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_metadata'><code>evoland::parquet_db$get_table_metadata()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_path"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_path'><code>evoland::parquet_db$get_table_path()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="list_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-list_tables'><code>evoland::parquet_db$list_tables()</code></a></span></li>
-<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="print"><a href='../../evoland/html/parquet_db.html#method-parquet_db-print'><code>evoland::parquet_db$print()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="row_count"><a href='../../evoland/html/parquet_db.html#method-parquet_db-row_count'><code>evoland::parquet_db$row_count()</code></a></span></li>
 </ul>
 </details>
@@ -222,6 +181,23 @@ Character string SQL expression
 }
 }
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-print"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-print}{}}}
+\subsection{Method \code{print()}}{
+Print method for evoland_db
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$print(...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{passed to super$print}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-set_report"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-set_report}{}}}
 \subsection{Method \code{set_report()}}{
@@ -253,22 +229,25 @@ EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
 )}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{id_periods}}{Integer vector of period IDs to include in the simulation.}
+
+\item{\code{work_dir}}{Character path for Dinamica working directory. Default "dinamica_rundir".}
+
+\item{\code{keep_intermediate}}{Logical, keep intermediate Dinamica files? Default FALSE.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-eval_alloc_params_t"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-eval_alloc_params_t}{}}}
 \subsection{Method \code{eval_alloc_params_t()}}{
-Evaluates allocation parameters by running simulations over historical
-periods and comparing results against observed data using fuzzy similarity.
-For each perturbation:
-\enumerate{
-\item Runs \code{alloc_dinamica()} using historical periods to produce simulated final period
-\item Compares initial vs final observed and initial vs final simulated using fuzzy similarity
-\item Returns \code{alloc_params_t} augmented with per-transition similarity metrics
-}
+Evaluates allocation parameters in dinamica, see \code{\link[=eval_alloc_params_t]{eval_alloc_params_t()}}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$eval_alloc_params_t(
-  id_perturbations = NULL,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 )}\if{html}{\out{</div>}}
@@ -277,9 +256,6 @@ For each perturbation:
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{id_perturbations}}{Integer vector of perturbation IDs to evaluate.
-If NULL (default), evaluates all perturbations in \code{alloc_params_t}.}
-
 \item{\code{work_dir}}{Character path for Dinamica working directory. Default "dinamica_rundir".}
 
 \item{\code{keep_intermediate}}{Logical, keep intermediate Dinamica files? Default FALSE.}
@@ -291,16 +267,7 @@ If NULL (default), evaluates all perturbations in \code{alloc_params_t}.}
 \if{html}{\out{<a id="method-evoland_db-create_alloc_params_t"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-create_alloc_params_t}{}}}
 \subsection{Method \code{create_alloc_params_t()}}{
-Computes allocation parameters for all viable transitions, aggregated across
-observed periods and then randomly perturbed N times. This is a method
-on \code{evoland_db} that analyzes patch dynamics to determine expansion vs. patcher
-behavior for the Dinamica allocation procedure.
-
-The method first computes parameters for all viable transitions across observed
-periods (where \code{id_period > 1} and \code{is_extrapolated == FALSE}), then aggregates
-(mean) these parameters by transition. Finally, it creates randomly perturbed
-versions of these aggregated parameters and returns them together with the original
-estimate, i.e. the result set size is (n viable transitions) * (m perturbations + 1)
+Computes allocation parameters for all viable transitions, see \code{\link[=create_alloc_params_t]{create_alloc_params_t()}}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$create_alloc_params_t(n_perturbations = 5L, sd = 0.05)}\if{html}{\out{</div>}}
 }
@@ -308,36 +275,13 @@ estimate, i.e. the result set size is (n viable transitions) * (m perturbations 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{n_perturbations}}{Integer number of perturbed parameter sets to generate
-per transition (default: 5)}
+\item{\code{n_perturbations}}{Number of perturbed parameter sets to generate, each
+assigned to a in id_run in \link{runs_t}}
 
-\item{\code{sd}}{Standard deviation for random perturbation of frac_expander as a
-fraction (default: 0.05)}
+\item{\code{sd}}{Standard deviation for random perturbation of frac_expander}
 }
 \if{html}{\out{</div>}}
 }
-\subsection{Details}{
-The workflow is:
-\enumerate{
-\item For each transition and period pair:
-\itemize{
-\item Create rasters for the anterior and posterior periods
-\item Identify transition cells (cells that changed from anterior to posterior class)
-\item Use focal operations to determine if transition cells are adjacent to existing
-patches (expansion) or form new patches (patcher behavior)
-\item Compute patch statistics using internal C++ implementation
-}
-\item Aggregate parameters across periods (mean) for each transition
-\item For each transition, create N randomly perturbed versions:
-\itemize{
-\item Add random noise to frac_expander (normal distribution, mean=0, sd=sd)
-\item Clamp frac_expander to [0, 1]
-\item Recalculate frac_patcher as 1 - frac_expander
-}
-\item Store all perturbed versions in the \code{alloc_params_t} table
-}
-}
-
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-lulc_data_as_rast"></a>}}
@@ -362,15 +306,13 @@ NULL (default), all periods are included.}
 \if{html}{\out{<a id="method-evoland_db-fit_full_models"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-fit_full_models}{}}}
 \subsection{Method \code{fit_full_models()}}{
-Fit full models on complete data using the best partial model
-configuration for each transition.
+Fit full models on complete data using the best partial model configuration for
+each transition, see \code{\link[=fit_full_models]{fit_full_models()}}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$fit_full_models(
   partial_models,
   gof_criterion,
   maximize = TRUE,
-  na_value = NA,
-  envir = parent.frame(),
   cluster = NULL
 )}\if{html}{\out{</div>}}
 }
@@ -378,16 +320,13 @@ configuration for each transition.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{partial_models}}{A trans_models_t table with partial models (from fit_partial_models)}
+\item{\code{partial_models}}{A trans_models_t table with partial models (see \code{\link[=fit_partial_models]{fit_partial_models()}})}
 
 \item{\code{gof_criterion}}{Which goodness-of-fit metric to use for model selection (e.g., "auc")}
 
-\item{\code{maximize}}{Logical. If TRUE, higher values of gof_criterion are better. If FALSE, lower
-is better.}
+\item{\code{maximize}}{Maximize (TRUE) or minimize (FALSE) the gof_criterion?}
 
-\item{\code{na_value}}{Passed to db$trans_pred_data_v}
-
-\item{\code{envir}}{Environment in which to evaluate fit_call. Defaults to parent frame.}
+\item{\code{cluster}}{Optional cluster object for parallel processing}
 }
 \if{html}{\out{</div>}}
 }
@@ -397,14 +336,14 @@ is better.}
 \if{latex}{\out{\hypertarget{method-evoland_db-fit_partial_models}{}}}
 \subsection{Method \code{fit_partial_models()}}{
 Fit partial models for each viable transition using stratified
-sampling. Models are trained on a subsample and evaluated on held-out data.
+sampling. Models are trained on a subsample and evaluated on held-out data, see
+\code{\link[=fit_partial_models]{fit_partial_models()}} for details.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$fit_partial_models(
   fit_fun,
   sample_frac = 0.7,
   gof_fun,
   seed = NULL,
-  na_value = NA,
   cluster = NULL,
   ...
 )}\if{html}{\out{</div>}}
@@ -413,26 +352,13 @@ sampling. Models are trained on a subsample and evaluated on held-out data.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{fit_fun}}{Function to fit models. Should accept (data, ...), where data
-is a dataframe-like object with columns "result" a boolean, and predictor
-columns labelled \verb{id_pred_[0-9]+}. The function should return a fitted model
-object that can be used with the \code{\link[stats:predict]{stats::predict()}} generic. For GLMs,
-quasibinomial family is recommended. If the butcher package is available,
-consider using butcher::butcher() on the model before returning to reduce
-memory footprint. The \code{model_family} attribute is returned.}
+\item{\code{fit_fun}}{Function for generating a model object.}
 
-\item{\code{sample_frac}}{Fraction in \(0, 1\) for stratified sampling. This percentage of
-each result group (TRUE/FALSE) will be used for training, the rest for
-validation.}
+\item{\code{sample_frac}}{Fraction in \(0, 1\) for stratified sampling.}
 
-\item{\code{gof_fun}}{Function to evaluate goodness of fit. Should accept (model,
-test_data) and return a named list of metrics. \code{test_data} is of the same
-format as the fit_fun \code{data} argument.}
+\item{\code{gof_fun}}{Function to evaluate goodness of fit.}
 
 \item{\code{seed}}{Random seed for reproducible sampling}
-
-\item{\code{na_value}}{Passed to db$trans_pred_data_v - if not NA, replace all NA
-predictor values with this value}
 
 \item{\code{...}}{additional arguments passed to fit_fun}
 }
@@ -443,7 +369,7 @@ predictor values with this value}
 \if{html}{\out{<a id="method-evoland_db-set_full_trans_preds"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-set_full_trans_preds}{}}}
 \subsection{Method \code{set_full_trans_preds()}}{
-Set an initial full set of transition / predictor relations
+Set an initial full set of transition / predictor relations, see \code{\link[=set_full_trans_preds]{set_full_trans_preds()}}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_full_trans_preds(overwrite = FALSE)}\if{html}{\out{</div>}}
 }
@@ -460,13 +386,11 @@ Set an initial full set of transition / predictor relations
 \if{html}{\out{<a id="method-evoland_db-get_pruned_trans_preds_t"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-get_pruned_trans_preds_t}{}}}
 \subsection{Method \code{get_pruned_trans_preds_t()}}{
-Create a transition-predictor relation, i.e. records the
-result of a predictor selection step. Runs covariance filtering for each viable
-transition and stores the selected predictors.
+Remove predictors from the transition-predictor relation, aka
+feature selection. See \code{\link[=get_pruned_trans_preds_t]{get_pruned_trans_preds_t()}}.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_pruned_trans_preds_t(
   filter_fun = covariance_filter,
-  na_value = NA,
   cluster = NULL,
   ...
 )}\if{html}{\out{</div>}}
@@ -475,15 +399,10 @@ transition and stores the selected predictors.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{filter_fun}}{Defaults to \code{\link[=covariance_filter]{covariance_filter()}}, but can be any function that returns a
-structure like \code{\link[=as_trans_preds_t]{as_trans_preds_t()}}}
+\item{\code{filter_fun}}{Defaults to \code{\link[=covariance_filter]{covariance_filter()}}, see
+\code{\link[=get_pruned_trans_preds_t]{get_pruned_trans_preds_t()}} for details.}
 
-\item{\code{na_value}}{Passed to db$trans_pred_data_v - if not NA, replace all NA predictor values
-with this value}
-
-\item{\code{...}}{Additional arguments passed to rank_fun via \code{\link[=covariance_filter]{covariance_filter()}}}
-
-\item{\code{cores}}{Integer, number of cores to use for parallel processing. Defaults to 1.}
+\item{\code{...}}{Additional arguments passed to \code{filter_fun}.}
 }
 \if{html}{\out{</div>}}
 }
