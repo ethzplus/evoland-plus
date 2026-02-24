@@ -51,7 +51,7 @@ expect_error(
 # Test Lineage Logic (get_lineage)
 
 # Setup a hierarchy table
-# 0 -> 1 -> 2
+# genealogy 0 -> 1 -> 2
 hier_runs <- as_runs_t(list(
   id_run = c(0L, 1L, 2L),
   parent_id_run = c(NA_integer_, 0L, 1L),

@@ -88,6 +88,7 @@ test_data_3 <- data.table::data.table(
   name = c("a", "b", "c"),
   value = c(1.1, 2.2, 3.3)
 )
+data.table::setattr(test_data_3, "key_cols", "id_key")
 expect_silent({
   db$commit(test_data_3, "test_table_3", method = "upsert")
   db$commit(test_data_3, "test_table_3", method = "upsert")

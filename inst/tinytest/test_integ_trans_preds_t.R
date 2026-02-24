@@ -60,5 +60,3 @@ grrf_expected <-
       0,        3,        2
   ))
 expect_equal(grrf_results, grrf_expected)
-
-# TODO add test for parallel worker function

@@ -1,6 +1,9 @@
 library(tinytest)
 
+expect_stdout(print(as_alloc_params_t()), "(empty)")
+
 alloc_params_t <- as_alloc_params_t(list(
+  id_run = 0L,
   id_trans = 1L,
   mean_patch_size = 1.3,
   patch_size_variance = 1.4,

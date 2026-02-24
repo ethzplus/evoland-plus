@@ -16,7 +16,8 @@
 #' @return An evoland_db object in a temporary directory. The temp directory path is in db$path.
 make_test_db <- function(
   include_neighbors = TRUE,
-  include_trans_preds = TRUE
+  include_trans_preds = TRUE,
+  include_alloc_params = TRUE
 ) {
   test_dir <- tempfile("evoland_fixture_")
   db <- evoland_db$new(test_dir)
@@ -26,19 +27,23 @@ make_test_db <- function(
   db$periods_t <- evoland:::test_periods_t
   db$lulc_meta_t <- evoland:::test_lulc_meta_t
   db$lulc_data_t <- evoland:::test_lulc_data_t
-  db$pred_meta_t <- evoland:::test_pred_meta_t
-  db$pred_data_t_float <- evoland:::test_pred_data_t_float
+  db$pred_meta_t <- evoland:::test_pred_meta_t[, -"id_pred"]
+  db$pred_data_t <- evoland:::test_pred_data_t
 
   # derived tables
   db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 5L)
 
   if (include_neighbors) {
-    capture.output(suppressMessages(db$set_neighbors()))
-    capture.output(suppressMessages(db$generate_neighbor_predictors()))
+    suppressMessages(db$set_neighbors(quiet = TRUE))
+    suppressMessages(db$generate_neighbor_predictors())
   }
 
   if (include_trans_preds) {
     db$set_full_trans_preds()
+  }
+
+  if (include_alloc_params) {
+    suppressMessages(db$alloc_params_t <- db$create_alloc_params_t())
   }
 
   db

@@ -47,7 +47,7 @@ fit_mock_glm <- function(data, ...) {
   }
 
   # Create a simple formula
-  formula_str <- paste("result", "~", paste(pred_cols, collapse = " + "))
+  formula_str <- paste("did_transition", "~", paste(pred_cols, collapse = " + "))
   formula <- as.formula(formula_str)
 
   # Fit a simple GLM
@@ -59,7 +59,7 @@ fit_mock_glm <- function(data, ...) {
 # Define a goodness of fit function
 gof_mock <- function(model, test_data) {
   predictions <- predict(model, newdata = test_data, type = "response")
-  actual <- test_data[["result"]]
+  actual <- test_data[["did_transition"]]
 
   # Simple correlation-based metric
   cor_metric <- cor(predictions, actual, use = "complete.obs")
@@ -81,7 +81,6 @@ expect_message(
     gof_fun = gof_mock,
     sample_frac = 0.7,
     seed = 123,
-    na_value = 0,
     other_param = "nonce"
   ),
   "Fitting partial models for 2 transitions..."
@@ -121,7 +120,6 @@ expect_message(
     partial_models = partial_models,
     gof_criterion = "cor",
     maximize = TRUE,
-    na_value = 0
   ),
   "Fitting full models for"
 )
@@ -132,7 +130,6 @@ expect_message(
     fit_fun = fit_ranger,
     gof_fun = gof_ranger,
     seed = 1244244,
-    na_value = 0
   )
 )
 # test the package's standard glm quasibinomial fit and append to disk
@@ -141,7 +138,6 @@ expect_message(
     fit_fun = fit_glm,
     gof_fun = gof_glm,
     seed = 1244244,
-    na_value = 0
   )
 )
 expect_message(
@@ -149,7 +145,6 @@ expect_message(
     partial_models = db$trans_models_t,
     gof_criterion = "auc",
     maximize = TRUE,
-    na_value = 0
   ),
   "Fitting full models for"
 )
@@ -179,7 +174,6 @@ expect_message(
     partial_models = partial_models,
     gof_criterion = "mse",
     maximize = FALSE,
-    na_value = 0
   ),
   "Fitting full models for"
 )
@@ -308,7 +302,7 @@ expect_equal(
       list(failed = TRUE, message = "Intentional error for testing"),
       list(failed = TRUE, message = "Intentional error for testing")
     ),
-    fit_call = r"{function (data, ...) 
+    fit_call = r"{function (data, ...)
  {
      stop("Intentional error for testing")
  }}",
