@@ -154,12 +154,13 @@ tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = 
       value.var = value_col
     )
     # splice in grouping cols into names - will become layer names
-    names(data) <- c(
-      "id_coord",
+    layernames <-
       names(data)[-1] |>
-        strsplit(split = "_") |>
-        vapply(\(x) paste0(grouping_cols, "_", x, collapse = "_"), character(1))
-    )
+      strsplit(split = "_") |>
+      vapply(\(x) paste0(grouping_cols, "_", x, collapse = "_"), character(1))
+    names(data) <- c("id_coord", layernames)
+  } else {
+    layernames <- value_col
   }
 
   joint <- merge(
@@ -168,16 +169,18 @@ tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = 
     by = "id_coord"
   )
 
-  # Rasterize
-  out <- terra::rasterize(
-    x = as.matrix(joint[, .(lon, lat)]),
-    y = rast_template,
-    values = joint[, -c("id_coord", "lon", "lat")],
-    fun = "first"
-  )
-
-  if (!is_multilayer) {
-    names(out) <- value_col
-  }
-  out
+  # Rasterize in layers as a workaround for terra being weird about multicolumn values
+  lapply(
+    layernames,
+    function(layername) {
+      terra::rasterize(
+        x = as.matrix(joint[, .(lon, lat)]),
+        y = rast_template,
+        values = joint[[layername]],
+        fun = "first"
+      )
+    }
+  ) |>
+    terra::rast() |>
+    setNames(layernames)
 }
