@@ -2,7 +2,7 @@ Package: evoland
 Title: evoland-plus - or evoland for short - analyses land use evolution
 Version: 0.0.0.9000
 Authors@R:
-    person("Jan", "Hartman", , "jhartman@ethz.ch", role = c("aut", "cre"))
+    person("Jan", "Hartman", email = "jhartman@ethz.ch", role = c("aut", "cre"))
 Description: The evoland-plus package gathers land use data and can be
     used to extrapolate likely future land use patterns.
 License: AGPL (>= 3)

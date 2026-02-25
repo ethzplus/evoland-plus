@@ -121,7 +121,7 @@ zippath <- file.path(
 csv_file <-
   unzip(zippath, list = TRUE) |>
   (\(x) x[["Name"]])() |>
-  stringi::stri_subset_fixed(".csv")
+  grep(pattern = ".csv", x = _, value = TRUE)
 stopifnot(length(csv_file) == 1L)
 ```
 

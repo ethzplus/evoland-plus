@@ -114,7 +114,7 @@ pred_data_available_v <- function(self) {
 #' @param ordered - if TRUE, order output by id_period then id_coord (otherwise no
 #'        guaranteed order; need ordering for reproducible subsampling)
 #' @return data.table with columns id_coord, id_period, did_transition (bool),
-#'         and one column per predictor (id_pred_{n})
+#'         and one column per predictor (`id_pred_{n}`)
 trans_pred_data_v <- function(
   self,
   id_trans,
@@ -160,7 +160,7 @@ trans_pred_data_v <- function(
 }
 
 #' @describeIn pred_data_t Get predictor data in a wide data.table for transition potential
-#' prediction (cols id_coord, id_pred_{n})
+#' prediction (cols `id_coord, id_pred_{n}`)
 #' @param id_period_anterior Scalar integerish of anterior period ID, i.e. we
 #' get the predictors that explain the processes over the next N years
 pred_data_wide_v <- function(
@@ -200,7 +200,7 @@ pred_data_wide_v <- function(
 #' @describeIn pred_data_t In-place casting of predictor columns to their
 #' correct data types based on pred_meta_t; also fills NA values with fill_value
 #' from pred_meta_t if specified
-#' @param result data.table with predictor columns named id_pred_{n}
+#' @param result data.table with predictor columns named `id_pred_{n}`
 #' @param pred_meta_t see [pred_meta_t]
 #' @keywords internal
 set_pred_coltypes <- function(result, pred_meta_t) {

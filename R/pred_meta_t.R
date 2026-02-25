@@ -66,7 +66,8 @@ as_pred_meta_t <- function(x) {
 #'          url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
 #'          md5sum = "4b782128495b5af8467e2259bd57def2"
 #'        )
-#'      )
+#'      ),
+#'      data_type = "float"
 #'    ),
 #'    distance_to_lake = list(
 #'      unit = "m",
@@ -76,7 +77,8 @@ as_pred_meta_t <- function(x) {
 #'      sources = list(list(
 #'        url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
 #'        md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
-#'      ))
+#'      )),
+#'      data_type = "float"
 #'    )
 #'  ))
 # nolint end
