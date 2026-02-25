@@ -90,7 +90,7 @@ resolve_cols <- function(x, metadata = list(), attr = character(1)) {
   if (!is.null(cols_metadata)) {
     if (!is.null(cols_attr) && !setequal(cols_metadata, cols_attr)) {
       warning(glue::glue(
-        "Metadata for {attr} ({cols_metadata_joint}) takes precedence over",
+        "{attr} on disk ({toString(cols_metadata)}) takes precedence over ",
         "attributes ({toString(cols_attr)}) for this commit"
       ))
     }

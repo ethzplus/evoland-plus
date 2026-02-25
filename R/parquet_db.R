@@ -290,7 +290,6 @@ parquet_db <- R6::R6Class(
       methods <- character(0)
       active_bindings <- character(0)
 
-      names(self$.__enclos_env__$private)
       if (!is.null(self$.__enclos_env__$super)) {
         # exclude private super names
         super_names <- setdiff(
@@ -593,7 +592,7 @@ parquet_db <- R6::R6Class(
     register_new_data_v = function(x, map_cols = character(0)) {
       if (is.character(x)) {
         self$execute(glue::glue("create view new_data_v as from {x}"))
-        names <- self$get_query(glue::glue("select column_name from (describe {x}"))[[1]]
+        names <- self$get_query(glue::glue("select column_name from (describe {x})"))[[1]]
         return(names)
       }
 
