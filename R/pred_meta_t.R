@@ -40,10 +40,18 @@ as_pred_meta_t <- function(x) {
       factor_levels = list(character(0))
     )
   }
+
+  data.table::setDT(x) |>
+    cast_dt_col("data_type", "factor", levels = c("int", "float", "bool", "factor"))
+
   as_parquet_db_t(
     x,
     class_name = "pred_meta_t",
-    key_cols = "id_pred"
+    # would be nice to have both id_pred and name as key_cols, but would have to
+    # deal with NAs graciously when upserting, so just name for now and enforce
+    # uniqueness in validation
+    key_cols = "name",
+    autoincrement_cols = "id_pred"
   )
 }
 
