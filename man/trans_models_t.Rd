@@ -35,7 +35,7 @@ fit_full_models(
 
 \item{self, }{\link{evoland_db} instance to query for transitions and predictor data}
 
-\item{fit_fun}{Function that takes a data.frame with predictors and result columns
+\item{fit_fun}{Function that takes a data.frame with predictors and did_transition columns
 and returns a fitted model object. The data argument is passed as the first argument
 to the function, and additional arguments can be passed via ...}
 

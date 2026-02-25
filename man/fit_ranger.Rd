@@ -7,7 +7,7 @@
 fit_ranger(data, num.trees = 100, max.depth = 100, ...)
 }
 \arguments{
-\item{data}{A data.table containing the result column and predictor columns
+\item{data}{A data.table containing the did_transition column and predictor columns
 (prefixed with "id_pred_")}
 
 \item{num.trees}{Number of trees to grow in the random forest (default: 100)}

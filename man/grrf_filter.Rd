@@ -6,7 +6,7 @@
 \usage{
 grrf_filter(
   data,
-  weights = compute_balanced_weights(data[["result"]]),
+  weights = compute_balanced_weights(data[["did_transition"]]),
   gamma = 0.5,
   num.trees = 500,
   max.depth = 100,
@@ -15,7 +15,7 @@ grrf_filter(
 }
 \arguments{
 \item{data}{A data.table of target variable and candidate covariates to be filtered; wide format
-with one predictor per column. Target variable expected to be named "result".}
+with one predictor per column. Target variable expected to be named "did_transition".}
 
 \item{weights}{Optional named vector of class weights. If NULL, class-balanced weights
 are computed automatically using compute_grrf_weights().}
