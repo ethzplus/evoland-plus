@@ -58,7 +58,7 @@ run_parallel_evoland <- function(
     fun = wrapper,
     worker_fun_inner = worker_fun,
     db_path = parent_db$path,
-    id_run = parent_db$get_active_run(),
+    id_run = parent_db$id_run,
     ...
   )
 }

@@ -39,7 +39,7 @@
 covariance_filter <- function(
   data,
   rank_fun = rank_poly_glm,
-  weights = compute_balanced_weights(data[["result"]]),
+  weights = compute_balanced_weights(data[["did_transition"]]),
   corcut = 0.7,
   ...
 ) {
@@ -57,10 +57,10 @@ covariance_filter <- function(
 
   # Compute ranking scores for all covariates (vectorized where possible)
   scores <- vapply(
-    data[, -"result"],
+    data[, -"did_transition"],
     rank_fun,
     FUN.VALUE = numeric(1),
-    y = data[["result"]],
+    y = data[["did_transition"]],
     weights = weights,
     ...
   )

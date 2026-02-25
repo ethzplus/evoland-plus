@@ -47,7 +47,7 @@ get_obs_trans_rates <- function(self) {
   # subsets to active id_run, but could also just group by id_run
   lulc_expr <- self$get_read_expr("lulc_data_t")
   meta_expr <- self$get_read_expr("trans_meta_t")
-  id_run <- self$get_active_run()
+  id_run <- self$id_run
 
   result <- self$get_query(glue::glue(
     r"{

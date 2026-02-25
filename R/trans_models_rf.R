@@ -4,7 +4,7 @@
 #' Uses observation-based weighting and stratified downsampling to handle class
 #' imbalance.
 #'
-#' @param data A data.table containing the result column and predictor columns
+#' @param data A data.table containing the did_transition column and predictor columns
 #'   (prefixed with "id_pred_")
 #' @param num.trees Number of trees to grow in the random forest (default: 100)
 #' @param max.depth Maximum depth of each tree (default: 100)
@@ -43,10 +43,10 @@ fit_ranger <- function(data, num.trees = 100, max.depth = 100, ...) {
 
   # Prepare data
   x <- data[, ..pred_cols]
-  y <- as.factor(data[["result"]])
+  y <- as.factor(data[["did_transition"]])
 
   # Compute observation-based weights (same approach as grrf_filter)
-  weights <- compute_balanced_weights(data[["result"]])
+  weights <- compute_balanced_weights(data[["did_transition"]])
 
   # Get minority class size for downsampling
   class_counts <- table(y)
@@ -103,7 +103,7 @@ gof_ranger <- function(model, test_data) {
 
   # Get probability predictions for the TRUE class
   predictions <- predict(model, data = x_test)$predictions[, "TRUE"]
-  actual <- as.numeric(test_data[["result"]])
+  actual <- as.numeric(test_data[["did_transition"]])
 
   # Correlation-based metric
   cor_metric <- cor(predictions, actual, use = "complete.obs")

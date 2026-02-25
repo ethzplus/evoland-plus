@@ -7,7 +7,7 @@
 #' resulting in a more parsimonious feature set.
 #'
 #' @param data A data.table of target variable and candidate covariates to be filtered; wide format
-#'        with one predictor per column. Target variable expected to be named "result".
+#'        with one predictor per column. Target variable expected to be named "did_transition".
 #' @param weights Optional named vector of class weights. If NULL, class-balanced weights
 #'        are computed automatically using compute_grrf_weights().
 #' @param gamma Numeric between 0-1 controlling the weight of the normalized importance
@@ -49,7 +49,7 @@
 
 grrf_filter <- function(
   data,
-  weights = compute_balanced_weights(data[["result"]]),
+  weights = compute_balanced_weights(data[["did_transition"]]),
   gamma = 0.5,
   num.trees = 500,
   max.depth = 100,
@@ -73,8 +73,8 @@ grrf_filter <- function(
   )
 
   # Prepare data: separate predictors from response
-  predictor_cols <- setdiff(names(data), "result")
-  y <- as.factor(data[["result"]])
+  predictor_cols <- setdiff(names(data), "did_transition")
+  y <- as.factor(data[["did_transition"]])
   x <- data[, ..predictor_cols]
 
   # Step 1: Run initial unregularized random forest to get importance scores

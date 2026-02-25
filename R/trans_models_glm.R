@@ -25,7 +25,7 @@ fit_glm <- function(data, ...) {
   }
 
   # Create formula
-  formula_str <- paste("result", "~", paste(pred_cols, collapse = " + "))
+  formula_str <- paste("did_transition", "~", paste(pred_cols, collapse = " + "))
   formula <- as.formula(formula_str)
 
   model <- glm(formula, data = data, family = quasibinomial())
@@ -74,7 +74,7 @@ fit_glm <- function(data, ...) {
 #' @export
 gof_glm <- function(model, test_data, ...) {
   predictions <- predict(model, newdata = test_data, type = "response")
-  actual <- test_data[["result"]]
+  actual <- test_data[["did_transition"]]
 
   # Correlation-based metric
   cor_metric <- cor(predictions, actual, use = "complete.obs")

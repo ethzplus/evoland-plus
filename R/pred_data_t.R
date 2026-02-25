@@ -128,7 +128,7 @@ trans_pred_data_v <- function(
     "id_pred must be missing or a numeric vector" = {
       missing(id_pred) || all(as.integer(id_pred) == id_pred)
     },
-    "run_id must be set" = !is.null(self$run_id)
+    "id_run must be set" = !is.null(self$id_run)
   )
 
   pred_meta_t <- self$pred_meta_t
@@ -153,7 +153,7 @@ trans_pred_data_v <- function(
   set_pred_coltypes(result, pred_meta_t)
 
   if (ordered) {
-    data.table::setkeys(result, c("id_coord", "id_period"))
+    data.table::setkeyv(result, c("id_coord", "id_period_anterior"))
   }
 
   result
@@ -175,7 +175,7 @@ pred_data_wide_v <- function(
     "id_period_anterior must be a single integer" = {
       length(id_period_anterior) == 1L && as.integer(id_period_anterior) == id_period_anterior
     },
-    "run_id must be set" = !is.null(self$run_id)
+    "id_run must be set" = !is.null(self$id_run)
   )
 
   result <-

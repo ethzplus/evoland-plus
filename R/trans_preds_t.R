@@ -139,7 +139,7 @@ prune_trans_worker <- function(item, db, filter_fun, ...) {
       # Return ranked + filtered predictor names as id_pred_{n}
       filtered_preds <- filter_fun(
         # drop vars that are irrelevant to the filtering
-        data = trans_pred_data[, .SD, .SDcols = !c("id_coord", "id_period")],
+        data = trans_pred_data[, .SD, .SDcols = !c("id_coord", "id_period_anterior")],
         ...
       )
 

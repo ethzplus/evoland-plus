@@ -31,6 +31,11 @@ as_trans_models_t <- function(x) {
       model_obj_full = list()
     )
   }
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_run", "int") |>
+    cast_dt_col("id_trans", "int")
+
   as_parquet_db_t(
     x,
     "trans_models_t",
@@ -51,9 +56,9 @@ fit_partial_model_worker <- function(
   sample_frac = 0.7,
   ...
 ) {
-  id_run_orig <- db$get_active_run()
-  on.exit(db$set_active_run(id_run_orig), add = TRUE)
-  db$set_active_run(item[["id_run"]])
+  id_run_orig <- db$id_run
+  on.exit(db$id_run <- id_run_orig, add = TRUE)
+  db$id_run <- item[["id_run"]]
 
   # We modify the fit_fun by attaching the fit_fun_args to its formals. This allows
   # us to deparse it so as to store a string representation. When calling the
@@ -91,9 +96,9 @@ fit_partial_model_worker <- function(
       }
 
       # Stratified sampling
-      # Split by result (TRUE/FALSE)
-      idx_true <- which(trans_pred_data_full$result)
-      idx_false <- which(!trans_pred_data_full$result)
+      # Split by did_transition (TRUE/FALSE)
+      idx_true <- which(trans_pred_data_full[["did_transition"]])
+      idx_false <- which(!trans_pred_data_full[["did_transition"]])
 
       # Sample from each group
       n_train_true <- ceiling(length(idx_true) * sample_frac)
@@ -219,7 +224,7 @@ fit_full_model_worker <- function(item, db, ...) {
 #' @describeIn trans_models_t Fit partial models for each viable transition and store
 #' results in a trans_models_t table.
 #' @param self, [evoland_db] instance to query for transitions and predictor data
-#' @param fit_fun Function that takes a data.frame with predictors and result columns
+#' @param fit_fun Function that takes a data.frame with predictors and did_transition columns
 #' and returns a fitted model object. The data argument is passed as the first argument
 #' to the function, and additional arguments can be passed via ...
 #' @param gof_fun Function that takes a fitted model object and a test data.frame and
