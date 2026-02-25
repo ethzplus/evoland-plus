@@ -12,7 +12,6 @@
 #' Additional methods and active bindings are added to this class in separate files:
 #'
 #' - [evoland_db_views] - View active bindings (lulc_meta_long_v, etc.) and methods
-#' - [evoland_db_neighbors] - Neighbor analysis methods
 #'
 #' @include parquet_db.R parquet_db_utils.R
 #' @export
@@ -106,6 +105,46 @@ evoland_db <- R6::R6Class(
     #' as its key
     set_report = function(...) {
       create_method_binding(db_set_report)
+    },
+
+    #' @description Set the neighbors table, see [set_neighbors()]
+    #' @param max_distance Maximum distance
+    #' @param distance_breaks Numeric vector of distance breaks
+    #' @param overwrite Logical, whether to overwrite existing neighbors_t table
+    #' @param quiet Logical, whether to suppress messages about progress
+    #' @param chunksize Integer, chunksize for writing; keeps down memory pressure
+    set_neighbors = function(
+      max_distance = 1000,
+      distance_breaks = NULL,
+      overwrite = FALSE,
+      quiet = FALSE,
+      chunksize = 1e8
+    ) {
+      create_method_binding(set_neighbors)
+    },
+
+    #' @description Generate neighbor prediction table, i.e. "how many neighbors within
+    #' distance X are of type Y", see [generate_neighbor_predictors()]
+    #' @param id_periods Which periods to calculate predictors for; if missing, use all
+    #' periods.
+    generate_neighbor_predictors = function(id_periods) {
+      create_method_binding(generate_neighbor_predictors)
+    },
+
+    #' @description Get transitions along with their predictor data in a wide
+    #' data.table, see [trans_pred_data_v()]
+    #' @param id_trans Integer transition ID, see [trans_meta_t]
+    #' @param id_pred Optional integer vector of predictor IDs to include
+    #' @param ordered - if TRUE, order output by `id_coord` & `id_period`
+    trans_pred_data_v = function(id_trans, id_pred, ordered = FALSE) {
+      create_method_binding(trans_pred_data_v)
+    },
+
+    #' @description Retrieve a wide view of the predictor data, see [pred_data_wide_v()]
+    #' @param id_trans Integer transition ID, see [trans_meta_t]
+    #' @param id_period_anterior Integer ID of period to retrieve data for
+    pred_data_wide_v = function(id_trans, id_period_anterior) {
+      create_method_binding(pred_data_wide_v)
     },
 
     ### Allocation methods ---

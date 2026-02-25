@@ -6,6 +6,8 @@
 \alias{create_neighbors_t}
 \alias{validate.neighbors_t}
 \alias{print.neighbors_t}
+\alias{set_neighbors}
+\alias{generate_neighbor_predictors}
 \title{Create Neighbors Table}
 \usage{
 as_neighbors_t(x)
@@ -20,6 +22,17 @@ create_neighbors_t(
 \method{validate}{neighbors_t}(x, ...)
 
 \method{print}{neighbors_t}(x, nrow = 10, ...)
+
+set_neighbors(
+  self,
+  max_distance = 1000,
+  distance_breaks = c(0, 100, 500, 1000),
+  overwrite = FALSE,
+  quiet = FALSE,
+  chunksize = 1e+08
+)
+
+generate_neighbor_predictors(self)
 }
 \arguments{
 \item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
@@ -34,6 +47,11 @@ If provided, must have at least 2 elements defining interval breaks.}
 \item{...}{Passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{nrow}{Maximum number of rows to print. See \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{self}{An evoland_db object}
+
+\item{chunksize}{Number of rows to write per chunk when inserting into the database
+to avoid memory issues (default: 1e8)}
 }
 \value{
 A data.table of class "neighbors_t" with columns:
@@ -66,5 +84,16 @@ Creates a \code{neighbors_t} table and validates that it matches the schema.
 \itemize{
 \item \code{create_neighbors_t()}: Compute neighboring coordinates within specified distances.
 This uses a spatial hash map for efficiency.
+
+\item \code{set_neighbors()}: Compute neighbor relationships between coordinates
+and store in \code{self$neighbors_t}. This uses a spatial hash map for efficiency
+and can produce a very large table depending on max_distance.
+
+\item \code{generate_neighbor_predictors()}: Generates neighbor predictors based on neighbor land
+use counts by distance class, e.g. "10 coordinate points within 200-500m are
+of class forest". This requires that \code{neighbors_t}, \code{lulc_data_t},
+\code{lulc_meta_t}, and \code{pred_meta_t} are all present in the database. The
+generated predictors are stored in \code{pred_data_t} and metadata in
+\code{pred_meta_t}.
 
 }}

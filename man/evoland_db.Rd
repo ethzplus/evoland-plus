@@ -15,7 +15,6 @@ Inherits from \link{parquet_db} for generic database operations.
 Additional methods and active bindings are added to this class in separate files:
 \itemize{
 \item \link{evoland_db_views} - View active bindings (lulc_meta_long_v, etc.) and methods
-\item \link{evoland_db_neighbors} - Neighbor analysis methods
 }
 }
 \section{Super class}{
@@ -65,13 +64,15 @@ Additional methods and active bindings are added to this class in separate files
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
-\item \href{#method-evoland_db-set_neighbors}{\code{evoland_db$set_neighbors()}}
-\item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
 \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
 \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
 \item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
 \item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
+\item \href{#method-evoland_db-set_neighbors}{\code{evoland_db$set_neighbors()}}
+\item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
+\item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
+\item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
 \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
 \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
 \item \href{#method-evoland_db-create_alloc_params_t}{\code{evoland_db$create_alloc_params_t()}}
@@ -100,30 +101,6 @@ Additional methods and active bindings are added to this class in separate files
 </ul>
 </details>
 }}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-set_neighbors"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-set_neighbors}{}}}
-\subsection{Method \code{set_neighbors()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_neighbors(
-  max_distance = 1000,
-  distance_breaks = c(0, 100, 500, 1000),
-  overwrite = FALSE,
-  quiet = FALSE,
-  chunksize = 1e+08
-)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-generate_neighbor_predictors"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-generate_neighbor_predictors}{}}}
-\subsection{Method \code{generate_neighbor_predictors()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$generate_neighbor_predictors()}\if{html}{\out{</div>}}
-}
-
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
@@ -211,6 +188,99 @@ Set reporting metadata, see \code{\link[=db_set_report]{db_set_report()}}
 \describe{
 \item{\code{...}}{each named argument is entered into the table with the argument name
 as its key}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-set_neighbors"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-set_neighbors}{}}}
+\subsection{Method \code{set_neighbors()}}{
+Set the neighbors table, see \code{\link[=set_neighbors]{set_neighbors()}}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$set_neighbors(
+  max_distance = 1000,
+  distance_breaks = NULL,
+  overwrite = FALSE,
+  quiet = FALSE,
+  chunksize = 1e+08
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{max_distance}}{Maximum distance}
+
+\item{\code{distance_breaks}}{Numeric vector of distance breaks}
+
+\item{\code{overwrite}}{Logical, whether to overwrite existing neighbors_t table}
+
+\item{\code{quiet}}{Logical, whether to suppress messages about progress}
+
+\item{\code{chunksize}}{Integer, chunksize for writing; keeps down memory pressure}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-generate_neighbor_predictors"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-generate_neighbor_predictors}{}}}
+\subsection{Method \code{generate_neighbor_predictors()}}{
+Generate neighbor prediction table, i.e. "how many neighbors within
+distance X are of type Y", see \code{\link[=generate_neighbor_predictors]{generate_neighbor_predictors()}}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$generate_neighbor_predictors(id_periods)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{id_periods}}{Which periods to calculate predictors for; if missing, use all
+periods.}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-trans_pred_data_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-trans_pred_data_v}{}}}
+\subsection{Method \code{trans_pred_data_v()}}{
+Get transitions along with their predictor data in a wide
+data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_pred_data_v(id_trans, id_pred, ordered = FALSE)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
+
+\item{\code{id_pred}}{Optional integer vector of predictor IDs to include}
+
+\item{\code{ordered}}{\itemize{
+\item if TRUE, order output by \code{id_coord} & \code{id_period}
+}}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-pred_data_wide_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-pred_data_wide_v}{}}}
+\subsection{Method \code{pred_data_wide_v()}}{
+Retrieve a wide view of the predictor data, see \code{\link[=pred_data_wide_v]{pred_data_wide_v()}}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$pred_data_wide_v(id_trans, id_period_anterior)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
+
+\item{\code{id_period_anterior}}{Integer ID of period to retrieve data for}
 }
 \if{html}{\out{</div>}}
 }
