@@ -96,7 +96,7 @@ lulc_data_as_rast <- function(self, id_period = NULL) {
   where_clause <- NULL
   if (!is.null(id_period)) {
     period_list <- toString(as.integer(id_period))
-    where_clause <- glue::glue("WHERE id_period IN ({period_list})")
+    where_clause <- glue::glue("id_period in ({period_list})")
   }
 
   data <- self$fetch("lulc_data_t", where = where_clause)
