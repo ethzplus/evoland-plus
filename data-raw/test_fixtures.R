@@ -86,6 +86,7 @@ test_pred_meta_t <- create_pred_meta_t(test_pred_spec, with_id_pred = TRUE)
 set.seed(43)
 test_pred_data_t <- as_pred_data_t(
   rbind(
+    # TODO add some time-varying predictors
     # Static predictors (period 0)
     data.table(
       id_run = 0L,

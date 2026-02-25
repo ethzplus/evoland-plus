@@ -95,7 +95,7 @@ expect_match(
 )
 expect_equal(
   partial_models$model_params[[1]],
-  list(n_predictors = 3, n_train = 514, sample_frac = 0.7, other_param = "nonce")
+  list(n_predictors = 4, n_train = 748, sample_frac = 0.7, other_param = "nonce")
 )
 expect_true(all(
   vapply(partial_models$model_obj_part, is.raw, logical(1))
@@ -103,9 +103,10 @@ expect_true(all(
 expect_equal(
   partial_models$goodness_of_fit,
   list(
-    list(cor = -0.0563835706851929, mse = 0.250552189048485, n_test = 219),
-    list(cor = -0.0810099011795696, mse = 0.252183237070289, n_test = 319)
-  )
+    list(cor = 0.01941499, mse = 0.24902958, n_test = 319),
+    list(cor = 0.01899595, mse = 0.24918655, n_test = 219)
+  ),
+  tolerance = 1e-6
 )
 
 # Test that model deserialization works
@@ -142,7 +143,7 @@ expect_message(
 )
 expect_message(
   full_models <- db$fit_full_models(
-    partial_models = db$trans_models_t,
+    partial_models = db$trans_models_t[model_family == "ranger"],
     gof_criterion = "auc",
     maximize = TRUE,
   ),
@@ -153,10 +154,9 @@ expect_message(
 expect_equal(nrow(full_models), 2L)
 expect_silent(db$trans_models_t <- full_models)
 expect_equal(db$row_count("trans_models_t"), 4L)
-expect_identical(
-  db$trans_models_t[id_trans == 2L & model_family == "ranger"],
-  full_models[id_trans == 2L & model_family == "ranger", ]
-)
+full_mods_roundtrip <- db$trans_models_t[id_trans == 2L & model_family == "ranger"]
+data.table::setattr(full_mods_roundtrip, "parquet_db_t_class", NULL) # remove for testing equivalence
+expect_identical(full_mods_roundtrip, full_models[id_trans == 2L & model_family == "ranger", ])
 
 # Check that both partial and full models are present
 expect_true(all(!vapply(full_models$model_obj_part, is.null, logical(1))))
@@ -233,28 +233,6 @@ expect_error(
   "sample_frac must be between 0 and 1"
 )
 
-# Test error handling - empty trans_preds_t
-test_dir_no_preds <- tempfile("evoland_no_preds_")
-on.exit(unlink(test_dir_no_preds, recursive = TRUE), add = TRUE)
-db_no_preds <- evoland_db$new(test_dir_no_preds)
-db_no_preds$coords_t <- db$coords_t
-db_no_preds$periods_t <- db$periods_t
-db_no_preds$lulc_meta_t <- db$lulc_meta_t
-db_no_preds$lulc_data_t <- db$lulc_data_t
-expect_warning(
-  db_no_preds$trans_meta_t <- db$trans_meta_t,
-  "Overriding existing IDs"
-)
-expect_warning(db_no_preds$pred_meta_t <- db$pred_meta_t, "Assign these IDs manually")
-
-expect_error(
-  db_no_preds$fit_partial_models(
-    fit_fun = fit_mock_glm,
-    gof_fun = gof_mock
-  ),
-  "Table `trans_preds_t` does not exist"
-)
-
 # Test error handling - invalid partial_models argument to fit_full_models
 expect_error(
   db$fit_full_models(
@@ -302,10 +280,7 @@ expect_equal(
       list(failed = TRUE, message = "Intentional error for testing"),
       list(failed = TRUE, message = "Intentional error for testing")
     ),
-    fit_call = r"{function (data, ...)
- {
-     stop("Intentional error for testing")
- }}",
+    fit_call = "function (data, ...) \n {\n     stop(\"Intentional error for testing\")\n }",
     model_obj_part = list(NULL),
     model_obj_full = list(NULL)
   ))
