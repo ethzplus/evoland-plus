@@ -114,7 +114,7 @@ set_full_trans_preds <- function(self, overwrite = FALSE) {
 
 # Worker function for parallel transition pruning
 # Not exported; used internally by get_pruned_trans_preds_t
-prune_trans_worker <- function(item, db, filter_fun, ...) {
+prune_trans_worker <- function(item, db, filter_fun, ordered_pred_data = FALSE, ...) {
   # item is just a data.table slice. expecting scalar id_run and id_trans
   id_run <- item[["id_run"]][1L]
   id_trans <- item[["id_trans"]][1L]
@@ -125,7 +125,8 @@ prune_trans_worker <- function(item, db, filter_fun, ...) {
       # Get wide transition-predictor data
       trans_pred_data <- db$trans_pred_data_v(
         id_trans = id_trans,
-        id_pred = id_pred
+        id_pred = id_pred,
+        ordered = ordered_pred_data
       )
 
       # Check if we have any data
@@ -178,10 +179,13 @@ prune_trans_worker <- function(item, db, filter_fun, ...) {
 #' returns a character vector of column names to keep, see e.g. [covariance_filter]
 #' @param na_value Value to use for missing data when retrieving predictor data
 #' @param cluster An optional cluster object, see [run_parallel_evoland]
+#' @param ordered_pred_data Bool, should the predictor data be ordered? needed
+#' for fully deterministic behavior
 get_pruned_trans_preds_t <- function(
   self,
   filter_fun = covariance_filter,
   cluster = NULL,
+  ordered_pred_data = FALSE,
   ...
 ) {
   if (self$row_count("trans_preds_t") == 0) {
@@ -197,6 +201,7 @@ get_pruned_trans_preds_t <- function(
     parent_db = self,
     cluster = cluster,
     filter_fun = filter_fun,
+    ordered_pred_data = ordered_pred_data,
     ...
   ) |>
     data.table::rbindlist() |>
