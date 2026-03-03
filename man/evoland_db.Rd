@@ -71,6 +71,7 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
 \item \href{#method-evoland_db-set_neighbors}{\code{evoland_db$set_neighbors()}}
 \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
+\item \href{#method-evoland_db-append_new_neighbors}{\code{evoland_db$append_new_neighbors()}}
 \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
 \item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
 \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
@@ -141,7 +142,8 @@ A new \code{evoland_db} object
 \if{html}{\out{<a id="method-evoland_db-get_read_expr"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-get_read_expr}{}}}
 \subsection{Method \code{get_read_expr()}}{
-Get SQL expression to read a table, respecting active run hierarchy
+Get SQL expression to read a table, respecting active run hierarchy. For each
+data slice, returns data from the closest ancestor run that has it.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_read_expr(table_name)}\if{html}{\out{</div>}}
 }
@@ -154,7 +156,7 @@ Get SQL expression to read a table, respecting active run hierarchy
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-Character string SQL expression
+Character string SQL expression (a composable subquery)
 }
 }
 \if{html}{\out{<hr>}}
@@ -230,14 +232,24 @@ Set the neighbors table, see \code{\link[=set_neighbors]{set_neighbors()}}
 Generate neighbor prediction table, i.e. "how many neighbors within
 distance X are of type Y", see \code{\link[=generate_neighbor_predictors]{generate_neighbor_predictors()}}
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$generate_neighbor_predictors(id_periods)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$generate_neighbor_predictors()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-append_new_neighbors"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-append_new_neighbors}{}}}
+\subsection{Method \code{append_new_neighbors()}}{
+Append new neighbors to predictor for a given period; depends on
+generate_neighbor_predictors() having been run.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$append_new_neighbors(id_period)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{id_periods}}{Which periods to calculate predictors for; if missing, use all
-periods.}
+\item{\code{id_period}}{Period to calculate predictors for}
 }
 \if{html}{\out{</div>}}
 }
@@ -360,7 +372,7 @@ assigned to a in id_run in \link{runs_t}}
 Retrieve LULC data as a SpatRaster object for a given
 period. See \code{\link[=lulc_data_as_rast]{lulc_data_as_rast()}}
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$lulc_data_as_rast(extent = NULL, id_period = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$lulc_data_as_rast(id_period = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -430,6 +442,8 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
 
 \item{\code{seed}}{Random seed for reproducible sampling}
 
+\item{\code{cluster}}{Optional cluster object for parallel processing}
+
 \item{\code{...}}{additional arguments passed to fit_fun}
 }
 \if{html}{\out{</div>}}
@@ -472,6 +486,8 @@ feature selection. See \code{\link[=get_pruned_trans_preds_t]{get_pruned_trans_p
 \item{\code{filter_fun}}{Defaults to \code{\link[=covariance_filter]{covariance_filter()}}, see
 \code{\link[=get_pruned_trans_preds_t]{get_pruned_trans_preds_t()}} for details.}
 
+\item{\code{cluster}}{Optional cluster object for parallel processing}
+
 \item{\code{...}}{Additional arguments passed to \code{filter_fun}.}
 }
 \if{html}{\out{</div>}}
@@ -483,13 +499,13 @@ feature selection. See \code{\link[=get_pruned_trans_preds_t]{get_pruned_trans_p
 \subsection{Method \code{predict_trans_pot()}}{
 Predict the transition potential for a given period, see \code{\link[=trans_pot_t]{trans_pot_t()}}
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$predict_trans_pot(id_period)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$predict_trans_pot(id_period_post)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{id_period_post}}{Integerish, period for which to predict}
+\item{\code{id_period_post}}{Integerish, posterior period of the transition probability interval}
 }
 \if{html}{\out{</div>}}
 }

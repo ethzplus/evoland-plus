@@ -37,55 +37,23 @@ evoland_db <- R6::R6Class(
       update_reporting = TRUE,
       ...
     ) {
-      # Initialize parent class with spatial extension
-      super$initialize(
-        path = path,
-        extensions = "spatial"
-      )
-
-      # Set evoland-specific reporting metadata
+      super$initialize(path = path, extensions = "spatial")
       if (update_reporting) {
         self$set_report(...)
       }
-
-      # ensure there is a minimal runs_t
+      # ensure there is a minimal runs_t with base case
       self$commit(as_runs_t(), "runs_t", method = "upsert")
       self$id_run <- id_run
-
       invisible(self)
     },
 
     #' @description
-    #' Get SQL expression to read a table, respecting active run hierarchy
+    #' Get SQL expression to read a table, respecting active run hierarchy. For each
+    #' data slice, returns data from the closest ancestor run that has it.
     #' @param table_name Character string table name
-    #' @return Character string SQL expression
+    #' @return Character string SQL expression (a composable subquery)
     get_read_expr = function(table_name) {
-      # instead of using the run scoping, just describe the table for an id_run
-
-      lineage <- private$run_lineage
-      if (!table_name %in% private$run_scoped_tables || length(lineage) == 1L) {
-        return(super$get_read_expr(table_name))
-      }
-
-      path <- self$get_table_path(table_name)
-      is_partitioned <- !is.null(self$partitioning[[table_name]]) || dir.exists(path)
-
-      base_expr <- super$get_table_path(table_name)
-      run_case <- paste0(
-        "case id_run ",
-        paste(
-          sprintf("when %s then %s", lineage, seq_along(lineage)),
-          collapse = " "
-        ),
-        " else 999999 end"
-      )
-      glue::glue(
-        "(select * from {base_expr} where id_run = (",
-        "select id_run from {base_expr} ",
-        "where id_run in ({toString(lineage)}) ",
-        "order by {run_case} limit 1",
-        "))"
-      )
+      create_method_binding(get_evoland_db_read_expr, with_super = TRUE)
     },
 
     #' @description Print method for evoland_db
@@ -125,10 +93,15 @@ evoland_db <- R6::R6Class(
 
     #' @description Generate neighbor prediction table, i.e. "how many neighbors within
     #' distance X are of type Y", see [generate_neighbor_predictors()]
-    #' @param id_periods Which periods to calculate predictors for; if missing, use all
-    #' periods.
-    generate_neighbor_predictors = function(id_periods) {
+    generate_neighbor_predictors = function() {
       create_method_binding(generate_neighbor_predictors)
+    },
+
+    #' @description Append new neighbors to predictor for a given period; depends on
+    #' generate_neighbor_predictors() having been run.
+    #' @param id_period Period to calculate predictors for
+    append_new_neighbors = function(id_period) {
+      create_method_binding(append_new_neighbors)
     },
 
     #' @description Get transitions along with their predictor data in a wide
@@ -185,7 +158,7 @@ evoland_db <- R6::R6Class(
     #' period. See [lulc_data_as_rast()]
     #' @param id_period Optional integer vector of period IDs to include. If
     #'   NULL (default), all periods are included.
-    lulc_data_as_rast = function(extent = NULL, id_period = NULL) {
+    lulc_data_as_rast = function(id_period = NULL) {
       create_method_binding(lulc_data_as_rast)
     },
 
@@ -212,6 +185,7 @@ evoland_db <- R6::R6Class(
     #' @param gof_fun Function to evaluate goodness of fit.
     #' @param sample_frac Fraction in \(0, 1\) for stratified sampling.
     #' @param seed Random seed for reproducible sampling
+    #' @param cluster Optional cluster object for parallel processing
     #' @param ... additional arguments passed to fit_fun
     fit_partial_models = function(
       fit_fun,
@@ -235,6 +209,7 @@ evoland_db <- R6::R6Class(
     #' feature selection. See [get_pruned_trans_preds_t()].
     #' @param filter_fun Defaults to [covariance_filter()], see
     #' [get_pruned_trans_preds_t()] for details.
+    #' @param cluster Optional cluster object for parallel processing
     #' @param ... Additional arguments passed to `filter_fun`.
     get_pruned_trans_preds_t = function(
       filter_fun = covariance_filter,
@@ -246,8 +221,8 @@ evoland_db <- R6::R6Class(
 
     #' @description
     #' Predict the transition potential for a given period, see [trans_pot_t()]
-    #' @param id_period_post Integerish, period for which to predict
-    predict_trans_pot = function(id_period) {
+    #' @param id_period_post Integerish, posterior period of the transition probability interval
+    predict_trans_pot = function(id_period_post) {
       create_method_binding(predict_trans_pot)
     },
 
@@ -268,7 +243,7 @@ evoland_db <- R6::R6Class(
     #' @field lulc_data_t Get or upsert [lulc_data_t]
     lulc_data_t = create_table_binding("lulc_data_t", "append"),
     #' @field pred_data_t Get or upsert [pred_data_t]
-    pred_data_t = create_table_binding("pred_data_t", "append"),
+    pred_data_t = create_table_binding("pred_data_t", "upsert"),
     #' @field pred_meta_t Get or upsert [pred_meta_t]
     pred_meta_t = create_table_binding("pred_meta_t", "upsert"),
     #' @field trans_meta_t Get or upsert [trans_meta_t]
