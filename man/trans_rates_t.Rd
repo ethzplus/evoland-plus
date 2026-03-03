@@ -12,7 +12,7 @@ as_trans_rates_t(x)
 
 get_obs_trans_rates(self)
 
-extrapolate_trans_rates(obs_rates, periods)
+extrapolate_trans_rates(obs_rates, periods, coord_count = NA_integer_)
 
 \method{print}{trans_rates_t}(x, nrow = 10, ...)
 }
@@ -20,6 +20,13 @@ extrapolate_trans_rates(obs_rates, periods)
 \item{x}{A list or data.frame coercible to a data.table}
 
 \item{self}{a DB instance}
+
+\item{obs_rates}{A trans_rates_t table of observed transition rates for historical periods}
+
+\item{periods}{A periods_t table with is_extrapolated = TRUE for future periods}
+
+\item{coord_count}{Optional integer specifying the number of coordinates
+(cells) for normalization}
 
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 

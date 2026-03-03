@@ -29,7 +29,9 @@ as_trans_rates_t <- function(x) {
   data.table::setDT(x) |>
     cast_dt_col("id_run", "int") |>
     cast_dt_col("id_period", "int") |>
-    cast_dt_col("id_trans", "int")
+    cast_dt_col("id_trans", "int") |>
+    cast_dt_col("count", "int") |>
+    cast_dt_col("rate", "float")
 
   as_parquet_db_t(
     x,
@@ -45,9 +47,9 @@ as_trans_rates_t <- function(x) {
 #' @keywords internal
 get_obs_trans_rates <- function(self) {
   # subsets to active id_run, but could also just group by id_run
+  stopifnot("id_run must be set" = !is.null(self$id_run))
   lulc_expr <- self$get_read_expr("lulc_data_t")
   meta_expr <- self$get_read_expr("trans_meta_t")
-  id_run <- self$id_run
 
   result <- self$get_query(glue::glue(
     r"{
@@ -63,11 +65,9 @@ get_obs_trans_rates <- function(self) {
       on
         curr.id_coord = prev.id_coord
         and curr.id_period = prev.id_period + 1
-        and curr.id_run = prev.id_run
     ),
     counts as (
       select
-        id_run,
         id_period,
         id_lulc_anterior,
         id_lulc_posterior,
@@ -75,21 +75,20 @@ get_obs_trans_rates <- function(self) {
       from
         trans_v
       group by
-        id_run, id_period, id_lulc_anterior, id_lulc_posterior
+        id_period, id_lulc_anterior, id_lulc_posterior
     ),
     totals as (
       select
-        id_run,
         id_period,
         id_lulc_anterior,
         sum(n) as total
       from
         counts
       group by
-        id_run, id_period, id_lulc_anterior
+        id_period, id_lulc_anterior
     )
     select
-      {id_run} as id_run,
+      {self$id_run} as id_run,
       c.id_period,
       m.id_trans,
       c.n as count,
@@ -112,8 +111,12 @@ get_obs_trans_rates <- function(self) {
 #' @describeIn trans_rates_t Return future transition rates using linear regression. For
 #' each id_run + id_trans, fits a linear model of rate vs period number and extrapolates
 #' to future periods. Negative predicted rates are set to 0.
+#' @param obs_rates A trans_rates_t table of observed transition rates for historical periods
+#' @param periods A periods_t table with is_extrapolated = TRUE for future periods
+#' @param coord_count Optional integer specifying the number of coordinates
+#' (cells) for normalization
 #' @export
-extrapolate_trans_rates <- function(obs_rates, periods) {
+extrapolate_trans_rates <- function(obs_rates, periods, coord_count = NA_integer_) {
   stopifnot(
     inherits(obs_rates, "trans_rates_t"),
     inherits(periods, "periods_t")
@@ -127,7 +130,7 @@ extrapolate_trans_rates <- function(obs_rates, periods) {
   }
 
   # split into list of subtables
-  # fit model for each (id_run, id_trans) combination
+  # fit model for each (id_trans) combination
   # extrapolate
   obs_rates |>
     split(by = c("id_run", "id_trans")) |>
@@ -153,7 +156,7 @@ extrapolate_trans_rates <- function(obs_rates, periods) {
         id_run = subtable$id_run[1],
         id_trans = subtable$id_trans[1],
         id_period = future_periods,
-        count = NA_integer_,
+        count = as.integer(round(coord_count * predictions)), # convert back to counts for storage
         rate = predictions
       )
     }) |>
@@ -182,7 +185,7 @@ validate.trans_rates_t <- function(x, ...) {
     "id_trans is not integer" = is.integer(x[["id_trans"]]),
     "rate is not numeric" = is.numeric(x[["rate"]]),
     "rate is negative" = all(x[["rate"]] >= 0, na.rm = TRUE),
-    "duplicated id_run, id_period, id_trans tuple" = !anyDuplicated(
+    "duplicated id_period, id_trans tuple" = !anyDuplicated(
       x,
       by = c("id_run", "id_period", "id_trans")
     )
