@@ -8,25 +8,21 @@
 #' @include trans_models_t.R alloc_params_t.R
 NULL
 
-#' Private helper: Set up input files for a single Dinamica allocation iteration
-#'
+#' @describeIn alloc_dinamica Private helper: Set up input files for a single Dinamica
+#' allocation iteration
 #' @param self The evoland_db instance
 #' @param id_period_ant Integer, anterior period ID
 #' @param id_period_post Integer, posterior period ID
-#' @param id_perturbation Integer, perturbation ID for selecting allocation parameters
 #' @param anterior_rast SpatRast with anterior LULC state
 #' @param temp_dir Character, path to temporary directory
-#'
 #' @return List with paths to created files
 #' @keywords internal
 alloc_dinamica_setup_inputs <- function(
   self,
   id_period_ant,
   id_period_post,
-  id_perturbation,
   anterior_rast,
-  temp_dir,
-  trans_pots_t
+  temp_dir
 ) {
   # Get metadata
   coords_meta <- self$get_table_metadata("coords_t")
@@ -54,12 +50,9 @@ alloc_dinamica_setup_inputs <- function(
 
   message(glue::glue("  Wrote transition rates to {basename(trans_rates_path)}"))
 
-  # 2. Get allocation parameters for this perturbation
+  # 2. Get allocation parameters for this run
   alloc_params_full <-
-    self$alloc_params_t[
-      .id == id_perturbation,
-      env = list(.id = id_perturbation)
-    ] |>
+    self$alloc_params_t |> # TODO make sure this retrieves the active run id's alloc_params_t
     merge(
       viable_trans[, .(id_trans, id_lulc_anterior, id_lulc_posterior)],
       by = "id_trans"
@@ -115,7 +108,11 @@ alloc_dinamica_setup_inputs <- function(
   message("  Writing probability maps...")
   coords_minimal <- self$coords_minimal
 
-  # Iterate over
+  # TODO probabilities need to be normalized across transitions; inference could be
+  # parallelized
+  trans_pots_t <- self$predict_trans_pot(id_period_post)
+
+  # Iterate over viable transitions and write probability maps
   for (i in seq_len(nrow(viable_trans))) {
     id_trans_sel <- viable_trans$id_trans[i]
     prob_spatial <- coords_minimal[
@@ -153,22 +150,18 @@ alloc_dinamica_setup_inputs <- function(
   )
 }
 
-#' Private helper: Run a single Dinamica allocation iteration
-#'
+#' @describeIn alloc_dinamica Private helper: Run a single Dinamica allocation iteration
 #' @param self The evoland_db instance
 #' @param id_period_ant Integer, anterior period ID
 #' @param id_period_post Integer, posterior period ID
-#' @param id_perturbation Integer, perturbation ID
 #' @param anterior_rast SpatRast with anterior LULC state
 #' @param iteration_dir Character, path to iteration directory
-#'
 #' @return lulc_data_t table with simulated results
 #' @keywords internal
 alloc_dinamica_single_iteration <- function(
   self,
   id_period_ant,
   id_period_post,
-  id_perturbation,
   anterior_rast,
   iteration_dir
 ) {
@@ -181,10 +174,8 @@ alloc_dinamica_single_iteration <- function(
     self = self,
     id_period_ant = id_period_ant,
     id_period_post = id_period_post,
-    id_perturbation = id_perturbation,
     anterior_rast = anterior_rast,
-    temp_dir = iteration_dir,
-    trans_pots_t = self$predict_trans_pot(id_period_post)
+    temp_dir = iteration_dir
   )
 
   gc() # just in case
@@ -216,6 +207,7 @@ alloc_dinamica_single_iteration <- function(
   # Convert to lulc_data_t format
   lulc_result <-
     data.table::data.table(
+      id_run = self$id_run,
       id_coord = extracted$id_coord,
       id_lulc = as.integer(extracted$value),
       id_period = id_period_post
@@ -227,10 +219,16 @@ alloc_dinamica_single_iteration <- function(
   lulc_result
 }
 
+
+#' @describeIn alloc_dinamica Run Dinamica EGO allocation over multiple periods
+#' @param id_periods Integer vector of posterior period IDs to simulate (must be
+#' contiguous; e.g. if simulating period 4, data from period 3 will be used as
+#' anterior data)
+#' @param work_dir Character, path to working directory for simulations
+#' @param keep_intermediate Logical, whether to keep intermediate files from simulations
 alloc_dinamica <- function(
   self,
   id_periods,
-  id_perturbation,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 ) {
@@ -238,10 +236,7 @@ alloc_dinamica <- function(
   stopifnot(
     "id_periods must be an integer vector" = is.numeric(id_periods),
     "id_periods must be contiguous" = all(diff(id_periods) == 1L),
-    "id_periods must have at least 2 elements" = length(id_periods) >= 2L,
-    "id_perturbation must be a single integer" = {
-      length(id_perturbation) == 1L && is.numeric(id_perturbation)
-    }
+    "id_run must be set" = !is.null(self$id_run)
   )
 
   # Check that periods exist
@@ -253,40 +248,29 @@ alloc_dinamica <- function(
     ))
   }
 
-  # Check that perturbation exists
-  available_perturbations <- unique(self$alloc_params_t$id_perturbation)
-  if (!id_perturbation %in% available_perturbations) {
-    stop(glue::glue(
-      "id_perturbation={id_perturbation} not found in alloc_params_t. ",
-      "Available: {paste(available_perturbations, collapse = ', ')}"
-    ))
-  }
-
   # Create base work directory
   base_work_dir <-
-    file.path(work_dir, sprintf("perturbation_%s", id_perturbation)) |>
+    file.path(
+      work_dir,
+      sprintf("run_%s", self$id_run)
+    ) |>
     ensure_dir()
 
   message(glue::glue(
     "Starting Dinamica allocation simulation\n",
     "  Periods: {paste(id_periods, collapse = ' -> ')}\n",
-    "  Perturbation: {id_perturbation}\n",
+    "  Run: {self$id_run}\n",
     "  Work directory: {base_work_dir}"
   ))
 
   # Initialize with first period as observed data
-  id_period_origin <- id_periods[1]
-
-  message(glue::glue("Loading origin period {id_period_origin} from lulc_data_t..."))
-  current_rast <- self$lulc_data_as_rast(id_period = id_period_origin)
-
-  # Store all results
-  all_results <- list()
+  message(glue::glue("Loading origin period {id_periods[1]} from lulc_data_t..."))
+  current_rast <- self$lulc_data_as_rast(id_period = id_periods[1] - 1L)
 
   # Iterate through periods
-  for (i in seq_len(length(id_periods) - 1L)) {
-    id_period_ant <- id_periods[i]
-    id_period_post <- id_periods[i + 1L]
+  i <- 1L
+  for (id_period_post in id_periods) {
+    id_period_ant <- id_period_post - 1L
 
     # Create iteration directory
     iteration_dir <- file.path(
@@ -302,13 +286,14 @@ alloc_dinamica <- function(
       self = self,
       id_period_ant = id_period_ant,
       id_period_post = id_period_post,
-      id_perturbation = id_perturbation,
       anterior_rast = current_rast,
       iteration_dir = iteration_dir
     )
 
     # Store result
-    all_results[[length(all_results) + 1L]] <- lulc_result
+    self$commit(lulc_result, "lulc_data_t", method = "append")
+    # Recompute neighbors for next period
+    self$append_new_neighbors(id_period_post)
 
     # Update current rast for next iteration
     # Copy posterior.tif to a common location for next iteration
@@ -319,26 +304,13 @@ alloc_dinamica <- function(
     # Load as current_rast for next iteration
     current_rast <- terra::rast(current_path)
 
-    # TODO recompute neighbors for next period
-
     message(glue::glue("Iteration {i} complete\n"))
+    i <- i + 1L
   }
-
-  # Combine all results
-  message("Combining results...")
-  final_results <- data.table::rbindlist(all_results)
-
-  # Write to database as new table
-  table_name <- glue::glue("lulc_data_t_perturbation_{id_perturbation}")
-
-  message(glue::glue("Writing results to {table_name}..."))
-
-  self$commit(final_results, table_name, method = "overwrite")
 
   message(glue::glue(
     "Simulation complete!\n",
-    "  Results written to: {table_name}\n",
-    "  Total cells simulated: {nrow(final_results)}"
+    "  Results written to: lulc_data_t\n"
   ))
 
   # Clean up if requested
@@ -349,39 +321,38 @@ alloc_dinamica <- function(
     message(glue::glue("Intermediate files retained in: {base_work_dir}"))
   }
 
-  invisible(table_name)
+  invisible(NULL)
 }
 
+#' @describeIn alloc_dinamica Evaluate allocation parameters using fuzzy
+#' similarity over different runs.
+#' @param work_dir Character, path to working directory for simulations
+#' @param keep_intermediate Logical, whether to keep intermediate files from simulations
 eval_alloc_params_t <- function(
   self,
-  id_perturbations = NULL,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 ) {
   # Get historical periods
   historical_periods <- self$periods_t[is_extrapolated == FALSE & id_period > 0]
-  data.table::setorder(historical_periods, id_period)
+  # exclude first period since it has no anterior period
+  posterior_historical_periods <- historical_periods$id_period[-1]
 
-  id_periods_hist <- historical_periods$id_period
-
-  if (length(id_periods_hist) < 2L) {
+  if (nrow(historical_periods) < 2L) {
     stop("Need at least 2 historical periods for evaluation")
   }
 
-  # Get perturbations to evaluate
-  if (is.null(id_perturbations)) {
-    id_perturbations <- unique(self$alloc_params_t$id_perturbation)
-  } else {
-    id_perturbations <- as.integer(id_perturbations)
-  }
+  # Get runs to evaluate
+  # TODO better way to link alloc_params_t to runs_t? currently no consistency checks
+  runs <- self$runs_t[, id_run]
 
   # Get initial and final periods
-  id_period_initial <- min(id_periods_hist)
-  id_period_final <- max(id_periods_hist)
+  id_period_initial <- min(historical_periods$id_period)
+  id_period_final <- max(historical_periods$id_period)
 
   message(glue::glue(
     "Evaluating allocation parameters with fuzzy similarity\n",
-    "  Perturbations: {paste(id_perturbations, collapse = ', ')}\n",
+    "  Runs: {paste(runs, collapse = ', ')}\n",
     "  Initial period: {id_period_initial}\n",
     "  Final period: {id_period_final}"
   ))
@@ -402,23 +373,26 @@ eval_alloc_params_t <- function(
   # Storage for per-transition similarity results
   all_similarity_results <- list()
 
-  # Evaluate each perturbation
-  for (id_pert in id_perturbations) {
-    message(glue::glue("\n=== Evaluating perturbation {id_pert} ==="))
+  orig_id_run <- self$id_run
+  on.exit(self$id_run <- orig_id_run, add = TRUE)
+  # Evaluate each run
+  for (id_run in runs) {
+    message(glue::glue("\n=== Evaluating run {id_run} ==="))
+    id_run <- 1L
+    self$id_run <- id_run
 
     tryCatch(
       {
         # Run simulation
-        sim_table_name <- self$alloc_dinamica(
-          id_periods = id_periods_hist,
-          id_perturbation = id_pert,
+        self$alloc_dinamica(
+          id_periods = posterior_historical_periods,
           work_dir = work_dir,
           keep_intermediate = keep_intermediate
         )
 
         # Get simulated data for final period
         sim_final <-
-          self$fetch(sim_table_name, where = glue::glue("id_period = {id_period_final}")) |>
+          self$fetch("lulc_data_t", where = glue::glue("id_period = {id_period_final}")) |>
           as_lulc_data_t()
 
         message("  Converting to rasters...")
@@ -455,7 +429,7 @@ eval_alloc_params_t <- function(
 
           # Store result
           all_similarity_results[[length(all_similarity_results) + 1L]] <- data.table::data.table(
-            id_perturbation = id_pert,
+            id_run = id_run,
             id_trans = id_trans,
             similarity = trans_sim$similarity
           )
@@ -467,13 +441,13 @@ eval_alloc_params_t <- function(
       },
       error = function(e) {
         warning(glue::glue(
-          "Failed to evaluate perturbation {id_pert}: {e$message}"
+          "Failed to evaluate run {id_run}: {e$message}"
         ))
 
-        # Add NA results for this perturbation
+        # Add NA results for this run
         for (i in seq_len(nrow(viable_trans))) {
           all_similarity_results[[length(all_similarity_results) + 1L]] <- data.table::data.table(
-            id_perturbation = id_pert,
+            id_run = id_run,
             id_trans = viable_trans$id_trans[i],
             similarity = NA_real_
           )
@@ -491,7 +465,7 @@ eval_alloc_params_t <- function(
   result_params <- merge(
     self$alloc_params_t,
     similarity_dt,
-    by = c("id_perturbation", "id_trans"),
+    by = c("id_run", "id_trans"),
     all.x = TRUE
   )
 

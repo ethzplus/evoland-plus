@@ -230,10 +230,11 @@ set_neighbors <- function(
 #' `lulc_meta_t`, and `pred_meta_t` are all present in the database. The
 #' generated predictors are stored in `pred_data_t` and metadata in
 #' `pred_meta_t`.
+#' @param self An evoland_db object
 generate_neighbor_predictors <- function(self) {
-  try(neighbors_sample <- self$fetch("neighbors_t", limit = 0L))
   tables_present <- self$list_tables()
   stopifnot(
+    "id_run must be set" = !is.null(self$id_run),
     "No neighbor data found. Run $set_neighbors() first." = {
       "neighbors_t" %in% tables_present
     },
@@ -243,12 +244,12 @@ generate_neighbor_predictors <- function(self) {
     "No LULC data found. Add lulc_data_t before generating neighbor predictors." = {
       "lulc_data_t" %in% tables_present
     },
-    "No predictor metadata found; while not strictly necessary, the current logic relies on this" = {
-      "lulc_data_t" %in% tables_present
+    "No predictor metadata found. Add pred_meta_t before generating neighbor predictors." = {
+      "pred_meta_t" %in% tables_present
     },
     "neighbors_t does not have distance_class column.
     Run $create_neighbors_t() with distance_breaks" = {
-      "distance_class" %in% names(neighbors_sample)
+      "distance_class" %in% names(self$fetch("neighbors_t", limit = 0L))
     }
   )
 
@@ -279,6 +280,7 @@ generate_neighbor_predictors <- function(self) {
       all_distance_classes c
     }"
   ))
+  on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
   # Subset to just those columns we can upsert to the existing pred_meta_t
   m <- self$get_query("select id_pred, name, pretty_name, description from pred_meta_neighbors_t")
   m[["orig_format"]] <- "land use coordinate data"
@@ -324,6 +326,7 @@ generate_neighbor_predictors <- function(self) {
       p.id_pred
     }"
   ))
+  on.exit(self$execute("drop table pred_neighbors_t"), add = TRUE)
 
   self$commit("pred_neighbors_t", "pred_data_t", method = "append")
 

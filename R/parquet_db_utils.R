@@ -164,7 +164,7 @@ resolve_metadata_clause <- function(x, metadata) {
   }
 
   if (inherits(x, "parquet_db_t")) {
-    out[["parquet_db_t_class"]] <- class(x)[1L]
+    out[["parquet_db_t_class"]] <- paste0('"', class(x)[1L], '"')
   }
 
   kv_str <- glue::glue_collapse(

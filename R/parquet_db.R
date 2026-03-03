@@ -409,7 +409,7 @@ parquet_db <- R6::R6Class(
       ordinary_cols <- setdiff(all_cols, autoincrement_cols)
       select_expr <- glue::glue_collapse(
         c(
-          glue::glue('row_number() over () as "{autoincrement_cols}"'),
+          glue::glue('cast(row_number() over () as int) as "{autoincrement_cols}"'),
           glue::glue('"{ordinary_cols}"')
         ),
         sep = ",\n "
@@ -449,7 +449,10 @@ parquet_db <- R6::R6Class(
         c(
           glue::glue(
             r"(
-            row_number() over () + getvariable('max_{autoincrement_cols}') as "{autoincrement_cols}"
+            cast(
+              row_number() over () + getvariable('max_{autoincrement_cols}')
+              as int
+            ) as "{autoincrement_cols}"
             )"
           ),
           glue::glue('"{ordinary_cols}"')
@@ -543,7 +546,10 @@ parquet_db <- R6::R6Class(
         c(
           glue::glue(
             r"(
-            row_number() over () + getvariable('max_{autoincrement_cols}') as "{autoincrement_cols}"
+            cast(
+              row_number() over () + getvariable('max_{autoincrement_cols}')
+              as int
+            ) as "{autoincrement_cols}"
             )"
           ),
           glue::glue('new_data_v."{insert_cols}"')

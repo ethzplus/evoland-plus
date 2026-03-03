@@ -14,12 +14,17 @@
 as_intrv_masks_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
+      id_run = integer(0),
       id_intrv = integer(0),
       id_coord = integer(0)
     )
   }
-  cast_dt_col(x, "id_coord", "int")
-  cast_dt_col(x, "id_coord", "int")
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_run", "int") |>
+    cast_dt_col("id_intrv", "int") |>
+    cast_dt_col("id_coord", "int")
+
   as_parquet_db_t(
     x,
     class_name = "intrv_masks_t",

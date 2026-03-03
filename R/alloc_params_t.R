@@ -228,10 +228,11 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
     "n_perturbations must be an int >= 0" = {
       (as.integer(n_perturbations) == n_perturbations) && n_perturbations >= 0
     },
-    "sd must be a positive number" = sd > 0
+    "sd must be a positive number" = sd > 0,
+    "runs_t must contain at least an unperturbed run + n_perturbations runs" = {
+      nrow(self$runs_t) >= (1L + n_perturbations)
+    }
   )
-
-  n_perturbations <- as.integer(n_perturbations)
 
   # Get observed periods (not extrapolated, and > 1 since we need period - 1)
   periods <- self$periods_t[is_extrapolated == FALSE & id_period > 1]
@@ -353,7 +354,7 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
     data.table::rbindlist(idcol = "id_run") |>
     as_alloc_params_t()
 
-  results_dt[id_run == 1L, id_run := 0L]
+  results_dt[, id_run := id_run - 1L] # adjust id_run to start at 0 for the unperturbed params
 
   message(glue::glue(
     "Successfully computed {nrow(results_dt)} allocation parameter sets ",

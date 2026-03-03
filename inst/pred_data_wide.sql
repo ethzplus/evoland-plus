@@ -48,9 +48,9 @@ with
   ),
   pred_data_long as (
     select
-      id_coord,
-      id_pred,
-      value
+      ac.id_coord,
+      pd.id_pred,
+      "value"
     from
       {pred_data_read_expr} pd
       inner join anterior_coords ac on ac.id_coord = pd.id_coord
@@ -62,6 +62,6 @@ with
           preds_select
       )
   )
-pivot pred_data_long on 'id_pred_' || id_pred using first(value)
+pivot pred_data_long on 'id_pred_' || id_pred using first("value")
 group by
   id_coord

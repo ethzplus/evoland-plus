@@ -2,8 +2,81 @@
 % Please edit documentation in R/alloc_dinamica.R
 \name{alloc_dinamica}
 \alias{alloc_dinamica}
+\alias{alloc_dinamica_setup_inputs}
+\alias{alloc_dinamica_single_iteration}
+\alias{eval_alloc_params_t}
 \title{Dinamica EGO Allocation Methods}
+\usage{
+alloc_dinamica_setup_inputs(
+  self,
+  id_period_ant,
+  id_period_post,
+  anterior_rast,
+  temp_dir
+)
+
+alloc_dinamica_single_iteration(
+  self,
+  id_period_ant,
+  id_period_post,
+  anterior_rast,
+  iteration_dir
+)
+
+alloc_dinamica(
+  self,
+  id_periods,
+  work_dir = "dinamica_rundir",
+  keep_intermediate = FALSE
+)
+
+eval_alloc_params_t(
+  self,
+  work_dir = "dinamica_rundir",
+  keep_intermediate = FALSE
+)
+}
+\arguments{
+\item{self}{The evoland_db instance}
+
+\item{id_period_ant}{Integer, anterior period ID}
+
+\item{id_period_post}{Integer, posterior period ID}
+
+\item{anterior_rast}{SpatRast with anterior LULC state}
+
+\item{temp_dir}{Character, path to temporary directory}
+
+\item{iteration_dir}{Character, path to iteration directory}
+
+\item{id_periods}{Integer vector of posterior period IDs to simulate (must be
+contiguous; e.g. if simulating period 4, data from period 3 will be used as
+anterior data)}
+
+\item{work_dir}{Character, path to working directory for simulations}
+
+\item{keep_intermediate}{Logical, whether to keep intermediate files from simulations}
+}
+\value{
+List with paths to created files
+
+lulc_data_t table with simulated results
+}
 \description{
 Methods for running Dinamica EGO allocation simulations and evaluating
 allocation parameters. These methods are added to the \code{evoland_db} class.
 }
+\section{Functions}{
+\itemize{
+\item \code{alloc_dinamica_setup_inputs()}: Private helper: Set up input files for a single Dinamica
+allocation iteration
+
+\item \code{alloc_dinamica_single_iteration()}: Private helper: Run a single Dinamica allocation iteration
+
+\item \code{alloc_dinamica()}: Run Dinamica EGO allocation over multiple periods
+
+\item \code{eval_alloc_params_t()}: Evaluate allocation parameters using fuzzy
+similarity over different runs.
+
+}}
+\keyword{internal}

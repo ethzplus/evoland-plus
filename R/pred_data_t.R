@@ -179,7 +179,7 @@ pred_data_wide_v <- function(
   )
 
   result <-
-    system.file("trans_pred_data.sql", package = "evoland") |>
+    system.file("pred_data_wide.sql", package = "evoland") |>
     readLines() |>
     paste(collapse = "\n") |>
     glue::glue(

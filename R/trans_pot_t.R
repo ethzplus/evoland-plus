@@ -130,7 +130,7 @@ predict_trans_pot <- function(
     # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
     pred_data_post <- self$pred_data_wide_v(
       id_trans = id_trans,
-      id_period = id_period_post
+      id_period_anterior = id_period_post - 1
     )
 
     if (nrow(pred_data_post) == 0L) {
@@ -171,7 +171,7 @@ predict_trans_pot <- function(
     probs <- pmax(0, pmin(1, probs))
 
     # Create a data.table with id_coord and probability
-    gather[[i]] <- data.table::data.table(
+    gather[[id_trans]] <- data.table::data.table(
       id_trans = id_trans,
       id_coord = pred_data_post$id_coord,
       value = probs

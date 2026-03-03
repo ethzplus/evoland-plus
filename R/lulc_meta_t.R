@@ -24,7 +24,8 @@ as_lulc_meta_t <- function(x) {
   as_parquet_db_t(
     x,
     class_name = "lulc_meta_t",
-    key_cols = "id_lulc"
+    key_cols = "name",
+    autoincrement_cols = "id_lulc"
   )
 }
 
