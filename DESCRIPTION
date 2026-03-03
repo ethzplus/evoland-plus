@@ -45,7 +45,7 @@ Collate:
     'parquet_db_utils.R'
     'parquet_db.R'
     'evoland_db.R'
-    'evoland_db_parallel.R'
+    'evoland_db_util.R'
     'evoland_db_views.R'
     'fuzzy_similarity.R'
     'grrf_filter.r'
