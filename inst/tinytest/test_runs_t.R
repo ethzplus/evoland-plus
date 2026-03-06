@@ -1,5 +1,3 @@
-# filepath: tests/tinytest/test_runs_t.R
-
 # Test default constructor
 x <- data.table::data.table(
   id_run = 0L,
@@ -64,7 +62,10 @@ expect_equal(get_lineage(hier_runs, 1L), 1:0)
 expect_equal(get_lineage(hier_runs, 2L), 2:0)
 
 # error for non-existent id_run
-expect_error(get_lineage(hier_runs, 999L), pattern = "id_run 999 not found in runs_t")
+expect_error(
+  get_lineage(hier_runs, 999L),
+  pattern = "Requested run \\(id_run = 999\\) not found in runs_t"
+)
 
 # Broken chain (parent doesn't exist)
 broken_runs <- as_runs_t(list(
@@ -75,5 +76,5 @@ broken_runs <- as_runs_t(list(
 
 expect_error(
   get_lineage(broken_runs, 2L),
-  pattern = "id_run 1 not found in runs_t"
+  pattern = "Parent for id_run = 1 not found; base runs should have parent_id_run = NA"
 )

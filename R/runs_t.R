@@ -88,10 +88,6 @@ db_active_id_run <- function(self, private, x) {
   x <- as.integer(x)
   lineage <- get_lineage(self$runs_t, x)
 
-  if (length(lineage) == 0L) {
-    stop(glue::glue("Requested run (id_run = {x}) not found in runs_t"), call. = FALSE)
-  }
-
   private$active_id_run <- x
   private$active_run_lineage <- lineage
 
@@ -104,15 +100,35 @@ get_lineage <- function(runs_t, id_run) {
   lineage <- integer(0)
   current_id <- id_run
 
+  if (nrow(runs_t[id_run == current_id]) == 0L) {
+    stop(
+      glue::glue(
+        "Requested run (id_run = {id_run}) not found in runs_t"
+      ),
+      call. = FALSE
+    )
+  }
+
   repeat {
     parent_id <- runs_t[id_run == current_id, parent_id_run]
 
     if (length(parent_id) == 0L) {
-      break
+      # did not find parent row
+      stop(
+        glue::glue(
+          "Parent for id_run = {current_id} not found; ",
+          "base runs should have parent_id_run = NA"
+        ),
+        call. = FALSE
+      )
     }
 
-    # append to lineage, even if parent_id is NA (base case)
+    # append to lineage
     lineage <- c(lineage, current_id)
+    if (is.na(parent_id)) {
+      # encountered root
+      break
+    }
     current_id <- parent_id
   }
 
