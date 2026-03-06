@@ -62,7 +62,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
   ctes[["data_present"]] <- glue::glue(
     r"[
     select distinct
-      {toString(distinctness_cols)}
+      {cols_to_select_expr(distinctness_cols)}
     from
       '{table_path}'
     where
@@ -114,7 +114,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
       '{table_path}' c
     semi join
       best_run b
-      using ({toString(distinctness_cols)})
+      using ({cols_to_select_expr(distinctness_cols)})
     where
       c.id_run in ({toString(self$run_lineage)})
     )]"
