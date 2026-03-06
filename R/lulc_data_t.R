@@ -89,14 +89,10 @@ print.lulc_data_t <- function(x, nrow = 10, ...) {
 #' retrieve; returned as layers.
 #' @keywords internal
 lulc_data_as_rast <- function(self, id_period = NULL) {
-  lulc_data_read_expr <- self$get_read_expr("lulc_data_t")
-  coords_read_expr <- self$get_read_expr("coords_t")
-
   # Build query to join lulc_data_t with coords_t
   where_clause <- NULL
   if (!is.null(id_period)) {
-    period_list <- toString(as.integer(id_period))
-    where_clause <- glue::glue("id_period in ({period_list})")
+    where_clause <- glue::glue("id_period in ({toString(id_period)})")
   }
 
   data <- self$fetch("lulc_data_t", where = where_clause)
