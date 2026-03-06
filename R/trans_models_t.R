@@ -204,6 +204,7 @@ fit_full_model_worker <- function(item, db, ...) {
       list(
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
+        fit_call = fit_call_str,
         model_obj_full = list(qs2::qs_serialize(model_full))
       )
     },
@@ -214,6 +215,7 @@ fit_full_model_worker <- function(item, db, ...) {
       return(list(
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
+        fit_call = item[["fit_call"]],
         model_obj_full = list(NULL)
       ))
     }
@@ -297,65 +299,60 @@ fit_partial_models <- function(
 #' their goodness-of-fit metrics.
 #' @param gof_criterion Character string specifying which goodness-of-fit metric to use for
 #' selecting the best partial model for each transition (e.g., "roc_auc", "rmse").
-#' @param maximize Logical indicating whether to select the model with the maximum
+#' @param gof_maximize Logical indicating whether to select the model with the maximum
 #' (TRUE) or minimum (FALSE) value of the specified goodness-of-fit criterion. Default
 #' is TRUE.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
 fit_full_models <- function(
   self,
-  partial_models,
   gof_criterion,
-  maximize = TRUE,
+  gof_maximize,
   cluster = NULL
 ) {
   stopifnot(
-    "partial_models must be a trans_models_t" = inherits(partial_models, "trans_models_t"),
-    "partial_models is empty" = nrow(partial_models) > 0L,
     "gof_criterion must be a character string" = is.character(gof_criterion) &&
-      length(gof_criterion) == 1L
+      length(gof_criterion) == 1L,
+    "gof_maximize must be a set to TRUE or FALSE" = (gof_maximize || !gof_maximize),
+    "trans_models_t is missing" = file.exists(self$get_table_path("trans_models_t"))
   )
 
-  trans_preds_nested <-
-    data.table::as.data.table(self$trans_preds_t)[,
-      .(id_pred = list(id_pred)),
-      by = .(id_run, id_trans)
-    ]
-
-  partial_models_dt <-
-    merge(
-      data.table::as.data.table(partial_models),
-      trans_preds_nested,
-      by = c("id_run", "id_trans")
+  best_models <- self$get_query(glue::glue(
+    r"[
+    with preds_nested as (
+      select
+        id_run,
+        id_trans,
+        list(id_pred) as id_pred
+      from
+        {self$get_read_expr("trans_preds_t")}
+      group by
+        id_run, id_trans
     )
-
-  # Extract GOF criterion values
-  data.table::set(
-    partial_models_dt,
-    j = "gof_value",
-    value = vapply(
-      partial_models_dt[["goodness_of_fit"]],
-      function(gof) {
-        val <- gof[[gof_criterion]]
-        if (is.null(val)) NA_real_ else as.numeric(val)
-      },
-      numeric(1)
-    )
-  )
-
-  # Select best model per transition based on GOF criterion
-  if (maximize) {
-    best_models <- partial_models_dt[, .SD[which.max(gof_value)], by = .(id_run, id_trans)]
-  } else {
-    best_models <- partial_models_dt[, .SD[which.min(gof_value)], by = .(id_run, id_trans)]
-  }
+    select
+      tm.id_run,
+      tm.id_trans,
+      tm.fit_call,
+      pn.id_pred,
+    from
+      {self$get_read_expr("trans_models_t")} tm,
+      preds_nested pn
+    where
+      pn.id_run = tm.id_run
+      and pn.id_trans = tm.id_trans
+    qualify row_number() over (
+        partition by tm.id_run, tm.id_trans
+        order by tm.goodness_of_fit['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
+    ) = 1;
+    ]"
+  ))
 
   message(glue::glue(
     "Fitting full models for {nrow(best_models)} transitions..."
   ))
 
-  results_list <-
-    best_models[, .(id_run, id_trans, id_pred, fit_call)] |>
+  full_models <-
+    best_models |>
     split(by = c("id_run", "id_trans")) |>
     run_parallel_evoland(
       items = _,
@@ -365,11 +362,33 @@ fit_full_models <- function(
     ) |>
     data.table::rbindlist()
 
-  merge(
-    best_models[, -c("model_obj_full", "gof_value", "id_pred")],
-    results_list,
-    by = c("id_run", "id_trans")
-  ) |>
+  partial_models <- self$fetch(
+    "trans_models_t",
+    cols = c(
+      "id_run",
+      "id_trans",
+      "fit_call",
+      "model_family",
+      "model_params",
+      "goodness_of_fit",
+      "model_obj_part"
+    ),
+    where = glue::glue(
+      "id_run in ({toString(full_models$id_run)}) and ",
+      "id_trans in ({toString(full_models$id_trans)})"
+    )
+  )
+
+  full_models[
+    partial_models,
+    on = c("id_run", "id_trans", "fit_call"),
+    `:=`(
+      model_family = i.model_family,
+      model_params = i.model_params,
+      goodness_of_fit = i.goodness_of_fit,
+      model_obj_part = i.model_obj_part
+    )
+  ] |>
     as_trans_models_t()
 }
 

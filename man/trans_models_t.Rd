@@ -20,13 +20,7 @@ fit_partial_models(
   ...
 )
 
-fit_full_models(
-  self,
-  partial_models,
-  gof_criterion,
-  maximize = TRUE,
-  cluster = NULL
-)
+fit_full_models(self, gof_criterion, gof_maximize, cluster = NULL)
 
 \method{print}{trans_models_t}(x)
 }
@@ -53,15 +47,15 @@ testing).}
 \item{cluster}{An optional cluster object created by \code{\link[parallel:makeCluster]{parallel::makeCluster()}} or
 \code{\link[mirai:make_cluster]{mirai::make_cluster()}}.}
 
-\item{partial_models}{A trans_models_t table containing the fitted partial models and
-their goodness-of-fit metrics.}
-
 \item{gof_criterion}{Character string specifying which goodness-of-fit metric to use for
 selecting the best partial model for each transition (e.g., "roc_auc", "rmse").}
 
-\item{maximize}{Logical indicating whether to select the model with the maximum
+\item{gof_maximize}{Logical indicating whether to select the model with the maximum
 (TRUE) or minimum (FALSE) value of the specified goodness-of-fit criterion. Default
 is TRUE.}
+
+\item{partial_models}{A trans_models_t table containing the fitted partial models and
+their goodness-of-fit metrics.}
 }
 \value{
 A data.table of class "trans_models_t" with columns:
