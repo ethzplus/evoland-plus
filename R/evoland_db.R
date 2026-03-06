@@ -100,8 +100,8 @@ evoland_db <- R6::R6Class(
     #' @description Append new neighbors to predictor for a given period; depends on
     #' generate_neighbor_predictors() having been run.
     #' @param id_period Period to calculate predictors for
-    append_new_neighbors = function(id_period) {
-      create_method_binding(append_new_neighbors)
+    upsert_new_neighbors = function(id_period) {
+      create_method_binding(upsert_new_neighbors)
     },
 
     #' @description Get transitions along with their predictor data in a wide

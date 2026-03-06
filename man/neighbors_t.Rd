@@ -8,7 +8,7 @@
 \alias{print.neighbors_t}
 \alias{set_neighbors}
 \alias{generate_neighbor_predictors}
-\alias{append_new_neighbors}
+\alias{upsert_new_neighbors}
 \title{Create Neighbors Table}
 \usage{
 as_neighbors_t(x)
@@ -35,7 +35,7 @@ set_neighbors(
 
 generate_neighbor_predictors(self)
 
-append_new_neighbors(self, id_period)
+upsert_new_neighbors(self, id_period)
 }
 \arguments{
 \item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
@@ -102,7 +102,7 @@ of class forest". This requires that \code{neighbors_t}, \code{lulc_data_t},
 generated predictors are stored in \code{pred_data_t} and metadata in
 \code{pred_meta_t}.
 
-\item \code{append_new_neighbors()}: Append neighbor predictors for a specific period.
+\item \code{upsert_new_neighbors()}: Append neighbor predictors for a specific period.
 This is used after extrapolating transition rates to new periods, so we can
 generate predictors for those periods. This requires that \code{neighbors_t},
 \code{lulc_data_t}, \code{lulc_meta_t}, and \code{pred_meta_t} are all present in the

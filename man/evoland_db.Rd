@@ -71,7 +71,7 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-set_report}{\code{evoland_db$set_report()}}
 \item \href{#method-evoland_db-set_neighbors}{\code{evoland_db$set_neighbors()}}
 \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
-\item \href{#method-evoland_db-append_new_neighbors}{\code{evoland_db$append_new_neighbors()}}
+\item \href{#method-evoland_db-upsert_new_neighbors}{\code{evoland_db$upsert_new_neighbors()}}
 \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
 \item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
 \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
@@ -237,13 +237,13 @@ distance X are of type Y", see \code{\link[=generate_neighbor_predictors]{genera
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-append_new_neighbors"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-append_new_neighbors}{}}}
-\subsection{Method \code{append_new_neighbors()}}{
+\if{html}{\out{<a id="method-evoland_db-upsert_new_neighbors"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-upsert_new_neighbors}{}}}
+\subsection{Method \code{upsert_new_neighbors()}}{
 Append new neighbors to predictor for a given period; depends on
 generate_neighbor_predictors() having been run.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$append_new_neighbors(id_period)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$upsert_new_neighbors(id_period)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{

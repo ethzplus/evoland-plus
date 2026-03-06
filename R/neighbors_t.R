@@ -346,7 +346,7 @@ generate_neighbor_predictors <- function(self) {
 #' [generate_neighbor_predictors()]
 #' @param id_period Integer period ID for which to generate predictors; if
 #' missing, only use non-extrapolated periods
-append_new_neighbors <- function(self, id_period) {
+upsert_new_neighbors <- function(self, id_period) {
   stopifnot(
     "id_run must be set" = !is.null(self$id_run),
     "id_period must be a single integer" = {
@@ -368,7 +368,7 @@ append_new_neighbors <- function(self, id_period) {
   on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
 
   if (self$get_query("from pred_meta_neighbors_t") |> nrow() == 0L) {
-    stop("No neighbor predictors found in pred_meta_t, cannot append new neighbors")
+    stop("No neighbor predictors found in pred_meta_t, cannot upsert new neighbors")
   }
 
   self$execute(glue::glue(
@@ -399,7 +399,7 @@ append_new_neighbors <- function(self, id_period) {
   ))
   on.exit(self$execute("drop table pred_neighbors_t"), add = TRUE)
 
-  self$commit("pred_neighbors_t", "pred_data_t", method = "append")
+  self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
 
   invisible(self)
 }
