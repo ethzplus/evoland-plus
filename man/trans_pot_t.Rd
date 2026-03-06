@@ -11,7 +11,7 @@ as_trans_pot_t(x)
 
 \method{print}{trans_pot_t}(x, nrow = 10, ...)
 
-predict_trans_pot(self, id_period_post)
+predict_trans_pot(self, id_period_post, gof_criterion, gof_maximize)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}

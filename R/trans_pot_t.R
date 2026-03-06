@@ -92,10 +92,11 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' @param id_period_post scalar integerish, passed to `self$pred_data_wide_v()`
 predict_trans_pot <- function(
   self,
-  id_period_post
+  id_period_post,
+  gof_criterion,
+  gof_maximize
 ) {
   # TODO parallelize
-  # TODO move into integration test
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
   gather <- list()
@@ -107,21 +108,19 @@ predict_trans_pot <- function(
       "{nrow(viable_trans)} (id_trans {id_trans})"
     ))
 
-    # Get model for this transition. Only expect one non-null full model.
-    # TODO should use a GOF criterion to select one if multiple models exist, but for
-    # now just error out
-    model_row <- self$fetch(
-      "trans_models_t",
-      where = glue::glue("id_trans = {id_trans} and model_obj_full is not null")
-    )
+    # Get model for this transition
+    model_row <- self$get_query(glue::glue(
+      r"[
+      select model_obj_full
+      from {self$get_read_expr("trans_models_t")}
+      where id_trans = {id_trans}
+      order by goodness_of_fit['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
+      limit 1
+      ]"
+    ))
 
-    if (nrow(model_row) == 0L) {
-      stop(glue::glue("No model found for id_trans={id_trans}"))
-    } else if (nrow(model_row) > 1) {
-      stop(glue::glue(
-        "Multiple models found for id_trans={id_trans}, ",
-        "edit trans_models_t to have only one per transition"
-      ))
+    if (nrow(model_row) != 1L) {
+      stop(glue::glue("Expecting exactly one model for id_trans={id_trans}"))
     }
 
     # Deserialize full model
