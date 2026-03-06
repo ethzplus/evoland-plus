@@ -22,7 +22,9 @@ alloc_dinamica_setup_inputs <- function(
   id_period_ant,
   id_period_post,
   anterior_rast,
-  temp_dir
+  temp_dir,
+  gof_criterion,
+  gof_maximize
 ) {
   # Get metadata
   coords_meta <- self$get_table_metadata("coords_t")
@@ -52,7 +54,7 @@ alloc_dinamica_setup_inputs <- function(
 
   # 2. Get allocation parameters for this run
   alloc_params_full <-
-    self$alloc_params_t |> # TODO make sure this retrieves the active run id's alloc_params_t
+    self$alloc_params_t |>
     merge(
       viable_trans[, .(id_trans, id_lulc_anterior, id_lulc_posterior)],
       by = "id_trans"
@@ -108,9 +110,11 @@ alloc_dinamica_setup_inputs <- function(
   message("  Writing probability maps...")
   coords_minimal <- self$coords_minimal
 
-  # TODO probabilities need to be normalized across transitions; inference could be
-  # parallelized
-  trans_pots_t <- self$predict_trans_pot(id_period_post)
+  trans_pots_t <- self$predict_trans_pot(
+    id_period_post = id_period_post,
+    gof_criterion = gof_criterion,
+    gof_maximize = gof_maximize
+  )
 
   # Iterate over viable transitions and write probability maps
   for (i in seq_len(nrow(viable_trans))) {
@@ -151,19 +155,17 @@ alloc_dinamica_setup_inputs <- function(
 }
 
 #' @describeIn alloc_dinamica Private helper: Run a single Dinamica allocation iteration
-#' @param self The evoland_db instance
-#' @param id_period_ant Integer, anterior period ID
-#' @param id_period_post Integer, posterior period ID
-#' @param anterior_rast SpatRast with anterior LULC state
 #' @param iteration_dir Character, path to iteration directory
 #' @return lulc_data_t table with simulated results
 #' @keywords internal
-alloc_dinamica_single_iteration <- function(
+alloc_dinamica_one_period <- function(
   self,
   id_period_ant,
   id_period_post,
   anterior_rast,
-  iteration_dir
+  iteration_dir,
+  gof_criterion,
+  gof_maximize
 ) {
   message(glue::glue(
     "Running Dinamica allocation: period {id_period_ant} -> {id_period_post}"
@@ -175,7 +177,9 @@ alloc_dinamica_single_iteration <- function(
     id_period_ant = id_period_ant,
     id_period_post = id_period_post,
     anterior_rast = anterior_rast,
-    temp_dir = iteration_dir
+    temp_dir = iteration_dir,
+    gof_criterion = gof_criterion,
+    gof_maximize = gof_maximize
   )
 
   gc() # just in case
@@ -229,6 +233,8 @@ alloc_dinamica_single_iteration <- function(
 alloc_dinamica <- function(
   self,
   id_periods,
+  gof_criterion,
+  gof_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 ) {
@@ -273,36 +279,32 @@ alloc_dinamica <- function(
     id_period_ant <- id_period_post - 1L
 
     # Create iteration directory
-    iteration_dir <- file.path(
-      base_work_dir,
-      glue::glue("iteration_{i}_period_{id_period_ant}_to_{id_period_post}")
-    )
-    dir.create(iteration_dir, showWarnings = FALSE, recursive = TRUE)
+    iteration_dir <-
+      file.path(
+        base_work_dir,
+        glue::glue("iteration_{i}_period_{id_period_ant}_to_{id_period_post}")
+      ) |>
+      ensure_dir()
 
     message(glue::glue("\n=== Iteration {i}/{length(id_periods) - 1L} ==="))
 
     # Run single iteration
-    lulc_result <- alloc_dinamica_single_iteration(
+    lulc_result <- alloc_dinamica_one_period(
       self = self,
       id_period_ant = id_period_ant,
       id_period_post = id_period_post,
       anterior_rast = current_rast,
-      iteration_dir = iteration_dir
+      iteration_dir = iteration_dir,
+      gof_criterion = gof_criterion,
+      gof_maximize = gof_maximize
     )
 
     # Store result
-    self$commit(lulc_result, "lulc_data_t", method = "append")
+    self$commit(lulc_result, "lulc_data_t", method = "upsert")
     # Recompute neighbors for next period
-    self$append_new_neighbors(id_period_post)
-
+    self$upsert_new_neighbors(id_period_post)
     # Update current rast for next iteration
-    # Copy posterior.tif to a common location for next iteration
-    posterior_path <- file.path(iteration_dir, "posterior.tif")
-    current_path <- file.path(base_work_dir, "current.tif")
-    file.copy(posterior_path, current_path, overwrite = TRUE)
-
-    # Load as current_rast for next iteration
-    current_rast <- terra::rast(current_path)
+    current_rast <- self$lulc_data_as_rast(id_period = id_period_post)
 
     message(glue::glue("Iteration {i} complete\n"))
     i <- i + 1L
@@ -330,6 +332,8 @@ alloc_dinamica <- function(
 #' @param keep_intermediate Logical, whether to keep intermediate files from simulations
 eval_alloc_params_t <- function(
   self,
+  gof_criterion,
+  gof_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 ) {
@@ -338,13 +342,25 @@ eval_alloc_params_t <- function(
   # exclude first period since it has no anterior period
   posterior_historical_periods <- historical_periods$id_period[-1]
 
-  if (nrow(historical_periods) < 2L) {
-    stop("Need at least 2 historical periods for evaluation")
-  }
-
   # Get runs to evaluate
-  # TODO better way to link alloc_params_t to runs_t? currently no consistency checks
-  runs <- self$runs_t[, id_run]
+  runs_defined <- self$runs_t[, id_run]
+  runs_required <- unique(self$alloc_params_t[, id_run])
+
+  stopifnot(
+    "gof_criterion must be a single string" = {
+      is.character(gof_criterion) && length(gof_criterion) == 1L
+    },
+    "gof_maximize must be TRUE or FALSE" = (gof_maximize || !gof_maximize),
+    "need at least 2 historical periods for evaluation" = {
+      length(posterior_historical_periods) >= 1L
+    },
+    "all runs in alloc_params_t must be defined in runs_t" = {
+      all(runs_required %in% runs_defined)
+    }
+  )
+
+  # TODO better way to link alloc_params_t to runs_t? e.g. additional field,
+  # comment in runs_t?
 
   # Get initial and final periods
   id_period_initial <- min(historical_periods$id_period)
@@ -352,23 +368,16 @@ eval_alloc_params_t <- function(
 
   message(glue::glue(
     "Evaluating allocation parameters with fuzzy similarity\n",
-    "  Runs: {paste(runs, collapse = ', ')}\n",
+    "  Runs: {paste(runs_required, collapse = ', ')}\n",
     "  Initial period: {id_period_initial}\n",
     "  Final period: {id_period_final}"
   ))
 
   # Get observed data for initial and final periods
-  observed_initial <-
-    self$fetch("lulc_data_t", where = glue::glue("id_period = {id_period_initial}")) |>
-    as_lulc_data_t()
+  rast_initial <- self$lulc_data_as_rast(id_period = id_period_initial)
+  rast_obs_final <- self$lulc_data_as_rast(id_period = id_period_final)
 
-  observed_final <-
-    self$fetch("lulc_data_t", where = glue::glue("id_period = {id_period_final}")) |>
-    as_lulc_data_t()
-
-  # Get viable transitions
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
-  stopifnot("No viable transitions found" = nrow(viable_trans) > 0L)
 
   # Storage for per-transition similarity results
   all_similarity_results <- list()
@@ -376,9 +385,8 @@ eval_alloc_params_t <- function(
   orig_id_run <- self$id_run
   on.exit(self$id_run <- orig_id_run, add = TRUE)
   # Evaluate each run
-  for (id_run in runs) {
+  for (id_run in runs_required) {
     message(glue::glue("\n=== Evaluating run {id_run} ==="))
-    id_run <- 1L
     self$id_run <- id_run
 
     tryCatch(
@@ -387,20 +395,13 @@ eval_alloc_params_t <- function(
         self$alloc_dinamica(
           id_periods = posterior_historical_periods,
           work_dir = work_dir,
-          keep_intermediate = keep_intermediate
+          keep_intermediate = keep_intermediate,
+          gof_criterion = gof_criterion,
+          gof_maximize = gof_maximize
         )
 
         # Get simulated data for final period
-        sim_final <-
-          self$fetch("lulc_data_t", where = glue::glue("id_period = {id_period_final}")) |>
-          as_lulc_data_t()
-
-        message("  Converting to rasters...")
-
-        # Convert tabular data to rasters
-        rast_initial <- tabular_to_raster(observed_initial, self$coords_t)
-        rast_obs_final <- tabular_to_raster(observed_final, self$coords_t)
-        rast_sim_final <- tabular_to_raster(sim_final, self$coords_t)
+        rast_sim_final <- self$lulc_data_as_rast(id_period = id_period_final)
 
         message("  Computing per-transition fuzzy similarity...")
 
@@ -421,11 +422,6 @@ eval_alloc_params_t <- function(
             use_exp_decay = TRUE,
             decay_divisor = 2.0
           )
-
-          message(glue::glue(
-            "    Transition {id_trans} ({id_lulc_ant}->{id_lulc_post}): ",
-            "similarity = {ifelse(is.na(trans_sim$similarity), 'NA', round(trans_sim$similarity, 4))}"
-          ))
 
           # Store result
           all_similarity_results[[length(all_similarity_results) + 1L]] <- data.table::data.table(

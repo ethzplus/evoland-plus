@@ -3,7 +3,7 @@
 \name{alloc_dinamica}
 \alias{alloc_dinamica}
 \alias{alloc_dinamica_setup_inputs}
-\alias{alloc_dinamica_single_iteration}
+\alias{alloc_dinamica_one_period}
 \alias{eval_alloc_params_t}
 \title{Dinamica EGO Allocation Methods}
 \usage{
@@ -12,26 +12,34 @@ alloc_dinamica_setup_inputs(
   id_period_ant,
   id_period_post,
   anterior_rast,
-  temp_dir
+  temp_dir,
+  gof_criterion,
+  gof_maximize
 )
 
-alloc_dinamica_single_iteration(
+alloc_dinamica_one_period(
   self,
   id_period_ant,
   id_period_post,
   anterior_rast,
-  iteration_dir
+  iteration_dir,
+  gof_criterion,
+  gof_maximize
 )
 
 alloc_dinamica(
   self,
   id_periods,
+  gof_criterion,
+  gof_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 )
 
 eval_alloc_params_t(
   self,
+  gof_criterion,
+  gof_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 )
@@ -71,7 +79,7 @@ allocation parameters. These methods are added to the \code{evoland_db} class.
 \item \code{alloc_dinamica_setup_inputs()}: Private helper: Set up input files for a single Dinamica
 allocation iteration
 
-\item \code{alloc_dinamica_single_iteration()}: Private helper: Run a single Dinamica allocation iteration
+\item \code{alloc_dinamica_one_period()}: Private helper: Run a single Dinamica allocation iteration
 
 \item \code{alloc_dinamica()}: Run Dinamica EGO allocation over multiple periods
 
