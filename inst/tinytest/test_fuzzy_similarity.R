@@ -81,7 +81,7 @@ terra::values(map_large) <- 1
 
 expect_error(
   calc_fuzzy_similarity(map_small, map_large, window_size = 5L),
-  pattern = "same dimensions"
+  pattern = "extents do not match"
 )
 
 # Test create_change_map with no changes
