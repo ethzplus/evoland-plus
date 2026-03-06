@@ -249,7 +249,7 @@ evoland_db <- R6::R6Class(
     #' @field lulc_meta_t Get or upsert [lulc_meta_t]
     lulc_meta_t = create_table_binding("lulc_meta_t", "upsert"),
     #' @field lulc_data_t Get or upsert [lulc_data_t]
-    lulc_data_t = create_table_binding("lulc_data_t", "append"),
+    lulc_data_t = create_table_binding("lulc_data_t", "upsert"),
     #' @field pred_data_t Get or upsert [pred_data_t]
     pred_data_t = create_table_binding("pred_data_t", "upsert"),
     #' @field pred_meta_t Get or upsert [pred_meta_t]
