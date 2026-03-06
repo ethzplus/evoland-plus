@@ -124,10 +124,14 @@ evoland_db <- R6::R6Class(
     #' @description Runs a path-dependent Monte Carlo simulation using Dinamica
     #' EGO, see [alloc_dinamica()]
     #' @param id_periods Integer vector of period IDs to include in the simulation.
+    #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
+    #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
     #' @param work_dir Character path for Dinamica working directory. Default "dinamica_rundir".
     #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
     alloc_dinamica = function(
       id_periods,
+      gof_criterion,
+      gof_maximize,
       work_dir = "dinamica_rundir",
       keep_intermediate = FALSE
     ) {
@@ -136,9 +140,13 @@ evoland_db <- R6::R6Class(
 
     #' @description
     #' Evaluates allocation parameters in dinamica, see [eval_alloc_params_t()]
+    #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
+    #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
     #' @param work_dir Character path for Dinamica working directory. Default "dinamica_rundir".
     #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
     eval_alloc_params_t = function(
+      gof_criterion,
+      gof_maximize,
       work_dir = "dinamica_rundir",
       keep_intermediate = FALSE
     ) {
@@ -167,12 +175,12 @@ evoland_db <- R6::R6Class(
     #' each transition, see [fit_full_models()]
     #' @param partial_models A trans_models_t table with partial models (see [fit_partial_models()])
     #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
-    #' @param maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
+    #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
     #' @param cluster Optional cluster object for parallel processing
     fit_full_models = function(
       partial_models,
       gof_criterion,
-      maximize = TRUE,
+      gof_maximize,
       cluster = NULL
     ) {
       create_method_binding(fit_full_models)
@@ -222,7 +230,7 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Predict the transition potential for a given period, see [trans_pot_t()]
     #' @param id_period_post Integerish, posterior period of the transition probability interval
-    predict_trans_pot = function(id_period_post) {
+    predict_trans_pot = function(id_period_post, gof_criterion, gof_maximize) {
       create_method_binding(predict_trans_pot)
     },
 
