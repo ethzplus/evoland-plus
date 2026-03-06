@@ -111,11 +111,7 @@ resolve_partition_clause <- function(x, metadata) {
     return("")
   }
 
-  paste0(
-    ", partition_by (",
-    toString(glue::glue('"{cols}"')),
-    ")"
-  )
+  paste(", partition_by (", cols_to_select_expr(cols), ")")
 }
 
 #' @describeIn parquet_db_utils Compose metadata clause, which includes any new
@@ -288,4 +284,17 @@ create_method_binding <- function(fun, with_private = FALSE, with_super = FALSE)
 
   # Evaluate in original environment. Preserves lazy evaluation of arguments.
   eval(cl, envir = parent.frame(2))
+}
+
+#' @describeIn parquet_db_utils Paste vector of escaped column names into a SQL
+#' select statement, with optional table name prefix.
+#' @param cols The columns to select.
+cols_to_select_expr <- function(cols, table_name) {
+  if (!missing(table_name)) {
+    prefix <- paste0('"', table_name, '"."')
+    suffix <- '"'
+  } else {
+    prefix <- suffix <- '"'
+  }
+  paste0(prefix, cols, suffix, collapse = ", ")
 }

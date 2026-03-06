@@ -139,7 +139,7 @@ Character vector of table names
 \subsection{Method \code{fetch()}}{
 Fetch data from a table
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$fetch(table_name, cols = "*", where = NULL, limit = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$fetch(table_name, cols = NULL, where = NULL, limit = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{

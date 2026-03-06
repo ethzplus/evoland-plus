@@ -114,7 +114,7 @@ parquet_db <- R6::R6Class(
     #' @return A data.table
     fetch = function(
       table_name,
-      cols = "*",
+      cols = NULL,
       where = NULL,
       limit = NULL
     ) {
@@ -127,8 +127,11 @@ parquet_db <- R6::R6Class(
       read_expr <- self$get_read_expr(table_name)
 
       # build sql query
-      sql <- glue::glue("select {cols} from {read_expr}")
+      sql <- glue::glue("from {read_expr}")
 
+      if (!is.null(cols)) {
+        sql <- glue::glue("select {cols_to_select_expr(cols)} {sql}")
+      }
       if (!is.null(where)) {
         sql <- glue::glue("{sql} where {where}")
       }
@@ -234,6 +237,7 @@ parquet_db <- R6::R6Class(
         autoincrement_cols <- resolve_cols(x, metadata_existing, "autoincrement_cols")
         map_cols           <- resolve_cols(x, metadata_existing, "map_cols")
         key_cols           <- resolve_cols(x, metadata_existing, "key_cols")
+        partition_cols     <- resolve_cols(x, metadata_existing, "partition_cols")
         partition_clause   <- resolve_partition_clause(x, metadata_existing)
         metadata_clause    <- resolve_metadata_clause(x, metadata_existing)
       }
@@ -270,6 +274,7 @@ parquet_db <- R6::R6Class(
           all_cols = all_cols,
           key_cols = key_cols,
           autoincrement_cols = autoincrement_cols,
+          partition_cols = partition_cols,
           partition_clause = partition_clause,
           metadata_clause = metadata_clause
         )
@@ -492,10 +497,22 @@ parquet_db <- R6::R6Class(
       key_cols,
       table_path,
       autoincrement_cols,
+      partition_cols,
       partition_clause,
       metadata_clause
     ) {
-      # simple solution for now: load entire table into memory
+      is_partitioned <- length(partition_cols) > 0
+      semi_join <- if (is_partitioned) {
+        glue::glue(
+          "semi join (",
+          "  select distinct {cols_to_select_expr(partition_cols)} from new_data_v",
+          ") using ({cols_to_select_expr(partition_cols)})"
+        )
+      } else {
+        ""
+      }
+
+      # load entire table (or touched partitions) into memory
       self$execute(glue::glue(
         r"{
         create table old_data_t as
@@ -503,6 +520,7 @@ parquet_db <- R6::R6Class(
           *
         from
           '{table_path}'
+        {semi_join}
         }"
       ))
       on.exit(self$execute("drop table old_data_t"), add = TRUE)
@@ -579,16 +597,28 @@ parquet_db <- R6::R6Class(
         }"
       ))
 
-      if (nzchar(partition_clause)) {
-        # Clean up existing directory to avoid stale partitions/files
-        unlink(table_path, recursive = TRUE)
+      if (is_partitioned) {
+        # manually delete all files in affected partition folders
+        # overwrite_or_ignore does not reliably delete full partitions:
+        # https://github.com/duckdb/duckdb/issues/10282 might fix this
+        # overwrite deletes everything and only rewrites touched partitions.
+        affected_partitions <- self$get_query(glue::glue(
+          "select distinct {cols_to_select_expr(partition_cols)} from new_data_v"
+        ))
+
+        apply(affected_partitions, 1, function(row) {
+          paste0(names(row), "=", row, collapse = .Platform$file.sep)
+        }) |>
+          file.path(table_path, partition_dir = _) |>
+          unlink(recursive = TRUE)
       }
 
       self$execute(glue::glue(
         "copy old_data_t to '{table_path}' (
           {self$writeopts}
           {metadata_clause}
-          {partition_clause}
+          {partition_clause},
+          overwrite_or_ignore
         )"
       ))
     },

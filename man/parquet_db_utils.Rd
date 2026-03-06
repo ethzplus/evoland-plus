@@ -11,6 +11,7 @@
 \alias{kv_df_to_list}
 \alias{create_table_binding}
 \alias{create_method_binding}
+\alias{cols_to_select_expr}
 \title{Parquet database utility functions}
 \usage{
 as_parquet_db_t(
@@ -36,7 +37,9 @@ kv_df_to_list(x)
 
 create_table_binding(table_name, mode = c("write_once", "upsert", "append"))
 
-create_method_binding(fun, with_private = FALSE)
+create_method_binding(fun, with_private = FALSE, with_super = FALSE)
+
+cols_to_select_expr(cols, table_name)
 }
 \arguments{
 \item{x}{The data to be committed.}
@@ -61,7 +64,7 @@ hive style parquet file partitioning.}
 
 \item{attr}{The column function to resolve, e.g. "autoincrement_cols", "map_cols", "key_cols".}
 
-\item{cols}{The list columns to convert.}
+\item{cols}{The columns to select.}
 
 \item{fn}{The function to apply to each element of the list columns}
 
@@ -69,8 +72,9 @@ hive style parquet file partitioning.}
 
 \item{fun}{The underlying function to bind as an R6 method, which must have a \code{self} argument}
 
-\item{with_private}{Whether to also pass the R6 reference to \code{private} as an argument
-parameter as its first argument.}
+\item{with_private}{Whether to also pass the R6 reference to \code{private} as an argument}
+
+\item{with_super}{Whether to also pass the R6 reference to \code{super} as an argument}
 }
 \description{
 A set of utility functions for working with \link{parquet_db}.
@@ -109,6 +113,9 @@ to fetch or commit data to that table. The active binding either returns the tab
 \item \code{create_method_binding()}: Helper function to bind a function as a method to an R6
 generator. Simply passes the R6 method's arguments as-is to the underlying "pure"
 function, passing the R6 reference to \code{self}, but not to \code{private}.
+
+\item \code{cols_to_select_expr()}: Paste vector of escaped column names into a SQL
+select statement, with optional table name prefix.
 
 }}
 \keyword{internal}
