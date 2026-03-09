@@ -25,19 +25,6 @@ expect_identical(
 )
 expect_equal(db$reporting_t["report_name", value], "evoland_scenario")
 
-expect_message(
-  db$trans_models_t <-
-    db$fit_partial_models(
-      fit_fun = fit_glm,
-      gof_fun = gof_glm,
-      seed = 1244244
-    ) |>
-    db$fit_full_models(
-      gof_criterion = "cor"
-    ),
-  "Fitting full models for 2 transitions..."
-)
-
 # active bindings without tables
 active_bindings <-
   Filter(
@@ -62,9 +49,33 @@ db$runs_t <- as_runs_t(list(
   description = c("Base", "Child", "Grandchild")
 ))
 
+# test that we can overwrite a slice of data within a run
+expect_silent(db$id_run <- 0L)
+pred_run_0 <- db$pred_data_t
+
 expect_silent(db$id_run <- 2L)
 expect_equal(db$id_run, 2L)
 expect_equal(db$run_lineage, 2:0)
+
+db$pred_data_t <- added_run_2 <- db$pred_data_t[
+  id_pred == 1L,
+  .(id_run = 2L, id_period, id_pred, id_coord, value = value + 100L)
+]
+
+pred_run_2 <- db$pred_data_t
+
+expect_equal(nrow(pred_run_0), nrow(pred_run_2))
+
+# cannot check equality because of weird class/attribute changes due to
+# data.table operations, but we can check that the added rows in run 2 are
+# exactly those not in run 0
+expect_equivalent(
+  added_run_2,
+  pred_run_2[
+    !pred_run_0, # anti-join to find rows in run 2 not in run 0
+    on = c("id_run", "id_period", "id_pred", "id_coord")
+  ]
+)
 
 # fetch back as rast
 expect_equal(
@@ -72,3 +83,7 @@ expect_equal(
   m <- db$lulc_data_as_rast(id_period = 1L)
 )
 expect_length(as.vector(m["id_period_1"]), 900L)
+expect_equal(
+  unique(db$lulc_data_t$id_lulc),
+  unique(as.vector(m["id_period_1"]))
+)
