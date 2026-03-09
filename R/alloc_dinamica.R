@@ -341,10 +341,15 @@ eval_alloc_params_t <- function(
   historical_periods <- self$periods_t[is_extrapolated == FALSE & id_period > 0]
   # exclude first period since it has no anterior period
   posterior_historical_periods <- historical_periods$id_period[-1]
+  orig_id_run <- self$id_run
+  on.exit(self$id_run <- orig_id_run, add = TRUE)
 
   # Get runs to evaluate
+  self$id_run <- NULL
   runs_defined <- self$runs_t[, id_run]
-  runs_required <- unique(self$alloc_params_t[, id_run])
+  unfiltered_alloc_params_t <- self$alloc_params_t
+  runs_required <- unique(unfiltered_alloc_params_t[, id_run])
+  self$id_run <- orig_id_run
 
   stopifnot(
     "gof_criterion must be a single string" = {
@@ -357,10 +362,8 @@ eval_alloc_params_t <- function(
     "all runs in alloc_params_t must be defined in runs_t" = {
       all(runs_required %in% runs_defined)
     }
+    # TODO do we want to check that no data exists for runs_required?
   )
-
-  # TODO better way to link alloc_params_t to runs_t? e.g. additional field,
-  # comment in runs_t?
 
   # Get initial and final periods
   id_period_initial <- min(historical_periods$id_period)
@@ -382,8 +385,6 @@ eval_alloc_params_t <- function(
   # Storage for per-transition similarity results
   all_similarity_results <- list()
 
-  orig_id_run <- self$id_run
-  on.exit(self$id_run <- orig_id_run, add = TRUE)
   # Evaluate each run
   for (id_run in runs_required) {
     message(glue::glue("\n=== Evaluating run {id_run} ==="))
@@ -431,8 +432,7 @@ eval_alloc_params_t <- function(
           )
         }
 
-        # Clean up rasters
-        rm(rast_initial, rast_obs_final, rast_sim_final)
+        rm(rast_sim_final)
         gc()
       },
       error = function(e) {
@@ -459,7 +459,7 @@ eval_alloc_params_t <- function(
 
   # Augment alloc_params_t with similarity metrics
   result_params <- merge(
-    self$alloc_params_t,
+    unfiltered_alloc_params_t[, -"similarity"],
     similarity_dt,
     by = c("id_run", "id_trans"),
     all.x = TRUE
