@@ -1,4 +1,4 @@
-require(tinytest)
+library(tinytest)
 
 # Gate: skip during R CMD check; run with build_install_test()
 if (!at_home()) {
@@ -19,19 +19,19 @@ expect_stdout(print(as_trans_preds_t()), "Transition-Predictor Relationships")
 expect_message(
   cov_results <- db$get_pruned_trans_preds_t(
     filter_fun = covariance_filter,
-    corcut = 0.03 # absurdly low to force pruning for testing
+    corcut = 0.03, # absurdly low to force pruning for testing
+    ordered_pred_data = TRUE # for deterministic behavior in testing
   ),
   "Processing 2 transitions"
 )
 cov_expected <-
   as_trans_preds_t(data.table::rowwiseDT(
       id_run=, id_pred=, id_trans=,
-      0,       1,        1,
       0,       1,        2,
       0,       2,        1,
       0,       2,        2,
-      0,       3,        2,
-      0,       4,        1
+      0,       3,        1,
+      0,       4,        2
   ))
 expect_equal(cov_results, cov_expected)
 
