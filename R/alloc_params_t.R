@@ -16,6 +16,9 @@
 #'   - `patch_isometry`: Measure of patch shape regularity
 #'   - `frac_expander`: Fraction of transition cells adjacent to existing patches
 #'   - `frac_patcher`: Fraction of transition cells forming new patches
+#'   - `similarity`: Similarity metric for allocation parameters, see
+#'      [calc_fuzzy_similarity()] and [eval_alloc_params_t()]
+#'
 #' @export
 as_alloc_params_t <- function(x) {
   if (missing(x)) {
@@ -26,7 +29,8 @@ as_alloc_params_t <- function(x) {
       patch_size_variance = numeric(0),
       patch_isometry = numeric(0),
       frac_expander = numeric(0),
-      frac_patcher = numeric(0)
+      frac_patcher = numeric(0),
+      similarity = numeric(0)
     )
   }
   as_parquet_db_t(
@@ -322,7 +326,8 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
       patch_size_variance = mean_na(patch_size_variance),
       patch_isometry = mean_na(patch_isometry),
       frac_expander = mean_na(frac_expander),
-      frac_patcher = mean_na(frac_patcher)
+      frac_patcher = mean_na(frac_patcher),
+      similarity = NA_real_ # placeholder, to be filled in eval_alloc_params_t
     ),
     by = id_trans
   ]
@@ -353,8 +358,6 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
     final_results |>
     data.table::rbindlist(idcol = "id_run") |>
     as_alloc_params_t()
-
-  results_dt[, id_run := id_run - 1L] # adjust id_run to start at 0 for the unperturbed params
 
   message(glue::glue(
     "Successfully computed {nrow(results_dt)} allocation parameter sets ",
