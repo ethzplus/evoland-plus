@@ -62,6 +62,8 @@ A data.table of class "alloc_params_t" with columns:
 \item \code{patch_isometry}: Measure of patch shape regularity
 \item \code{frac_expander}: Fraction of transition cells adjacent to existing patches
 \item \code{frac_patcher}: Fraction of transition cells forming new patches
+\item \code{similarity}: Similarity metric for allocation parameters, see
+\code{\link[=calc_fuzzy_similarity]{calc_fuzzy_similarity()}} and \code{\link[=eval_alloc_params_t]{eval_alloc_params_t()}}
 }
 
 A named list with allocation parameters:

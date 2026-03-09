@@ -18,6 +18,7 @@ get_pruned_trans_preds_t(
   self,
   filter_fun = covariance_filter,
   cluster = NULL,
+  ordered_pred_data = FALSE,
   ...
 )
 }
@@ -32,6 +33,9 @@ get_pruned_trans_preds_t(
 returns a character vector of column names to keep, see e.g. \link{covariance_filter}}
 
 \item{cluster}{An optional cluster object, see \link{run_parallel_evoland}}
+
+\item{ordered_pred_data}{Bool, should the predictor data be ordered? needed
+for fully deterministic behavior}
 
 \item{db}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
 

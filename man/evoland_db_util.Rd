@@ -6,7 +6,7 @@
 \alias{run_parallel_evoland}
 \title{Utility functions and methods for \code{evoland_db}}
 \usage{
-get_evoland_db_read_expr(self, table_name)
+get_evoland_db_read_expr(self, super, table_name)
 
 run_parallel_evoland(items, worker_fun, parent_db, cluster = NULL, ...)
 }
