@@ -1,9 +1,8 @@
 ---
-title: Getting Started - Ingest Swiss Arealstatistik LULC Data
+title: Getting started with `evoland-plus`
 author: Jan Hartman
-date: 2025-10-16
 vignette: >
-  %\VignetteIndexEntry{evoland-plus-ingest-arealstatistik}
+  %\VignetteIndexEntry{getting-started}
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 execute:
@@ -13,56 +12,48 @@ execute:
 ```{r}
 #| label: cleanup
 #| include: false
-# cleaning this folder up at end of script prevents investigation
+# make sure we're starting clean
 unlink("arealstatistik-model.evolanddb", recursive = TRUE)
 ```
 
+This file introduces the `evoland-plus` R package, or `evoland` for short.
+In brief, `evoland-plus` adheres to the idea that the likelihood of land use change in a given location can be described based on historical patterns, augmented with assumptions about the development socio-economic and environmental drivers of land use change.
 
-This file introduces `evoland-plus`, or `evoland` for short, using the the example of ingesting the [Arealstatistik (AS)](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/boden-nutzung-bedeckung-eignung/arealstatistik-schweiz.html) land use land cover data into a database.
+We'll be following a three-phase workflow:
 
-In order to read in land use data, we first must create a database with the following metadata:
+1. **Data Preparation**: Marshalling heterogeneous data sources on observed land use and likely candidates for statistical predictors of land use change into a consistent format and structure, and ingesting them into a database.
+2. **Calibration**: Feature selection, transition potential model calibration, and estimation of allocation parameters based on the observed land use change in the historical period.
+3. **Prediction + Allocation**: Recursive model evaluation to generate future land use projections
+
+⛰️ Let's get into it! 🏔️
+
+# Data Preparation
+
+In order to read in data, we first must declare the spatiotemporal structure which will serve as the framework for all our modelling:
 
 - A set of **coordinates** built from a geographic specification
 - **Periods** describing a regular time series, built from start, end, and interval
-- **LULC Metadata** describing the land use/land cover classes we will use
+- **Metadata** describing the land use/land cover classes we will use
 
 ## Setup
 
-In this step, we create a new `evoland_db` object, either in-memory using the special `path` argument ":memory:", or on-disk.
-The `path` creates or loads a file in which the data we work with is persisted.
-Somewhat unusually for R objects, you call methods on it like you would on a Python object (e.g. `pandas_df.drop_duplicates()`).
-This is called "encapsulated object oriented programming" (cf. [Advanced R](https://adv-r.hadley.nz/r6.html)).
-This is the wrong place to go into details, but the gist of this style of object is that it provides a nice representation of a database on disk.
-In essence, you can read and write to tables in the database like so:
+First, we load the package and create a `evoland_db` object: unlike most R objects like `data.frame`s, this is a **mutable** object[^r6], meaning we can apply actions to it.
+This is the wrong place to go into details, but the gist of this style of object is that it provides a nice representation of a durable database on disk.
+Upon creation, the `path` argument determines where we'll store our data, or if there is already a database at that location, we can continue working with it.
 
-```{r}
-#| label: norun-dummy-sample
-#| eval: false
-library(evoland)
-
-# 1. Create a database object - it organizes a set of tables as parquet files
-db <- evoland_db$new("examplefolder.evolanddb")
-
-# 2. Assign an object which has been cast to and validated as `lulc_meta_t` to the database's table. The `_t` suffix indicates a database object that is a Table, as opposed to a View `_v`.
-db$lulc_meta_t <- as_lulc_meta_t(x)
-
-# 3. Retrieve and print the data we just stored in the database
-print(db$lulc_meta_t)
-```
-
-If `evoland_db$new()` encounters a previously existing database, it will load it.
-If there is no database yet, it will create a new database with the `evoland` database schema.
-The database connection will only be closed once the db object is removed from the workspace and garbage collected (i.e. `rm(db); gc()`); until then, there will be a lock on the database, even for reading!
-You can call the file whatever you like!
-You may call it `my_lulc_model.db` or `🪶🤓.😘` or `arealstatistik-model.evolanddb`, though I strongly advise against using non-ascii characters in filenames.
-Underneath, the file is always a [DuckDB](https://duckdb.org/) database.
-The `.evolanddb` suffix is a clear indication what the purpose of the file is, so let's go with that for our actual workflow:
+[^r6]: Specifically, we're creating an R6 object instead of an S3 or S4 one. This is called "encapsulated object oriented programming" (cf. [Advanced R](https://adv-r.hadley.nz/r6.html)) and you might know it from Python (e.g. `pandas_df.drop_duplicates()`).
 
 ```{r}
 #| label: create-db
 library(evoland)
-library(data.table)
-db <- evoland_db$new(path = "arealstatistik-model.evolanddb")
+db <- evoland_db$new(path = "firstmodel.evolanddb")
+```
+
+Go ahead and print the object: there are already a `runs_t` table and a `reporting_t` table, which are bare-bones for now but will be used to track our modelling runs and metadata for producing graphs and tables.
+
+```{r}
+#| label: print-db
+db
 ```
 
 ## Construct Coordinate Set
