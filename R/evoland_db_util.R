@@ -21,7 +21,8 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
   )[[1]]
 
   if (
-    !("id_run" %in% all_cols) || # no id_run
+    is.null(self$id_run) || # no active id_run
+      !("id_run" %in% all_cols) || # no id_run in table
       table_name == "runs_t" # runs_t table itself
   ) {
     return(super$get_read_expr(table_name))
@@ -35,13 +36,9 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
   distinctness_cols <- intersect(all_cols, theoretical_distinctness_cols)
   inheritance_key_cols <- setdiff(distinctness_cols, "id_run")
 
-  # Single run in lineage, or only id_run present: just filter for active id_run
-  if (length(self$run_lineage) == 1L || identical(distinctness_cols, "id_run")) {
-    stopifnot("id_run needs to be set" = !is.null(self$id_run))
-    # check for nullness - else we'd get back an empty char vector
-    return(glue::glue(
-      "(select * from '{table_path}' where id_run = {self$id_run})"
-    ))
+  # Single run in lineage: just filter for active id_run
+  if (length(self$run_lineage) == 1L) {
+    return(glue::glue("(select * from '{table_path}' where id_run = {self$id_run})"))
   }
 
   # map each id_run in lineage to its distance from the active run; used to
@@ -70,35 +67,51 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
     ]"
   )
 
-  join_conditions <- vapply(
-    inheritance_key_cols,
-    function(col) {
-      if (col == "id_period") {
-        # special case for id_period: self-join data_present to allow for
-        # id_period=0 fallback
-        return(glue::glue("(a.{col} = b.{col} or b.{col} = 0)"))
-      }
-      glue::glue("a.{col} = b.{col}")
-    },
-    character(1)
-  )
-
-  # reduce data_present to one row per most specific id_run
-  ctes[["best_run"]] <- glue::glue(
-    r"[
-    select
-      {paste0("b.", inheritance_key_cols, collapse = ", ")},
-      -- arg_min returns id_run for the single row where run_case is minimal
-      arg_min(b.id_run, {run_case}) as id_run
-    from
-      data_present a,
-      data_present b
-    where
-      {paste(join_conditions, collapse = " and ")}
-    group by
-      {paste0("b.", inheritance_key_cols, collapse = ", ")}
-    ]"
-  )
+  # Special case for id_period: need self-join on id_period AND id_period=0;
+  # currently only relevant for pred_data_t, but let's generalize just in case
+  if ("id_period" %in% inheritance_key_cols) {
+    join_conditions <- vapply(
+      inheritance_key_cols,
+      function(col) {
+        if (col == "id_period") {
+          # special case for id_period: self-join data_present to allow for
+          # id_period=0 fallback
+          return(glue::glue("(a.{col} = b.{col} or b.{col} = 0)"))
+        }
+        glue::glue("a.{col} = b.{col}")
+      },
+      character(1)
+    )
+    # reduce data_present to one row per most specific id_run
+    ctes[["best_run"]] <- glue::glue(
+      r"[
+      select
+        {paste0("b.", inheritance_key_cols, collapse = ", ")},
+        -- arg_min returns id_run for the single row where run_case is minimal
+        arg_min(b.id_run, {run_case}) as id_run
+      from
+        data_present a,
+        data_present b
+      where
+        {paste(join_conditions, collapse = " and ")}
+      group by
+        {paste0("b.", inheritance_key_cols, collapse = ", ")}
+      ]"
+    )
+  } else {
+    # general case: just find minimum distance id_run for each tuple of distinctness cols
+    ctes[["best_run"]] <- glue::glue(
+      r"[
+      select
+        {paste0("b.", distinctness_cols, collapse = ", ")},
+        arg_min(b.id_run, {run_case}) as id_run
+      from
+        data_present b
+      group by
+        {paste0("b.", distinctness_cols, collapse = ", ")}
+      ]"
+    )
+  }
 
   # return read expression: use semi join to filter table_path using best_run
   glue::glue(
