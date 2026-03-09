@@ -1,5 +1,5 @@
 # Test generic parquet_db functionality
-require(tinytest)
+library(tinytest)
 
 # Create temporary directory for testing
 test_dir <- tempfile("parquet_db_test_")
@@ -461,19 +461,27 @@ test_part_3 <- data.table::data.table(
 data.table::setattr(test_part_3, "partition_cols", "group")
 data.table::setattr(test_part_3, "key_cols", "id")
 
-expect_silent(
-  db$commit(
-    test_part_3,
-    "test_partitioned",
-    method = "upsert"
-  )
-)
+expect_equal(db$row_count("test_partitioned"), 8L)
+# 1 updated + 1 inserted + 6 unchanged but touched by partition overwrite = 8 total
+expect_equal(db$commit(test_part_3, "test_partitioned", method = "upsert"), 8L)
+expect_equal(db$row_count("test_partitioned"), 9L)
+# 2 updated + 0 inserted + 6 unchanged but touched by partition overwrite = 8 total
+expect_equal(db$commit(test_part_3, "test_partitioned", method = "upsert"), 8L)
+expect_equal(db$row_count("test_partitioned"), 9L)
+# repeat to ensure idempotency
+expect_equal(db$commit(test_part_3, "test_partitioned", method = "upsert"), 8L)
+expect_equal(db$row_count("test_partitioned"), 9L)
 
 retrieved <- db$fetch("test_partitioned")
 data.table::setorder(retrieved, id)
 
 expect_equal(retrieved[id == 1]$value, 99.9)
 expect_equal(retrieved[id == 9]$value, 88.8)
+
+expect_length(
+  list.files(file.path(test_dir, "test_partitioned.parquet"), recursive = TRUE),
+  3L
+)
 
 # Test 44: Metadata with partitioning
 test_part_meta <- data.table::data.table(
