@@ -1,4 +1,4 @@
-require(tinytest)
+library(tinytest)
 
 # Test empty trans_rates_t creation
 trans_rates_t <- as_trans_rates_t()

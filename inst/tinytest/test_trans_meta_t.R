@@ -40,10 +40,10 @@ synthetic_transitions <- data.table::rowwiseDT(
   1        , 4                , 4                 , 2         ,
   2        , 4                , 4                 , 3         
 ) |>
-  cast_dt_col("id_coord", "int") |>
-  cast_dt_col("id_lulc_anterior", "int") |>
-  cast_dt_col("id_lulc_posterior", "int") |>
-  cast_dt_col("id_period", "int")
+  evoland:::cast_dt_col("id_coord", "int") |>
+  evoland:::cast_dt_col("id_lulc_anterior", "int") |>
+  evoland:::cast_dt_col("id_lulc_posterior", "int") |>
+  evoland:::cast_dt_col("id_period", "int")
 
 # nolint end
 expect_equal(

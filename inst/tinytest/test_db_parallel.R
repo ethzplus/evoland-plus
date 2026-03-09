@@ -1,5 +1,5 @@
 # Setup temporary DB
-require(tinytest)
+library(tinytest)
 temp_dir <- tempfile()
 db <- evoland_db$new(
   temp_dir,

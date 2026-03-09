@@ -57,13 +57,13 @@ hier_runs <- as_runs_t(list(
 ))
 
 # Lineage for Base, Child, and Grandchild
-expect_equal(get_lineage(hier_runs, 0L), 0L)
-expect_equal(get_lineage(hier_runs, 1L), 1:0)
-expect_equal(get_lineage(hier_runs, 2L), 2:0)
+expect_equal(evoland:::get_lineage(hier_runs, 0L), 0L)
+expect_equal(evoland:::get_lineage(hier_runs, 1L), 1:0)
+expect_equal(evoland:::get_lineage(hier_runs, 2L), 2:0)
 
 # error for non-existent id_run
 expect_error(
-  get_lineage(hier_runs, 999L),
+  evoland:::get_lineage(hier_runs, 999L),
   pattern = "Requested run \\(id_run = 999\\) not found in runs_t"
 )
 
@@ -75,6 +75,6 @@ broken_runs <- as_runs_t(list(
 ))
 
 expect_error(
-  get_lineage(broken_runs, 2L),
+  evoland:::get_lineage(broken_runs, 2L),
   pattern = "Parent for id_run = 1 not found; base runs should have parent_id_run = NA"
 )
