@@ -1,4 +1,4 @@
-require(tinytest)
+library(tinytest)
 
 # vanilla R functions
 expect_stdout(print(as_trans_models_t()), "Transition Models Table")
@@ -76,7 +76,7 @@ gof_mock <- function(model, test_data) {
 
 # Test fit_partial_models
 expect_message(
-  partial_models <- db$fit_partial_models(
+  db$trans_models_t <- partial_models <- db$fit_partial_models(
     fit_fun = fit_mock_glm,
     gof_fun = gof_mock,
     sample_frac = 0.7,
@@ -103,8 +103,8 @@ expect_true(all(
 expect_equal(
   partial_models$goodness_of_fit,
   list(
-    list(cor = 0.01941499, mse = 0.24902958, n_test = 319),
-    list(cor = 0.01899595, mse = 0.24918655, n_test = 219)
+    list(cor = 0.02674974, mse = 0.2487825, n_test = 319),
+    list(cor = 0.02242273, mse = 0.2505098, n_test = 219)
   ),
   tolerance = 1e-6
 )
@@ -117,15 +117,14 @@ expect_inherits(
 
 # Test fit_full_models, which ensures we can retrieve and evaluate the embedded model function
 expect_message(
-  full_models <- db$fit_full_models(
-    partial_models = partial_models,
+  db$fit_full_models(
     gof_criterion = "cor",
-    maximize = TRUE,
+    gof_maximize = TRUE,
   ),
   "Fitting full models for"
 )
 
-# test the package's standard rf fit and write to disk
+# test the package's standard rf fit and append to disk
 expect_message(
   db$trans_models_t <- db$fit_partial_models(
     fit_fun = fit_ranger,
@@ -133,30 +132,35 @@ expect_message(
     seed = 1244244,
   )
 )
-# test the package's standard glm quasibinomial fit and append to disk
+# test the package's standard glm quasibinomial fit
 expect_message(
-  db$trans_models_t <- db$fit_partial_models(
+  db$fit_partial_models(
     fit_fun = fit_glm,
     gof_fun = gof_glm,
     seed = 1244244,
   )
 )
 expect_message(
-  full_models <- db$fit_full_models(
-    partial_models = db$trans_models_t[model_family == "ranger"],
+  db$trans_models_t <- full_models <- db$fit_full_models(
     gof_criterion = "auc",
-    maximize = TRUE,
+    gof_maximize = TRUE
   ),
   "Fitting full models for"
 )
 
 # test DB round trip
 expect_equal(nrow(full_models), 2L)
-expect_silent(db$trans_models_t <- full_models)
 expect_equal(db$row_count("trans_models_t"), 4L)
 full_mods_roundtrip <- db$trans_models_t[id_trans == 2L & model_family == "ranger"]
-data.table::setattr(full_mods_roundtrip, "parquet_db_t_class", NULL) # remove for testing equivalence
-expect_identical(full_mods_roundtrip, full_models[id_trans == 2L & model_family == "ranger", ])
+data.table::setattr(
+  full_mods_roundtrip,
+  "parquet_db_t_class",
+  NULL
+) # remove attribute for testing equivalence
+expect_identical(
+  full_mods_roundtrip,
+  full_models[id_trans == 2L & model_family == "ranger", ]
+)
 
 # Check that both partial and full models are present
 expect_true(all(!vapply(full_models$model_obj_part, is.null, logical(1))))
@@ -171,9 +175,8 @@ expect_inherits(
 # Test model selection with minimize criterion
 expect_message(
   full_models_min <- db$fit_full_models(
-    partial_models = partial_models,
     gof_criterion = "mse",
-    maximize = FALSE,
+    gof_maximize = FALSE
   ),
   "Fitting full models for"
 )
@@ -233,23 +236,14 @@ expect_error(
   "sample_frac must be between 0 and 1"
 )
 
-# Test error handling - invalid partial_models argument to fit_full_models
+# Test error handling - missing trans_models_t for full model fitting
+db$delete_from("trans_models_t")
 expect_error(
   db$fit_full_models(
-    partial_models = "not_a_trans_models_t",
-    gof_criterion = "cor"
+    gof_criterion = "cor",
+    gof_maximize = TRUE
   ),
-  "partial_models must be a trans_models_t"
-)
-
-# Test error handling - empty partial_models
-empty_models <- as_trans_models_t()
-expect_error(
-  db$fit_full_models(
-    partial_models = empty_models,
-    gof_criterion = "cor"
-  ),
-  "partial_models is empty"
+  "trans_models_t is missing"
 )
 
 # Test fit function that throws an error
