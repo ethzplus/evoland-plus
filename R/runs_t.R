@@ -79,9 +79,14 @@ db_active_id_run <- function(self, private, x) {
   if (missing(x)) {
     return(private$active_id_run)
   }
+  if (is.null(x)) {
+    private$active_id_run <- NULL
+    private$active_run_lineage <- NULL
+    return(invisible(NULL))
+  }
   stopifnot(
     "id_run must be scalar integerish or NULL" = {
-      is.null(x) || length(x) == 1L && as.integer(x) == x
+      length(x) == 1L && as.integer(x) == x
     }
   )
 
@@ -134,3 +139,5 @@ get_lineage <- function(runs_t, id_run) {
 
   lineage
 }
+
+# TODO: add helper for create_alloc_params_t
