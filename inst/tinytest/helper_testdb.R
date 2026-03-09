@@ -25,9 +25,9 @@ make_test_db <- function(
   # synthetic tables
   db$coords_t <- evoland:::test_coords_t
   db$periods_t <- evoland:::test_periods_t
-  db$lulc_meta_t <- evoland:::test_lulc_meta_t
+  db$lulc_meta_t <- evoland:::test_lulc_meta_t[order(id_lulc), -"id_lulc"]
   db$lulc_data_t <- evoland:::test_lulc_data_t
-  db$pred_meta_t <- evoland:::test_pred_meta_t[, -"id_pred"]
+  db$pred_meta_t <- evoland:::test_pred_meta_t[order(id_pred), -"id_pred"]
   db$pred_data_t <- evoland:::test_pred_data_t
 
   # derived tables
@@ -43,7 +43,19 @@ make_test_db <- function(
   }
 
   if (include_alloc_params) {
-    suppressMessages(db$alloc_params_t <- db$create_alloc_params_t())
+    db$runs_t <-
+      data.table::data.table(
+        id_run = 0L:3L,
+        parent_id_run = c(NA, 0L, 0L, 0L),
+        description = c("base", "unperturbed", "perturbation 1", "perturbation 2")
+      ) |>
+      as_runs_t()
+    suppressMessages(
+      db$alloc_params_t <- db$create_alloc_params_t(
+        n_perturbations = 2L,
+        sd = 0.1
+      )
+    )
   }
 
   db
