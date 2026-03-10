@@ -299,7 +299,12 @@ parquet_db <- R6::R6Class(
         # exclude private super names
         super_names <- setdiff(
           ls(self$.__enclos_env__$super),
-          ls(self$.__enclos_env__$super$.__enclos_env__$private)
+          c(
+            ls(self$.__enclos_env__$super$.__enclos_env__$private),
+            "initialize",
+            "print",
+            "clone"
+          )
         )
       } else {
         super_names <- character(0)
@@ -340,11 +345,11 @@ parquet_db <- R6::R6Class(
 
       tables <- self$list_tables()
       if (length(tables) > 0) {
-        cat("Tables present:\n  ")
+        cat("Tables Present:\n  ")
         cat(strwrap(toString(tables), width = 80), sep = "\n  ")
         cat("\n")
       } else {
-        cat("Tables present: (none)\n\n")
+        cat("Tables Present: (none)\n\n")
       }
 
       if (length(super_names) > 0) {
@@ -354,13 +359,13 @@ parquet_db <- R6::R6Class(
       }
 
       if (length(methods) > 0) {
-        cat("Public methods:\n  ")
+        cat("Public Methods:\n  ")
         cat(strwrap(toString(methods), width = 80), sep = "\n  ")
         cat("\n")
       }
 
       if (length(active_bindings) > 0) {
-        cat("Active bindings:\n  ")
+        cat("Active Bindings:\n  ")
         cat(strwrap(toString(active_bindings), width = 80), sep = "\n  ")
       }
 
