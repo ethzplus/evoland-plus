@@ -245,7 +245,10 @@ create_table_binding <- function(table_name, mode = c("write_once", "upsert", "a
 
       if (md == "write_once" && file.exists(self$get_table_path(tbl))) {
         warning(
-          glue::glue("Table '{tbl}' is read-only; delete manually!"),
+          glue::glue(
+            "Table '{tbl}' is write-once; delete manually and write ",
+            "anew if you know what you are doing!"
+          ),
           .call = FALSE
         )
         return(NULL)
