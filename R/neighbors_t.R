@@ -28,6 +28,7 @@ as_neighbors_t <- function(x) {
   if ("distance_class" %in% names(x)) {
     cast_dt_col(x, "distance_class", "factor")
   }
+
   as_parquet_db_t(
     x,
     class_name = "neighbors_t",

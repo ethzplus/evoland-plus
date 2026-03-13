@@ -22,9 +22,12 @@ as_trans_pot_t <- function(x) {
       value = numeric(0)
     )
   }
-  cast_dt_col(x, "id_trans", "int")
-  cast_dt_col(x, "id_period_post", "int")
-  cast_dt_col(x, "id_coord", "int")
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_trans", "int") |>
+    cast_dt_col("id_period_post", "int") |>
+    cast_dt_col("id_coord", "int")
+
   as_parquet_db_t(
     x,
     "trans_pot_t",

@@ -114,12 +114,14 @@ print_rowwise_yaml <- function(df) {
 #' @param type one of "int", "float", "bool", "factor"
 #' @param levels Optional character vector of factor levels (only used when type = "factor")
 cast_dt_col <- function(x, colname, type, levels = NULL) {
+  # TODO rename predicates to R types
   predicate_fn <- switch(
     type,
     float = is.double,
     int = is.integer,
     bool = is.logical,
     factor = is.factor,
+    char = is.character,
     date = \(x) is(x, "Date")
   )
   if (predicate_fn(x[[colname]])) {
@@ -131,6 +133,7 @@ cast_dt_col <- function(x, colname, type, levels = NULL) {
     float = as.double,
     int = as.integer,
     bool = as.logical,
+    char = as.character,
     factor = {
       if (!is.null(levels)) {
         function(col) {

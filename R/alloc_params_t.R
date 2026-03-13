@@ -33,6 +33,17 @@ as_alloc_params_t <- function(x) {
       similarity = numeric(0)
     )
   }
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_run", "int") |>
+    cast_dt_col("id_trans", "int") |>
+    cast_dt_col("mean_patch_size", "float") |>
+    cast_dt_col("patch_size_variance", "float") |>
+    cast_dt_col("patch_isometry", "float") |>
+    cast_dt_col("frac_expander", "float") |>
+    cast_dt_col("frac_patcher", "float") |>
+    cast_dt_col("similarity", "float")
+
   as_parquet_db_t(
     x,
     class_name = "alloc_params_t",

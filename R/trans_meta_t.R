@@ -37,9 +37,16 @@ as_trans_meta_t <- function(x) {
       is_viable = logical(0)
     )
   }
-  if (!is.null(x[["id_trans"]])) {
-    cast_dt_col(x, "id_trans", "int")
-  }
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_trans", "int") |>
+    cast_dt_col("id_lulc_anterior", "int") |>
+    cast_dt_col("id_lulc_posterior", "int") |>
+    cast_dt_col("cardinality", "int") |>
+    cast_dt_col("frequency_rel", "float") |>
+    cast_dt_col("frequency_abs", "float") |>
+    cast_dt_col("is_viable", "bool")
+
   as_parquet_db_t(
     x,
     "trans_meta_t",

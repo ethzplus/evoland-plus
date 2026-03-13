@@ -16,6 +16,11 @@ as_reporting_t <- function(x) {
       value = character()
     )
   }
+
+  data.table::setDT(x) |>
+    cast_dt_col("key", "char") |>
+    cast_dt_col("value", "char")
+
   as_parquet_db_t(
     x,
     class_name = "reporting_t",

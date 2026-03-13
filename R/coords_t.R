@@ -34,10 +34,13 @@ as_coords_t <- function(x) {
       geom_polygon = list()
     )
   }
-  cast_dt_col(x, "id_coord", "int")
-  if (!is.null(x[["region"]])) {
-    cast_dt_col(x, "region", "factor")
-  }
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_coord", "int") |>
+    cast_dt_col("lon", "float") |>
+    cast_dt_col("lat", "float") |>
+    cast_dt_col("elevation", "float")
+
   as_parquet_db_t(
     x,
     class_name = "coords_t",
