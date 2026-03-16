@@ -18,16 +18,16 @@ as_parquet_db_t(
   x,
   class_name = character(),
   key_cols = NULL,
-  autoincrement_cols = NULL,
+  alternate_key_cols = NULL,
   map_cols = NULL,
   partition_cols = NULL
 )
 
 resolve_cols(x, metadata = list(), attr = character(1))
 
-resolve_partition_clause(x, metadata)
+resolve_partition_clause(x, metadata = list())
 
-resolve_metadata_clause(x, metadata)
+resolve_metadata_clause(x, metadata = list())
 
 convert_list_cols(x, cols, fn)
 
@@ -47,12 +47,17 @@ cols_to_select_expr(cols, table_name)
 \item{class_name}{Optional class name to prepend before "parquet_db_t". Used
 to create more specific subclasses.}
 
-\item{key_cols}{Optional character vector. Used for upsert operations to identify
-rows. May be missing if identities are not yet known, but must be
-present for upsert operations.}
+\item{key_cols}{Optional character vector. Used for data.table's \link[data.table:setkey]{data.table::setkey}
+and used by \link{parquet_db} to determine which columns to use for upsert
+operations. Together with \code{alternate_key_cols}, these are used to define
+uniqueness constraints.}
 
-\item{autoincrement_cols}{Optional character vector. Used to create unique
-identifiers, i.e. automatically incrementing integers.}
+\item{alternate_key_cols}{Optional character vector. These are used in
+conjunction with \code{key_cols} to define uniqueness constraints, but are
+not used for upsert operations. Example: numeric primary key whose
+distinctness is identical to a character primary key column, but
+upsert operations should be based on the character key, leaving the
+character<->numeric mapping intact.}
 
 \item{map_cols}{Optional character vector. Used to coerce columns to DuckDB's
 MAP type, used to store named unnested lists from R.}
@@ -62,7 +67,7 @@ hive style parquet file partitioning.}
 
 \item{metadata}{The metadata to be committed, as returned by \link{parquet_db} \verb{$get_table_metadata()}}
 
-\item{attr}{The column function to resolve, e.g. "autoincrement_cols", "map_cols", "key_cols".}
+\item{attr}{The column function to resolve, e.g. "alternate_key_cols", "map_cols", "key_cols".}
 
 \item{cols}{The columns to select.}
 
@@ -85,8 +90,8 @@ A set of utility functions for working with \link{parquet_db}.
 data.table and adds attributes that \link{parquet_db} relies on for database-like
 operations. See the paramaters for details.
 
-\item \code{resolve_cols()}: Resolves which columns to use for autoincrement, map,
-key: pre-existing schema takes precedence.
+\item \code{resolve_cols()}: Resolves which columns to use for key, map,
+partition, etc.; pre-existing schema takes precedence.
 
 \item \code{resolve_partition_clause()}: Compose partitioning clause.
 

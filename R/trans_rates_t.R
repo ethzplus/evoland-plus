@@ -184,11 +184,7 @@ validate.trans_rates_t <- function(x, ...) {
     "id_period is not integer" = is.integer(x[["id_period"]]),
     "id_trans is not integer" = is.integer(x[["id_trans"]]),
     "rate is not numeric" = is.numeric(x[["rate"]]),
-    "rate is negative" = all(x[["rate"]] >= 0, na.rm = TRUE),
-    "duplicated id_period, id_trans tuple" = !anyDuplicated(
-      x,
-      by = c("id_run", "id_period", "id_trans")
-    )
+    "rate is negative" = all(x[["rate"]] >= 0, na.rm = TRUE)
   )
 
   return(x)

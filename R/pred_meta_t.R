@@ -47,11 +47,8 @@ as_pred_meta_t <- function(x) {
   as_parquet_db_t(
     x,
     class_name = "pred_meta_t",
-    # would be nice to have both id_pred and name as key_cols, but would have to
-    # deal with NAs graciously when upserting, so just name for now and enforce
-    # uniqueness in validation
     key_cols = "name",
-    autoincrement_cols = "id_pred"
+    alternate_key_cols = "id_pred"
   )
 }
 
@@ -99,6 +96,7 @@ create_pred_meta_t <- function(pred_spec, with_id_pred = FALSE) {
   }
 
   x <- data.table::data.table(
+    id_pred = seq_along(pred_spec),
     name = pred_names,
     # path is pred_spec > pred_name > leaf_name
     # we pluck each element, then replace potential null using %||%
@@ -186,7 +184,6 @@ validate.pred_meta_t <- function(x, ...) {
       c("int", "float", "bool", "factor")
     ),
     is.list(x[["factor_levels"]]),
-    "no duplicate names" = !anyDuplicated(x[["name"]]),
     "name cannot be empty" = !any(x[["name"]] == ""),
     "single URL with multiple checksums present" = !anyDuplicated(sources_dt[["url"]])
   )

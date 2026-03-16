@@ -38,13 +38,17 @@ validate.intrv_masks_t <- function(x, ...) {
 
   data.table::setcolorder(
     x,
-    c("id_intrv", "id_coord")
+    c(
+      "id_run",
+      "id_intrv",
+      "id_coord"
+    )
   )
 
   stopifnot(
+    is.integer(x[["id_run"]]),
     is.integer(x[["id_intrv"]]),
-    is.integer(x[["id_coord"]]),
-    !anyDuplicated(x, by = c("id_intrv", "id_coord"))
+    is.integer(x[["id_coord"]])
   )
 
   return(x)

@@ -166,124 +166,19 @@ deleted_count <- db$delete_from("test_table_5", where = "id = 999")
 expect_equal(deleted_count, 0L)
 expect_equal(db$row_count("test_table_5"), initial_count)
 
-# Test 20: Auto-increment on overwrite (new table)
-test_autoinc_1 <- data.table::data.table(
-  name = c("item_a", "item_b", "item_c"),
-  value = c(10, 20, 30)
-)
-data.table::setattr(test_autoinc_1, "autoincrement_cols", "id")
-db$commit(
-  method = "overwrite",
-  test_autoinc_1,
-  "test_autoinc_1"
-)
-result <- db$fetch("test_autoinc_1")
-expect_equal(result$id, 1:3)
-expect_equal(result$name, c("item_a", "item_b", "item_c"))
-
-# Test 21: Auto-increment on append
-test_autoinc_2 <- data.table::data.table(
-  name = c("item_d", "item_e"),
-  value = c(40, 50)
-)
-data.table::setattr(test_autoinc_2, "autoincrement_cols", "id")
-db$commit(
-  test_autoinc_2,
-  "test_autoinc_1",
-  method = "append"
-)
-result <- db$fetch("test_autoinc_1")
-expect_equal(nrow(result), 5L)
-expect_equal(result$id, 1:5)
-expect_equal(result$name[4:5], c("item_d", "item_e"))
-
-# Test 22: Auto-increment on upsert with new rows
-test_autoinc_3 <- data.table::data.table(
-  name = c("item_f", "item_g"),
-  value = c(60, 70)
-)
-data.table::setattr(test_autoinc_3, "autoincrement_cols", "id")
-db$commit(
-  test_autoinc_3,
-  "test_autoinc_1",
-  method = "upsert"
-)
-result <- db$fetch("test_autoinc_1")
-expect_equal(nrow(result), 7L)
-expect_equal(result$id, 1:7)
-
-# Test 23: Auto-increment warning when overriding existing IDs
-test_autoinc_with_ids <- data.table::data.table(
-  id = c(NA, 100L, NA),
-  name = c("new_a", "existing", "new_b"),
-  value = c(1, 2, 3)
-)
-data.table::setattr(test_autoinc_with_ids, "autoincrement_cols", "id")
-expect_warning(
-  db$commit(
-    method = "overwrite",
-    test_autoinc_with_ids,
-    "test_autoinc_2"
-  ),
-  "Overriding existing IDs"
-)
-result <- db$fetch("test_autoinc_2")
-expect_equal(result$id, 1:3)
-
-# Test 24: Multiple auto-increment columns
-test_multi_autoinc <- data.table::data.table(
-  name = c("item1", "item2"),
-  value = c(10, 20)
-)
-data.table::setattr(test_multi_autoinc, "autoincrement_cols", c("id_a", "id_b"))
-db$commit(
-  method = "overwrite",
-  test_multi_autoinc,
-  "test_multi_autoinc"
-)
-result <- db$fetch("test_multi_autoinc")
-expect_equal(result$id_a, 1:2)
-expect_equal(result$id_b, 1:2)
-
-# Test 25: Auto-increment continues from max
-test_continue_a <- data.table::data.table(
-  id_seq = c(5L, 10L, 15L),
-  value = c(100, 200, 300)
-)
-db$commit(
-  method = "overwrite",
-  test_continue_a,
-  "test_continue"
-)
-
-test_continue_b <- data.table::data.table(
-  value = c(400, 500)
-)
-data.table::setattr(test_continue_b, "autoincrement_cols", "id_seq")
-db$commit(
-  test_continue_b,
-  "test_continue",
-  method = "append"
-)
-result <- db$fetch("test_continue")
-expect_equal(nrow(result), 5L)
-expect_equal(result$id_seq[4:5], c(16L, 17L))
-expect_equal(result$value[4:5], c(400, 500))
-
 # Test 31: Extension loading
 # Gate: skip during R CMD check; run with build_install_test()
-if (!at_home()) {
-  exit_file("Integration tests skipped (not at_home)")
+if (at_home()) {
+  test_dir_ext <- tempfile("parquet_db_ext_")
+  db_ext <- parquet_db$new(
+    path = test_dir_ext,
+    extensions = "spatial"
+  )
+  # Verify spatial extension is loaded by using a spatial function
+  expect_silent(
+    db_ext$get_query("SELECT ST_Point(0, 0) as geom")
+  )
 }
-test_dir_ext <- tempfile("parquet_db_ext_")
-db_ext <- parquet_db$new(
-  path = test_dir_ext,
-  extensions = "spatial"
-)
-# Verify spatial extension is loaded by using a spatial function
-expect_silent(
-  db_ext$get_query("SELECT ST_Point(0, 0) as geom")
-)
 
 # Test 32: Persistence across connections
 db$commit(
@@ -322,7 +217,7 @@ expect_equal(db$row_count("no_keys_test"), 4L) # Should append
 # Test 35: Print method
 expect_stdout(
   print(db),
-  "Public methods:|Active bindings:|Format|Compression"
+  "Public Methods:|Active Bindings:|Format|Compression"
 )
 
 # Test 36: Metadata preservation on overwrite
@@ -501,3 +396,43 @@ db$commit(
 retrieved <- db$fetch("test_part_meta")
 expect_equal(attr(retrieved, "my_meta"), "exists")
 expect_equal(attr(retrieved, "partition_cols"), "g")
+
+# Test 45: Alternate key columns in upsert
+test_alt_key <- data.table::data.table(
+  id = 1:3,
+  name = c("a", "b", "c"),
+  value = c(10, 20, 30)
+)
+data.table::setattr(test_alt_key, "key_cols", "id")
+data.table::setattr(test_alt_key, "alternate_key_cols", "name")
+expect_silent(
+  db$commit(
+    method = "overwrite",
+    test_alt_key,
+    "test_alt_key"
+  )
+)
+expect_error(
+  db$commit(
+    data.table::data.table(
+      id = 1,
+      name = c("b", "b", "c"),
+      value = NA_real_
+    ),
+    "test_alt_key",
+    method = "upsert"
+  ),
+  "Constraint Error: Duplicate key"
+)
+expect_equal(
+  db$commit(
+    test_data_1[3:5],
+    "test_alt_key",
+    method = "upsert"
+  ),
+  5L # 1 updated + 2 inserted + 2 unchanged but touched and written = 5 total
+)
+expect_equal(
+  db$fetch("test_alt_key")[order(id), value],
+  c(10, 20, 30.3, 40.4, 50.5)
+)

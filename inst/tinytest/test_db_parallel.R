@@ -21,49 +21,59 @@ expect_equal(res, as.list(paste(temp_dir, c(2, 4, 6))))
 # 2. Test Parallel Execution (Requires installed package for workers)
 # In development (pkgload load_all()), workers can't load the package via library()
 # so we check if we can run a minimal task before proceeding.
-can_run_parallel <- FALSE
-if (requireNamespace("evoland", quietly = TRUE)) {
-  tryCatch(
-    {
-      c <- parallel::makeCluster(2)
-      # Try a minimal task to see if workers can initialize
-      dummy_res <- run_parallel_evoland(
-        items = list(1),
-        worker_fun = function(x, db) x,
-        parent_db = db,
-        cluster = c
-      )
-      can_run_parallel <- TRUE
-    },
-    error = function(e) {
-      parallel::stopCluster(c)
-      message(
-        "\n  Skipping parallel tests: workers could not initialize (package likely not installed)"
-      )
-    }
+if (!at_home() || !requireNamespace("evoland", quietly = TRUE)) {
+  message(
+    "\n  Skipping parallel tests: workers could not initialize (package likely not installed)"
   )
+  tinytest::exit_file()
 }
 
-if (can_run_parallel) {
-  # Write something to DB to check read access in worker
-  worker_db_check <- function(item, db) {
-    # Verify we can access the DB instance and it points to the right place
-    db$reporting_t
+can_run_parallel <- FALSE
+tryCatch(
+  {
+    c <- parallel::makeCluster(2)
+
+    # todo make partitioned writes so append works across processes
+    # test_table_dt <-
+    #   data.table::data.table(
+    #     someitem = NA_integer_
+    #   )
+
+    # db$commit(
+    #   test_table_dt,
+    #   "test_table",
+    #   "append"
+    # )
+
+    worker_db_check <- function(item, db) {
+      # db$commit(
+      #   data.table::data.table(
+      #     someitem = item
+      #   ),
+      #   "test_table",
+      #   "append"
+      # )
+      db$reporting_t
+    }
+
+    res_parallel <- run_parallel_evoland(
+      items = list(1, 2),
+      worker_fun = worker_db_check,
+      parent_db = db,
+      cluster = c
+    )
+    can_run_parallel <- TRUE
+  },
+  finally = {
+    parallel::stopCluster(c)
   }
+)
 
-  res_parallel <- run_parallel_evoland(
-    items = items,
-    worker_fun = worker_db_check,
-    parent_db = db,
-    cluster = c
-  )
 
-  # all three should return the same
-  expect_equal(
-    db$reporting_t,
-    res_parallel[[1]],
-    res_parallel[[2]]
-  )
+if (can_run_parallel) {
+  # should be exactly the same
+  expect_equal(db$reporting_t, res_parallel[[1]])
+  expect_equal(db$reporting_t, res_parallel[[2]])
 }
 
 # Cleanup

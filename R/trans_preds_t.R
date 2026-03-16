@@ -56,7 +56,6 @@ validate.trans_preds_t <- function(x, ...) {
     is.integer(x[["id_run"]]),
     is.integer(x[["id_pred"]]),
     is.integer(x[["id_trans"]]),
-    !anyDuplicated(x, by = c("id_run", "id_pred", "id_trans")),
     all(x[["id_pred"]] > 0),
     all(x[["id_trans"]] > 0)
   )

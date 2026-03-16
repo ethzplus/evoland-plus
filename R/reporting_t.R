@@ -66,9 +66,5 @@ validate.reporting_t <- function(x, ...) {
     )
   )
 
-  stopifnot(
-    !anyDuplicated(x[["key"]])
-  )
-
   return(x)
 }

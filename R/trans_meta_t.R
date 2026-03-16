@@ -49,9 +49,9 @@ as_trans_meta_t <- function(x) {
 
   as_parquet_db_t(
     x,
-    "trans_meta_t",
+    class_name = "trans_meta_t",
     key_cols = c("id_lulc_anterior", "id_lulc_posterior"),
-    autoincrement_cols = "id_trans"
+    alternate_key_cols = "id_trans"
   )
 }
 
@@ -90,6 +90,7 @@ create_trans_meta_t <- function(
 
   # default: all viable until determined otherwise
   trans_summary[, is_viable := TRUE]
+  trans_summary[, id_trans := seq_len(.N)]
 
   # Apply exclusions
   if (!is.null(exclude_anterior) && length(exclude_anterior) > 0) {
@@ -134,6 +135,7 @@ validate.trans_meta_t <- function(x, ...) {
   data.table::setcolorder(
     x,
     c(
+      "id_trans",
       "id_lulc_anterior",
       "id_lulc_posterior",
       "cardinality",
@@ -143,9 +145,6 @@ validate.trans_meta_t <- function(x, ...) {
     )
   )
 
-  # we don't know if there's an id_trans
-  data.table::setcolorder(x, "id_trans", before = "id_lulc_anterior", skip_absent = TRUE)
-
   stopifnot(
     is.integer(x[["id_lulc_anterior"]]),
     is.integer(x[["id_lulc_posterior"]]),
@@ -153,8 +152,6 @@ validate.trans_meta_t <- function(x, ...) {
     is.numeric(x[["frequency_rel"]]),
     is.numeric(x[["frequency_abs"]]),
     is.logical(x[["is_viable"]]),
-    !anyDuplicated(x[["id_trans"]]),
-    !anyDuplicated(x, by = c("id_lulc_anterior", "id_lulc_posterior")),
     all(x[["cardinality"]] >= 0),
     all(x[["frequency_rel"]] >= 0 & x[["frequency_rel"]] <= 1),
     all(x[["frequency_abs"]] >= 0 & x[["frequency_abs"]] <= 1)

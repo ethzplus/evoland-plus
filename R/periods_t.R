@@ -35,7 +35,8 @@ as_periods_t <- function(x) {
   as_parquet_db_t(
     x,
     class_name = "periods_t",
-    key_cols = "id_period"
+    key_cols = c("start_date", "end_date"),
+    alternate_key_cols = "id_period",
   )
 }
 
@@ -121,8 +122,7 @@ validate.periods_t <- function(x, ...) {
     "id_period should be an integer" = is.integer(x[["id_period"]]),
     "start_date should be a Date" = inherits(x[["start_date"]], "Date"),
     "end_date should be a Date" = inherits(x[["end_date"]], "Date"),
-    "is_extrapolated should be bool" = is.logical(x[["is_extrapolated"]]),
-    "id_period may not be duplicated" = !anyDuplicated(x[["id_period"]])
+    "is_extrapolated should be bool" = is.logical(x[["is_extrapolated"]])
   )
 
   return(x)

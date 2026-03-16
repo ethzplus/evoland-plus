@@ -58,7 +58,6 @@ validate.trans_pot_t <- function(x, ...) {
     is.integer(x[["id_trans"]]),
     is.integer(x[["id_period_post"]]),
     is.integer(x[["id_coord"]]),
-    !anyDuplicated(x, by = c("id_trans", "id_period_post", "id_coord")),
     all(x[["value"]] >= 0),
     all(x[["value"]] <= 1)
   )

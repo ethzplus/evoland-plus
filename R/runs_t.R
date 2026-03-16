@@ -49,7 +49,9 @@ validate.runs_t <- function(x, ...) {
   stopifnot(
     "id_run is not integer" = is.integer(x[["id_run"]]),
     "parent_id_run is not integer" = is.integer(x[["parent_id_run"]]),
-    "duplicated id_run" = !anyDuplicated(x, by = "id_run"),
+    "all parent_id_run must be in id_run or NA" = all(
+      is.na(x[["parent_id_run"]]) | x[["parent_id_run"]] %in% x[["id_run"]]
+    ),
     "no base (0) id_run" = 0L %in% x[["id_run"]]
   )
 
@@ -118,14 +120,7 @@ get_lineage <- function(runs_t, id_run) {
     parent_id <- runs_t[id_run == current_id, parent_id_run]
 
     if (length(parent_id) == 0L) {
-      # did not find parent row
-      stop(
-        glue::glue(
-          "Parent for id_run = {current_id} not found; ",
-          "base runs should have parent_id_run = NA"
-        ),
-        call. = FALSE
-      )
+      stop("parent not found, should never happen with valid runs_t")
     }
 
     # append to lineage

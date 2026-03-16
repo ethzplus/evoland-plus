@@ -17,6 +17,8 @@ domain-specific database classes.
 \item{\code{path}}{Character string path to the data folder}
 
 \item{\code{writeopts}}{Write options for DuckDB parquet output}
+
+\item{\code{read_only}}{If true, prevents writes that are not parallel-safe}
 }
 \if{html}{\out{</div>}}
 }
@@ -27,6 +29,7 @@ domain-specific database classes.
 \item \href{#method-parquet_db-execute}{\code{parquet_db$execute()}}
 \item \href{#method-parquet_db-get_query}{\code{parquet_db$get_query()}}
 \item \href{#method-parquet_db-row_count}{\code{parquet_db$row_count()}}
+\item \href{#method-parquet_db-column_max}{\code{parquet_db$column_max()}}
 \item \href{#method-parquet_db-list_tables}{\code{parquet_db$list_tables()}}
 \item \href{#method-parquet_db-fetch}{\code{parquet_db$fetch()}}
 \item \href{#method-parquet_db-get_table_metadata}{\code{parquet_db$get_table_metadata()}}
@@ -44,7 +47,7 @@ domain-specific database classes.
 \subsection{Method \code{new()}}{
 Initialize a new parquet_db object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$new(path, extensions = character(0))}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$new(path, read_only = FALSE, extensions = character(0))}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -104,7 +107,8 @@ A data.table with query results
 \if{html}{\out{<a id="method-parquet_db-row_count"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-row_count}{}}}
 \subsection{Method \code{row_count()}}{
-Get row count for a table
+Get row count for a table (without applying id_run subsetting); returns 0
+if table does not exist
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{parquet_db$row_count(table_name)}\if{html}{\out{</div>}}
 }
@@ -118,6 +122,29 @@ Get row count for a table
 }
 \subsection{Returns}{
 Integer number of rows
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-parquet_db-column_max"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_db-column_max}{}}}
+\subsection{Method \code{column_max()}}{
+Get maximum for a column in a table (without applying id_run subsetting);
+returns 0 if table does not exist
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{parquet_db$column_max(table_name, column_name)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{table_name}}{Character string. Name of the table to query.}
+
+\item{\code{column_name}}{Character string. Name of the column to get the maximum value for.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+Maximum value of the column
 }
 }
 \if{html}{\out{<hr>}}
@@ -208,7 +235,7 @@ Number of rows deleted
 \if{latex}{\out{\hypertarget{method-parquet_db-commit}{}}}
 \subsection{Method \code{commit()}}{
 Commit data using overwrite, append, or upsert modes. Handles partitioning,
-autoincrement, key identity columns, and list-to-MAP conversion. These four
+key identity columns, and list-to-MAP conversion. These four
 special column types may be passed as attributes to the \code{x} argument. If the
 table has previously been written to, these settings are recovered from the
 parquet metadata.

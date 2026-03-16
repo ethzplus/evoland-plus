@@ -31,7 +31,7 @@ expect_error(
     parent_id_run = 0L,
     description = "No Base"
   )),
-  "no base.*0.*id_run"
+  "all parent_id_run must be in id_run or NA"
 )
 
 # Duplicate id_run
@@ -43,7 +43,7 @@ expect_error(
       description = c("Base", "Duplicate")
     )
   ),
-  "duplicated id_run"
+  "Duplicates found"
 )
 
 # Test Lineage Logic (get_lineage)
@@ -68,13 +68,11 @@ expect_error(
 )
 
 # Broken chain (parent doesn't exist)
-broken_runs <- as_runs_t(list(
-  id_run = c(0L, 2L),
-  parent_id_run = c(NA_integer_, 1L), # Parent 1 is missing
-  description = c("Base", "Orphan")
-))
-
 expect_error(
-  evoland:::get_lineage(broken_runs, 2L),
-  pattern = "Parent for id_run = 1 not found; base runs should have parent_id_run = NA"
+  as_runs_t(list(
+    id_run = c(0L, 2L),
+    parent_id_run = c(NA_integer_, 1L), # Parent 1 is missing
+    description = c("Base", "Orphan")
+  )),
+  "all parent_id_run must be in id_run or NA"
 )

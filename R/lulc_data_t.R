@@ -55,8 +55,7 @@ validate.lulc_data_t <- function(x, ...) {
     is.integer(x[["id_run"]]),
     is.integer(x[["id_coord"]]),
     is.integer(x[["id_lulc"]]),
-    is.integer(x[["id_period"]]),
-    !anyDuplicated(x)
+    is.integer(x[["id_period"]])
   )
 
   return(x)

@@ -283,7 +283,14 @@ generate_neighbor_predictors <- function(self) {
   ))
   on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
   # Subset to just those columns we can upsert to the existing pred_meta_t
+  # FIXME move this directly into the SQL above, use select * exclude (distance_class, id_lulc)
   m <- self$get_query("select id_pred, name, pretty_name, description from pred_meta_neighbors_t")
+  m[["id_pred"]] <- {
+    self$get_query(
+      glue::glue("select max(id_pred) from {pred_meta_read_expr}")
+    )[[1]] +
+      seq_len(nrow(m))
+  }
   m[["orig_format"]] <- "land use coordinate data"
   m[["sources"]] <- list(NULL)
   m[["unit"]] <- "number of neighbors"
@@ -329,7 +336,7 @@ generate_neighbor_predictors <- function(self) {
   ))
   on.exit(self$execute("drop table pred_neighbors_t"), add = TRUE)
 
-  self$commit("pred_neighbors_t", "pred_data_t", method = "append")
+  self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
 
   message(glue::glue(
     "Appended {n_predictors} neighbor predictor variables with ",

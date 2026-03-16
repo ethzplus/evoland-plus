@@ -27,11 +27,11 @@ expect_message(
 cov_expected <-
   as_trans_preds_t(data.table::rowwiseDT(
       id_run=, id_pred=, id_trans=,
-      0,       1,        2,
+      0,       1,        1,
       0,       2,        1,
       0,       2,        2,
-      0,       3,        1,
-      0,       4,        2
+      0,       3,        2,
+      0,       4,        1
   ))
 expect_equal(cov_results, cov_expected)
 

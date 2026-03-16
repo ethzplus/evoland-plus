@@ -66,8 +66,7 @@ validate.coords_t <- function(x, ...) {
   stopifnot(
     is.integer(x[["id_coord"]]),
     is.numeric(x[["lon"]]),
-    is.numeric(x[["lat"]]),
-    !anyDuplicated(x[["id_coord"]])
+    is.numeric(x[["lat"]])
   )
 
   return(x)

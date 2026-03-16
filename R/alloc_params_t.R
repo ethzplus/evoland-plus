@@ -59,7 +59,13 @@ validate.alloc_params_t <- function(x, ...) {
     x,
     c(
       "id_run",
-      "id_trans"
+      "id_trans",
+      "mean_patch_size",
+      "patch_size_variance",
+      "patch_isometry",
+      "frac_expander",
+      "frac_patcher",
+      "similarity"
     )
   )
 

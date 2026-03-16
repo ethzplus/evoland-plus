@@ -29,7 +29,7 @@ as_lulc_meta_t <- function(x) {
     x,
     class_name = "lulc_meta_t",
     key_cols = "name",
-    autoincrement_cols = "id_lulc"
+    alternate_key_cols = "id_lulc"
   )
 }
 
@@ -101,8 +101,6 @@ validate.lulc_meta_t <- function(x, ...) {
     is.character(x[["name"]]),
     is.character(x[["pretty_name"]]),
     is.character(x[["description"]]),
-    !anyDuplicated(x[["id_lulc"]]),
-    !anyDuplicated(x[["name"]]),
     !any(x[["name"]] == "")
   )
 

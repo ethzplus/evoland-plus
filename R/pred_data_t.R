@@ -61,8 +61,7 @@ validate.pred_data_t <- function(x, ...) {
     is.integer(x[["id_run"]]),
     is.integer(x[["id_period"]]),
     is.integer(x[["id_pred"]]),
-    is.integer(x[["id_coord"]]),
-    !anyDuplicated(x, by = c("id_run", "id_pred", "id_coord", "id_period"))
+    is.integer(x[["id_coord"]])
   )
 
   return(x)

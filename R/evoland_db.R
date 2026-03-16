@@ -34,15 +34,15 @@ evoland_db <- R6::R6Class(
     initialize = function(
       path,
       id_run = 0L,
-      update_reporting = TRUE,
+      read_only = FALSE,
       ...
     ) {
-      super$initialize(path = path, extensions = "spatial")
-      if (update_reporting) {
+      super$initialize(path = path, read_only = read_only, extensions = "spatial")
+      if (!read_only) {
         self$set_report(...)
+        self$commit(as_runs_t(), "runs_t", method = "upsert")
       }
       # ensure there is a minimal runs_t with base case
-      self$commit(as_runs_t(), "runs_t", method = "upsert")
       self$id_run <- id_run
       invisible(self)
     },
@@ -230,6 +230,8 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Predict the transition potential for a given period, see [trans_pot_t()]
     #' @param id_period_post Integerish, posterior period of the transition probability interval
+    #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
+    #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
     predict_trans_pot = function(id_period_post, gof_criterion, gof_maximize) {
       create_method_binding(predict_trans_pot)
     },

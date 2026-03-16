@@ -11,11 +11,16 @@ NULL
 #' operations. See the paramaters for details.
 #' @param class_name Optional class name to prepend before "parquet_db_t". Used
 #'        to create more specific subclasses.
-#' @param key_cols Optional character vector. Used for upsert operations to identify
-#'        rows. May be missing if identities are not yet known, but must be
-#'        present for upsert operations.
-#' @param autoincrement_cols Optional character vector. Used to create unique
-#'        identifiers, i.e. automatically incrementing integers.
+#' @param key_cols Optional character vector. Used for data.table's [data.table::setkey]
+#'        and used by [parquet_db] to determine which columns to use for upsert
+#'        operations. Together with `alternate_key_cols`, these are used to define
+#'        uniqueness constraints.
+#' @param alternate_key_cols Optional character vector. These are used in
+#'        conjunction with `key_cols` to define uniqueness constraints, but are
+#'        not used for upsert operations. Example: numeric primary key whose
+#'        distinctness is identical to a character primary key column, but
+#'        upsert operations should be based on the character key, leaving the
+#'        character<->numeric mapping intact.
 #' @param map_cols Optional character vector. Used to coerce columns to DuckDB's
 #'        MAP type, used to store named unnested lists from R.
 #' @param partition_cols Optional character vector. Used to specify columns for
@@ -25,26 +30,26 @@ as_parquet_db_t <- function(
   x,
   class_name = character(),
   key_cols = NULL,
-  autoincrement_cols = NULL,
+  alternate_key_cols = NULL,
   map_cols = NULL,
   partition_cols = NULL
 ) {
   data.table::setDT(x)
 
-  # key cols may be missing if identities are not yet known
-  keycols_present <- intersect(key_cols, names(x))
-  if (length(keycols_present) > 0) {
-    data.table::setkeyv(x, keycols_present)
-  }
-
+  # subclassses for more specific validation methods
   distinct_classes <- unique(c(class_name, "parquet_db_t", class(x)))
   data.table::setattr(x, "class", distinct_classes)
 
-  # without effect if NULL
-  data.table::setattr(x, "autoincrement_cols", autoincrement_cols)
-  data.table::setattr(x, "map_cols", map_cols)
-  data.table::setattr(x, "partition_cols", partition_cols)
+  # uniqueness, matching, distinctness can be derived from key cols
+  data.table::setkeyv(x, key_cols)
   data.table::setattr(x, "key_cols", key_cols)
+  data.table::setattr(x, "alternate_key_cols", alternate_key_cols)
+
+  # list cols to coerce to MAP
+  data.table::setattr(x, "map_cols", map_cols)
+
+  # partition_cols for hive style partitioning
+  data.table::setattr(x, "partition_cols", partition_cols)
 
   validate(x)
 }
@@ -65,7 +70,7 @@ validate.parquet_db_t <- function(x, ...) {
 
   stopifnot(
     "needs to be a data.table" = inherits(x, "data.table"),
-    "attributes need to be atomic" = all(
+    "all attributes need to be atomic" = all(
       vapply(
         attrs_to_check,
         function(y) is.atomic(attr(x, y)),
@@ -73,15 +78,42 @@ validate.parquet_db_t <- function(x, ...) {
       )
     )
   )
+
+  for (col in c(attr(x, "key_cols"), attr(x, "alternate_key_cols"))) {
+    if (anyNA(x[[col]])) {
+      stop(glue::glue(
+        "Column '{col}' cannot contain NA values"
+      ))
+    }
+  }
+
+  if (
+    length(attr(x, "key_cols")) &&
+      anyDuplicated(x, by = attr(x, "key_cols"))
+  ) {
+    stop(glue::glue(
+      "Duplicates found in key_cols\n",
+      "  key_cols: {toString(attr(x, 'key_cols'))}"
+    ))
+  }
+  if (
+    length(attr(x, "alternate_key_cols")) &&
+      anyDuplicated(x, by = attr(x, "alternate_key_cols"))
+  ) {
+    stop(glue::glue(
+      "Duplicates found in alternate_key_cols\n",
+      "  alternate_key_cols: {toString(attr(x, 'alternate_key_cols'))}"
+    ))
+  }
   invisible(x)
 }
 
 
-#' @describeIn parquet_db_utils Resolves which columns to use for autoincrement, map,
-#' key: pre-existing schema takes precedence.
+#' @describeIn parquet_db_utils Resolves which columns to use for key, map,
+#' partition, etc.; pre-existing schema takes precedence.
 #' @param x The data to be committed.
 #' @param metadata The metadata to be committed, as returned by [parquet_db] `$get_table_metadata()`
-#' @param attr The column function to resolve, e.g. "autoincrement_cols", "map_cols", "key_cols".
+#' @param attr The column function to resolve, e.g. "alternate_key_cols", "map_cols", "key_cols".
 #' @keywords internal
 resolve_cols <- function(x, metadata = list(), attr = character(1)) {
   cols_metadata <- metadata[[attr]] # comes as joint csv string
@@ -104,7 +136,7 @@ resolve_cols <- function(x, metadata = list(), attr = character(1)) {
 
 #' @describeIn parquet_db_utils Compose partitioning clause.
 #' @keywords internal
-resolve_partition_clause <- function(x, metadata) {
+resolve_partition_clause <- function(x, metadata = list()) {
   cols <- resolve_cols(x, metadata, "partition_cols")
 
   if (length(cols) == 0) {
@@ -122,7 +154,7 @@ resolve_partition_clause <- function(x, metadata) {
 #' [parquet_db] `$get_table_metadata()`. Non-atomic metadata values are dropped
 #' with a warning.
 #' @keywords internal
-resolve_metadata_clause <- function(x, metadata) {
+resolve_metadata_clause <- function(x, metadata = list()) {
   new_metadata <- attributes(x)
 
   names_to_add <- setdiff(

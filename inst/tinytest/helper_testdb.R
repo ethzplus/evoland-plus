@@ -25,9 +25,9 @@ make_test_db <- function(
   # synthetic tables
   db$coords_t <- evoland:::test_coords_t
   db$periods_t <- evoland:::test_periods_t
-  db$lulc_meta_t <- evoland:::test_lulc_meta_t[order(id_lulc), -"id_lulc"]
+  db$lulc_meta_t <- evoland:::test_lulc_meta_t[order(id_lulc)]
   db$lulc_data_t <- evoland:::test_lulc_data_t
-  db$pred_meta_t <- evoland:::test_pred_meta_t[order(id_pred), -"id_pred"]
+  db$pred_meta_t <- evoland:::test_pred_meta_t[order(id_pred)]
   db$pred_data_t <- evoland:::test_pred_data_t
 
   # derived tables

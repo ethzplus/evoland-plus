@@ -94,8 +94,11 @@ expect_match(
   r"{function \(data, ..., other_param = "nonce"\)}"
 )
 expect_equal(
-  partial_models$model_params[[1]],
-  list(n_predictors = 4, n_train = 748, sample_frac = 0.7, other_param = "nonce")
+  partial_models$model_params,
+  list(
+    list(n_predictors = 4L, n_train = 514L, sample_frac = 0.7, other_param = "nonce"),
+    list(n_predictors = 4L, n_train = 748L, sample_frac = 0.7, other_param = "nonce")
+  )
 )
 expect_true(all(
   vapply(partial_models$model_obj_part, is.raw, logical(1))
@@ -103,8 +106,8 @@ expect_true(all(
 expect_equal(
   partial_models$goodness_of_fit,
   list(
-    list(cor = 0.02674974, mse = 0.2487825, n_test = 319),
-    list(cor = 0.02242273, mse = 0.2505098, n_test = 219)
+    list(cor = 0.0224227324563254, mse = 0.250509844417008, n_test = 219L),
+    list(cor = 0.0267497369302788, mse = 0.248782532059352, n_test = 319L)
   ),
   tolerance = 1e-6
 )

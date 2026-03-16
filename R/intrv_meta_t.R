@@ -74,18 +74,21 @@ create_intrv_meta_t <- function(intrv_spec) {
   }
 
   x <- data.table::data.table(
+    id_run = unlist(
+      lapply(pluck_wildcard(intrv_spec, NA, "id_run"), \(x) x %||% 0L)
+    ),
     id_intrv = seq_along(intrv_names),
     id_period_list = pluck_wildcard(intrv_spec, NA, "periods"),
     id_trans_list = pluck_wildcard(intrv_spec, NA, "transitions"),
     pre_allocation = unlist(
-      pluck_wildcard(intrv_spec, NA, "pre_allocation") %||% NA
+      lapply(pluck_wildcard(intrv_spec, NA, "pre_allocation"), \(x) x %||% NA)
     ),
     name = intrv_names,
     pretty_name = unlist(
-      pluck_wildcard(intrv_spec, NA, "pretty_name") %||% intrv_names
+      lapply(pluck_wildcard(intrv_spec, NA, "pretty_name"), \(x) x %||% intrv_names)
     ),
     description = unlist(
-      pluck_wildcard(intrv_spec, NA, "description") %||% NA_character_
+      lapply(pluck_wildcard(intrv_spec, NA, "description"), \(x) x %||% NA_character_)
     ),
     sources = lapply(
       intrv_spec,
@@ -134,8 +137,6 @@ validate.intrv_meta_t <- function(x, ...) {
     is.character(x[["pretty_name"]]),
     is.character(x[["description"]]),
     is.logical(x[["pre_allocation"]]),
-    !anyDuplicated(x[["id_intrv"]]),
-    !anyDuplicated(x[["name"]]),
     !any(x[["name"]] == ""),
     !anyDuplicated(sources_dt[["url"]])
   )

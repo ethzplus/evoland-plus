@@ -90,6 +90,7 @@ Additional methods and active bindings are added to this class in separate files
 \if{html}{\out{
 <details><summary>Inherited methods</summary>
 <ul>
+<li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="column_max"><a href='../../evoland/html/parquet_db.html#method-parquet_db-column_max'><code>evoland::parquet_db$column_max()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="commit"><a href='../../evoland/html/parquet_db.html#method-parquet_db-commit'><code>evoland::parquet_db$commit()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="delete_from"><a href='../../evoland/html/parquet_db.html#method-parquet_db-delete_from'><code>evoland::parquet_db$delete_from()</code></a></span></li>
 <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="execute"><a href='../../evoland/html/parquet_db.html#method-parquet_db-execute'><code>evoland::parquet_db$execute()</code></a></span></li>
@@ -117,7 +118,7 @@ Additional methods and active bindings are added to this class in separate files
 \subsection{Method \code{new()}}{
 Initialize a new evoland_db object
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, id_run = 0L, update_reporting = TRUE, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$new(path, id_run = 0L, read_only = FALSE, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -127,10 +128,10 @@ Initialize a new evoland_db object
 
 \item{\code{id_run}}{Atomic integer run ID, defaults to 0. Can be set to NULL}
 
+\item{\code{...}}{passed on to \code{set_report}}
+
 \item{\code{update_reporting}}{Logical. Whether to update the reporting table upon initialization.
 Defaults to TRUE. Set to FALSE for read-only workers to avoid lock contention.}
-
-\item{\code{...}}{passed on to \code{set_report}}
 }
 \if{html}{\out{</div>}}
 }
@@ -518,6 +519,10 @@ Predict the transition potential for a given period, see \code{\link[=trans_pot_
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{id_period_post}}{Integerish, posterior period of the transition probability interval}
+
+\item{\code{gof_criterion}}{Which goodness-of-fit metric to use for model selection (e.g., "auc")}
+
+\item{\code{gof_maximize}}{Maximize (TRUE) or minimize (FALSE) the gof_criterion?}
 }
 \if{html}{\out{</div>}}
 }
