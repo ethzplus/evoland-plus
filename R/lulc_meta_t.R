@@ -73,7 +73,10 @@ create_lulc_meta_t <- function(lulc_class_spec) {
       function(cls) cls[["description"]] %||% NA_character_,
       character(1)
     ),
-    src_classes = pluck_wildcard(lulc_class_spec, NA, "src_classes")
+    src_classes = lapply(
+      pluck_wildcard(lulc_class_spec, NA, "src_classes"),
+      \(y) if (is.null(y)) NULL else as.integer(y)
+    )
   )
 
   data.table::setkey(x, "id_lulc")

@@ -55,6 +55,8 @@ Initialize a new parquet_db object
 \describe{
 \item{\code{path}}{Character string. Path to the data folder.}
 
+\item{\code{read_only}}{Logical. If true, prevents writes that are not parallel-safe.}
+
 \item{\code{extensions}}{Character vector of DuckDB extensions to load (e.g., "spatial")}
 }
 \if{html}{\out{</div>}}

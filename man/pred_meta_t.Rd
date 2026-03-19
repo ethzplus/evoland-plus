@@ -9,7 +9,7 @@
 \usage{
 as_pred_meta_t(x)
 
-create_pred_meta_t(pred_spec, with_id_pred = FALSE)
+create_pred_meta_t(pred_spec, starting_id = 1L)
 
 \method{print}{pred_meta_t}(x, ...)
 }

@@ -88,7 +88,7 @@ as_pred_meta_t <- function(x) {
 #'  ))
 # nolint end
 #' @export
-create_pred_meta_t <- function(pred_spec, with_id_pred = FALSE) {
+create_pred_meta_t <- function(pred_spec, starting_id = 1L) {
   # Extract predictor names
   pred_names <- names(pred_spec)
   if (is.null(pred_names) || any(pred_names == "")) {
@@ -96,7 +96,7 @@ create_pred_meta_t <- function(pred_spec, with_id_pred = FALSE) {
   }
 
   x <- data.table::data.table(
-    id_pred = seq_along(pred_spec),
+    id_pred = seq(from = starting_id, length.out = length(pred_spec)),
     name = pred_names,
     # path is pred_spec > pred_name > leaf_name
     # we pluck each element, then replace potential null using %||%
@@ -118,9 +118,9 @@ create_pred_meta_t <- function(pred_spec, with_id_pred = FALSE) {
       pred_spec,
       # path is pred_spec > pred_name > sources > listelement > url/md5sum
       function(pred) {
-        data.frame(
-          url = unlist(pluck_wildcard(pred, "sources", NA, "url")),
-          md5sum = unlist(pluck_wildcard(pred, "sources", NA, "md5sum"))
+        data.table::data.table(
+          url = unlist(pluck_wildcard(pred, "sources", NA, "url") %||% character()),
+          md5sum = unlist(pluck_wildcard(pred, "sources", NA, "md5sum") %||% character())
         )
       }
     ),
@@ -139,12 +139,11 @@ create_pred_meta_t <- function(pred_spec, with_id_pred = FALSE) {
     fill_value = unlist(
       lapply(pluck_wildcard(pred_spec, NA, "fill_value"), function(x) x %||% NA)
     ),
-    factor_levels = pluck_wildcard(pred_spec, NA, "factor_levels")
+    factor_levels = lapply(
+      pluck_wildcard(pred_spec, NA, "factor_levels"),
+      \(y) if (is.null(y)) NULL else as.character(y)
+    )
   )
-
-  if (with_id_pred) {
-    x[, id_pred := seq_len(.N)]
-  }
 
   as_pred_meta_t(x)
 }

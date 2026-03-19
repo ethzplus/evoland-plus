@@ -128,10 +128,10 @@ Initialize a new evoland_db object
 
 \item{\code{id_run}}{Atomic integer run ID, defaults to 0. Can be set to NULL}
 
-\item{\code{...}}{passed on to \code{set_report}}
+\item{\code{read_only}}{Logical. Whether to update the reporting table upon
+initialization; if TRUE, only parallel-safe appends are allowed.}
 
-\item{\code{update_reporting}}{Logical. Whether to update the reporting table upon initialization.
-Defaults to TRUE. Set to FALSE for read-only workers to avoid lock contention.}
+\item{\code{...}}{passed on to \code{set_report}}
 }
 \if{html}{\out{</div>}}
 }

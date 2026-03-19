@@ -76,14 +76,57 @@ validate.parquet_db_t <- function(x, ...) {
         function(y) is.atomic(attr(x, y)),
         logical(1)
       )
+    ),
+    "key_cols, alternate_key_cols, map_cols, and partition_cols must be present" = all(
+      c(
+        attr(x, "key_cols"),
+        attr(x, "alternate_key_cols"),
+        attr(x, "map_cols"),
+        attr(x, "partition_cols")
+      ) %in%
+        names(x)
     )
   )
 
-  for (col in c(attr(x, "key_cols"), attr(x, "alternate_key_cols"))) {
-    if (anyNA(x[[col]])) {
-      stop(glue::glue(
-        "Column '{col}' cannot contain NA values"
-      ))
+  for (col in names(x)) {
+    if (
+      col %in%
+        c(
+          attr(x, "key_cols"),
+          attr(x, "alternate_key_cols"),
+          attr(x, "partition_cols")
+        )
+    ) {
+      if (anyNA(x[[col]])) {
+        stop(glue::glue(
+          "Column '{col}' cannot contain NA values"
+        ))
+      }
+    } else if (col %in% attr(x, "map_cols")) {
+      for (val in x[[col]]) {
+        if (
+          !is.null(val) && # if not NULL any of the following being true is an error
+            (!is.list(val) || # if it's a list
+              is.null(names(val)) || # or names missing
+              any(vapply(val, Negate(is.atomic), logical(1)))) # or any element not atomic
+        ) {
+          # then throw error
+          stop(glue::glue(
+            "Column '{col}' specified as map_cols must be a list of ",
+            "named lists with atomic values"
+          ))
+        }
+      }
+    } else if (is.list(x[[col]])) {
+      distinct_classes <-
+        lapply(x[[col]], \(y) if (is.null(y)) NULL else class(y)) |>
+        unique() |>
+        Filter(Negate(is.null), x = _) # drop NULLs
+      if (length(distinct_classes) > 1) {
+        stop(glue::glue(
+          "All elements of list column '{col}' must have the same class"
+        ))
+      }
     }
   }
 
@@ -105,6 +148,7 @@ validate.parquet_db_t <- function(x, ...) {
       "  alternate_key_cols: {toString(attr(x, 'alternate_key_cols'))}"
     ))
   }
+
   invisible(x)
 }
 
@@ -281,7 +325,7 @@ create_table_binding <- function(table_name, mode = c("write_once", "upsert", "a
             "Table '{tbl}' is write-once; delete manually and write ",
             "anew if you know what you are doing!"
           ),
-          .call = FALSE
+          call. = FALSE
         )
         return(NULL)
       } else if (md == "write_once") {

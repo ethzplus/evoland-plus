@@ -26,8 +26,8 @@ evoland_db <- R6::R6Class(
     #' Initialize a new evoland_db object
     #' @param path Character string. Path to the data folder.
     #' @param id_run Atomic integer run ID, defaults to 0. Can be set to NULL
-    #' @param update_reporting Logical. Whether to update the reporting table upon initialization.
-    #' Defaults to TRUE. Set to FALSE for read-only workers to avoid lock contention.
+    #' @param read_only Logical. Whether to update the reporting table upon
+    #' initialization; if TRUE, only parallel-safe appends are allowed.
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object

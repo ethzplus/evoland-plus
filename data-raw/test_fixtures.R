@@ -19,9 +19,9 @@ test_periods_t <- create_periods_t(
 
 # LULC classes
 test_lulc_meta_t <- create_lulc_meta_t(list(
-  forest = list(pretty_name = "Forest", src_classes = 1L),
-  urban = list(pretty_name = "Urban", src_classes = 2L),
-  agriculture = list(pretty_name = "Agriculture", src_classes = 3L)
+  forest = list(pretty_name = "Forest", src_classes = 1:3),
+  urban = list(pretty_name = "Urban", src_classes = 4L),
+  agriculture = list(pretty_name = "Agriculture", src_classes = 5:6)
 ))
 
 # Synthetic LULC observations with known transition signal
@@ -80,7 +80,7 @@ test_pred_spec <- list(
     sources = list(list(url = "https://example.com/soil.tif", md5sum = "jkl012"))
   )
 )
-test_pred_meta_t <- create_pred_meta_t(test_pred_spec, with_id_pred = TRUE)
+test_pred_meta_t <- create_pred_meta_t(test_pred_spec)
 
 # Predictor data (static + time-varying)
 set.seed(43)

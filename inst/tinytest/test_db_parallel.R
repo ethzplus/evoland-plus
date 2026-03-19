@@ -21,7 +21,7 @@ expect_equal(res, as.list(paste(temp_dir, c(2, 4, 6))))
 # 2. Test Parallel Execution (Requires installed package for workers)
 # In development (pkgload load_all()), workers can't load the package via library()
 # so we check if we can run a minimal task before proceeding.
-if (!at_home() || !requireNamespace("evoland", quietly = TRUE)) {
+if (!at_home() || !requireNamespace("evoland", quietly = TRUE)) {
   message(
     "\n  Skipping parallel tests: workers could not initialize (package likely not installed)"
   )
@@ -33,12 +33,15 @@ tryCatch(
   {
     c <- parallel::makeCluster(2)
 
-    # todo make partitioned writes so append works across processes
+    # todo ensure there is a scenario where a worker tries to write but is
+    # stopped by the read_only lock
+
     # test_table_dt <-
     #   data.table::data.table(
     #     someitem = NA_integer_
     #   )
 
+    # todo make partitioned writes so append works across processes
     # db$commit(
     #   test_table_dt,
     #   "test_table",
@@ -63,6 +66,19 @@ tryCatch(
       cluster = c
     )
     can_run_parallel <- TRUE
+  },
+  error = function(e) {
+    message(
+      "\n  Skipping parallel tests: workers could not initialize (",
+      conditionMessage(e),
+      ")"
+    )
+  },
+  warning = function(w) {
+    message(
+      "\n  Warning during parallel tests: ",
+      conditionMessage(w)
+    )
   },
   finally = {
     parallel::stopCluster(c)

@@ -28,6 +28,7 @@ parquet_db <- R6::R6Class(
     #' @description
     #' Initialize a new parquet_db object
     #' @param path Character string. Path to the data folder.
+    #' @param read_only Logical. If true, prevents writes that are not parallel-safe.
     #' @param extensions Character vector of DuckDB extensions to load (e.g., "spatial")
     #'
     #' @return A new `parquet_db` object
@@ -507,9 +508,9 @@ parquet_db <- R6::R6Class(
         "insert into old_data_t from (from '{table_path}' {semi_join})"
       ))
 
-      # Exclude key columns but keep alternates; because of unique constraint,
-      # this will correctly error out on duplicates
-      ordinary_cols <- setdiff(all_new_cols, key_cols)
+      # Exclude key columns; because of unique constraint, this will correctly
+      # error out on duplicates
+      ordinary_cols <- setdiff(all_new_cols, c(key_cols, alternate_key_cols))
       update_assign_expr <- glue::glue_collapse(
         glue::glue('"{ordinary_cols}" = new_data_v."{ordinary_cols}"'),
         sep = ",\n "
@@ -520,7 +521,7 @@ parquet_db <- R6::R6Class(
         r"{
         merge into old_data_t
         using new_data_v
-        using ({cols_to_select_expr(key_cols)}) -- natural join
+        using ({cols_to_select_expr(c(key_cols, alternate_key_cols))}) -- natural join
         when matched then update set {update_assign_expr}
         when not matched then insert by name
         }"

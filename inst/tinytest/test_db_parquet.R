@@ -175,8 +175,10 @@ if (at_home()) {
     extensions = "spatial"
   )
   # Verify spatial extension is loaded by using a spatial function
-  expect_silent(
-    db_ext$get_query("SELECT ST_Point(0, 0) as geom")
+  expect_match(
+    db_ext$get_query("SELECT ST_AsText(ST_Point(0, 0)) as geom")[[1]],
+    "POINT (0 0)",
+    fixed = TRUE
   )
 }
 
