@@ -81,7 +81,8 @@ create_trans_meta_t <- function(
     ][,
       .(cardinality = .N),
       by = .(id_lulc_anterior, id_lulc_posterior)
-    ][,
+    ][
+      order(id_lulc_anterior, id_lulc_posterior),
       `:=`(
         frequency_rel = cardinality / sum(cardinality),
         frequency_abs = cardinality / n_total_pairs
