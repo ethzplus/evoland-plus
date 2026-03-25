@@ -91,9 +91,6 @@ print.trans_preds_t <- function(x, nrow = 10, ...) {
 #' @describeIn trans_preds_t Set an initial full set of transition / predictor relations
 #' @param overwrite Bool, should a potentially existing table be overwritten?
 set_full_trans_preds <- function(self, overwrite = FALSE) {
-  if (!overwrite && self$row_count("trans_preds_t") > 0) {
-    stop("Set overwrite to TRUE to overwrite existing trans_preds_t")
-  }
   p <- self$pred_meta_t
   t <- self$trans_meta_t[is_viable == TRUE]
 

@@ -259,7 +259,7 @@ evoland_db <- R6::R6Class(
     #' @field trans_meta_t Get or upsert [trans_meta_t]
     trans_meta_t = create_table_binding("trans_meta_t", "upsert"),
     #' @field trans_preds_t Get or upsert [trans_preds_t]
-    trans_preds_t = create_table_binding("trans_preds_t", "write_once"),
+    trans_preds_t = create_table_binding("trans_preds_t", "overwrite"),
     #' @field trans_rates_t Get or upsert [trans_rates_t]
     trans_rates_t = create_table_binding("trans_rates_t", "upsert"),
     #' @field intrv_meta_t Get or upsert [intrv_meta_t]

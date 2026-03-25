@@ -149,7 +149,7 @@ validate.parquet_db_t <- function(x, ...) {
     ))
   }
 
-  invisible(x)
+  x
 }
 
 
@@ -303,7 +303,12 @@ kv_df_to_list <- function(x) {
 #' to fetch or commit data to that table. The active binding either returns the table
 #' (missing argument), or upserts to it (assignment operation)
 #' @param table_name The name of the table to bind to.
-create_table_binding <- function(table_name, mode = c("write_once", "upsert", "append")) {
+#' @param mode The mode of the binding, which determines the behavior when
+#' committing data. Options are: "write_once" (default, only allows writing if table doesn't exist), "upsert"
+create_table_binding <- function(
+  table_name,
+  mode = c("write_once", "upsert", "append", "overwrite")
+) {
   force(table_name)
   mode <- match.arg(mode)
   # Use bquote to "bake in" the table_name value directly into the function body,
@@ -319,19 +324,35 @@ create_table_binding <- function(table_name, mode = c("write_once", "upsert", "a
         return(as_fn(fetched))
       }
 
-      if (md == "write_once" && file.exists(self$get_table_path(tbl))) {
-        warning(
-          glue::glue(
-            "Table '{tbl}' is write-once; delete manually and write ",
-            "anew if you know what you are doing!"
-          ),
-          call. = FALSE
+      stopifnot(inherits(x, tbl))
+
+      if (md == "overwrite" && interactive() && file.exists(self$get_table_path(tbl))) {
+        confirm_overwrite <- utils::menu(
+          c("Yes", "No"),
+          title = glue::glue(
+            "Table '{tbl}' already exists. Are you sure you want to overwrite it?"
+          )
         )
-        return(NULL)
-      } else if (md == "write_once") {
+        if (confirm_overwrite != 1) {
+          return(NULL)
+        }
+      }
+
+      if (md == "write_once") {
+        if (file.exists(self$get_table_path(tbl))) {
+          warning(
+            glue::glue(
+              "Table '{tbl}' is write-once! Delete manually and write ",
+              "anew ONLY if you know what you are doing (-> foreign keys)!"
+            ),
+
+            call. = FALSE
+          )
+          return(NULL)
+        }
         md <- "overwrite"
       }
-      stopifnot(inherits(x, tbl))
+
       self$commit(x, table_name = tbl, method = md)
     }
   ))
