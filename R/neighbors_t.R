@@ -259,20 +259,28 @@ generate_neighbor_predictors <- function(self) {
   lulc_meta_read_expr <- self$get_read_expr("lulc_meta_t")
   pred_meta_read_expr <- self$get_read_expr("pred_meta_t")
 
-  # Generate metadata rows based on all distinct distance class / id_lulc permutations
+  # Generate metadata rows based on all distinct distance class / id_lulc
+  # permutations
+  current_max_id_pred <- self$column_max("pred_meta_t", "id_pred")
   n_predictors <- self$execute(glue::glue(
     r"{
     create or replace temp table pred_meta_neighbors_t as
     with
       all_distance_classes as (select distinct distance_class from {neighbors_read_expr})
     select
-      NULL as id_pred,
+      row_number() over () + {current_max_id_pred} as id_pred,
       concat('id_lulc_', l.id_lulc, '_dist_', c.distance_class) as name,
       concat(
         'Count of ', l.pretty_name,
         ' within distance class ', c.distance_class
         ) as pretty_name,
       'Number of neighbors by land use class and distance interval' as description,
+      'land use data' as orig_format,
+      cast(NULL as struct(url varchar, md5sum varchar)[]) as sources,
+      'number of neighbors' as unit,
+      'int' as data_type,
+      cast(NULL as varchar[]) as factor_levels,
+      0 as fill_value,
       c.distance_class,
       l.id_lulc
     from
@@ -282,21 +290,12 @@ generate_neighbor_predictors <- function(self) {
     }"
   ))
   on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
-  # Subset to just those columns we can upsert to the existing pred_meta_t
-  # FIXME move this directly into the SQL above, use select * exclude (distance_class, id_lulc)
-  m <- self$get_query("select id_pred, name, pretty_name, description from pred_meta_neighbors_t")
-  m[["id_pred"]] <- {
+
+  self$pred_meta_t <-
     self$get_query(
-      glue::glue("select max(id_pred) from {pred_meta_read_expr}")
-    )[[1]] +
-      seq_len(nrow(m))
-  }
-  m[["orig_format"]] <- "land use coordinate data"
-  m[["sources"]] <- list(NULL)
-  m[["unit"]] <- "number of neighbors"
-  m[["data_type"]] <- "int"
-  m[["factor_levels"]] <- list(NULL)
-  self$pred_meta_t <- as_pred_meta_t(m)
+      "select * exclude (distance_class, id_lulc) from pred_meta_neighbors_t"
+    ) |>
+    as_pred_meta_t()
 
   # Set the id_pred in pred_meta_neighbors_t based on the autoincremented IDs in pred_meta_t
   self$execute(glue::glue(
