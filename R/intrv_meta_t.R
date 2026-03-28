@@ -80,11 +80,11 @@ create_intrv_meta_t <- function(intrv_spec) {
     id_intrv = seq_along(intrv_names),
     id_period_list = lapply(
       pluck_wildcard(intrv_spec, NA, "periods"),
-      \(y) if (is.null(y)) NULL else as.integer(y)
+      \(y) if (is.null(y)) integer(0) else as.integer(y)
     ),
     id_trans_list = lapply(
       pluck_wildcard(intrv_spec, NA, "transitions"),
-      \(y) if (is.null(y)) NULL else as.integer(y)
+      \(y) if (is.null(y)) integer(0) else as.integer(y)
     ),
     pre_allocation = unlist(
       lapply(pluck_wildcard(intrv_spec, NA, "pre_allocation"), \(x) x %||% NA)

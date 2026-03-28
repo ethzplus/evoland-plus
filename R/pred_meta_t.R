@@ -141,7 +141,7 @@ create_pred_meta_t <- function(pred_spec, starting_id = 1L) {
     ),
     factor_levels = lapply(
       pluck_wildcard(pred_spec, NA, "factor_levels"),
-      \(y) if (is.null(y)) NULL else as.character(y)
+      \(y) if (is.null(y)) character(0) else as.character(y)
     )
   )
 

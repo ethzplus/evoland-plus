@@ -75,7 +75,7 @@ create_lulc_meta_t <- function(lulc_class_spec) {
     ),
     src_classes = lapply(
       pluck_wildcard(lulc_class_spec, NA, "src_classes"),
-      \(y) if (is.null(y)) NULL else as.integer(y)
+      \(y) if (is.null(y)) integer(0) else as.integer(y)
     )
   )
 
