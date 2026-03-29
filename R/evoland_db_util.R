@@ -178,7 +178,7 @@ run_parallel_evoland <- function(
     worker_db <- evoland_db$new(
       path = db_path,
       id_run = id_run,
-      read_only = FALSE
+      read_only = TRUE
     )
     worker_db$execute("set threads to 1")
 
