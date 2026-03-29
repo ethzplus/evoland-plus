@@ -35,7 +35,10 @@ list_to_kv_df(x)
 
 kv_df_to_list(x)
 
-create_table_binding(table_name, mode = c("write_once", "upsert", "append"))
+create_table_binding(
+  table_name,
+  mode = c("write_once", "upsert", "append", "overwrite")
+)
 
 create_method_binding(fun, with_private = FALSE, with_super = FALSE)
 
@@ -74,6 +77,9 @@ hive style parquet file partitioning.}
 \item{fn}{The function to apply to each element of the list columns}
 
 \item{table_name}{The name of the table to bind to.}
+
+\item{mode}{The mode of the binding, which determines the behavior when
+committing data. Options are: "write_once" (default, only allows writing if table doesn't exist), "upsert"}
 
 \item{fun}{The underlying function to bind as an R6 method, which must have a \code{self} argument}
 

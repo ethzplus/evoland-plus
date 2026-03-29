@@ -1,7 +1,11 @@
 #' Create Runs Table
 #'
-#' Creates a runs_t table that stores the identities, hierarchy, and description of runs.
-#' Defaults to a table with one row with the base `id_run := 0`
+#' Creates a runs_t table that stores the identities, hierarchy, and description of
+#' runs. Defaults to a table with one row with the base `id_run := 0`. Runs are a
+#' feature that allows one to label data that is either overriding base data (e.g.
+#' predictors being used for forecasting) or produced by a specific model experiment
+#' (e.g. a given allocation of land use change given a set of transition potential
+#' models and allocation parameters).
 #'
 #' @name runs_t
 #'
