@@ -1,15 +1,23 @@
 ---
-title: Getting started with `evoland-plus`
+title: "`evoland-plus` tutorial"
 author: Jan Hartman
+date: last-modified
 vignette: >
   %\VignetteIndexEntry{getting-started}
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
+number-sections: true
 ---
+
 
 ```{r}
 #| label: cleanup
 #| include: false
+# TODO cleanup output (chunks with newlines in single html parag)
+# TODO cleanup output suppress warnings
+# TODO add labels to final plot for LULC IDs
+# TODO render tables into nice HTML interactive ones??
+
 # make sure we're starting clean
 unlink("firstmodel.evolanddb", recursive = TRUE)
 ```
@@ -17,15 +25,76 @@ unlink("firstmodel.evolanddb", recursive = TRUE)
 *Note: This tutorial expects that you already know about geodata and some central principles of pattern-based land use change modelling.*
 
 This file introduces the `evoland-plus` R package, or `evoland` for short.
-In brief, `evoland-plus` builds on the idea that the likelihood of land use change can be predicted from observed change patterns. 
-The *transition probability* is determined per location and transition type (e.g., forest -> grassland, grassland -> urban), while an assumed amount of transitions (i.e. changing land demand) is *allocated* onto the full domain (i.e., across all locations and transition types).
+`evoland-plus` builds on the idea that the land use change can be predicted from observed change patterns.
+The *transition potential* from each land use class to every other is estimated per location.
+Then, a shift in land use demand is *allocated* across all locations and classes.
+The allocation is a *realization* of a stochastic process.
 
 In this tutorial, we'll follow this workflow:
 
-0. **Setup**: Defining our domain
-1. **Data Preparation**: Marshalling heterogeneous data sources on observed land use and likely candidates for statistical predictors of land use change into a consistent format and structure, and ingesting them into a database.
-2. **Calibration**: Feature selection, transition potential model calibration, and estimation of allocation parameters based on the observed land use change in the historical period.
+1. **Data Preparation**: Marshalling heterogeneous data sources on observed land use and candidates for predictors of land use change into a consistent format and structure, and ingesting them into a database.
+2. **Calibration**: Predictor (aka feature) selection, transition potential model calibration, and estimation of allocation parameters based on the observed land use change in the historical period.
 3. **Prediction + Allocation**: Recursive model evaluation to generate future land use projections
+
+```{mermaid}
+flowchart TD
+
+    subgraph setup[<a href="#setup">1. Setup</a>]
+        direction LR
+        domain_categories{{ fa:fa-table-list LULC Categorization}}
+        domain_space{{ fa:fa-globe Spatial Domain }}
+        domain_time{{ fa:fa-clock Temporal Domain}}
+        domain_categories --- domain_space
+        domain_space --- domain_time
+    end
+    setup --> preparation
+
+    subgraph preparation["2. Data Preparation"]
+        direction LR
+        predictors@{shape : docs, label: "Spatiotemporal Predictors"}
+        lulc_data@{shape : doc, label: " LULC data \n @ {t, t-1, t-2, ...}"}
+        ts@{shape : brace, label: " Timesteps: \n t = now \n t-1 = one step in the past \n t+1 = one step in the future"}
+        style ts stroke:#ccc, stroke-width:2px
+        predictors --- lulc_data
+        lulc_data --- ts
+    end
+    preparation --> calibration
+
+
+    subgraph calibration["3. Calibration Phase"]
+        direction LR
+        varsel[Select Features]
+        varsel --> markovmods
+        markovmods["Train Transition Potential Models"]
+        markovmods --> parametrize_alloc
+        parametrize_alloc["Estimate Allocation Parameters"]
+    end
+
+    calibration --> estimation
+
+    subgraph estimation["4. Prediction + Allocation"]
+        direction LR
+        evalmodel["`Evaluate Trans. Pot. Models @ t`"]
+        Predictions["Transition Potential Maps @ t+1"]
+        evalmodel --> Predictions
+        Changes["Allocate projected land use demand <br> (patch / expand)"]
+        Predictions --> Changes
+    end
+
+    estimation --> projection
+    projection@{shape : terminal, label: "LULC projection\n @ t+1"}
+    projection -->|Next iteration with t+1 as t| estimation
+
+    linkStyle 0,1,3,4 stroke-opacity:0
+
+    classDef phase fill:#f9f9f990,stroke:#333,stroke-dasharray:2 4,color:#000000
+    classDef data fill:#ddf1d5,stroke:#82b366,color:#000000
+    classDef user_input fill:#fff2cc,stroke:#d6b655,color:#000000
+
+    class setup,calibration,preparation,estimation,allocation phase
+    class predictors,lulc_data,projection data
+    class domain_categories,domain_space,domain_time user_input
+```
 
 # Setup
 
@@ -33,6 +102,7 @@ We'll use the following packages:
 
 ```{r}
 #| label: setup
+#| echo: false
 library(evoland)
 library(data.table)
 library(terra)
@@ -51,7 +121,7 @@ Upon creation, the `path` argument determines where we'll store our data, or if 
 db <- evoland_db$new(path = "firstmodel.evolanddb")
 ```
 
-Go ahead and print the object: there are already a `runs_t` table and a `reporting_t` table, which are bare-bones for now but will be used to track our modelling runs and metadata for producing graphs and tables.
+Go ahead and print the object: there are already a `runs_t` table and a `reporting_t` table, which are bare-bones for now but will be used to track our [modelling runs](reference/runs_t.html) and metadata for producing graphs and tables.
 
 ```{r}
 #| label: print-db
@@ -258,6 +328,8 @@ First, candidate features are ranked and then selected up to a given correlation
 The assignment to `db$trans_preds_t` will overwrite the existing relations; you will be prompted if you want to do this if you're running R interactively.
 
 ```{r}
+#| label: prune-trans-preds
+#| warning: false
 db$set_full_trans_preds()
 # Warnings about non-convergence may occur due to our random synthetic data.
 db$trans_preds_t <- db$get_pruned_trans_preds_t(
