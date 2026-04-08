@@ -32,68 +32,48 @@ The allocation is a *realization* of a stochastic process.
 
 In this tutorial, we'll follow this workflow:
 
-1. **Data Preparation**: Marshalling heterogeneous data sources on observed land use and candidates for predictors of land use change into a consistent format and structure, and ingesting them into a database.
-2. **Calibration**: Predictor (aka feature) selection, transition potential model calibration, and estimation of allocation parameters based on the observed land use change in the historical period.
-3. **Prediction + Allocation**: Recursive model evaluation to generate future land use projections
-
 ```{mermaid}
-flowchart TD
+---
+config:
+  theme: base
+  fontSize: 20px
+  themeVariables:
+    cScale0: "lightgrey"
+    cScaleInv0: "black"
+    cScale1: "#aec7e8"
+    cScaleInv1: "#1f77b4"
+    cScale2: "#ff9896"
+    cScaleInv2: "#d62728"
+---
 
-    subgraph setup[<a href="#setup">1. Setup</a>]
-        direction LR
-        domain_categories{{ fa:fa-table-list LULC Categorization}}
-        domain_space{{ fa:fa-globe Spatial Domain }}
-        domain_time{{ fa:fa-clock Temporal Domain}}
-        domain_categories --- domain_space
-        domain_space --- domain_time
-    end
-    setup --> preparation
+timeline
+    section Preparation
+    1. Setup
+        : Create DB
+        : Define LULC categories
+        : Define spatial domain
+        : Define temporal domain
 
-    subgraph preparation["2. Data Preparation"]
-        direction LR
-        predictors@{shape : docs, label: "Spatiotemporal Predictors"}
-        lulc_data@{shape : doc, label: " LULC data \n @ {t, t-1, t-2, ...}"}
-        ts@{shape : brace, label: " Timesteps: \n t = now \n t-1 = one step in the past \n t+1 = one step in the future"}
-        style ts stroke:#ccc, stroke-width:2px
-        predictors --- lulc_data
-        lulc_data --- ts
-    end
-    preparation --> calibration
+    2. Data Ingestion
+        : Ingest LULC data for past and present timesteps
+        : Ingest spatiotemporal predictor data
 
+    section Calibration
+    3. Calibration Phase
+        : Select features for modeling
+        : Train transition potential models
+        : Estimate allocation parameters
 
-    subgraph calibration["3. Calibration Phase"]
-        direction LR
-        varsel[Select Features]
-        varsel --> markovmods
-        markovmods["Train Transition Potential Models"]
-        markovmods --> parametrize_alloc
-        parametrize_alloc["Estimate Allocation Parameters"]
-    end
+    section Estimation + Allocation
+    4. Prediction & Allocation
+        : Evaluate transition potential models at current timestep (t)
+        : Generate transition potential maps for next timestep (t+1)
+        : Allocate projected land use demand (patch / expand)
 
-    calibration --> estimation
-
-    subgraph estimation["4. Prediction + Allocation"]
-        direction LR
-        evalmodel["`Evaluate Trans. Pot. Models @ t`"]
-        Predictions["Transition Potential Maps @ t+1"]
-        evalmodel --> Predictions
-        Changes["Allocate projected land use demand <br> (patch / expand)"]
-        Predictions --> Changes
-    end
-
-    estimation --> projection
-    projection@{shape : terminal, label: "LULC projection\n @ t+1"}
-    projection -->|Next iteration with t+1 as t| estimation
-
-    linkStyle 0,1,3,4 stroke-opacity:0
-
-    classDef phase fill:#f9f9f990,stroke:#333,stroke-dasharray:2 4,color:#000000
-    classDef data fill:#ddf1d5,stroke:#82b366,color:#000000
-    classDef user_input fill:#fff2cc,stroke:#d6b655,color:#000000
-
-    class setup,calibration,preparation,estimation,allocation phase
-    class predictors,lulc_data,projection data
-    class domain_categories,domain_space,domain_time user_input
+    5. Autoregressive extrapolation
+        : Write LULC projection for t+1
+        : Recalculate neighborhood predictors
+        : Back to step
 ```
 
 # Setup
