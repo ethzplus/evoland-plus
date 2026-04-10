@@ -518,7 +518,7 @@ Predict the transition potential for a given period, see \code{\link[=trans_pot_
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{id_period_post}}{Integerish, posterior period of the transition probability interval}
+\item{\code{id_period_post}}{Integerish, posterior period of the transition potential interval}
 
 \item{\code{gof_criterion}}{Which goodness-of-fit metric to use for model selection (e.g., "auc")}
 

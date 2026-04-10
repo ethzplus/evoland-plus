@@ -229,7 +229,7 @@ evoland_db <- R6::R6Class(
 
     #' @description
     #' Predict the transition potential for a given period, see [trans_pot_t()]
-    #' @param id_period_post Integerish, posterior period of the transition probability interval
+    #' @param id_period_post Integerish, posterior period of the transition potential interval
     #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
     #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
     predict_trans_pot = function(id_period_post, gof_criterion, gof_maximize) {
