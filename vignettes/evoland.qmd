@@ -9,26 +9,47 @@ vignette: >
 number-sections: true
 ---
 
-
 ```{r}
 #| label: cleanup
 #| include: false
-# TODO cleanup output (chunks with newlines in single html parag)
-# TODO cleanup output suppress warnings
-# TODO add labels to final plot for LULC IDs
 # TODO render tables into nice HTML interactive ones??
 
 # make sure we're starting clean
 unlink("firstmodel.evolanddb", recursive = TRUE)
+
+local({
+  chunk_messages <- character()
+
+  knitr::knit_hooks$set(message = function(x, options) {
+    chunk_messages <<- c(chunk_messages, x)
+    return(character(0))
+  })
+
+  default_chunk_hook <- knitr::knit_hooks$get("chunk")
+  knitr::knit_hooks$set(chunk = function(x, options) {
+    out <- default_chunk_hook(x, options)
+    if (length(chunk_messages) > 0) {
+      msg_text <- paste(chunk_messages, collapse = "")
+      callout <- paste0(
+        "\n\n<details><summary>Messages</summary><pre>\n",
+        msg_text,
+        "</pre></details>\n"
+      )
+      chunk_messages <<- character()
+      out <- paste0(out, callout)
+    }
+    return(out)
+  })
+})
 ```
 
 *Note: This tutorial expects that you already know about geodata and some central principles of pattern-based land use change modelling.*
 
 This file introduces the `evoland-plus` R package, or `evoland` for short.
-`evoland-plus` builds on the idea that the land use change can be predicted from observed change patterns.
-The *transition potential* from each land use class to every other is estimated per location.
-Then, a shift in land use demand is *allocated* across all locations and classes.
-The allocation is a *realization* of a stochastic process.
+`evoland-plus` builds on the idea that land use change can be predicted from observed change patterns.
+The likelihood that a location and its neighbors will change state is called *transition potential* and is estimated per location.
+A concrete realization of all possible transitions (e.g. forest->grass, grass->forest, etc.) is realized in an *allocation* across all locations and classes.
+Because the transition potential is spatially and temporally autocorrelated, an extrapolation must be autoregressive.
 
 # Workflow {.unnumbered}
 
@@ -102,7 +123,7 @@ We'll use the following packages:
 
 ```{r}
 #| label: setup
-#| echo: false
+#| output: false
 library(evoland)
 library(data.table)
 library(terra)
@@ -110,18 +131,20 @@ library(terra)
 
 ## Creating an `evoland` database
 
-First, we load the package and create a `evoland_db` database object: unlike most R objects like `data.frame`s, this is a **mutable** object[^r6], meaning we can alter its state without creating a copy.
-This nicely mirrors a durable database on disk.
+First, we load the package and create an `evoland_db` database object: unlike most R objects (e.g. `data.frame`), this is a mutable object[^r6], meaning we can alter its state like we would with a Python object.
+This nicely mirrors our persistent database on disk.
 
 [^r6]: Specifically, we're creating an R6 object instead of an S3 or S4 one. This is called "encapsulated object oriented programming" (cf. [Advanced R](https://adv-r.hadley.nz/r6.html)) and you might know it from Python (e.g. `pandas_df.drop_duplicates()`).
 
-Upon creation, the `path` argument determines where we'll store our data, or if there is already a database at that location, we can continue working with it.
+If there is no directory at `path`, we'll create a new DB: a set of parquet files following clearly defined parquet files.
+If there _is_ a directory, we resume from where we left off.
 
 ```{r}
 db <- evoland_db$new(path = "firstmodel.evolanddb")
 ```
 
-Go ahead and print the object: there are already a `runs_t` table and a `reporting_t` table, which are bare-bones for now but will be used to track our [modelling runs](reference/runs_t.html) and metadata for producing graphs and tables.
+Go ahead and print the `d`` object.
+There are already a `runs_t` and a `reporting_t` table, which are bare-bones for now but will be used to track our [modelling runs](../reference/runs_t.html) and metadata for producing graphs and tables.
 
 ```{r}
 #| label: print-db
@@ -193,16 +216,16 @@ db$coords_t <- create_coords_t_square(
 )
 ```
 
-You can retrieve coords_t from disk and filter using data.table semantics:
+You can retrieve coords_t from disk and filter using [`data.table` semantics](https://raw.githubusercontent.com/rstudio/cheatsheets/master/datatable.pdf):
 
 ```{r}
 db$coords_t[lon == 2699650]
 ```
 
-We can also retrieve a minimal representation (id, lat, lon) using an active binding:
+We can also retrieve a minimal representation (id, lat, lon) using an active binding, i.e. a method tied to the database that dynamically computes a property when called:
 
 ```{r}
-db$coords_minimal
+db$coords_minimal[1:2]
 ```
 
 ### Temporal domain
@@ -229,6 +252,7 @@ instead, we generate a synthetic LULC raster with 3 layers (one per period) by a
 
 ```{r}
 #| label: synthesize-and-agg-lulc-data
+#| fig-asp: 0.3
 # autoregressive noise with skellam distribution
 n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
 noise1 <- runif(n_cells, min = 0, max = 10)
@@ -240,6 +264,8 @@ synthetic_lulc <-
   focal(w = 3, fun = mean, na.rm = TRUE) |>
   clamp(lower = 0, upper = 10) |>
   classify(rcl = data.frame(from = 0:9, to = 1:10, becomes = sample(1:10, 10)))
+
+plot(synthetic_lulc, nc = 3)
 ```
 
 We now extract the generated values at our coordinates using `extract_using_coords_t`, giving us a tabular representation of `id_coord, id_period, src_class` tuples.
@@ -254,15 +280,15 @@ synthetic_joint_meta <-
     id_period = substr(layer, 4, 4) |> as.integer(),
     src_class = value
   )][
-    db$lulc_meta_long_v, # this is a long representation of id_lulc, src_class
+    db$lulc_meta_long_v, # map from id_lulc to src_class
     on = .(src_class),
     nomatch = NULL
   ]
 ```
 
 We now have the LULC data in an almost canonical format.
-We need to add information on which `id_run` this data belongs to: run 0 is the base run, providing observed data (see [`db$runs_t`](reference/runs_t) for details).
-The call to [`as_lulc_data_t`](reference/lulc_data_t) ensures that the data we want to insert actually conforms to the form we are expecting.
+We need to add information on which `id_run` this data belongs to: run 0 is the base run, providing observed data (see [`db$runs_t`](../reference/runs_t.html) for details).
+The call to [`as_lulc_data_t`](../reference/lulc_data_t.html) ensures that the data we want to insert actually conforms to the form we are expecting.
 
 ```{r}
 db$lulc_data_t <- as_lulc_data_t(synthetic_joint_meta[, .(
@@ -281,7 +307,7 @@ db$trans_v[id_lulc_anterior != id_lulc_posterior]
 
 ## Add Predictors and Neighbors
 
-You have seen above how [`extract_using_coords_t`](reference/util_terra) can be used to transform a `SpatRaster` into a tabular form.
+You have seen above how [`extract_using_coords_t`](../reference/util_terra.html) can be used to transform a `SpatRaster` into a tabular form.
 It can also be used with `SpatVector` objects, and the resulting tables need not just be LULC data: we could also use it to extract predictor information.
 For demo purposes, we'll use test data that comes with `evoland`.
 Note that the metadata holds a `fill_value` used to define what value should be used at a coordinate point with no explicit data set - e.g. if a square kilometre does not have a population count set, we can infer that it should be zero.
@@ -293,13 +319,15 @@ db$pred_data_t <- evoland:::test_pred_data_t
 ```
 
 Statistical models like GLMs or random forests lack inherent spatial concepts, so we explicitly calculate neighborhood relations for each coordinate to create spatial predictors (e.g., "number of neighboring forest cells within 100m").
-This is done by creating a neighbor lookup table (`db$set_neighbors`) and then counting the number of neighbors within each distance break class and land use category (`db$generate_neighbor_predictors`).
+This is done by creating a neighbor lookup table ([`db$set_neighbors`](../reference/neighbors_t.html) and then counting the number of neighbors within each distance break class and land use category (`db$generate_neighbor_predictors`).
 
 ```{r}
 #| label: neighbors
+#| out: false
 db$set_neighbors(
   max_distance = 1000,
-  distance_breaks = c(0, 100, 500, 1000)
+  distance_breaks = c(0, 100, 500, 1000),
+  quiet = TRUE
 )
 
 db$generate_neighbor_predictors()
@@ -324,14 +352,14 @@ db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 50)
 
 Because each transition may be modelled using different predictors (aka *features*), we start out by setting the `trans_preds_t` table to the full cross product of viable transitions and predictors.
 We then carry out a feature selection step in `get_pruned_trans_preds_t`, which here is used with a two-stage covariance filter.
-First, candidate features are ranked and then selected up to a given correlation threshold, see [`covariance_filter`](reference/covariance_filter).
+First, candidate features are ranked and then selected up to a given correlation threshold, see [`covariance_filter`](../reference/covariance_filter.html).
 The assignment to `db$trans_preds_t` will overwrite the existing relations; you will be prompted if you want to do this if you're running R interactively.
 
 ```{r}
 #| label: prune-trans-preds
-#| warning: false
+#| output: false
 db$set_full_trans_preds()
-# Warnings about non-convergence may occur due to our random synthetic data.
+# Note: we're suppressing warnings about non-convergence due to our random synthetic data.
 db$trans_preds_t <- db$get_pruned_trans_preds_t(
   filter_fun = covariance_filter,
   corcut = 0.1
@@ -361,7 +389,8 @@ db$trans_models_t <- db$fit_full_models(
 
 ## Transition Rates and Allocation Parameters
 
-We estimate allocation parameters for DinamicaEGO, which determine the shape and size of new patches.
+As a constrained pattern-based model, we need to provide transition rates to the DinamicaEGO allocator.
+In a simple approach, we can extrapolate the rate of each transition from the observed data:
 
 ```{r}
 #| label: transition-rates-alloc-params
@@ -371,9 +400,16 @@ db$trans_rates_t <-
     periods = db$periods_t,
     coord_count = n_cells
   )
+```
 
+We estimate allocation parameters for DinamicaEGO, which determine the shape and size of new patches, respectively which fraction of converted land use is in new versus expanded patches.
+This estimation procedure is not unbiased and hence a single estimate may not be enough:
+normally, we would perturb the estimate and use multiple `id_run`s to identify the best parametrization.
+For simplicity, we now just take the estimates for granted and assign `id_run=0`, i.e. the base run ID.
+
+```{r}
 alloc_for_eval <- db$create_alloc_params_t(n_perturbations = 0)
-alloc_for_eval[, id_run := 0L]
+alloc_for_eval[, id_run := 0L] # overwrite id_run=1
 db$alloc_params_t <- alloc_for_eval
 ```
 
@@ -384,6 +420,7 @@ If Dinamica is not installed, you'll get a warning that the anterior LULC map is
 
 ```{r}
 #| label: allocation
+#| results: hold
 db$alloc_dinamica(
   id_period = db$periods_t[is_extrapolated == TRUE, id_period],
   gof_criterion = "auc",
@@ -393,12 +430,18 @@ db$alloc_dinamica(
 
 ## Visualization
 
-Finally, we can extract the simulated LULC maps and visualize them.
+Finally, we can extract the simulated LULC maps into `SpatRaster` objects to visualize them.
 
 ```{r}
 #| label: visualization
-labels <- db$periods_t[id_period != 0, paste0(year(start_date), " to ", year(end_date))]
+labels <- db$periods_t[
+  id_period != 0,
+  paste0(year(start_date), " to ", year(end_date))
+]
 plot_maps <- db$lulc_data_as_rast() |> setNames(labels)
 
-plot(plot_maps)
+plot(plot_maps, type = "classes", levels = db$lulc_meta_t$pretty_name)
 ```
+
+Of the four maps, only the first three show changes.
+Due to Dinamica not being available on our github runner, the extrapolated step should look exactly like the step before.
