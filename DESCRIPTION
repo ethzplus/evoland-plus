@@ -17,7 +17,7 @@ Imports:
     curl,
     data.table,
     DBI,
-    duckdb (>= 1.4.3),
+    duckdb (>= 1.5.2),
     glue,
     qs2,
     R6,
