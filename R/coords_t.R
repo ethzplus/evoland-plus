@@ -34,14 +34,17 @@ as_coords_t <- function(x) {
       geom_polygon = list()
     )
   }
-  cast_dt_col(x, "id_coord", "int")
-  if (!is.null(x[["region"]])) {
-    cast_dt_col(x, "region", "factor")
-  }
-  new_evoland_table(
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_coord", "int") |>
+    cast_dt_col("lon", "float") |>
+    cast_dt_col("lat", "float") |>
+    cast_dt_col("elevation", "float")
+
+  as_parquet_db_t(
     x,
-    "coords_t",
-    "id_coord"
+    class_name = "coords_t",
+    key_cols = "id_coord"
   )
 }
 
@@ -63,8 +66,7 @@ validate.coords_t <- function(x, ...) {
   stopifnot(
     is.integer(x[["id_coord"]]),
     is.numeric(x[["lon"]]),
-    is.numeric(x[["lat"]]),
-    !anyDuplicated(x[["id_coord"]])
+    is.numeric(x[["lat"]])
   )
 
   return(x)

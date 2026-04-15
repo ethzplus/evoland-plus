@@ -4,15 +4,13 @@
 \alias{gof_ranger}
 \title{Goodness of Fit Evaluation for Random Forest Models}
 \usage{
-gof_ranger(model, test_data, result_col = "result", ...)
+gof_ranger(model, test_data)
 }
 \arguments{
 \item{model}{A fitted ranger model object (from fit_ranger)}
 
 \item{test_data}{A data.table containing test data with the same structure as
 training data}
-
-\item{result_col}{Name of the column representing the transition results}
 
 \item{...}{Additional arguments (currently unused, for future extensibility)}
 }

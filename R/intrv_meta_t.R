@@ -20,6 +20,7 @@
 as_intrv_meta_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
+      id_run = integer(0),
       id_intrv = integer(0),
       id_period_list = list(),
       id_trans_list = list(),
@@ -31,10 +32,11 @@ as_intrv_meta_t <- function(x) {
       params = list()
     )
   }
-  new_evoland_table(
+  as_parquet_db_t(
     x,
-    "intrv_meta_t",
-    "id_intrv"
+    class_name = "intrv_meta_t",
+    key_cols = c("id_run", "id_intrv"),
+    map_cols = "params"
   )
 }
 
@@ -72,18 +74,27 @@ create_intrv_meta_t <- function(intrv_spec) {
   }
 
   x <- data.table::data.table(
+    id_run = unlist(
+      lapply(pluck_wildcard(intrv_spec, NA, "id_run"), \(x) x %||% 0L)
+    ),
     id_intrv = seq_along(intrv_names),
-    id_period_list = pluck_wildcard(intrv_spec, NA, "periods"),
-    id_trans_list = pluck_wildcard(intrv_spec, NA, "transitions"),
+    id_period_list = lapply(
+      pluck_wildcard(intrv_spec, NA, "periods"),
+      \(y) if (is.null(y)) integer(0) else as.integer(y)
+    ),
+    id_trans_list = lapply(
+      pluck_wildcard(intrv_spec, NA, "transitions"),
+      \(y) if (is.null(y)) integer(0) else as.integer(y)
+    ),
     pre_allocation = unlist(
-      pluck_wildcard(intrv_spec, NA, "pre_allocation") %||% NA
+      lapply(pluck_wildcard(intrv_spec, NA, "pre_allocation"), \(x) x %||% NA)
     ),
     name = intrv_names,
     pretty_name = unlist(
-      pluck_wildcard(intrv_spec, NA, "pretty_name") %||% intrv_names
+      lapply(pluck_wildcard(intrv_spec, NA, "pretty_name"), \(x) x %||% intrv_names)
     ),
     description = unlist(
-      pluck_wildcard(intrv_spec, NA, "description") %||% NA_character_
+      lapply(pluck_wildcard(intrv_spec, NA, "description"), \(x) x %||% NA_character_)
     ),
     sources = lapply(
       intrv_spec,
@@ -95,53 +106,6 @@ create_intrv_meta_t <- function(intrv_spec) {
       }
     ),
     params = pluck_wildcard(intrv_spec, NA, "params")
-  )
-
-  as_intrv_meta_t(x)
-}
-
-#' @describeIn intrv_meta_t Creates an metadata entry / row
-#' @param name Name for use in code and queries
-#' @param pretty_name Name for plots/output
-#' @param description Long description / operationalisation
-#' @param id_period_list Array of associated period IDs
-#' @param id_trans_list Array of associated transition IDs
-#' @param pre_allocation Boolean indicating if intervention is pre-allocation
-#' @param sources Data frame of sources with columns `url` and `md5sum
-#' @param params A list of parameters, depth 1; children can only have length 1
-#' @export
-create_intrv_meta_t_row <- function(
-  name = character(),
-  pretty_name = character(),
-  description = NA_character_,
-  id_period_list = integer(),
-  id_trans_list = integer(),
-  pre_allocation = logical(),
-  sources = data.frame(url = character(), md5sum = character()),
-  params
-) {
-  stopifnot(
-    "name is not scalar character" = length(name) == 1L && is.character(name),
-    "pretty_name is not scalar character" = length(pretty_name) == 1L && is.character(pretty_name),
-    "description is not scalar character" = length(description) == 1L && is.character(description),
-    is.integer(id_period_list),
-    is.integer(id_trans_list),
-    "pre_allocation is not scalar logical" = length(pre_allocation) == 1L &&
-      is.logical(pre_allocation),
-    inherits(sources, "data.frame"),
-  )
-  check_missing_names(sources, c("url", "md5sum"))
-
-  x <- data.table::data.table(
-    id_intrv = NA_integer_,
-    id_period_list = list(id_period_list),
-    id_trans_list = list(id_trans_list),
-    pre_allocation = pre_allocation,
-    name = name,
-    pretty_name = pretty_name,
-    description = description,
-    sources = list(sources),
-    params = list(params)
   )
 
   as_intrv_meta_t(x)
@@ -179,8 +143,6 @@ validate.intrv_meta_t <- function(x, ...) {
     is.character(x[["pretty_name"]]),
     is.character(x[["description"]]),
     is.logical(x[["pre_allocation"]]),
-    !anyDuplicated(x[["id_intrv"]]),
-    !anyDuplicated(x[["name"]]),
     !any(x[["name"]] == ""),
     !anyDuplicated(sources_dt[["url"]])
   )

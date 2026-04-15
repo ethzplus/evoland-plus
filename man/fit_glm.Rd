@@ -4,16 +4,13 @@
 \alias{fit_glm}
 \title{GLM Model Fitting for Transition Models}
 \usage{
-fit_glm(data, result_col = "result", ...)
+fit_glm(data, ...)
 }
 \arguments{
 \item{data}{A data.table containing the result column and predictor columns
 (prefixed with "id_pred_")}
 
-\item{result_col}{Name of the column representing the transition results
-(logical: TRUE = transition occurred, FALSE = no transition)}
-
-\item{...}{Additional arguments (currently unused, for future extensibility)}
+\item{...}{Additional arguments (currently ignored, for future extensibility)}
 }
 \value{
 A fitted GLM model object, optionally butchered to reduce memory footprint

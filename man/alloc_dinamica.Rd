@@ -2,50 +2,89 @@
 % Please edit documentation in R/alloc_dinamica.R
 \name{alloc_dinamica}
 \alias{alloc_dinamica}
+\alias{alloc_dinamica_setup_inputs}
+\alias{alloc_dinamica_one_period}
+\alias{eval_alloc_params_t}
 \title{Dinamica EGO Allocation Methods}
+\usage{
+alloc_dinamica_setup_inputs(
+  self,
+  id_period_ant,
+  id_period_post,
+  anterior_rast,
+  temp_dir,
+  gof_criterion,
+  gof_maximize
+)
+
+alloc_dinamica_one_period(
+  self,
+  id_period_ant,
+  id_period_post,
+  anterior_rast,
+  iteration_dir,
+  gof_criterion,
+  gof_maximize
+)
+
+alloc_dinamica(
+  self,
+  id_periods,
+  gof_criterion,
+  gof_maximize,
+  work_dir = "dinamica_rundir",
+  keep_intermediate = FALSE
+)
+
+eval_alloc_params_t(
+  self,
+  gof_criterion,
+  gof_maximize,
+  work_dir = "dinamica_rundir",
+  keep_intermediate = FALSE
+)
+}
 \arguments{
-\item{id_periods}{Integer vector of contiguous period IDs to simulate.
-Must be in sequential order. The first period is used as the origin state.}
+\item{self}{The evoland_db instance}
 
-\item{id_perturbation}{Integer, perturbation ID for selecting allocation
-parameters from \code{alloc_params_t}}
+\item{id_period_ant}{Integer, anterior period ID}
 
-\item{work_dir}{Character, base directory for Dinamica runs. A subdirectory
-will be created for this simulation. Default: "dinamica_rundir"}
+\item{id_period_post}{Integer, posterior period ID}
 
-\item{keep_intermediate}{Logical, keep intermediate files after successful
-completion? Default: FALSE}
+\item{anterior_rast}{SpatRast with anterior LULC state}
+
+\item{temp_dir}{Character, path to temporary directory}
+
+\item{iteration_dir}{Character, path to iteration directory}
+
+\item{id_periods}{Integer vector of posterior period IDs to simulate (must be
+contiguous; e.g. if simulating period 4, data from period 3 will be used as
+anterior data)}
+
+\item{work_dir}{Character, path to working directory for simulations}
+
+\item{keep_intermediate}{Logical, whether to keep intermediate files from simulations}
 }
 \value{
-Invisibly returns the table name where results were written
-(e.g., "lulc_data_t_perturbation_1")
+List with paths to created files
+
+lulc_data_t table with simulated results
 }
 \description{
 Methods for running Dinamica EGO allocation simulations and evaluating
 allocation parameters. These methods are added to the \code{evoland_db} class.
-
-Runs a path-dependent Monte Carlo simulation using Dinamica EGO for land use
-allocation. Iterates through a sequence of contiguous periods, using the
-simulated output from one period as the input to the next.
 }
-\section{Requirements}{
-
+\section{Functions}{
 \itemize{
-\item \code{trans_models_t} must have full models fitted
-\item \code{alloc_params_t} must exist with specified \code{id_perturbation}
-\item \code{periods_t} must contain all specified \code{id_periods}
-\item Dinamica EGO must be installed and \code{DinamicaConsole} must be on PATH
-}
-}
+\item \code{alloc_dinamica_setup_inputs()}: Private helper: Set up input files for a single Dinamica
+allocation iteration
 
-\examples{
-\dontrun{
-db <- evoland_db$new("path/to/db")
-# Simulate historical periods with perturbation 1
-db$alloc_dinamica(
-  id_periods = 1:3,
-  id_perturbation = 1L
-)
-}
+\item \code{alloc_dinamica_one_period()}: Private helper: Run a single Dinamica allocation iteration
 
-}
+\item \code{alloc_dinamica()}: Run Dinamica EGO allocation over multiple periods
+
+\item \code{eval_alloc_params_t()}: Evaluate allocation parameters using fuzzy
+similarity over different runs.
+
+}}
+\keyword{internal}

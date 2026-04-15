@@ -19,49 +19,6 @@ validate.default <- function(x, ...) {
   stop("No validate method defined for class ", class(x))
 }
 
-#' @export
-validate.evoland_t <- function(x, ...) {
-  stopifnot(inherits(x, "data.table"))
-  invisible(x)
-}
-
-#' @describeIn util Add evoland_t class
-#' @param class_name The class name to attach before "evoland_t"
-#' @param keycols The columns to be set as key, see [data.table::setkey()]
-new_evoland_table <- function(x, class_name, keycols) {
-  data.table::setDT(x)
-
-  # key cols may be missing if identities are not yet known
-  if (!missing(keycols)) {
-    keycols_present <- intersect(keycols, names(x))
-    if (length(keycols_present) > 0) data.table::setkeyv(x, keycols_present)
-  }
-
-  data.table::setattr(
-    x,
-    "class",
-    unique(c(
-      class_name,
-      "evoland_t",
-      class(x)
-    ))
-  )
-  validate(x)
-}
-
-#' @describeIn util Check that all required names are present
-#' @param x A named object
-#' @param required_names Vector of required names
-#' @return NULL, called for side effect
-check_missing_names <- function(x, required_names) {
-  missing_names <- setdiff(required_names, names(x))
-  if (length(missing_names) > 0) {
-    stop(glue::glue(
-      "missing required names: {paste(missing_names, collapse = ', ')}"
-    ))
-  }
-}
-
 #' @describeIn util Null coalescing operator
 #' @param x Left-hand side value
 #' @param y Right-hand side value (fallback)
@@ -140,6 +97,12 @@ print_rowwise_yaml <- function(df) {
     cat(sprintf("- row %d:\n", i))
     for (col in names(df)) {
       value <- df[[col]][i]
+      if (is.raw(value[[1]]) || is.raw(value)) {
+        value <- "<raw vector>"
+      }
+      if (is.character(value) && grepl("\n", value)) {
+        value <- paste0(sub("\n.*", "", value), " [...truncated multiline string]")
+      }
       cat(sprintf("  %s: %s\n", col, value))
     }
     cat("\n")
@@ -149,13 +112,17 @@ print_rowwise_yaml <- function(df) {
 #' @describeIn util Cast a data.table column; invisibly returns x
 #' @param colname Name of the column
 #' @param type one of "int", "float", "bool", "factor"
-cast_dt_col <- function(x, colname, type) {
+#' @param levels Optional character vector of factor levels (only used when type = "factor")
+cast_dt_col <- function(x, colname, type, levels = NULL) {
+  # TODO rename predicates to R types
   predicate_fn <- switch(
     type,
-    float = is.numeric,
+    float = is.double,
     int = is.integer,
     bool = is.logical,
-    factor = is.factor
+    factor = is.factor,
+    char = is.character,
+    date = \(x) is(x, "Date")
   )
   if (predicate_fn(x[[colname]])) {
     return(invisible(x))
@@ -163,10 +130,28 @@ cast_dt_col <- function(x, colname, type) {
 
   coercion_fn <- switch(
     type,
-    float = as.numeric,
+    float = as.double,
     int = as.integer,
     bool = as.logical,
-    factor = as.factor
+    char = as.character,
+    factor = {
+      if (!is.null(levels)) {
+        function(col) {
+          result <- factor(col, levels = levels)
+          if (anyNA(result) && !anyNA(col)) {
+            bad_values <- unique(col[is.na(result)])
+            stop(glue::glue(
+              "Casting to factor produced NAs.",
+              "The following values are not in the provided levels: {toString(bad_values)}"
+            ))
+          }
+          result
+        }
+      } else {
+        as.factor
+      }
+    },
+    date = as.Date
   )
   data.table::set(
     x = x,

@@ -14,7 +14,7 @@ coords_t <- create_coords_t_square(
   resolution = 100
 )
 
-# Test extract_using_coords_t with SpatRaster
+# Test extract_using_coords_t with SpatRaster ####
 # Create synthetic SpatRaster with multiple layers, extending beyond coords_t
 rast_template <- terra::rast(
   extent = terra::extend(testextent, 10000),
@@ -36,22 +36,18 @@ terra::values(layer3) <- seq_len(terra::ncell(layer3)) * 0.5
 names(layer3) <- "elevation_diff"
 
 
-# Test SpatRaster extraction
-expect_silent(
-  extract_using_coords_t(
-    c(layer2, layer3), # both layers are double, no warning
-    coords_t
-  )
-)
+# both layers are double, no warning; throw away result
+expect_silent(extract_using_coords_t(c(layer2, layer3), coords_t))
+
+# layer1 is int, will be coerced to double; keep result for inspection
 expect_warning(
   raster_result <- extract_using_coords_t(
-    rast_combined <- c(layer1, layer2, layer3), # both layers are double, no warning
+    rast_combined <- c(layer1, layer2, layer3),
     coords_t
   ),
   "By order of hierarchy, the molten data value column will be of type 'double'"
 )
 
-# integrated test: extracted values, exact object structure
 expect_identical(
   raster_result[id_coord %in% 1:2],
   data.table::data.table(
@@ -65,7 +61,7 @@ expect_identical(
 )
 expect_equal(nrow(raster_result), 300L) # 100 coords * 3 layers
 
-# Test extract_using_coords_t with SpatVector
+# Test extract_using_coords_t with SpatVector ####
 vect_data <-
   coords_t[, .(
     alternate_id_name = id_coord,
@@ -78,12 +74,11 @@ vect_data <-
   # this will create overlapping buffers, making extraction non-trivial
   terra::buffer(200)
 
-# Test SpatVector extraction
 expect_silent(vector_result <- extract_using_coords_t(vect_data, coords_t))
-
 
 expect_equal(
   vector_result[id_coord == 1][order(attribute, -rank(value))],
+  # fmt: skip
   data.table::data.table(
     id_coord = 1L,
     attribute = factor(
@@ -91,23 +86,13 @@ expect_equal(
       levels = c("alternate_id_name", "population")
     ),
     value = c(
-      21,
-      12,
-      11,
-      3,
-      2,
-      1,
-      21000,
-      12000,
-      11000,
-      3000,
-      2000,
-      1000
+      21,    12,    11,    3,    2,    1,
+      21000, 12000, 11000, 3000, 2000, 1000
     )
   )
 )
 
-# Test na_omit parameter with SpatRaster containing NAs
+# Test na_omit parameter with SpatRaster containing NAs ####
 rast_with_na <- rast_template
 values_with_na <- seq_len(terra::ncell(rast_with_na))
 # introduce NA for 30% of cells
@@ -140,177 +125,68 @@ expect_true(!anyNA(vector_na_omit_true$value))
 vector_na_omit_false <- extract_using_coords_t(vect_with_na, coords_t, na_omit = FALSE)
 expect_true(anyNA(vector_na_omit_false$value))
 
-# Test create_neighbors_t
-# Create a simple test coords_t with known distances
-test_coords <- data.table::data.table(
-  id_coord = 1L:5L,
-  lon = c(0, 100, 200, 0, 100),
-  lat = c(0, 0, 0, 100, 100),
-  elevation = NA_real_,
-  geom_polygon = list()
+
+# Test tabular_to_raster ####
+# Simple case: data with id_coord and a value column indicating class
+data_simple <- data.table::data.table(
+  id_coord = coords_t$id_coord,
+  lulc = sample(1:5, nrow(coords_t), replace = TRUE)
 )
-test_coords <- as_coords_t(test_coords)
-
-# Test basic neighbor computation with max_distance = 150
-expect_stdout(
-  neighbors <- create_neighbors_t(test_coords, max_distance = 150),
-  "Progress"
-)
-
-# Check structure
-expect_true(data.table::is.data.table(neighbors))
-expect_equal(
-  names(neighbors),
-  c("id_coord_origin", "id_coord_neighbor", "distance")
-)
-
-# Check that distances are correct
-# Point 1 (0,0) should have neighbor 2 (100,0) at distance 100
-# Point 1 (0,0) should have neighbor 4 (0,100) at distance 100
-# Point 1 (0,0) should have neighbor 5 (100,100) at distance ~141.4
-neighbors_from_1 <- neighbors[id_coord_origin == 1]
-expect_equal(nrow(neighbors_from_1), 3L)
-expect_true(2L %in% neighbors_from_1$id_coord_neighbor)
-expect_true(4L %in% neighbors_from_1$id_coord_neighbor)
-expect_true(5L %in% neighbors_from_1$id_coord_neighbor)
-expect_equal(
-  neighbors_from_1[id_coord_neighbor == 2]$distance,
-  100,
-  tolerance = 1e-06
-)
-expect_equal(
-  neighbors_from_1[id_coord_neighbor == 4]$distance,
-  100,
-  tolerance = 1e-06
-)
-expect_equal(
-  neighbors_from_1[id_coord_neighbor == 5]$distance,
-  sqrt(100^2 + 100^2),
-  tolerance = 1e-06
-)
-
-# Point 3 (200,0) should have neighbor 2 (100,0) at distance 100
-# and neighbor 5 (100,100) at distance ~141.42
-neighbors_from_3 <- neighbors[id_coord_origin == 3]
-expect_equal(nrow(neighbors_from_3), 2L)
-expect_true(2L %in% neighbors_from_3$id_coord_neighbor)
-expect_true(5L %in% neighbors_from_3$id_coord_neighbor)
-expect_equal(
-  neighbors_from_3[id_coord_neighbor == 2]$distance,
-  100,
-  tolerance = 1e-06
-)
-expect_equal(
-  neighbors_from_3[id_coord_neighbor == 5]$distance,
-  sqrt(100^2 + 100^2),
-  tolerance = 1e-06
-)
-
-# Test with distance_breaks
-expect_stdout(
-  neighbors_classified <- create_neighbors_t(
-    test_coords,
-    max_distance = 150,
-    distance_breaks = c(0, 100, 150)
-  ),
-  "Progress"
-)
-
-# Check that distance_class is populated
-expect_true(!all(is.na(neighbors_classified$distance_class)))
-expect_true(is.factor(neighbors_classified$distance_class))
-
-# With breaks c(0, 100, 150), include.lowest=TRUE, and right=FALSE:
-# - [0,100) excludes 100 (lower bound)
-# - [100,150] includes both 100 and 150 (upper bound, due to include.lowest)
-# Points at distance 100 should be in class [100,150]
-# Points at distance 141.4 should be in class [100,150]
-neighbors_1_classified <- neighbors_classified[id_coord_origin == 1]
-expect_equal(
-  as.character(neighbors_1_classified[id_coord_neighbor == 2]$distance_class),
-  "[100,150]"
-)
-expect_equal(
-  as.character(neighbors_1_classified[id_coord_neighbor == 4]$distance_class),
-  "[100,150]"
-)
-expect_equal(
-  as.character(neighbors_1_classified[id_coord_neighbor == 5]$distance_class),
-  "[100,150]"
-)
-
-# Test with smaller max_distance
-expect_stdout(
-  neighbors_small <- create_neighbors_t(test_coords, max_distance = 110),
-  "Progress"
-)
-
-# With max_distance = 110, point 1 should only have neighbors 2 and 4 (distance 100)
-# but not 5 (distance ~141.4)
-neighbors_from_1_small <- neighbors_small[id_coord_origin == 1]
-expect_equal(nrow(neighbors_from_1_small), 2L)
-expect_true(2L %in% neighbors_from_1_small$id_coord_neighbor)
-expect_true(4L %in% neighbors_from_1_small$id_coord_neighbor)
-expect_false(5L %in% neighbors_from_1_small$id_coord_neighbor)
-
-# Test error handling
-expect_error(
-  create_neighbors_t("not_coords_t", max_distance = 100),
-  "coords_t must be a coords_t object"
-)
-
-expect_error(
-  create_neighbors_t(test_coords, max_distance = -10),
-  "max_distance must be a positive scalar numeric"
-)
-
-expect_error(
-  create_neighbors_t(test_coords, max_distance = 100, distance_breaks = c(1)),
-  "distance_breaks must be NULL or a numeric vector with at least 2 elements"
-)
-
-expect_error(
-  create_neighbors_t(test_coords, max_distance = 100, distance_breaks = "invalid"),
-  "distance_breaks must be NULL or a numeric vector with at least 2 elements"
-)
-
-# Test with real coords_t from earlier in the test file
-expect_stdout(real_neighbors <- create_neighbors_t(coords_t, max_distance = 300), "Progress")
-
-# Each point in a regular 100m grid should have neighbors
-# Interior points should have 8 neighbors within 300m (8-connectivity)
-# Edge points should have fewer
-expect_true(nrow(real_neighbors) > 0)
-expect_true(all(real_neighbors$distance > 0))
-expect_true(all(real_neighbors$distance <= 300))
-
-# Check symmetry: if A is neighbor of B, B should be neighbor of A
-for (i in seq_len(
-  min(10, nrow(real_neighbors))
-)) {
-  origin <- real_neighbors$id_coord_origin[i]
-  neighbor <- real_neighbors$id_coord_neighbor[i]
-  dist <- real_neighbors$distance[i]
-
-  reverse_rel <- real_neighbors[
-    id_coord_origin == neighbor & id_coord_neighbor == origin
-  ]
-  expect_equal(nrow(reverse_rel), 1L)
-  expect_equal(reverse_rel$distance, dist, tolerance = 1e-06)
-}
-
-# Test with distance classification on real data
 expect_silent(
-  real_neighbors_class <- create_neighbors_t(
-    coords_t,
-    max_distance = 300,
-    distance_breaks = c(0, 150, 300),
-    quiet = TRUE
+  rast_simple <- tabular_to_raster(data_simple, coords_t, value_col = "lulc")
+)
+expect_inherits(rast_simple, "SpatRaster")
+expect_equal(terra::nlyr(rast_simple), 1L)
+expect_equal(names(rast_simple), "lulc")
+expect_equal(terra::res(rast_simple)[1], 100) # inherits from coords
+
+# 2. Complex case: data with additional grouping columns (pivot required)
+# Create data with 2 scenarios and 2 years -> should yield 4 layers
+data_grouped <- data.table::CJ(
+  id_coord = coords_t$id_coord,
+  scenario = c("scenA", "scenB"),
+  year = c(2020, 2030)
+)
+data_grouped[, value := as.numeric(id_coord)] # Dummy value
+
+expect_silent(
+  rast_grouped <- tabular_to_raster(data_grouped, coords_t, value_col = "value")
+)
+# Check naming convention logic: grouping_col + _ + value
+# implies 4 layers got generated
+# e.g., scenario_scenA_year_2020
+expect_equal(
+  names(rast_grouped),
+  c(
+    "scenario_scenA_year_2020",
+    "scenario_scenA_year_2030",
+    "scenario_scenB_year_2020",
+    "scenario_scenB_year_2030"
   )
 )
 
-expect_true(all(!is.na(real_neighbors_class$distance_class)))
-expect_equal(
-  levels(real_neighbors_class$distance_class),
-  c("[0,150)", "[150,300]")
+# 3. Explicit resolution argument
+# Pass a resolution different from the default 100 in coords
+expect_silent(
+  rast_res_arg <- tabular_to_raster(
+    data_simple,
+    coords_t,
+    value_col = "lulc",
+    resolution = 50
+  )
 )
+expect_equal(terra::res(rast_res_arg)[1], 50)
+
+# 4. Estimate resolution from coords (e.g. because not on regular raster)
+coords_no_res <- data.table::copy(coords_t)
+attr(coords_no_res, "resolution") <- NULL
+
+expect_silent(
+  rast_auto_res <- tabular_to_raster(
+    data_simple,
+    coords_no_res,
+    value_col = "lulc"
+  )
+)
+# Should calculate 100 based on coordinate spacing
+expect_equal(terra::res(rast_auto_res)[1], 100)

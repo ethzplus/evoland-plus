@@ -4,16 +4,17 @@
 \alias{fit_ranger}
 \title{Random Forest Model Fitting for Transition Models}
 \usage{
-fit_ranger(data, result_col = "result", num.trees = 500, ...)
+fit_ranger(data, num.trees = 100, max.depth = 100, ...)
 }
 \arguments{
-\item{data}{A data.table containing the result column and predictor columns
+\item{data}{A data.table containing the did_transition column and predictor columns
 (prefixed with "id_pred_")}
 
-\item{result_col}{Name of the column representing the transition results
-(logical: TRUE = transition occurred, FALSE = no transition)}
+\item{num.trees}{Number of trees to grow in the random forest (default: 100)}
 
-\item{...}{Additional arguments (currently unused, for future extensibility)}
+\item{max.depth}{Maximum depth of each tree (default: 100)}
+
+\item{...}{Additional arguments passed to \code{\link[ranger:ranger]{ranger::ranger()}}}
 }
 \value{
 A fitted ranger model object, optionally butchered to reduce memory footprint
@@ -37,7 +38,6 @@ The function:
 Default hyperparameters:
 \itemize{
 \item num.trees = 500
-\item mtry = floor(sqrt(n_predictors))
 \item min.node.size = 1
 }
 }

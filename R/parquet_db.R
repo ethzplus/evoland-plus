@@ -22,39 +22,36 @@ parquet_db <- R6::R6Class(
     #' @field writeopts Write options for DuckDB parquet output
     writeopts = "format parquet, compression zstd",
 
-    #' @field partitioning Named list of character vectors defining partition columns for tables
-    partitioning = list(),
+    #' @field read_only If true, prevents writes that are not parallel-safe
+    read_only = NULL,
 
     #' @description
     #' Initialize a new parquet_db object
     #' @param path Character string. Path to the data folder.
+    #' @param read_only Logical. If true, prevents writes that are not parallel-safe.
     #' @param extensions Character vector of DuckDB extensions to load (e.g., "spatial")
     #'
     #' @return A new `parquet_db` object
     initialize = function(
       path,
+      read_only = FALSE,
       extensions = character(0)
     ) {
       # Create folder if it doesn't exist
       self$path <- ensure_dir(path)
 
       # Create in-memory connection for SQL operations
-      self$connection <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+      self$connection <- DBI::dbConnect(
+        duckdb::duckdb(),
+        dbdir = ":memory:"
+      )
+      self$read_only <- read_only
 
       # load extensions
       for (ext in extensions) {
         self$execute(glue::glue("install {ext}; load {ext};"))
       }
 
-      invisible(self)
-    },
-
-    #' @description
-    #' Set partitioning scheme for a table
-    #' @param table_name Character string
-    #' @param cols Character vector of column names to partition by
-    set_partitioning = function(table_name, cols) {
-      self$partitioning[[table_name]] <- cols
       invisible(self)
     },
 
@@ -73,10 +70,10 @@ parquet_db <- R6::R6Class(
     #' @param statement A SQL query statement
     #' @return A data.table with query results
     get_query = function(statement) {
-      # it's not currently possible to get the duckdb driver to build data.tables directly
-      result <- data.table::as.data.table(
+      result <-
         DBI::dbGetQuery(self$connection, statement)
-      )
+      # set in place
+      data.table::setDT(result)
 
       # Convert list columns containing data.frames to data.tables
       list_cols <- names(result)[vapply(result, is.list, logical(1))]
@@ -94,112 +91,47 @@ parquet_db <- R6::R6Class(
     },
 
     #' @description
-    #' Attach a table from parquet file as a temporary table in DuckDB
-    #' @param table_name Character. Name of table to attach.
-    #' @param columns Character vector. Optional SQL column selection, defaults to "*"
-    #' @param where Character. Optional SQL WHERE clause to subset the table.
-    #' @return Invisible NULL (called for side effects)
-    attach_table = function(table_name, columns = "*", where = NULL) {
-      file_path <- private$get_file_path(table_name)
-
-      if (!file.exists(file_path) && !dir.exists(file_path)) {
-        stop(glue::glue("Table '{table_name}' does not exist at path: {self$path}"))
-      }
-
-      read_expr <- private$get_read_expr(table_name)
-
-      # Build SQL query
-      sql <- glue::glue(
-        "create temp table {table_name} as ",
-        "select {paste(columns, collapse = ', ')} ",
-        "from {read_expr}"
-      )
-
-      if (!is.null(where)) {
-        sql <- glue::glue("{sql} where {where}")
-      }
-
-      self$execute(sql)
-      invisible(NULL)
-    },
-
-    #' @description
-    #' Detach a table from the in-memory database
-    #' @param table_name Character. Name of table to drop.
-    #' @return Invisible NULL (called for side effects)
-    detach_table = function(table_name) {
-      self$execute(paste0("drop table if exists ", table_name, ";"))
-      invisible(NULL)
-    },
-
-    #' @description
-    #' Get row count for a table
+    #' Get row count for a table (without applying id_run subsetting); returns 0
+    #' if table does not exist
     #' @param table_name Character string. Name of the table to query.
     #' @return Integer number of rows
     row_count = function(table_name) {
-      file_path <- private$get_file_path(table_name)
-
-      if (!file.exists(file_path) && !dir.exists(file_path)) {
+      table_path <- self$get_table_path(table_name)
+      if (!file.exists(table_path)) {
         return(0L)
       }
 
-      read_expr <- private$get_read_expr(table_name)
-
-      self$get_query(
-        glue::glue("select count(*) as n from {read_expr}")
-      )[[1]]
+      self$get_query(glue::glue("select count(*) from '{table_path}'"))[[1]]
     },
 
     #' @description
-    #' List all tables (files) in storage
-    #' @return Character vector of table names
-    list_tables = function() {
-      files <- list.files(self$path, pattern = "\\.parquet$", full.names = FALSE)
-      file_tables <- tools::file_path_sans_ext(files)
-      dir_tables <- list.dirs(self$path, full.names = FALSE, recursive = FALSE)
-      sort(unique(c(file_tables, dir_tables)))
-    },
-
-    #' @description
-    #' Execute a function with specified tables attached, handling attach/detach automatically.
-    #' If a table is already attached in the DuckDB instance, it won't be re-attached or detached.
-    #'
-    #' @param tables Character vector of table names to attach
-    #' @param func Function to execute with tables attached
-    #' @param ... Additional arguments passed to func
-    #' @return Result of func
-    with_tables = function(tables, func, ...) {
-      # Track which tables we attach (so we know which to detach)
-      attached_tables <- character(0)
-
-      # Check which tables are already attached
-      existing_tables <- DBI::dbListTables(self$connection)
-
-      # Attach tables that aren't already present
-      for (table in tables) {
-        if (!table %in% existing_tables) {
-          self$attach_table(table)
-          attached_tables <- c(attached_tables, table)
-        }
+    #' Get maximum for a column in a table (without applying id_run subsetting);
+    #' returns 0 if table does not exist
+    #' @param table_name Character string. Name of the table to query.
+    #' @param column_name Character string. Name of the column to get the maximum value for.
+    #' @return Maximum value of the column
+    column_max = function(table_name, column_name) {
+      table_path <- self$get_table_path(table_name)
+      if (!file.exists(table_path)) {
+        return(0L)
       }
 
-      # Ensure cleanup on exit
-      on.exit(
-        {
-          for (table in attached_tables) {
-            self$detach_table(table)
-          }
-        },
-        add = TRUE
-      )
+      self$get_query(glue::glue('select max("{column_name}") from "{table_path}"'))[[1]]
+    },
 
-      # Execute the function
-      func(...)
+    #' @description
+    #' List all tables (files and folders) in storage
+    #' @return Character vector of table names
+    list_tables = function() {
+      list.files(self$path, pattern = "\\.parquet$", full.names = FALSE) |>
+        tools::file_path_sans_ext() |>
+        sort()
     },
 
     #' @description
     #' Fetch data from a table
     #' @param table_name Character string. Name of the table to query.
+    #' @param cols SQL column selection string (e.g., "col1, col2" or "*")
     #' @param where Character string. Optional WHERE clause for the SQL query.
     #' @param limit Integer. Optional limit on number of rows to return.
     #' @param map_cols Vector of columns to be converted from key/value structs to R lists
@@ -207,21 +139,24 @@ parquet_db <- R6::R6Class(
     #' @return A data.table
     fetch = function(
       table_name,
+      cols = NULL,
       where = NULL,
-      limit = NULL,
-      map_cols = NULL
+      limit = NULL
     ) {
-      file_path <- private$get_file_path(table_name)
-
-      if (!file.exists(file_path) && !dir.exists(file_path)) {
-        stop("Table `", table_name, "` does not exist")
+      if (!file.exists(table_path <- self$get_table_path(table_name))) {
+        stop("Table `", table_name, "` does not exist at `", table_path, "`")
       }
 
-      read_expr <- private$get_read_expr(table_name)
+      metadata <- private$read_parquet_metadata(table_path)
+      map_cols <- resolve_cols(NULL, metadata, "map_cols")
+      read_expr <- self$get_read_expr(table_name)
 
       # build sql query
       sql <- glue::glue("from {read_expr}")
 
+      if (!is.null(cols)) {
+        sql <- glue::glue("select {cols_to_select_expr(cols)} {sql}")
+      }
       if (!is.null(where)) {
         sql <- glue::glue("{sql} where {where}")
       }
@@ -231,13 +166,14 @@ parquet_db <- R6::R6Class(
 
       res <- self$get_query(sql)
 
+      # convert MAP columns back to list-columns if needed
       if (!is.null(map_cols) && nrow(res) > 0) {
         res <- convert_list_cols(res, map_cols, kv_df_to_list)
       }
 
-      # Restore attributes from metadata
-      metadata <- private$read_parquet_metadata(table_name)
-      restore_dt_attributes(res, metadata)
+      for (key in names(metadata)) {
+        data.table::setattr(res, key, metadata[[key]])
+      }
 
       res
     },
@@ -247,11 +183,11 @@ parquet_db <- R6::R6Class(
     #' @param table_name Character string. Name of the table to query.
     #' @return Named list
     get_table_metadata = function(table_name) {
-      file_path <- private$get_file_path(table_name)
-      if (!file.exists(file_path) && !dir.exists(file_path)) {
+      table_path <- self$get_table_path(table_name)
+      if (!file.exists(table_path)) {
         stop("Table `", table_name, "` does not exist")
       }
-      private$read_parquet_metadata(table_name)
+      private$read_parquet_metadata(table_path)
     },
 
     #' @description
@@ -260,33 +196,36 @@ parquet_db <- R6::R6Class(
     #' @param where Character string. Optional WHERE clause; if NULL, deletes all rows.
     #' @return Number of rows deleted
     delete_from = function(table_name, where = NULL) {
-      file_path <- private$get_file_path(table_name)
+      stopifnot(!self$read_only)
+      table_path <- self$get_table_path(table_name)
 
-      if (!file.exists(file_path) && !dir.exists(file_path)) {
+      if (!file.exists(table_path)) {
         return(0L)
       }
 
       count_before <- self$row_count(table_name)
 
       if (is.null(where)) {
-        unlink(file_path, recursive = TRUE)
+        unlink(table_path, recursive = TRUE)
         return(count_before)
       }
 
       # Preserve existing metadata
-      existing_metadata <- private$read_parquet_metadata(table_name)
-      kv_clause <- format_kv_metadata(existing_metadata)
-
-      read_expr <- private$get_read_expr(table_name)
-      partition_clause <- private$get_partition_clause(table_name)
+      metadata_existing <- private$read_parquet_metadata(table_path)
+      partition_clause <- resolve_partition_clause(NULL, metadata_existing)
+      metadata_clause <- resolve_metadata_clause(NULL, metadata_existing)
 
       self$execute(glue::glue(
         r"{
         copy (
-          select * from {read_expr}
+          select * from '{table_path}'
           where not ({where})
         )
-        to '{file_path}' ({self$writeopts}{kv_clause}{partition_clause})
+        to '{table_path}' (
+          {self$writeopts}
+          {metadata_clause}
+          {partition_clause}
+        )
         }"
       ))
 
@@ -296,96 +235,88 @@ parquet_db <- R6::R6Class(
     },
 
     #' @description
-    #' Commit data using overwrite, append, or upsert modes. Handles autoincrement, key
-    #' identity columns, and list-to-MAP conversion.
-    #' @param x Data frame to commit. If character, in-duckdb-memory table.
-    #' @param table_name Character string table name
-    #' @param key_cols Character vector of columns that define uniqueness. If missing,
-    #' use all columns starting with `id_`
-    #' @param autoincrement_cols Character vector of column names to auto-increment
-    #' @param map_cols Character vector of columns to convert to MAP format
-    #' @param partition_cols Character vector of columns to use for partitioning
+    #' Commit data using overwrite, append, or upsert modes. Handles partitioning,
+    #' key identity columns, and list-to-MAP conversion. These four
+    #' special column types may be passed as attributes to the `x` argument. If the
+    #' table has previously been written to, these settings are recovered from the
+    #' parquet metadata.
+    #' @param x If data.table, the data to commit. If character, treated as an
+    #' in-DuckDB-memory table or view name.
+    #' @param table_name Target table name to commit to.
     #' @param method Character, one of "overwrite", "append", "upsert" (upsert being an
-    #' update for existing rows, and insert for new rows)
-    #' @return Invisible NULL (called for side effects)
+    #' update for existing rows, and insert for new rows; this necessitates loading the
+    #' full data into memory to know what to update. This may be expensive.
+    #' @return Number of rows written
     commit = function(
       x,
       table_name,
-      key_cols,
-      autoincrement_cols = character(0),
-      map_cols = character(0),
-      partition_cols = character(0),
       method = c("overwrite", "append", "upsert")
     ) {
       method <- match.arg(method)
 
-      if (length(partition_cols) > 0) {
-        self$set_partitioning(table_name, partition_cols)
-      }
-
-      # Extract attributes from data.table before registering
-      new_attrs <- extract_dt_attributes(x)
-
-      private$register_new_data_v(x, map_cols)
+      table_path <- self$get_table_path(table_name)
       on.exit(private$cleanup_new_data_v(), add = TRUE)
-      all_cols <- self$get_query(
-        "select column_name from (describe new_data_v)"
-      )[[1]]
 
-      file_path <- private$get_file_path(table_name)
+      if (method == "overwrite" || !file.exists(table_path)) {
+        stopifnot(!self$read_only)
+        # explicit overwrite or first write: only retrieve
+        private$register_new_data_v(x, map_cols = resolve_cols(x, attr = "map_cols"))
 
-      exists <- file.exists(file_path) || dir.exists(file_path)
-
-      if (method == "overwrite" || !exists) {
-        # in case overwrite explicitly required, or no previously existing data to
-        # append or upsert to; rest of logic can be skipped
         return(private$commit_overwrite(
-          table_name = table_name,
-          all_cols = all_cols,
-          autoincrement_cols = autoincrement_cols,
-          file_path = file_path,
-          metadata = new_attrs
+          table_path = table_path,
+          partition_clause = resolve_partition_clause(x),
+          metadata_clause = resolve_metadata_clause(x)
         ))
       }
 
-      # Read existing metadata and merge with new
-      existing_metadata <- private$read_parquet_metadata(table_name)
-      merged_metadata <- merge_metadata(new_attrs, existing_metadata)
-
-      self$attach_table(table_name)
-      on.exit(self$detach_table(table_name), add = TRUE)
-      private$set_autoincrement_vars(table_name, autoincrement_cols)
-
-      if (missing(key_cols)) {
-        key_cols <- grep("^id_[a-z]+$", all_cols, value = TRUE)
+      # fmt: skip
+      {
+        # schema/pre-existing metadata takes precedence
+        metadata_existing  <- private$read_parquet_metadata(table_path)
+        map_cols           <- resolve_cols(x, metadata_existing, "map_cols")
+        key_cols           <- resolve_cols(x, metadata_existing, "key_cols")
+        alternate_key_cols <- resolve_cols(x, metadata_existing, "alternate_key_cols")
+        partition_cols     <- resolve_cols(x, metadata_existing, "partition_cols")
+        partition_clause   <- resolve_partition_clause(x, metadata_existing)
+        metadata_clause    <- resolve_metadata_clause(x, metadata_existing)
+        all_new_cols       <- private$register_new_data_v(x, map_cols)
       }
 
       if (method == "append" || length(key_cols) == 0L) {
         # if there are no key columns to join on, upsert becomes append
+        if (length(key_cols) && getOption("evoland.parquet_db_append_warning", TRUE)) {
+          warning(
+            "!! No uniqueness checks are performed when appending.\n",
+            "  Only use if you need high speed _and_ know you're not introducing duplicates\n",
+            "  Use upsert to be safe.\n",
+            "  Set option 'evoland.parquet_db_append_warning' to FALSE to disable this warning."
+          )
+        }
         private$commit_append(
-          table_name = table_name,
-          all_cols = all_cols,
-          autoincrement_cols = autoincrement_cols,
-          file_path = file_path,
-          metadata = merged_metadata
+          table_path = table_path,
+          partition_clause = partition_clause,
+          metadata_clause = metadata_clause
         )
       } else {
+        stopifnot(!self$read_only)
         private$commit_upsert(
-          table_name = table_name,
-          all_cols = all_cols,
+          table_path = table_path,
+          all_new_cols = all_new_cols,
           key_cols = key_cols,
-          autoincrement_cols = autoincrement_cols,
-          file_path = file_path,
-          metadata = merged_metadata
+          alternate_key_cols = alternate_key_cols,
+          partition_cols = partition_cols,
+          partition_clause = partition_clause,
+          metadata_clause = metadata_clause
         )
       }
     },
 
     #' @description
     #' Print method for parquet_db
+    #' @param subheaders optional character vector; insert as subheaders lines
     #' @param ... Not used
     #' @return self (invisibly)
-    print = function(...) {
+    print = function(subheaders = character(0), ...) {
       # gather data to be printed
       classes <- class(self)
       classes <- classes[classes != "R6"]
@@ -394,12 +325,16 @@ parquet_db <- R6::R6Class(
       methods <- character(0)
       active_bindings <- character(0)
 
-      names(self$.__enclos_env__$private)
       if (!is.null(self$.__enclos_env__$super)) {
         # exclude private super names
         super_names <- setdiff(
           ls(self$.__enclos_env__$super),
-          ls(self$.__enclos_env__$super$.__enclos_env__$private)
+          c(
+            ls(self$.__enclos_env__$super$.__enclos_env__$private),
+            "initialize",
+            "print",
+            "clone"
+          )
         )
       } else {
         super_names <- character(0)
@@ -425,26 +360,26 @@ parquet_db <- R6::R6Class(
 
       # actually start printing
       if (length(classes) == 1) {
-        cat("<", classes[1], "> Object\n")
+        cat("<", classes[1], "> Object", sep = "")
       } else {
-        cat(classes[1], "Object. Inherits from", toString(classes[-1]), "\n")
+        cat("<", classes[1], "> Object. Inherits from <", toString(classes[-1]), ">", sep = "")
       }
 
-      # Database info on one line
-      cat(
-        glue::glue(
-          "Database: {self$path} | Write Options: {self$writeopts}"
-        ),
-        "\n\n"
-      )
+      # Basic DB descriptors
+      cat("\n | Database:", self$path)
+      cat("\n | Write Options:", self$writeopts)
+      if (length(subheaders) > 0) {
+        cat("\n |", paste(subheaders, collapse = "\n | "))
+      }
+      cat("\n\n")
 
       tables <- self$list_tables()
       if (length(tables) > 0) {
-        cat("Tables present:\n  ")
+        cat("Tables Present:\n  ")
         cat(strwrap(toString(tables), width = 80), sep = "\n  ")
         cat("\n")
       } else {
-        cat("Tables present: (none)\n\n")
+        cat("Tables Present: (none)\n\n")
       }
 
       if (length(super_names) > 0) {
@@ -454,17 +389,31 @@ parquet_db <- R6::R6Class(
       }
 
       if (length(methods) > 0) {
-        cat("Public methods:\n  ")
+        cat("Public Methods:\n  ")
         cat(strwrap(toString(methods), width = 80), sep = "\n  ")
         cat("\n")
       }
 
       if (length(active_bindings) > 0) {
-        cat("Active bindings:\n  ")
+        cat("Active Bindings:\n  ")
         cat(strwrap(toString(active_bindings), width = 80), sep = "\n  ")
       }
 
       invisible(self)
+    },
+
+    #' @description Get file path (or directory path) for a table
+    #' @param table_name Character string table name
+    #' @return Character path
+    get_table_path = function(table_name) {
+      file.path(self$path, paste0(table_name, ".parquet"))
+    },
+
+    #' @description Get SQL expression to read a table
+    #' @param table_name Character string table name
+    #' @return Character string SQL expression
+    get_read_expr = function(table_name) {
+      paste0("'", self$get_table_path(table_name), "'")
     }
   ),
 
@@ -479,291 +428,157 @@ parquet_db <- R6::R6Class(
     },
 
     ### Commit Methods ----
-    #' param x Data frame to commit. If character, in-duckdb-memory table.
-    #' param table_name Character string table name
-    #' param autoincrement_cols Character vector of column names to auto-increment
-    #' return Invisible NULL (called for side effects)
+
+    # overwrites table_path with pre-registered data from new_data_v
     commit_overwrite = function(
-      table_name,
-      all_cols,
-      autoincrement_cols = character(0),
-      file_path,
-      metadata = NULL
+      table_path,
+      partition_clause,
+      metadata_clause
     ) {
-      # Warn if overriding existing IDs
-      if (length(intersect(autoincrement_cols, all_cols)) > 0) {
-        warning(glue::glue(
-          "Overriding existing IDs ({toString(autoincrement_cols)}) with row numbers;\n",
-          "Assign these IDs manually and do not pass any autoincrement_cols to avoid this warning"
-        ))
-      }
-
-      # Build SELECT expression
-      ordinary_cols <- setdiff(all_cols, autoincrement_cols)
-      select_expr <- glue::glue_collapse(
-        c(
-          glue::glue('row_number() over () as "{autoincrement_cols}"'),
-          glue::glue('"{ordinary_cols}"')
-        ),
-        sep = ",\n "
-      )
-
-      kv_clause <- format_kv_metadata(metadata)
-      partition_clause <- private$get_partition_clause(table_name)
-
       if (nzchar(partition_clause)) {
-        # Clean up existing directory to avoid stale partitions/files
-        unlink(file_path, recursive = TRUE)
+        # duckdb overwrite leaves empty partition folders in place, do it cleanly
+        unlink(table_path, recursive = TRUE)
       }
 
       self$execute(glue::glue(
         r"{
-        copy (
-          select {select_expr}
-          from new_data_v
-        ) to '{file_path}' ({self$writeopts}{kv_clause}{partition_clause})
+        copy ( from new_data_v ) to '{table_path}' (
+          {self$writeopts}
+          {metadata_clause}
+          {partition_clause}
+        )
         }"
       ))
     },
 
-    #' param x Data frame to commit. If character, in-duckdb-memory table.
-    #' param table_name Character string table name
-    #' param autoincrement_cols Character vector of column names to auto-increment
-    #' return Invisible NULL (called for side effects)
+    # append new_data_v to table_path; if partitioned, simply use duckdb APPEND;
+    # if not partitioned, union and rewrite whole file
     commit_append = function(
-      table_name,
-      all_cols,
-      autoincrement_cols = character(0),
-      file_path,
-      metadata = NULL
+      table_path,
+      partition_clause,
+      metadata_clause
     ) {
-      ordinary_cols <- setdiff(all_cols, autoincrement_cols)
-
-      select_new <- glue::glue_collapse(
-        c(
-          glue::glue(
-            r"(
-            row_number() over () + getvariable('max_{autoincrement_cols}') as "{autoincrement_cols}"
-            )"
-          ),
-          glue::glue('"{ordinary_cols}"')
-        ),
-        sep = ",\n "
-      )
-
-      kv_clause <- format_kv_metadata(metadata)
-      partition_clause <- private$get_partition_clause(table_name)
-
-      if (!is.null(self$partitioning[[table_name]])) {
-        # Efficient append for partitioned tables: just write new files
+      if (nzchar(partition_clause)) {
+        # partitioned append: simply write new data to same path with append
         self$execute(glue::glue(
           r"{
-          copy (
-            select {select_new}
-            from new_data_v
-          )
-          to '{file_path}' ({self$writeopts}{kv_clause}{partition_clause}, APPEND)
+          copy new_data_v
+          to '{table_path}' ({self$writeopts} {metadata_clause} {partition_clause}, append)
           }"
         ))
       } else {
-        # Standard append: union and rewrite file; "by name" handles missing columns
+        stopifnot(!self$read_only)
+        # standard append: union and rewrite file; "by name" handles missing columns
         self$execute(glue::glue(
           r"{
           copy (
-            select * from {table_name}
+            from '{table_path}'
             union all by name
-            select {select_new}
             from new_data_v
           )
-          to '{file_path}' ({self$writeopts}{kv_clause})
+          to '{table_path}' ({self$writeopts} {metadata_clause})
           }"
         ))
       }
     },
 
-    #' param x Data frame to commit. If character, in-duckdb-memory table.
-    #' param table_name Character string table name
-    #' param key_cols Character vector of columns that define uniqueness. If missing,
-    #' use all columns starting with `id_`
-    #' param autoincrement_cols Character vector of column names to auto-increment
-    #' return Invisible NULL (called for side effects)
     commit_upsert = function(
-      table_name,
-      all_cols,
+      all_new_cols,
       key_cols,
-      autoincrement_cols = character(0),
-      file_path,
-      metadata = NULL
+      alternate_key_cols,
+      table_path,
+      partition_cols,
+      partition_clause,
+      metadata_clause
     ) {
-      # Update existing data
-      ordinary_cols <- setdiff(all_cols, union(key_cols, autoincrement_cols))
-      update_select_expr <- glue::glue_collapse(
+      private$create_old_data_t(table_path, key_cols, alternate_key_cols)
+      on.exit(self$execute("drop table old_data_t"), add = TRUE)
+
+      # Load entire table or touched partitions into memory
+      semi_join <- if (length(partition_cols)) {
         glue::glue(
-          r"(
-          "{ordinary_cols}" = new_data_v."{ordinary_cols}"
-          )"
-        ),
+          "semi join (",
+          "  select distinct {cols_to_select_expr(partition_cols)} from new_data_v",
+          ") using ({cols_to_select_expr(partition_cols)})"
+        )
+      } else {
+        ""
+      }
+      self$execute(glue::glue(
+        "insert into old_data_t from (from '{table_path}' {semi_join})"
+      ))
+
+      # Exclude key columns; because of unique constraint, this will correctly
+      # error out on duplicates
+      ordinary_cols <- setdiff(all_new_cols, c(key_cols, alternate_key_cols))
+      update_assign_expr <- glue::glue_collapse(
+        glue::glue('"{ordinary_cols}" = new_data_v."{ordinary_cols}"'),
         sep = ",\n "
       )
-      update_join_condition <- glue::glue_collapse(
-        glue::glue(r"({table_name}."{key_cols}" = new_data_v."{key_cols}")"),
-        sep = "\nand "
-      )
 
+      # Merge new_data_v into old_data_t using key_cols
       self$execute(glue::glue(
         r"{
-        update {table_name} set
-          {update_select_expr}
-        from new_data_v
-        where
-          {update_join_condition};
+        merge into old_data_t
+        using new_data_v
+        using ({cols_to_select_expr(c(key_cols, alternate_key_cols))}) -- natural join
+        when matched then update set {update_assign_expr}
+        when not matched then insert by name
         }"
       ))
 
-      # Insert new data
-      insert_cols <- setdiff(all_cols, autoincrement_cols)
-      insert_target_cols <- glue::glue_collapse(
-        c(
-          glue::glue('"{autoincrement_cols}"'),
-          glue::glue('"{insert_cols}"')
-        ),
-        sep = ", "
-      )
-
-      insert_select_expr <- glue::glue_collapse(
-        c(
-          glue::glue(
-            r"(
-            row_number() over () + getvariable('max_{autoincrement_cols}') as "{autoincrement_cols}"
-            )"
-          ),
-          glue::glue('new_data_v."{insert_cols}"')
-        ),
-        sep = ",\n "
-      )
-      null_condition <- glue::glue_collapse(
-        glue::glue('{table_name}."{key_cols}" is null'),
-        sep = "\nand "
-      )
-
-      self$execute(glue::glue(
-        r"{
-        insert into {table_name} ({insert_target_cols})
-        select
-          {insert_select_expr}
-        from
-          new_data_v
-        left join
-          {table_name}
-        on
-          {update_join_condition}
-        where
-          {null_condition}
-        ;
-        }"
-      ))
-
-      kv_clause <- format_kv_metadata(metadata)
-      partition_clause <- private$get_partition_clause(table_name)
-
-      if (nzchar(partition_clause)) {
-        # Clean up existing directory to avoid stale partitions/files
-        unlink(file_path, recursive = TRUE)
+      if (length(partition_cols)) {
+        private$cleanup_affected_partitions(table_path, partition_cols)
       }
 
       self$execute(glue::glue(
-        "copy {table_name} to '{file_path}' ({self$writeopts}{kv_clause}{partition_clause})"
+        "copy old_data_t to '{table_path}' (
+          {self$writeopts}
+          {metadata_clause}
+          {partition_clause},
+          overwrite_or_ignore
+        )"
       ))
     },
 
-    # Get file path (or directory path) for a table
-    #
-    # @param table_name Character string table name
-    # @return Character path
-    get_file_path = function(table_name) {
-      # Known partitioning
-      if (!is.null(self$partitioning[[table_name]])) {
-        return(file.path(self$path, table_name))
-      }
-      # Check if directory exists (persisted partitioning)
-      dir_path <- file.path(self$path, table_name)
-      if (dir.exists(dir_path)) {
-        return(dir_path)
-      }
-      # Default to flat parquet file
-      file.path(self$path, paste0(table_name, ".parquet"))
-    },
-
-    # Get SQL expression to read a table
-    #
-    # @param table_name Character string table name
-    # @return Character string SQL expression
-    get_read_expr = function(table_name) {
-      path <- private$get_file_path(table_name)
-      # Check if it is a directory or if we know it is partitioned
-      is_partitioned <- !is.null(self$partitioning[[table_name]]) || dir.exists(path)
-
-      if (is_partitioned) {
-        # Use glob pattern for partitioned directories
-        return(glue::glue("read_parquet('{path}/**/*.parquet', hive_partitioning = 1)"))
-      }
-      glue::glue("read_parquet('{path}')")
-    },
-
-    # Get PARTITION_BY clause if applicable
-    #
-    # @param table_name Character string table name
-    # @return Character string
-    get_partition_clause = function(table_name) {
-      cols <- self$partitioning[[table_name]]
-      if (is.null(cols)) {
-        return("")
-      }
-      glue::glue(", partition_by ({paste(glue::glue('\"{cols}\"'), collapse = ', ')})")
-    },
-
-    # Register new_data_v table, optionally converting MAP columns
-    #
-    # @param x Data to register
-    # @param map_cols Character vector of columns to convert to MAP format
-    # @return NULL (called for side effects)
+    # register new_data_v view. If x is string, simply alias an in-memory DB object. If
+    # x is data.table, optionally convert to MAP columns
     register_new_data_v = function(x, map_cols = character(0)) {
       if (is.character(x)) {
-        # TODO add tests
         self$execute(glue::glue("create view new_data_v as from {x}"))
-        return(invisible(NULL))
+        names <- self$get_query(glue::glue("select column_name from (describe {x})"))[[1]]
+        return(names)
       }
 
       if (length(map_cols) == 0) {
         # No MAP conversion needed - register directly
         duckdb::duckdb_register(self$connection, "new_data_v", x)
-      } else {
-        # Convert list columns to key-value dataframes
-        x <-
-          data.table::copy(x) |>
-          convert_list_cols(map_cols, list_to_kv_df)
-
-        # Register as intermediate table
-        duckdb::duckdb_register(self$connection, "new_data_raw", x)
-
-        # Build SELECT expression with map_from_entries for MAP columns
-        map_exprs <- glue::glue("map_from_entries({map_cols}) as {map_cols}")
-        other_cols <- setdiff(names(x), map_cols)
-        all_exprs <- c(other_cols, map_exprs)
-        select_expr <- glue::glue_collapse(all_exprs, sep = ", ")
-
-        # Create new_data_v from new_data_raw
-        self$execute(glue::glue(
-          "create temp table new_data_v as select {select_expr} from new_data_raw"
-        ))
+        return(names(x))
       }
 
-      invisible(NULL)
+      # Convert list columns to key-value dataframes
+      x <-
+        data.table::copy(x) |>
+        convert_list_cols(map_cols, list_to_kv_df)
+
+      # Register as intermediate table
+      duckdb::duckdb_register(self$connection, "new_data_raw", x)
+
+      # Build SELECT expression with map_from_entries for MAP columns
+      map_exprs <- glue::glue("map_from_entries({map_cols}) as {map_cols}")
+      other_cols <- setdiff(names(x), map_cols)
+      all_exprs <- c(other_cols, map_exprs)
+      select_expr <- glue::glue_collapse(all_exprs, sep = ", ")
+
+      # Create new_data_v from new_data_raw
+      self$execute(glue::glue(
+        "create temp table new_data_v as select {select_expr} from new_data_raw"
+      ))
+
+      return(names(x))
     },
 
-    # Cleanup new_data_v and related tables
-    #
-    # @return NULL (called for side effects)
+    # cleanup new_data_v and related tables
     cleanup_new_data_v = function() {
       try(duckdb::duckdb_unregister(self$connection, "new_data_v"), silent = TRUE)
       try(duckdb::duckdb_unregister(self$connection, "new_data_raw"), silent = TRUE)
@@ -773,180 +588,81 @@ parquet_db <- R6::R6Class(
       invisible(NULL)
     },
 
-    # Set DuckDB variables max_{colname} for autoincrement columns
-    #
-    # @param table_name Character string table name
-    # @param autoincrement_cols Character vector of column names
-    # @return NULL (called for side effects)
-    set_autoincrement_vars = function(table_name, autoincrement_cols) {
-      if (length(autoincrement_cols) == 0L) {
-        return(NULL)
+    # creates an old_table_t with constraints that could not be applied using CTAS syntax
+    create_old_data_t = function(table_path, key_cols, alternate_key_cols) {
+      unique_key <- if (length(key_cols)) {
+        glue::glue(", unique ({cols_to_select_expr(key_cols)})")
+      } else {
+        ""
+      }
+      unique_alt <- if (length(alternate_key_cols)) {
+        glue::glue(", unique ({cols_to_select_expr(alternate_key_cols)})")
+      } else {
+        ""
       }
 
-      if (!DBI::dbExistsTable(self$connection, table_name)) {
-        # Attach/detach if not already attached
-        self$attach_table(table_name)
-        on.exit(self$detach_table(table_name))
-      }
+      colspecs <- self$get_query(glue::glue(
+        "select '\"' || column_name || '\" ' || column_type from (describe '{table_path}')"
+      ))[[1]]
 
-      existing_cols <-
-        glue::glue("select column_name from (describe {table_name})") |>
-        self$get_query() |>
-        (\(x) x[[1]])() |>
-        intersect(autoincrement_cols)
-
-      missing_cols <- setdiff(autoincrement_cols, existing_cols)
-
-      set_exprs <- glue::glue_collapse(
-        c(
-          glue::glue(
-            'set variable max_{existing_cols} =
-              (select coalesce(max("{existing_cols}"), 0) from {table_name});'
-          ),
-          glue::glue(
-            "set variable max_{missing_cols} = 0;"
-          )
-        ),
-        sep = "\n"
-      )
-
-      self$execute(set_exprs)
-      invisible(NULL)
+      self$execute(glue::glue(
+        r"{
+        create table old_data_t (
+          {toString(colspecs)}
+          {unique_key}
+          {unique_alt}
+        )
+        }"
+      ))
     },
 
-    # Read parquet metadata as named list
-    read_parquet_metadata = function(table_name) {
-      file_path <- private$get_file_path(table_name)
-
-      # For partitioned tables, get metadata from the first file found
-      read_path <- if (!is.null(self$partitioning[[table_name]])) {
-        files <- list.files(file_path, pattern = "\\.parquet$", recursive = TRUE, full.names = TRUE)
-        if (length(files) == 0) {
-          return(list())
-        }
-        files[1]
-      } else {
-        file_path
-      }
-
-      x <- self$get_query(glue::glue(
-        "select key, value from parquet_kv_metadata('{read_path}')"
-      ))
-      if (nrow(x) == 0) {
+    # read parquet metadata as named list; if no metadata or no file, return empty list
+    read_parquet_metadata = function(table_path) {
+      if (!file.exists(table_path)) {
         return(list())
       }
 
-      read_raw <- \(y) y |> rawToChar() |> utils::type.convert(as.is = TRUE)
+      if (dir.exists(table_path)) {
+        # need to glob if partitioned
+        path <- glue::glue("{table_path}/**/*.parquet")
+      } else {
+        path <- table_path
+      }
+
+      x <- self$get_query(glue::glue(
+        "select distinct key, value from parquet_kv_metadata('{path}')"
+      ))
+
+      read_raw <- function(y) {
+        y |>
+          rawToChar() |>
+          strsplit(", ") |>
+          (\(z) z[[1]])() |>
+          gsub('\\"', "", x = _) |>
+          utils::type.convert(as.is = TRUE)
+      }
       result <- lapply(x[["value"]], read_raw)
       names(result) <- vapply(x[["key"]], read_raw, character(1))
 
       result
+    },
+
+    # clean up partitions folders affected by a pending upsert
+    cleanup_affected_partitions = function(table_path, partition_cols) {
+      # manually delete all files in affected partition folders
+      # overwrite_or_ignore does not reliably delete full partitions:
+      # https://github.com/duckdb/duckdb/issues/10282 might fix this
+      # overwrite deletes everything and only rewrites touched partitions.
+      affected_partitions <- self$get_query(glue::glue(
+        "select distinct {cols_to_select_expr(partition_cols)} from new_data_v",
+        partition_cols = partition_cols
+      ))
+
+      apply(affected_partitions, 1, function(row) {
+        paste0(names(row), "=", row, collapse = .Platform$file.sep)
+      }) |>
+        file.path(table_path, partition_dir = _) |>
+        unlink(recursive = TRUE)
     }
   )
 )
-
-
-# Extract attributes from data.table for storage as parquet metadata
-# param x An R object
-# return Named list of attributes
-extract_dt_attributes <- function(x) {
-  all_attrs <- attributes(x)
-  excluded <- c("class", "names", ".internal.selfref", "row.names", "sorted", "index")
-  attrs_to_keep <- setdiff(names(all_attrs), excluded)
-  all_attrs[attrs_to_keep]
-}
-
-# Format attributes as KV_METADATA SQL clause
-# param attrs Named list of attributes
-# return Character string for KV_METADATA clause (empty string if NULL/empty)
-format_kv_metadata <- function(attrs) {
-  if (length(attrs) == 0) {
-    return("")
-  }
-  stopifnot(
-    "Attributes with length > 1 are not supported for parquet metadata" = all(
-      vapply(attrs, length, integer(1)) == 1L
-    )
-  )
-  kv_str <- glue::glue_collapse(glue::glue("{names(attrs)}: '{attrs}'"), sep = ",\n  ")
-  glue::glue(",\n    KV_METADATA {{\n  {kv_str}\n  }}")
-}
-
-# Restore attributes to data.table from metadata
-#
-# param x data.table to add attributes to
-# param metadata Named list of metadata
-# return Modified data.table (invisible)
-restore_dt_attributes <- function(x, metadata) {
-  for (key in names(metadata)) {
-    data.table::setattr(x, key, metadata[[key]])
-  }
-}
-
-# Compare and merge metadata, warning if differences exist
-# param new_metadata Named list of new metadata
-# param existing_metadata Named list of existing metadata
-# return Merged metadata (new overrides existing)
-merge_metadata <- function(new_metadata, existing_metadata) {
-  common_keys <- intersect(names(new_metadata), names(existing_metadata))
-  conflicts <- character(0)
-  for (key in common_keys) {
-    if (!identical(new_metadata[[key]], existing_metadata[[key]])) {
-      conflicts <- c(conflicts, key)
-    }
-  }
-
-  if (length(conflicts) > 0) {
-    warning(
-      "Overriding existing metadata for key(s): ",
-      toString(conflicts)
-    )
-  }
-
-  # Merge: new overrides existing
-  result <- existing_metadata
-  for (key in names(new_metadata)) {
-    result[[key]] <- new_metadata[[key]]
-  }
-
-  result
-}
-
-# Helper functions for converting between list and data.frame formats for DuckDB MAPs
-convert_list_cols <- function(x, cols, fn) {
-  for (col in cols) {
-    x[[col]] <- lapply(x[[col]], fn)
-  }
-  x
-}
-
-list_to_kv_df <- function(x) {
-  if (is.null(x) || length(x) == 0) {
-    return(data.frame(
-      key = character(0),
-      value = character(0),
-      stringsAsFactors = FALSE
-    ))
-  }
-  data.frame(
-    key = names(x),
-    value = as.character(unlist(x)),
-    stringsAsFactors = FALSE
-  )
-}
-
-kv_df_to_list <- function(x) {
-  if (is.null(x) || nrow(x) == 0) {
-    return(NULL)
-  }
-
-  out <- list()
-
-  for (row in seq_len(nrow(x))) {
-    key <- x$key[row]
-    val <- utils::type.convert(x$value[row], as.is = TRUE)
-    out[[key]] <- val
-  }
-
-  out
-}

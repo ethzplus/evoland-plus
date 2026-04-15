@@ -4,11 +4,14 @@
 \alias{lulc_data_t}
 \alias{as_lulc_data_t}
 \alias{print.lulc_data_t}
+\alias{lulc_data_as_rast}
 \title{Create LULC Data Table}
 \usage{
 as_lulc_data_t(x)
 
 \method{print}{lulc_data_t}(x, nrow = 10, ...)
+
+lulc_data_as_rast(self, id_period = NULL)
 }
 \arguments{
 \item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
@@ -16,13 +19,17 @@ as_lulc_data_t(x)
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{id_period}{Integer or vector of integers specifying which periods to
+retrieve; returned as layers.}
 }
 \value{
 A data.table of class "lulc_data_t" with columns:
 \itemize{
-\item \code{id_coord}: Foreign key to coords_t
-\item \code{id_lulc}: Foreign key to lulc_meta_t
+\item \code{id_run}: Foreign key to runs_t
 \item \code{id_period}: Foreign key to periods_t
+\item \code{id_lulc}: Foreign key to lulc_meta_t
+\item \code{id_coord}: Foreign key to coords_t
 }
 }
 \description{
@@ -33,6 +40,9 @@ Creates an \code{lulc_data_t} table and validates that it matches the schema.
 \item \code{print(lulc_data_t)}: Print an lulc_data_t object, passing params to data.table print
 
 }}
-\seealso{
-\link{evoland_db} method \verb{$lulc_data_as_rast()} for converting to terra SpatRast
-}
+\section{Functions}{
+\itemize{
+\item \code{lulc_data_as_rast()}: Retrieve LULC data as SpatRaster
+
+}}
+\keyword{internal}

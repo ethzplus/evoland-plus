@@ -21,10 +21,15 @@ as_lulc_meta_t <- function(x) {
       src_classes = list()
     )
   }
-  new_evoland_table(
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_lulc", "int")
+
+  as_parquet_db_t(
     x,
-    "lulc_meta_t",
-    "id_lulc"
+    class_name = "lulc_meta_t",
+    key_cols = "name",
+    alternate_key_cols = "id_lulc"
   )
 }
 
@@ -68,7 +73,10 @@ create_lulc_meta_t <- function(lulc_class_spec) {
       function(cls) cls[["description"]] %||% NA_character_,
       character(1)
     ),
-    src_classes = pluck_wildcard(lulc_class_spec, NA, "src_classes")
+    src_classes = lapply(
+      pluck_wildcard(lulc_class_spec, NA, "src_classes"),
+      \(y) if (is.null(y)) integer(0) else as.integer(y)
+    )
   )
 
   data.table::setkey(x, "id_lulc")
@@ -96,8 +104,6 @@ validate.lulc_meta_t <- function(x, ...) {
     is.character(x[["name"]]),
     is.character(x[["pretty_name"]]),
     is.character(x[["description"]]),
-    !anyDuplicated(x[["id_lulc"]]),
-    !anyDuplicated(x[["name"]]),
     !any(x[["name"]] == "")
   )
 

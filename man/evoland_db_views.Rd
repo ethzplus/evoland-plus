@@ -2,10 +2,16 @@
 % Please edit documentation in R/evoland_db_views.R
 \name{evoland_db_views}
 \alias{evoland_db_views}
+\alias{lulc_meta_long_v}
+\alias{pred_sources_v}
+\alias{trans_v}
+\alias{coords_minimal}
+\alias{trans_pred_data_v}
+\alias{trans_rates_dinamica_v}
 \title{Views on the evoland-plus data model}
 \description{
-This file adds view active bindings and methods to the \code{evoland_db} class using R6's \verb{$set()} method.
-These provide computed views on the database without storing additional data.
+This file adds view active bindings and methods to the \code{evoland_db} class using R6's \verb{$set()}
+method. These provide computed views on the database without storing additional data.
 }
 \section{Active Bindings Added}{
 
@@ -21,8 +27,10 @@ These provide computed views on the database without storing additional data.
 \section{Methods Added}{
 
 \itemize{
-\item \code{trans_pred_data_v(id_trans)} - Returns wide table of transition results and predictor data for a specific transition. Used as input to covariance filtering.
-\item \code{trans_rates_dinamica_v(id_period)} - Returns transition rates formatted for Dinamica export for a specific period.
+\item \code{trans_pred_data_v(id_trans)} - Returns wide table of transition results and predictor data for
+a specific transition. Used as input to covariance filtering.
+\item \code{trans_rates_dinamica_v(id_period)} - Returns transition rates formatted for Dinamica export
+for a specific period.
 }
 }
 

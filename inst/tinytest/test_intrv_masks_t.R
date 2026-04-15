@@ -2,6 +2,7 @@ library(tinytest)
 
 intrv_masks_t <-
   data.table::data.table(
+    id_run = 0L,
     id_coord = 1:99,
     id_intrv = 1:3
   ) |>

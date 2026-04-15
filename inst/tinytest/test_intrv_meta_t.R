@@ -45,4 +45,7 @@ intrv_meta_t_correct <- create_intrv_meta_t(intrv_spec)
 expect_silent(print(intrv_meta_t_correct))
 expect_equal(nrow(intrv_meta_t_correct), 3L)
 expect_equal(intrv_meta_t_correct$pre_allocation, c(TRUE, FALSE, TRUE))
-expect_equal(intrv_meta_t_correct$id_period_list, list(c(7, 8), NULL, NULL))
+expect_equal(
+  intrv_meta_t_correct$id_period_list,
+  list(c(7, 8), integer(0), integer(0))
+)

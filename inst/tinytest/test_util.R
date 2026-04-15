@@ -6,26 +6,15 @@ expect_error(
   "No validate method defined for class list"
 )
 
-# Test validate.evoland_t dispatch
+# Test validate.parquet_db_t dispatch
 dt <- data.table::data.table(x = 1:3, y = letters[1:3])
-class(dt) <- c("test_class", "evoland_t", class(dt))
+class(dt) <- c("test_class", "parquet_db_t", class(dt))
 expect_silent(validate(dt))
 
 # Test with non-data.table object
 non_dt <- data.frame(x = 1:3)
-class(non_dt) <- c("test_class", "evoland_t", class(non_dt))
-expect_error(validate(non_dt), "inherits.*data.table.*is not TRUE")
-
-# Test check_missing_names
-test_list <- list(a = 1, b = 2, c = 3)
-expect_silent(evoland:::check_missing_names(test_list, c("a", "b")))
-expect_error(
-  evoland:::check_missing_names(test_list, c("a", "d", "e")),
-  "missing required names: d, e"
-)
-
-# Test empty requirements
-expect_silent(evoland:::check_missing_names(test_list, character(0)))
+class(non_dt) <- c("test_class", "parquet_db_t", class(non_dt))
+expect_error(validate(non_dt), "needs to be a data.table")
 
 # Test %||% operator
 expect_equal(NULL %||% "default", "default")

@@ -3,9 +3,15 @@
 \name{reporting_t}
 \alias{reporting_t}
 \alias{as_reporting_t}
+\alias{db_set_report}
 \title{Create Reporting Table}
 \usage{
 as_reporting_t(x)
+
+db_set_report(self, ...)
+}
+\arguments{
+\item{...}{Each named argument is entered into the table with the argument name as its key.}
 }
 \value{
 A data.table of class "reporting_t" with columns:
@@ -18,3 +24,9 @@ A data.table of class "reporting_t" with columns:
 The reporting table holds information handy for writing out reports (tables,
 graphs...)
 }
+\section{Functions}{
+\itemize{
+\item \code{db_set_report()}: Set or update reporting metadata in the database.
+
+}}
+\keyword{internal}

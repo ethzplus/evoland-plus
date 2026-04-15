@@ -7,23 +7,28 @@
 #'
 #' @param x An object that is accepted by [data.table::setDT()]
 #'
-#' @return A data.table-inheriting object with the columns `id_intrv` and `id_coord`,
-#' creating a relation between coordinates to apply a
+#' @return A data.table-inheriting object with the columns `id_run`, `id_intrv`, and `id_coord`,
+#' creating a relation between coordinates to apply an intervention mask.
 #'
 #' @export
 as_intrv_masks_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
+      id_run = integer(0),
       id_intrv = integer(0),
       id_coord = integer(0)
     )
   }
-  cast_dt_col(x, "id_coord", "int")
-  cast_dt_col(x, "id_coord", "int")
-  new_evoland_table(
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_run", "int") |>
+    cast_dt_col("id_intrv", "int") |>
+    cast_dt_col("id_coord", "int")
+
+  as_parquet_db_t(
     x,
-    "intrv_masks_t",
-    c("id_intrv", "id_coord")
+    class_name = "intrv_masks_t",
+    key_cols = c("id_run", "id_intrv", "id_coord")
   )
 }
 
@@ -33,13 +38,17 @@ validate.intrv_masks_t <- function(x, ...) {
 
   data.table::setcolorder(
     x,
-    c("id_intrv", "id_coord")
+    c(
+      "id_run",
+      "id_intrv",
+      "id_coord"
+    )
   )
 
   stopifnot(
+    is.integer(x[["id_run"]]),
     is.integer(x[["id_intrv"]]),
-    is.integer(x[["id_coord"]]),
-    !anyDuplicated(x, by = c("id_intrv", "id_coord"))
+    is.integer(x[["id_coord"]])
   )
 
   return(x)

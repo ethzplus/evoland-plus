@@ -25,10 +25,18 @@ as_periods_t <- function(x) {
       is_extrapolated = logical(0)
     )
   }
-  new_evoland_table(
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_period", "int") |>
+    cast_dt_col("start_date", "date") |>
+    cast_dt_col("end_date", "date") |>
+    cast_dt_col("is_extrapolated", "bool")
+
+  as_parquet_db_t(
     x,
-    "periods_t",
-    "id_period"
+    class_name = "periods_t",
+    key_cols = c("start_date", "end_date"),
+    alternate_key_cols = "id_period",
   )
 }
 
@@ -48,11 +56,11 @@ create_periods_t <- function(
   end_extrapolated = "2060-01-01"
 ) {
   # Parse the period length (ISO 8601 duration)
-  if (!stringi::stri_detect_regex(period_length_str, "^P\\d+Y$")) {
+  if (!grepl("^P\\d+Y$", period_length_str)) {
     stop("Only yearly period lengths are currently supported (e.g., P5Y)")
   }
   period_length_years <-
-    stringi::stri_match_first_regex(period_length_str, "P(\\d+)Y")[2] |>
+    sub("^P(\\d+)Y$", "\\1", period_length_str) |>
     as.integer()
 
   # Parse dates
@@ -109,12 +117,12 @@ validate.periods_t <- function(x, ...) {
     )
   )
 
+  # TODO validate that periods don't overlap except for period 0?
   stopifnot(
-    is.integer(x[["id_period"]]),
-    inherits(x[["start_date"]], "Date"),
-    inherits(x[["end_date"]], "Date"),
-    is.logical(x[["is_extrapolated"]]),
-    !anyDuplicated(x[["id_period"]])
+    "id_period should be an integer" = is.integer(x[["id_period"]]),
+    "start_date should be a Date" = inherits(x[["start_date"]], "Date"),
+    "end_date should be a Date" = inherits(x[["end_date"]], "Date"),
+    "is_extrapolated should be bool" = is.logical(x[["is_extrapolated"]])
   )
 
   return(x)

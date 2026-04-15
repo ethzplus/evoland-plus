@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Abort script if any command exits with non-zero status. Not foolproof.
-set -e 
+set -e
 
 NCPUS=${NCPUS:-"-1"}
 
@@ -28,9 +28,5 @@ install2.r --error --skipinstalled -n $NCPUS \
     microbenchmark \
     profvis \
     quarto \
-    rlang
-
-# httpgd is currently off of CRAN because of c++ compiler conflicts
-# https://github.com/nx10/httpgd/issues/218
-
-R -e "remotes::install_github('nx10/httpgd')"
+    rlang \
+    httpgd

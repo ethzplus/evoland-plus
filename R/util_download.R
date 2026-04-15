@@ -22,7 +22,9 @@ download_and_verify <- function(
   target_dir = getOption("evoland.cachedir"),
   overwrite = FALSE
 ) {
-  check_missing_names(df_in, c("url", "md5sum"))
+  stopifnot(
+    "need url and md5 as input" = all(c("url", "md5sum") %in% names(df_in))
+  )
   ensure_dir(target_dir)
 
   # makes a copy while ensuring DT semantics
@@ -104,7 +106,7 @@ download_and_verify <- function(
   # throw warning on mismatch (most likely file has changed but is still usable)
   if (nrow(mismatches <- df_out[md5sum != md5sum_actual])) {
     o <- options(datatable.prettyprint.char = 32L)
-    on.exit(options(o))
+    on.exit(options(o), add = TRUE)
     warning(
       "Hash mismatch for \n",
       paste(
@@ -123,23 +125,34 @@ filename_cd_header <- function(res) {
   # pilfered from https://regex101.com/r/hJ7tS6/179
   filename_match <- r"{filename[^;=\n]*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))}"
 
-  cd <-
-    res[["headers"]] |>
-    curl::parse_headers() |>
-    stringi::stri_subset_fixed("Content-Disposition:") |>
-    stringi::stri_match_all_regex(filename_match)
+  headers <- curl::parse_headers(res[["headers"]])
+  cd_headers <- headers[grepl("Content-Disposition:", headers, fixed = TRUE)]
+
+  if (length(cd_headers) == 0L) {
+    return(NULL)
+  }
+
+  cd <- regmatches(cd_headers, regexpr(filename_match, cd_headers, perl = TRUE))
 
   if (length(cd) == 0L) {
     return(NULL)
   }
 
-  # first row: first match. fourth column: third capture group.
-  out <- cd[[1L]][1, 4]
+  # Extract capture groups using regexec
+  m <- regexec(filename_match, cd_headers[[1L]], perl = TRUE)
+  captures <- regmatches(cd_headers[[1L]], m)[[1L]]
 
-  if (is.na(out)) {
-    # second capture group in case the filename is quoted
-    out <- cd[[1L]][1, 3]
-    if (is.na(out)) {
+  if (length(captures) < 4L) {
+    return(NULL)
+  }
+
+  # fourth element: third capture group (index 4 = full match + 3 groups)
+  out <- captures[4L]
+
+  if (is.na(out) || out == "") {
+    # third element: second capture group, in case the filename is quoted
+    out <- captures[3L]
+    if (is.na(out) || out == "") {
       return(NULL)
     }
   }

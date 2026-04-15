@@ -4,7 +4,6 @@
 \alias{intrv_meta_t}
 \alias{as_intrv_meta_t}
 \alias{create_intrv_meta_t}
-\alias{create_intrv_meta_t_row}
 \alias{print.intrv_meta_t}
 \title{Create Intervention Metadata Table / Entries}
 \usage{
@@ -12,39 +11,12 @@ as_intrv_meta_t(x)
 
 create_intrv_meta_t(intrv_spec)
 
-create_intrv_meta_t_row(
-  name = character(),
-  pretty_name = character(),
-  description = NA_character_,
-  id_period_list = integer(),
-  id_trans_list = integer(),
-  pre_allocation = logical(),
-  sources = data.frame(url = character(), md5sum = character()),
-  params
-)
-
 \method{print}{intrv_meta_t}(x, ...)
 }
 \arguments{
 \item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
 
 \item{intrv_spec}{A list of intervention specifications, schema: see examples}
-
-\item{name}{Name for use in code and queries}
-
-\item{pretty_name}{Name for plots/output}
-
-\item{description}{Long description / operationalisation}
-
-\item{id_period_list}{Array of associated period IDs}
-
-\item{id_trans_list}{Array of associated transition IDs}
-
-\item{pre_allocation}{Boolean indicating if intervention is pre-allocation}
-
-\item{sources}{Data frame of sources with columns \code{url} and `md5sum}
-
-\item{params}{A list of parameters, depth 1; children can only have length 1}
 
 \item{...}{passed to \code{\link[data.table:print.data.table]{data.table::print.data.table()}}}
 }
@@ -73,8 +45,6 @@ Creates an \code{intrv_meta_t} table or rows therein based on intervention speci
 \section{Functions}{
 \itemize{
 \item \code{create_intrv_meta_t()}: Creates an intrv_meta_t table from intervention specifications
-
-\item \code{create_intrv_meta_t_row()}: Creates an metadata entry / row
 
 }}
 \examples{

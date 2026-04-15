@@ -21,7 +21,8 @@ create_trans_meta_t(
 }
 \arguments{
 \item{transitions}{A trans_v table, with columns id_coord, id_lulc_anterior,
-id_lulc_posterior, id_period}
+id_lulc_posterior, id_period; contains transitions and non-transitions (where
+anterior == posterior)}
 
 \item{min_cardinality_abs}{Minimum absolute number of transitions for viability (optional)}
 
@@ -50,7 +51,9 @@ A data.table of class "trans_meta_t" with columns:
 \description{
 Creates a trans_meta_t table based on observed land use transitions in the
 LULC data. This function analyzes transition patterns and creates metadata
-entries for each viable transition type.
+entries for each viable transition type. The metadata is kept constant across
+runs, since comparisons of model performance should be based on the same set
+of transitions.
 }
 \section{Methods (by generic)}{
 \itemize{

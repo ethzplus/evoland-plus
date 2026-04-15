@@ -11,14 +11,10 @@ coords <-
   ) |>
   as_coords_t()
 
-# Test 1: Basic functionality
+# Test 1: Basic functionality with neighbor finding and symmetry
 # Points 1, 2, 3 are at (0,0), (0,10), (0,20)
 # Dist(1,2) = 10, Dist(2,3) = 10, Dist(1,3) = 20
-# Point 4 is at (100,0). Dist(1,4) = 100
-# Point 5 is at (200,0). Dist(4,5) = 100, Dist(1,5) = 200
-
-# With max_distance = 15
-# Should find: (1,2), (2,1), (2,3), (3,2)
+# With max_distance = 15, should find: (1,2), (2,1), (2,3), (3,2)
 res <- create_neighbors_t(coords, max_distance = 15, quiet = TRUE)
 
 expected_pairs <-
@@ -30,9 +26,37 @@ expected_pairs <-
   as_neighbors_t()
 
 expect_equal(res, expected_pairs)
+expect_inherits(res, "neighbors_t")
 
-# Test 2: Multiple points in same cell (Dense)
-# Create points very close together
+# Verify symmetry: if A is neighbor of B, B should be neighbor of A
+expect_equal(res[id_coord_origin == 1 & id_coord_neighbor == 2]$distance, 10.0)
+expect_equal(res[id_coord_origin == 2 & id_coord_neighbor == 1]$distance, 10.0)
+
+# Test 2: Distance classification
+neighbors_class <- create_neighbors_t(
+  coords,
+  max_distance = 25,
+  distance_breaks = c(0, 15, 30),
+  quiet = TRUE
+)
+
+# Pairs < 15: (1,2), (2,1), (2,3), (3,2) [Dist 10]
+# Pairs >= 15 & < 30: (1,3), (3,1) [Dist 20]
+expect_equal(nrow(neighbors_class), 6)
+expect_true("distance_class" %in% names(neighbors_class))
+expect_true(is.factor(neighbors_class$distance_class))
+expect_equal(length(levels(neighbors_class$distance_class)), 2)
+
+d10_class <- neighbors_class[distance == 10]$distance_class[1]
+d20_class <- neighbors_class[distance == 20]$distance_class[1]
+expect_true(d10_class != d20_class)
+
+# Test 3: Empty result when max_distance is too small
+res_empty <- create_neighbors_t(coords, max_distance = 1, quiet = TRUE)
+expect_equal(nrow(res_empty), 0)
+expect_inherits(res_empty, "neighbors_t")
+
+# Test 4: Multiple points in same cell (dense points)
 coords_dense <-
   data.table::data.table(
     id_coord = 1:3,
@@ -53,48 +77,45 @@ d12 <- sqrt(0.01 + 0.01)
 sub <- res_dense[id_coord_origin == 1 & id_coord_neighbor == 2]
 expect_equal(sub$distance, d12)
 
-# Test 3: Resolution boundary effects
-# Points at cell boundaries might be missed if kernel logic is wrong
+# Test 5: Resolution boundary effects
 coords_bound <-
   data.table::data.table(
     id_coord = 1:2,
-    lon = c(99, 101), # Straddle 100 boundary if grid was 100
+    lon = c(99, 101),
     lat = c(0, 0),
     elevation = 0,
     geom_polygon = list()
   ) |>
   as_coords_t()
 
-# Distance is 2.
 res_bound <- create_neighbors_t(coords_bound, max_distance = 5, quiet = TRUE)
 
 expect_equal(nrow(res_bound), 2) # (1,2) and (2,1)
 expect_equal(res_bound$distance[1], 2)
 
-# Test 4: Distance Classes
-neighbors_class <- create_neighbors_t(
-  coords,
-  max_distance = 25,
-  distance_breaks = c(0, 15, 30),
-  quiet = TRUE
+# Test 6: Progress output (quiet = FALSE)
+expect_stdout(
+  create_neighbors_t(coords, max_distance = 15),
+  "Progress"
 )
-# Pairs < 15: (1,2), (2,1), (2,3), (3,2) [Dist 10]
-# Pairs >= 15 & < 30: (1,3), (3,1) [Dist 20]
-# Total 6 rows
-expect_equal(nrow(neighbors_class), 6)
-expect_true("distance_class" %in% names(neighbors_class))
 
-# Check classification
-# 10 falls in [0,15)
-# 20 falls in [15,30]
-levels_found <- levels(neighbors_class$distance_class)
-expect_equal(length(levels_found), 2)
+# Test 7: Error handling
+expect_error(
+  create_neighbors_t("not_coords_t", max_distance = 100),
+  "coords_t must be a coords_t object"
+)
 
-d10_class <- neighbors_class[distance == 10]$distance_class[1]
-d20_class <- neighbors_class[distance == 20]$distance_class[1]
-expect_true(d10_class != d20_class)
+expect_error(
+  create_neighbors_t(coords, max_distance = -10),
+  "max_distance must be a positive scalar numeric"
+)
 
-# Test 5: Empty result
-res_empty <- create_neighbors_t(coords, max_distance = 1, quiet = TRUE)
-expect_equal(nrow(res_empty), 0)
-expect_inherits(res_empty, "neighbors_t")
+expect_error(
+  create_neighbors_t(coords, max_distance = 100, distance_breaks = c(1)),
+  "distance_breaks must be NULL or a numeric vector with at least 2 elements"
+)
+
+expect_error(
+  create_neighbors_t(coords, max_distance = 100, distance_breaks = "invalid"),
+  "distance_breaks must be NULL or a numeric vector with at least 2 elements"
+)

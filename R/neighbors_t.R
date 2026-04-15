@@ -20,15 +20,19 @@ as_neighbors_t <- function(x) {
       distance = numeric(0)
     )
   }
-  cast_dt_col(x, "id_coord_origin", "int")
-  cast_dt_col(x, "id_coord_neighbor", "int")
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_coord_origin", "int") |>
+    cast_dt_col("id_coord_neighbor", "int")
+
   if ("distance_class" %in% names(x)) {
     cast_dt_col(x, "distance_class", "factor")
   }
-  new_evoland_table(
+
+  as_parquet_db_t(
     x,
-    "neighbors_t",
-    c("id_coord_origin", "id_coord_neighbor")
+    class_name = "neighbors_t",
+    key_cols = c("id_coord_origin", "id_coord_neighbor")
   )
 }
 
@@ -124,10 +128,7 @@ print.neighbors_t <- function(x, nrow = 10, ...) {
 
     extra_info <- ""
     if ("distance_class" %in% names(x)) {
-      extra_info <- paste(
-        "Distance classes:",
-        paste(levels(x[["distance_class"]]), collapse = ", ")
-      )
+      extra_info <- paste("Distance classes:", toString(levels(x[["distance_class"]])))
     }
 
     cat(glue::glue(
@@ -140,4 +141,272 @@ print.neighbors_t <- function(x, nrow = 10, ...) {
   }
   NextMethod(nrow = nrow, ...)
   invisible(x)
+}
+
+#' @describeIn neighbors_t Compute neighbor relationships between coordinates
+#' and store in `self$neighbors_t`. This uses a spatial hash map for efficiency
+#' and can produce a very large table depending on max_distance.
+#' @param self An evoland_db object
+#' @param chunksize Number of rows to write per chunk when inserting into the database
+#' to avoid memory issues (default: 1e8)
+set_neighbors <- function(
+  self,
+  max_distance = 1000,
+  distance_breaks = c(0, 100, 500, 1000),
+  overwrite = FALSE,
+  quiet = FALSE,
+  chunksize = 1e8
+) {
+  if (!overwrite && "neighbors_t" %in% self$list_tables()) {
+    message("neighbors_t already exists. Use overwrite = TRUE to recompute.")
+    return(invisible(self))
+  }
+
+  coords_minimal <- self$coords_minimal
+
+  # may produce a very large table
+  # cannot chunk here, because we cannot subset efficiently without spatial index
+  neighbors <- distance_neighbors_cpp(
+    coords_minimal,
+    max_distance = max_distance,
+    quiet = quiet
+  )
+  data.table::setkeyv(neighbors, c("id_coord_origin", "id_coord_neighbor"))
+  data.table::setalloccol(neighbors)
+
+  # Add distance class if breaks provided
+  if (!is.null(distance_breaks)) {
+    neighbors[,
+      distance_class := cut(
+        distance,
+        breaks = distance_breaks,
+        right = FALSE,
+        include.lowest = TRUE
+      )
+    ]
+  }
+
+  # chunked insert to avoid memory issues (each chunk gets copied when registering to DB)
+  n_neighbors <- nrow(neighbors)
+  chunksize <- min(chunksize, n_neighbors)
+
+  if (n_neighbors > 0) {
+    # Use a temporary prefix for the chunked files
+    temp_prefix <- "neighbors_t_temp"
+    n_chunks <- ceiling(n_neighbors / chunksize)
+
+    for (i in seq_len(n_chunks)) {
+      slice_start <- (i - 1) * chunksize + 1
+      slice_end <- min(i * chunksize, n_neighbors)
+
+      # Write each chunk to a separate parquet file using overwrite
+      self$commit(
+        as_neighbors_t(neighbors[slice_start:slice_end, ]),
+        table_name = paste0(temp_prefix, "_", i),
+        method = "overwrite"
+      )
+    }
+
+    # Remove the large object from memory and collect garbage
+    rm(neighbors)
+    gc()
+
+    # Gather all temporary parquet files into the final large file using DuckDB
+    self$execute(glue::glue(
+      "copy (
+        select * from read_parquet('{self$path}/{temp_prefix}_*.parquet')
+      ) to '{self$path}/neighbors_t.parquet' ({self$writeopts})"
+    ))
+
+    unlink(list.files(self$path, pattern = temp_prefix, full.names = TRUE))
+  }
+
+  message(glue::glue("Computed {n_neighbors} neighbor relationships"))
+  invisible(self)
+}
+
+#' @describeIn neighbors_t Generates neighbor predictors based on neighbor land
+#' use counts by distance class, e.g. "10 coordinate points within 200-500m are
+#' of class forest". This requires that `neighbors_t`, `lulc_data_t`,
+#' `lulc_meta_t`, and `pred_meta_t` are all present in the database. The
+#' generated predictors are stored in `pred_data_t` and metadata in
+#' `pred_meta_t`.
+#' @param self An evoland_db object
+generate_neighbor_predictors <- function(self) {
+  tables_present <- self$list_tables()
+  stopifnot(
+    "id_run must be set" = !is.null(self$id_run),
+    "No neighbor data found. Run $set_neighbors() first." = {
+      "neighbors_t" %in% tables_present
+    },
+    "No LULC metadata found. Add lulc_meta_t before generating neighbor predictors." = {
+      "lulc_meta_t" %in% tables_present
+    },
+    "No LULC data found. Add lulc_data_t before generating neighbor predictors." = {
+      "lulc_data_t" %in% tables_present
+    },
+    "No predictor metadata found. Add pred_meta_t before generating neighbor predictors." = {
+      "pred_meta_t" %in% tables_present
+    },
+    "neighbors_t does not have distance_class column.
+    Run $create_neighbors_t() with distance_breaks" = {
+      "distance_class" %in% names(self$fetch("neighbors_t", limit = 0L))
+    }
+  )
+
+  neighbors_read_expr <- self$get_read_expr("neighbors_t")
+  lulc_data_read_expr <- self$get_read_expr("lulc_data_t")
+  lulc_meta_read_expr <- self$get_read_expr("lulc_meta_t")
+  pred_meta_read_expr <- self$get_read_expr("pred_meta_t")
+
+  # Generate metadata rows based on all distinct distance class / id_lulc
+  # permutations
+  current_max_id_pred <- self$column_max("pred_meta_t", "id_pred")
+  n_predictors <- self$execute(glue::glue(
+    r"{
+    create or replace temp table pred_meta_neighbors_t as
+    with
+      all_distance_classes as (select distinct distance_class from {neighbors_read_expr})
+    select
+      row_number() over () + {current_max_id_pred} as id_pred,
+      concat('id_lulc_', l.id_lulc, '_dist_', c.distance_class) as name,
+      concat(
+        'Count of ', l.pretty_name,
+        ' within distance class ', c.distance_class
+        ) as pretty_name,
+      'Number of neighbors by land use class and distance interval' as description,
+      'land use data' as orig_format,
+      cast(NULL as struct(url varchar, md5sum varchar)[]) as sources,
+      'number of neighbors' as unit,
+      'int' as data_type,
+      cast(NULL as varchar[]) as factor_levels,
+      0 as fill_value,
+      c.distance_class,
+      l.id_lulc
+    from
+      {lulc_meta_read_expr} l
+    cross join
+      all_distance_classes c
+    }"
+  ))
+  on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
+
+  self$pred_meta_t <-
+    self$get_query(
+      "select * exclude (distance_class, id_lulc) from pred_meta_neighbors_t"
+    ) |>
+    as_pred_meta_t()
+
+  # Set the id_pred in pred_meta_neighbors_t based on the autoincremented IDs in pred_meta_t
+  self$execute(glue::glue(
+    r"{
+    update pred_meta_neighbors_t
+    set id_pred = m.id_pred
+    from {pred_meta_read_expr} m
+    where pred_meta_neighbors_t.name = m.name
+    }"
+  ))
+
+  # Count the number of neighbours per origin, period, id_lulc and distance_class
+  n_data_points <- self$execute(glue::glue(
+    r"{
+    create temp table pred_neighbors_t as
+    select
+      {self$id_run} as id_run,
+      p.id_pred,
+      n.id_coord_origin as id_coord,
+      t.id_period,
+      count(n.id_coord_neighbor) as value
+    from
+     {neighbors_read_expr} n,
+     {lulc_data_read_expr} t,
+     pred_meta_neighbors_t p
+    where
+      n.id_coord_neighbor = t.id_coord
+      and p.id_lulc = t.id_lulc
+      and p.distance_class = n.distance_class
+    group by
+      n.id_coord_origin,
+      n.distance_class,
+      t.id_period,
+      t.id_lulc,
+      p.id_pred
+    }"
+  ))
+  on.exit(self$execute("drop table pred_neighbors_t"), add = TRUE)
+
+  self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
+
+  message(glue::glue(
+    "Appended {n_predictors} neighbor predictor variables with ",
+    "{n_data_points} data points"
+  ))
+
+  invisible(self)
+}
+
+#' @describeIn neighbors_t Append neighbor predictors for a specific period.
+#' This is used after extrapolating transition rates to new periods, so we can
+#' generate predictors for those periods. This requires that `neighbors_t`,
+#' `lulc_data_t`, `lulc_meta_t`, and `pred_meta_t` are all present in the
+#' database. `pred_meta_t` must have neighbor predictors already generated by
+#' [generate_neighbor_predictors()]
+#' @param id_period Integer period ID for which to generate predictors; if
+#' missing, only use non-extrapolated periods
+upsert_new_neighbors <- function(self, id_period) {
+  stopifnot(
+    "id_run must be set" = !is.null(self$id_run),
+    "id_period must be a single integer" = {
+      length(id_period) == 1L && as.integer(id_period) == id_period
+    }
+  )
+
+  self$execute(glue::glue(
+    r"{
+    create temp table pred_meta_neighbors_t as
+    select
+      id_pred,
+      regexp_extract(name, 'dist_([^_]+)$',1) as distance_class,
+      regexp_extract(name, 'id_lulc_([^_]+)_dist',1)::int as id_lulc
+    from {self$get_read_expr("pred_meta_t")}
+      where name like 'id_lulc_%_dist_%'
+    }"
+  ))
+  on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
+
+  if (self$get_query("from pred_meta_neighbors_t") |> nrow() == 0L) {
+    stop("No neighbor predictors found in pred_meta_t, cannot upsert new neighbors")
+  }
+
+  self$execute(glue::glue(
+    r"{
+    create temp table pred_neighbors_t as
+    select
+      {self$id_run} as id_run,
+      p.id_pred,
+      n.id_coord_origin as id_coord,
+      t.id_period,
+      count(n.id_coord_neighbor) as value
+    from
+      {self$get_read_expr("neighbors_t")} n,
+      {self$get_read_expr("lulc_data_t")} t,
+      pred_meta_neighbors_t p
+    where
+      n.id_coord_neighbor = t.id_coord
+      and p.id_lulc = t.id_lulc
+      and p.distance_class = n.distance_class
+      and t.id_period = {id_period}
+    group by
+      n.id_coord_origin,
+      n.distance_class,
+      t.id_period,
+      t.id_lulc,
+      p.id_pred
+    }"
+  ))
+  on.exit(self$execute("drop table pred_neighbors_t"), add = TRUE)
+
+  self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
+
+  invisible(self)
 }

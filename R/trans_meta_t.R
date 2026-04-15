@@ -2,12 +2,15 @@
 #'
 #' Creates a trans_meta_t table based on observed land use transitions in the
 #' LULC data. This function analyzes transition patterns and creates metadata
-#' entries for each viable transition type.
+#' entries for each viable transition type. The metadata is kept constant across
+#' runs, since comparisons of model performance should be based on the same set
+#' of transitions.
 #'
 #' @name trans_meta_t
 #'
 #' @param transitions A trans_v table, with columns id_coord, id_lulc_anterior,
-#' id_lulc_posterior, id_period
+#' id_lulc_posterior, id_period; contains transitions and non-transitions (where
+#' anterior == posterior)
 #' @param min_cardinality_abs Minimum absolute number of transitions for viability (optional)
 #' @param min_frequency_rel Minimum relative frequency of transitions for viability (optional)
 #' @param exclude_anterior Vector of id_lulc values to exclude as anterior (source) classes
@@ -34,13 +37,21 @@ as_trans_meta_t <- function(x) {
       is_viable = logical(0)
     )
   }
-  if (!is.null(x[["id_trans"]])) {
-    cast_dt_col(x, "id_trans", "int")
-  }
-  new_evoland_table(
+
+  data.table::setDT(x) |>
+    cast_dt_col("id_trans", "int") |>
+    cast_dt_col("id_lulc_anterior", "int") |>
+    cast_dt_col("id_lulc_posterior", "int") |>
+    cast_dt_col("cardinality", "int") |>
+    cast_dt_col("frequency_rel", "float") |>
+    cast_dt_col("frequency_abs", "float") |>
+    cast_dt_col("is_viable", "bool")
+
+  as_parquet_db_t(
     x,
-    "trans_meta_t",
-    "id_trans"
+    class_name = "trans_meta_t",
+    key_cols = c("id_lulc_anterior", "id_lulc_posterior"),
+    alternate_key_cols = "id_trans"
   )
 }
 
@@ -70,15 +81,17 @@ create_trans_meta_t <- function(
     ][,
       .(cardinality = .N),
       by = .(id_lulc_anterior, id_lulc_posterior)
-    ][,
+    ][
+      order(id_lulc_anterior, id_lulc_posterior),
       `:=`(
         frequency_rel = cardinality / sum(cardinality),
         frequency_abs = cardinality / n_total_pairs
       )
     ]
 
-  # Determine viability
+  # default: all viable until determined otherwise
   trans_summary[, is_viable := TRUE]
+  trans_summary[, id_trans := seq_len(.N)]
 
   # Apply exclusions
   if (!is.null(exclude_anterior) && length(exclude_anterior) > 0) {
@@ -123,6 +136,7 @@ validate.trans_meta_t <- function(x, ...) {
   data.table::setcolorder(
     x,
     c(
+      "id_trans",
       "id_lulc_anterior",
       "id_lulc_posterior",
       "cardinality",
@@ -132,9 +146,6 @@ validate.trans_meta_t <- function(x, ...) {
     )
   )
 
-  # we don't know if there's an id_trans
-  data.table::setcolorder(x, "id_trans", before = "id_lulc_anterior", skip_absent = TRUE)
-
   stopifnot(
     is.integer(x[["id_lulc_anterior"]]),
     is.integer(x[["id_lulc_posterior"]]),
@@ -142,8 +153,6 @@ validate.trans_meta_t <- function(x, ...) {
     is.numeric(x[["frequency_rel"]]),
     is.numeric(x[["frequency_abs"]]),
     is.logical(x[["is_viable"]]),
-    !anyDuplicated(x[["id_trans"]]),
-    !anyDuplicated(x, by = c("id_lulc_anterior", "id_lulc_posterior")),
     all(x[["cardinality"]] >= 0),
     all(x[["frequency_rel"]] >= 0 & x[["frequency_rel"]] <= 1),
     all(x[["frequency_abs"]] >= 0 & x[["frequency_abs"]] <= 1)

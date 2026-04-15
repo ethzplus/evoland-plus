@@ -9,7 +9,7 @@
 \usage{
 as_pred_meta_t(x)
 
-create_pred_meta_t(pred_spec)
+create_pred_meta_t(pred_spec, starting_id = 1L)
 
 \method{print}{pred_meta_t}(x, ...)
 }
@@ -28,9 +28,14 @@ A data.table of class "pred_meta_t" with columns:
 \item \code{pretty_name}: Name for plots/output
 \item \code{description}: Long description / operationalisation
 \item \code{orig_format}: Original format description
-\item \code{sources}: Sources, a data.frame with cols \code{url} and \code{md5sum}
-\item \code{unit}: SI-compatible unit (nullable for categorical)
-\item \code{factor_levels}: Map of factor levels (nullable)
+\item \code{sources}: Sources, list column of data.frames with cols \code{url} and \code{md5sum}
+\item \code{unit}: SI units for physical properties, or more complex descriptors
+like "number of annual visitors"
+\item \code{data_type}: Factor with levels "int", "float", "bool", "factor".
+Used for coercion.
+\item \code{fill_value}: Value to use for missing data for \link{coords_t} coordinate points that
+are not explicitly stored.
+\item \code{factor_levels}: list of character vectors; order matters!
 }
 }
 \description{
@@ -63,7 +68,8 @@ create_pred_meta_t(list(
          url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
          md5sum = "4b782128495b5af8467e2259bd57def2"
        )
-     )
+     ),
+     data_type = "float"
    ),
    distance_to_lake = list(
      unit = "m",
@@ -73,7 +79,8 @@ create_pred_meta_t(list(
      sources = list(list(
        url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
        md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
-     ))
+     )),
+     data_type = "float"
    )
  ))
 }

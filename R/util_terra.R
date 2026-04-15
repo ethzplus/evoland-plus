@@ -5,22 +5,24 @@
 #' @name util_terra
 NULL
 
-#' @describeIn util_terra Extract values from a SpatRaster or SpatVector object using a (minimal) `coords_t`
-#' @param x The object to extract from; use "simple" extraction for rasters, i.e. no resampling is done.
-#' @param coords_t A coords_t object containing coordinate points with an "epsg" attribute
-#' @return A long data.table with `id_coord`, a `layer`/`attribute` column, and a `value` column.
-#' NAs are omitted
+#' @describeIn util_terra Extract values from a SpatRaster or SpatVector object using a
+#' (minimal) `coords_t` object. Returns a long data.table with `id_coord`,
+#' `layer`/`attribute`, and `value`.
+#' @param x The object to extract from; use "simple" extraction for rasters, i.e. no
+#' resampling is done.
+#' @param coords A coords object containing coordinate points with an "epsg" attribute
+#' @param na_omit Logical, whether to omit rows with NA values in the output
 #' @export
-extract_using_coords_t <- function(x, coords_t, na_omit = TRUE) {
+extract_using_coords_t <- function(x, coords, na_omit = TRUE) {
   UseMethod("extract_using_coords_t")
 }
 
 #' @exportS3Method
-extract_using_coords_t.SpatRaster <- function(x, coords_t, na_omit = TRUE) {
+extract_using_coords_t.SpatRaster <- function(x, coords, na_omit = TRUE) {
   pts <-
-    coords_t[, .(id_coord, lon, lat)] |>
+    coords[, .(id_coord, lon, lat)] |>
     data.table::as.data.table() |>
-    terra::vect(crs = paste0("epsg:", attr(coords_t, "epsg")))
+    terra::vect(crs = paste0("epsg:", attr(coords, "epsg")))
 
   out <-
     terra::extract(
@@ -45,14 +47,14 @@ extract_using_coords_t.SpatRaster <- function(x, coords_t, na_omit = TRUE) {
 }
 
 #' @exportS3Method
-extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
+extract_using_coords_t.SpatVector <- function(x, coords, na_omit = TRUE) {
   if ("id_coord" %in% names(x)) {
     stop("x cannot have an id_coord attribute")
   }
   pts <-
-    coords_t[, .(lon, lat)] |>
+    coords[, .(lon, lat)] |>
     as.matrix() |>
-    terra::vect(crs = paste0("epsg:", attr(coords_t, "epsg")))
+    terra::vect(crs = paste0("epsg:", attr(coords, "epsg")))
 
   tmp <-
     terra::extract(
@@ -61,7 +63,7 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
     ) |>
     data.table::as.data.table() |>
     merge(
-      coords_t[, .(id.y = .I, id_coord)],
+      coords[, .(id.y = .I, id_coord)],
       by = "id.y"
     )
 
@@ -89,107 +91,96 @@ extract_using_coords_t.SpatVector <- function(x, coords_t, na_omit = TRUE) {
   out
 }
 
-#' Convert tabular LULC data to raster
-#'
-#' @description
-#' Converts a `lulc_data_t` table (with coordinates) to a SpatRaster.
+#' @describeIn util_terra Converts a table with id_coord information to a SpatRaster.
 #' Useful for spatial analysis and validation that requires raster format.
 #'
-#' @param lulc_data A `lulc_data_t` object or data.table with columns:
-#'   id_coord, id_lulc, (optionally id_period)
-#' @param coords_t A coords_t object with coordinate information. Must have
+#' @param data A data.table with column id_coord and value_col
+#' @param coords A [coords_t] object with coordinate information. Must have
 #'   `epsg` and optionally `resolution` attributes.
-#' @param resolution Numeric, raster resolution in CRS units. If NULL,
-#'   attempts to infer from coords_t attributes or data spacing.
+#' @param resolution Numeric, raster resolution in CRS units. If `NULL`,
+#'   use "resolution" attribute on coords, or estimate from coord spacing.
 #'
-#' @return SpatRaster with LULC values. If multiple periods present in lulc_data,
+#' @return [terra::SpatRaster] with LULC values. If multiple periods present in data,
 #'   returns a multi-layer raster with one layer per period.
 #'
 #' @export
-tabular_to_raster <- function(lulc_data, coords_t, resolution = NULL) {
+tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = NULL) {
   # Validate input
   stopifnot(
-    "lulc_data must have id_coord and id_lulc columns" = all(
-      c("id_coord", "id_lulc") %in% names(lulc_data)
-    ),
-    "coords_t must have epsg attribute" = !is.null(attr(coords_t, "epsg"))
-  )
-
-  epsg <- attr(coords_t, "epsg")
-
-  # Merge with coordinates to get lon/lat
-  dat <- merge(
-    lulc_data,
-    coords_t[, .(id_coord, lon, lat)],
-    by = "id_coord"
+    "data must inherit from data.table" = inherits(data, "data.table"),
+    "data must have id_coord column" = "id_coord" %in% names(data),
+    "data must have value column" = value_col %in% names(data),
+    "coords must have epsg attribute" = !is.null(attr(coords, "epsg"))
   )
 
   # Determine resolution if not provided
   if (is.null(resolution)) {
-    # Try to get from coords_t attribute
-    resolution <- attr(coords_t, "resolution")
-
+    resolution <- attr(coords, "resolution")
     if (is.null(resolution)) {
-      # Estimate from minimum distance between points
-      sample_coords <- coords_t[seq_len(min(1000L, nrow(coords_t)))]
-      dists <- as.matrix(dist(sample_coords[, .(lon, lat)]))
-      diag(dists) <- Inf
-      resolution <- min(dists[dists > 0]) * 0.9 # Slightly smaller than min distance
+      # estimate from first 1000 points
+      resolution <-
+        coords[seq_len(min(1000L, nrow(coords))), .(lon, lat)] |>
+        dist() |> # lower triangular distance matrix
+        min() # minimum distance
     }
   }
 
-  # Get extent
   extent <- terra::ext(
-    min(coords_t$lon) - resolution / 2,
-    max(coords_t$lon) + resolution / 2,
-    min(coords_t$lat) - resolution / 2,
-    max(coords_t$lat) + resolution / 2
+    min(coords$lon) - resolution / 2,
+    max(coords$lon) + resolution / 2,
+    min(coords$lat) - resolution / 2,
+    max(coords$lat) + resolution / 2
   )
 
   # Create raster template
   rast_template <- terra::rast(
     x = extent,
-    crs = paste0("epsg:", epsg),
+    crs = paste0("epsg:", attr(coords, "epsg")),
     resolution = resolution
   )
 
-  # Check if we have multiple periods
-  has_periods <- "id_period" %in% names(dat)
+  # if more than 2 columns, we have columns that are not id_coord or value
+  is_multilayer <- length(names(data)) > 2L
 
-  if (has_periods) {
-    periods <- sort(unique(dat[["id_period"]]))
-
-    # Create multi-layer raster
-    rast_list <- list()
-
-    for (period in periods) {
-      period_data <- dat[id_period == period]
-
-      # Rasterize
-      period_rast <- terra::rasterize(
-        x = as.matrix(period_data[, .(lon, lat)]),
-        y = rast_template,
-        values = period_data[["id_lulc"]],
-        fun = "first"
-      )
-
-      names(period_rast) <- paste0("period_", period)
-      rast_list[[length(rast_list) + 1L]] <- period_rast
-    }
-
-    # Combine into multi-layer raster
-    rast <- terra::rast(rast_list)
-  } else {
-    # Single layer
-    rast <- terra::rasterize(
-      x = as.matrix(dat[, .(lon, lat)]),
-      y = rast_template,
-      values = dat[["id_lulc"]],
-      fun = "first"
+  if (is_multilayer) {
+    # we dcast (pivot wider) to obtain n layers:
+    # n cols for each tuple of grouping_cols
+    # m rows along all id_coord
+    grouping_cols <- setdiff(names(data), c("id_coord", value_col))
+    formula_str <- paste("id_coord ~", paste(grouping_cols, collapse = " + "))
+    data <- data.table::dcast(
+      data = data,
+      formula = as.formula(formula_str),
+      value.var = value_col
     )
-
-    names(rast) <- "id_lulc"
+    # splice in grouping cols into names - will become layer names
+    layernames <-
+      names(data)[-1] |>
+      strsplit(split = "_") |>
+      vapply(\(x) paste0(grouping_cols, "_", x, collapse = "_"), character(1))
+    names(data) <- c("id_coord", layernames)
+  } else {
+    layernames <- value_col
   }
 
-  rast
+  joint <- merge(
+    data,
+    coords[, .(id_coord, lon, lat)],
+    by = "id_coord"
+  )
+
+  # Rasterize in layers as a workaround for terra being weird about multicolumn values
+  lapply(
+    layernames,
+    function(layername) {
+      terra::rasterize(
+        x = as.matrix(joint[, .(lon, lat)]),
+        y = rast_template,
+        values = joint[[layername]],
+        fun = "first"
+      )
+    }
+  ) |>
+    terra::rast() |>
+    setNames(layernames)
 }

@@ -1,8 +1,8 @@
 Package: evoland
 Title: evoland-plus - or evoland for short - analyses land use evolution
-Version: 0.0.0.9000
+Version: 0.0.1.9000
 Authors@R:
-    person("Jan", "Hartman", , "jhartman@ethz.ch", role = c("aut", "cre"))
+    person("Jan", "Hartman", email = "jhartman@ethz.ch", role = c("aut", "cre"))
 Description: The evoland-plus package gathers land use data and can be
     used to extrapolate likely future land use patterns.
 License: AGPL (>= 3)
@@ -17,12 +17,11 @@ Imports:
     curl,
     data.table,
     DBI,
-    duckdb (>= 1.4.3),
+    duckdb (>= 1.5.2),
     glue,
     qs2,
     R6,
     Rcpp,
-    stringi,
     terra
 Suggests:
     base64enc,
@@ -38,16 +37,15 @@ LinkingTo:
     Rcpp
 Collate:
     'RcppExports.R'
-    'parquet_db.R'
-    'evoland_db.R'
     'alloc_params_t.R'
-    'util_parallel.R'
     'trans_models_t.R'
     'alloc_dinamica.R'
     'coords_t.R'
     'covariance_filter.R'
-    'evoland_db_neighbors.R'
-    'evoland_db_tables.R'
+    'parquet_db_utils.R'
+    'parquet_db.R'
+    'evoland_db.R'
+    'evoland_db_util.R'
     'evoland_db_views.R'
     'fuzzy_similarity.R'
     'grrf_filter.r'
@@ -61,12 +59,14 @@ Collate:
     'pred_data_t.R'
     'pred_meta_t.R'
     'reporting_t.R'
+    'runs_t.R'
     'trans_meta_t.R'
     'trans_models_glm.R'
     'trans_models_rf.R'
+    'trans_pot_t.R'
     'trans_preds_t.R'
     'trans_rates_t.R'
     'util.R'
-    'util_dinamica.r'
+    'util_dinamica.R'
     'util_download.R'
     'util_terra.R'

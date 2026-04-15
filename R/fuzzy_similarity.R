@@ -45,7 +45,7 @@ NULL
 #' @references
 #' Hagen, A. (2003). Fuzzy set approach to assessing similarity of
 #' categorical maps. International Journal of Geographical Information
-#' Science, 17(3), 235-249.
+#' Science, 17(3), 235-249. https://doi.org/10.1080/13658810210157822
 #'
 #' @export
 calc_fuzzy_similarity <- function(
@@ -57,17 +57,10 @@ calc_fuzzy_similarity <- function(
   ignore_na = TRUE
 ) {
   stopifnot(
-    "map1 must be a SpatRaster" = inherits(map1, "SpatRaster"),
-    "map2 must be a SpatRaster" = inherits(map2, "SpatRaster"),
     "window_size must be odd" = (window_size %% 2L) == 1L,
     "window_size must be positive" = window_size > 0L,
     "decay_divisor must be positive" = decay_divisor > 0
   )
-
-  # Check dimensions match
-  if (!terra::compareGeom(map1, map2, stopOnError = FALSE)) {
-    stop("map1 and map2 must have the same dimensions and CRS")
-  }
 
   # Get unique categories (excluding NA)
   cats1 <- terra::unique(map1, na.rm = TRUE)[, 1]
@@ -242,28 +235,19 @@ create_change_map <- function(
   from_class = NULL,
   to_class = NULL
 ) {
-  stopifnot(
-    "initial_map must be a SpatRaster" = inherits(initial_map, "SpatRaster"),
-    "final_map must be a SpatRaster" = inherits(final_map, "SpatRaster")
-  )
-
-  if (!terra::compareGeom(initial_map, final_map, stopOnError = FALSE)) {
-    stop("initial_map and final_map must have the same dimensions and CRS")
-  }
-
   if (!is.null(from_class) && !is.null(to_class)) {
     # Specific transition: mark cells that transitioned from -> to
     change_map <- terra::ifel(
       initial_map == from_class & final_map == to_class,
       1L, # Mark as 1 where transition occurred
-      NA # NA elsewhere
+      NA_integer_ # NA elsewhere
     )
   } else if (is.null(from_class) && is.null(to_class)) {
     # General changes: show final class where changed, NA where unchanged
     change_map <- terra::ifel(
       initial_map != final_map,
       final_map,
-      NA
+      NA_integer_
     )
   } else {
     stop("Both from_class and to_class must be specified, or both must be NULL")

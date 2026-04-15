@@ -3,8 +3,6 @@
 \name{util}
 \alias{util}
 \alias{validate}
-\alias{new_evoland_table}
-\alias{check_missing_names}
 \alias{\%||\%}
 \alias{pluck_wildcard}
 \alias{ensure_dir}
@@ -14,10 +12,6 @@
 \usage{
 validate(x, ...)
 
-new_evoland_table(x, class_name, keycols)
-
-check_missing_names(x, required_names)
-
 x \%||\% y
 
 pluck_wildcard(lst, ...)
@@ -26,18 +20,12 @@ ensure_dir(dir)
 
 print_rowwise_yaml(df)
 
-cast_dt_col(x, colname, type)
+cast_dt_col(x, colname, type, levels = NULL)
 }
 \arguments{
 \item{x}{Left-hand side value}
 
 \item{...}{Index arguments. Use NA to match all elements at that level}
-
-\item{class_name}{The class name to attach before "evoland_t"}
-
-\item{keycols}{The columns to be set as key, see \code{\link[data.table:setkey]{data.table::setkey()}}}
-
-\item{required_names}{Vector of required names}
 
 \item{y}{Right-hand side value (fallback)}
 
@@ -46,10 +34,10 @@ cast_dt_col(x, colname, type)
 \item{colname}{Name of the column}
 
 \item{type}{one of "int", "float", "bool", "factor"}
+
+\item{levels}{Optional character vector of factor levels (only used when type = "factor")}
 }
 \value{
-NULL, called for side effect
-
 The indexed result, which may be a single element or a list of elements
 }
 \description{
@@ -58,10 +46,6 @@ These are mostly used to validate evoland S3 objects.
 \section{Functions}{
 \itemize{
 \item \code{validate()}: Provides an S3 validation generic
-
-\item \code{new_evoland_table()}: Add evoland_t class
-
-\item \code{check_missing_names()}: Check that all required names are present
 
 \item \code{x \%||\% y}: Null coalescing operator
 

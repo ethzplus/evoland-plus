@@ -13,9 +13,14 @@
 #'   - `pretty_name`: Name for plots/output
 #'   - `description`: Long description / operationalisation
 #'   - `orig_format`: Original format description
-#'   - `sources`: Sources, a data.frame with cols `url` and `md5sum`
-#'   - `unit`: SI-compatible unit (nullable for categorical)
-#'   - `factor_levels`: Map of factor levels (nullable)
+#'   - `sources`: Sources, list column of data.frames with cols `url` and `md5sum`
+#'   - `unit`: SI units for physical properties, or more complex descriptors
+#'     like "number of annual visitors"
+#'   - `data_type`: Factor with levels "int", "float", "bool", "factor".
+#'     Used for coercion.
+#'   - `fill_value`: Value to use for missing data for [coords_t] coordinate points that
+#'     are not explicitly stored.
+#'   - `factor_levels`: list of character vectors; order matters!
 #' @export
 as_pred_meta_t <- function(x) {
   if (missing(x)) {
@@ -27,13 +32,23 @@ as_pred_meta_t <- function(x) {
       orig_format = character(0),
       sources = list(),
       unit = character(0),
-      factor_levels = list()
+      data_type = factor(
+        character(0),
+        levels = c("int", "float", "bool", "factor")
+      ),
+      fill_value = NA,
+      factor_levels = list(character(0))
     )
   }
-  new_evoland_table(
+
+  data.table::setDT(x) |>
+    cast_dt_col("data_type", "factor", levels = c("int", "float", "bool", "factor"))
+
+  as_parquet_db_t(
     x,
-    "pred_meta_t",
-    "id_pred"
+    class_name = "pred_meta_t",
+    key_cols = "name",
+    alternate_key_cols = "id_pred"
   )
 }
 
@@ -56,7 +71,8 @@ as_pred_meta_t <- function(x) {
 #'          url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
 #'          md5sum = "4b782128495b5af8467e2259bd57def2"
 #'        )
-#'      )
+#'      ),
+#'      data_type = "float"
 #'    ),
 #'    distance_to_lake = list(
 #'      unit = "m",
@@ -66,12 +82,13 @@ as_pred_meta_t <- function(x) {
 #'      sources = list(list(
 #'        url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
 #'        md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
-#'      ))
+#'      )),
+#'      data_type = "float"
 #'    )
 #'  ))
 # nolint end
 #' @export
-create_pred_meta_t <- function(pred_spec) {
+create_pred_meta_t <- function(pred_spec, starting_id = 1L) {
   # Extract predictor names
   pred_names <- names(pred_spec)
   if (is.null(pred_names) || any(pred_names == "")) {
@@ -79,6 +96,7 @@ create_pred_meta_t <- function(pred_spec) {
   }
 
   x <- data.table::data.table(
+    id_pred = seq(from = starting_id, length.out = length(pred_spec)),
     name = pred_names,
     # path is pred_spec > pred_name > leaf_name
     # we pluck each element, then replace potential null using %||%
@@ -100,16 +118,31 @@ create_pred_meta_t <- function(pred_spec) {
       pred_spec,
       # path is pred_spec > pred_name > sources > listelement > url/md5sum
       function(pred) {
-        data.frame(
-          url = unlist(pluck_wildcard(pred, "sources", NA, "url")),
-          md5sum = unlist(pluck_wildcard(pred, "sources", NA, "md5sum"))
+        data.table::data.table(
+          url = unlist(pluck_wildcard(pred, "sources", NA, "url") %||% character()),
+          md5sum = unlist(pluck_wildcard(pred, "sources", NA, "md5sum") %||% character())
         )
       }
     ),
     unit = unlist(
       lapply(pluck_wildcard(pred_spec, NA, "unit"), function(x) x %||% NA_character_)
     ),
-    factor_levels = pluck_wildcard(pred_spec, NA, "factor_levels")
+    data_type = {
+      lapply(pluck_wildcard(pred_spec, NA, "data_type"), function(x) {
+        x %||% NA_character_
+      }) |>
+        unlist() |>
+        factor(
+          levels = c("int", "float", "bool", "factor")
+        )
+    },
+    fill_value = unlist(
+      lapply(pluck_wildcard(pred_spec, NA, "fill_value"), function(x) x %||% NA)
+    ),
+    factor_levels = lapply(
+      pluck_wildcard(pred_spec, NA, "factor_levels"),
+      \(y) if (is.null(y)) character(0) else as.character(y)
+    )
   )
 
   as_pred_meta_t(x)
@@ -143,10 +176,15 @@ validate.pred_meta_t <- function(x, ...) {
     is.character(x[["orig_format"]]),
     is.list(x[["sources"]]),
     is.character(x[["unit"]]),
+    is.factor(x[["data_type"]]),
+    "data_type must be set" = !any(is.na(x[["data_type"]])),
+    "data_type can only be one of 'integer', 'double','factor', or 'boolean'" = setequal(
+      levels(x[["data_type"]]),
+      c("int", "float", "bool", "factor")
+    ),
     is.list(x[["factor_levels"]]),
-    !anyDuplicated(x[["name"]]),
-    !any(x[["name"]] == ""),
-    !anyDuplicated(sources_dt[["url"]])
+    "name cannot be empty" = !any(x[["name"]] == ""),
+    "single URL with multiple checksums present" = !anyDuplicated(sources_dt[["url"]])
   )
 
   return(x)

@@ -16,7 +16,9 @@ pred_spec <- list(
         url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
         md5sum = "4b782128495b5af8467e2259bd57def2"
       )
-    )
+    ),
+    data_type = "float",
+    fill_value = NA_real_
   ),
   distance_to_lake = list(
     unit = "m",
@@ -26,7 +28,10 @@ pred_spec <- list(
     sources = list(list(
       url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
       md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
-    ))
+    )),
+    data_type = "factor",
+    fill_value = "1000+m",
+    factor_levels = c("0-100m", "100-500m", "500-1000m", "1000+m")
   )
 )
 # nolint end
@@ -49,8 +54,16 @@ expect_true(all(
 ))
 expect_stdout(print(pred_meta_t), "Number of predictors")
 
-expect_equal(
-  # should also work with unpopulated data fields
+expect_error(
+  # should fail with unpopulated data fields and missing data_type
   create_pred_meta_t(list(test_pred = list()))[["pretty_name"]],
+  "data_type must be set"
+)
+
+expect_equal(
+  # should fail with unpopulated data fields and missing data_type
+  create_pred_meta_t(
+    list(test_pred = list(data_type = "float"))
+  )[["pretty_name"]],
   "test_pred"
 )

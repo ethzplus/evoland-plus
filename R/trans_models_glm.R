@@ -6,9 +6,7 @@
 #'
 #' @param data A data.table containing the result column and predictor columns
 #'   (prefixed with "id_pred_")
-#' @param result_col Name of the column representing the transition results
-#'   (logical: TRUE = transition occurred, FALSE = no transition)
-#' @param ... Additional arguments (currently unused, for future extensibility)
+#' @param ... Additional arguments (currently ignored, for future extensibility)
 #'
 #' @return A fitted GLM model object, optionally butchered to reduce memory footprint
 #'
@@ -19,7 +17,7 @@
 #' - Applies butcher::butcher() if the package is available to reduce model size
 #'
 #' @export
-fit_glm <- function(data, result_col = "result", ...) {
+fit_glm <- function(data, ...) {
   pred_cols <- grep("^id_pred_", names(data), value = TRUE)
 
   if (length(pred_cols) == 0) {
@@ -27,7 +25,7 @@ fit_glm <- function(data, result_col = "result", ...) {
   }
 
   # Create formula
-  formula_str <- paste(result_col, "~", paste(pred_cols, collapse = " + "))
+  formula_str <- paste("did_transition", "~", paste(pred_cols, collapse = " + "))
   formula <- as.formula(formula_str)
 
   model <- glm(formula, data = data, family = quasibinomial())
@@ -61,7 +59,6 @@ fit_glm <- function(data, result_col = "result", ...) {
 #' @param model A fitted GLM model object (from fit_glm)
 #' @param test_data A data.table containing test data with the same structure as
 #'   training data
-#' @param result_col Name of the column representing the transition results
 #' @param ... Additional arguments (currently unused, for future extensibility)
 #'
 #' @return A named list containing:
@@ -75,9 +72,9 @@ fit_glm <- function(data, result_col = "result", ...) {
 #' is not installed, AUC will be NA.
 #'
 #' @export
-gof_glm <- function(model, test_data, result_col = "result", ...) {
+gof_glm <- function(model, test_data, ...) {
   predictions <- predict(model, newdata = test_data, type = "response")
-  actual <- test_data[[result_col]]
+  actual <- test_data[["did_transition"]]
 
   # Correlation-based metric
   cor_metric <- cor(predictions, actual, use = "complete.obs")

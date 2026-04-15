@@ -16,13 +16,21 @@ as_reporting_t <- function(x) {
       value = character()
     )
   }
-  new_evoland_table(
+
+  data.table::setDT(x) |>
+    cast_dt_col("key", "char") |>
+    cast_dt_col("value", "char")
+
+  as_parquet_db_t(
     x,
-    "reporting_t",
-    "key"
+    class_name = "reporting_t",
+    key_cols = "key"
   )
 }
 
+#' @describeIn reporting_t Set or update reporting metadata in the database.
+#' @param ... Each named argument is entered into the table with the argument name as its key.
+#' @keywords internal
 db_set_report <- function(self, ...) {
   params <- list(...)
   if (self$row_count("reporting_t") == 0L) {
@@ -56,10 +64,6 @@ validate.reporting_t <- function(x, ...) {
       "key",
       "value"
     )
-  )
-
-  stopifnot(
-    !anyDuplicated(x[["key"]])
   )
 
   return(x)

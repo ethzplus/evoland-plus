@@ -13,3 +13,4 @@ air.toml
 ^rv$
 ^rv.lock$
 ^rproject.toml$
+^data-raw$

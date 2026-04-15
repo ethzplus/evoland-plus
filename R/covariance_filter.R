@@ -11,9 +11,8 @@
 #' are those returned as a character vector of selected variable names.
 #'
 #' @param data A data.table of target variable and candidate covariates to be filtered;
-#'        wide format with one predictor per column.
-#' @param result_col Name of the column representing the transition results (0: no
-#'        trans, 1: trans)
+#' wide format with one predictor per column, except a binary "did_transition" column
+#' (0: no trans, 1: trans)
 #' @param rank_fun Optional function to compute ranking scores for each covariate.
 #'        Should take arguments (x, y, weights, ...) and return a single numeric value
 #'        (lower = better). Defaults to polynomial GLM p-value ranking.
@@ -40,9 +39,8 @@
 
 covariance_filter <- function(
   data,
-  result_col = "result",
   rank_fun = rank_poly_glm,
-  weights = compute_balanced_weights(data[[result_col]]),
+  weights = compute_balanced_weights(data[["did_transition"]]),
   corcut = 0.7,
   ...
 ) {
@@ -51,19 +49,25 @@ covariance_filter <- function(
     return(data)
   }
 
-  data.table::setDT(data)
-
   # Validate binary outcome
   stopifnot(
     "corcut must be between 0 and 1" = corcut >= 0 && corcut <= 1
   )
 
+  for (col in names(data)) {
+    # TODO this whole polynomial preliminary ranking + covariance approach for
+    # correlation filtering feels a bit ad hoc (see @details) and is likely not
+    # the best choice, as it is not robust against different data types (e.g.
+    # factors). forcing everything to numeric for now.
+    data.table::set(data, j = col, value = as.numeric(data[[col]]))
+  }
+
   # Compute ranking scores for all covariates (vectorized where possible)
   scores <- vapply(
-    data[, -..result_col],
+    data[, -"did_transition"],
     rank_fun,
     FUN.VALUE = numeric(1),
-    y = data[[result_col]],
+    y = data[["did_transition"]],
     weights = weights,
     ...
   )
@@ -91,18 +95,24 @@ covariance_filter <- function(
 #' @param weights Optional weights vector
 #' @keywords internal
 rank_poly_glm <- function(x, y, weights = NULL, ...) {
+  if (data.table::uniqueN(x) < 3) {
+    design_matrix <- as.numeric(x) # in case of logical / factor below 3 unique values
+  } else {
+    design_matrix <- cbind(1, poly(x, degree = 2, simple = TRUE))
+  }
+
   fit <- glm.fit(
-    x = cbind(1, poly(x, degree = 2, simple = TRUE)),
+    x = design_matrix,
     y = y,
     family = quasibinomial(),
     weights = weights
   )
 
-  # Get p-values for linear and quadratic terms
+  # Get p-values for all terms (intercept + polynomial terms)
   coef_summary <- summary.glm(fit)$coefficients
 
   # Return minimum p-value (most significant term)
-  min(coef_summary[2:3, 4], na.rm = TRUE)
+  min(coef_summary[, 4], na.rm = TRUE)
 }
 
 
