@@ -17,22 +17,23 @@ print(x, nrow = 10, ...)
 - x:
 
   An object that is accepted by
-  [`data.table::setDT()`](https://rdatatable.gitlab.io/data.table/reference/setDT.html)
+  [`data.table::setDT()`](https://rdrr.io/pkg/data.table/man/setDT.html)
 
 - nrow:
 
   see
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 - ...:
 
   passed to
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 ## Value
 
-A data.table-inheriting object with the columns `id_intrv` and
-`id_coord`, creating a relation between coordinates to apply a
+A data.table-inheriting object with the columns `id_run`, `id_intrv`,
+and `id_coord`, creating a relation between coordinates to apply an
+intervention mask.
 
 ## Methods (by generic)
 

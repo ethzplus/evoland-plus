@@ -1,347 +1,595 @@
-# Getting Started - Ingest Swiss Arealstatistik LULC Data
+# `evoland-plus` tutorial
 
-This file introduces `evoland-plus`, or `evoland` for short, using the
-the example of ingesting the [Arealstatistik
-(AS)](https://www.bfs.admin.ch/bfs/de/home/dienstleistungen/geostat/geodaten-bundesstatistik/boden-nutzung-bedeckung-eignung/arealstatistik-schweiz.html)
-land use land cover data into a database.
+*Note: This tutorial expects that you already know about geodata and
+some central principles of pattern-based land use change modelling.*
 
-In order to read in land use data, we first must create a database with
-the following metadata:
+This file introduces the `evoland-plus` R package, or `evoland` for
+short. `evoland-plus` builds on the idea that land use change can be
+predicted from observed change patterns. The likelihood that a location
+and its neighbors will change state is called *transition potential* and
+is estimated per location. A concrete realization of all possible
+transitions (e.g. forest-\>grass, grass-\>forest, etc.) is realized in
+an *allocation* across all locations and classes. Because the transition
+potential is spatially and temporally autocorrelated, an extrapolation
+must be autoregressive.
 
-- A set of **coordinates** built from a geographic specification
-- **Periods** describing a regular time series, built from start, end,
-  and interval
-- **LULC Metadata** describing the land use/land cover classes we will
-  use
+## Workflow
 
-### Setup
+``` mermaid
+---
+config:
+    flowchart:
+        useMaxWidth: true
+---
+flowchart TD
+    subgraph setup[1. Setup]
+        direction LR
+        domain_categories{{ fa:fa-table-list LULC Categorization}}
+        domain_space{{ fa:fa-globe Spatial Domain }}
+        domain_time{{ fa:fa-clock Temporal Domain}}
+        domain_categories --- domain_space
+        domain_space --- domain_time
+    end
+    setup --> preparation
 
-In this step, we create a new `evoland_db` object, either in-memory
-using the special `path` argument “:memory:”, or on-disk. The `path`
-creates or loads a file in which the data we work with is persisted.
-Somewhat unusually for R objects, you call methods on it like you would
-on a Python object (e.g. `pandas_df.drop_duplicates()`). This is called
-“encapsulated object oriented programming” (cf. [Advanced
-R](https://adv-r.hadley.nz/r6.html)). This is the wrong place to go into
-details, but the gist of this style of object is that it provides a nice
-representation of a database on disk. In essence, you can read and write
-to tables in the database like so:
+    subgraph preparation["2. Ingesting Data"]
+        direction LR
+        predictors@{shape : docs, label: "Spatiotemporal Predictors"}
+        lulc_data@{shape : doc, label: " LULC data \n @ {t, t-1, t-2, ...}"}
+        ts@{shape : brace, label: " Timesteps: \n t = now \n t-1 = one step in the past \n t+1 = one step in the future"}
+        style ts stroke:#ccc, stroke-width:2px
+        predictors --- lulc_data
+        lulc_data --- ts
+    end
+    preparation --> calibration
 
-``` r
-library(evoland)
+    subgraph calibration["3. Calibration"]
+        direction LR
+        varsel[Select Features]
+        varsel --> markovmods
+        markovmods["Train Transition<br> Potential Models"]
+        markovmods --> parametrize_alloc
+        parametrize_alloc["Estimate Allocation Parameters"]
+    end
 
-# 1. Create a database object - it organizes a set of tables as parquet files
-db <- evoland_db$new("examplefolder.evolanddb")
+    calibration --> estimation
 
-# 2. Assign an object which has been cast to and validated as `lulc_meta_t` to the database's table. The `_t` suffix indicates a database object that is a Table, as opposed to a View `_v`.
-db$lulc_meta_t <- as_lulc_meta_t(x)
+    subgraph estimation["4. Prediction + Allocation"]
+        direction LR
+        evalmodel["`Evaluate Transition Poten Models @ t`"]
+        predictions["Transition Potential Maps @ t+1"]
+        evalmodel --> predictions
+        changes["Allocate projected land use demand <br> (patch / expand)"]
+        predictions --> changes
+    end
 
-# 3. Retrieve and print the data we just stored in the database
-print(db$lulc_meta_t)
+    estimation --> projection
+    projection@{shape : terminal, label: "LULC projection\n @ t+1"}
+    projection -->|Next iteration with t+1 as t| estimation
+
+    linkStyle 0,1,3,4 stroke-opacity:0
+
+    classDef phase fill:#f9f9f990,stroke:#333,stroke-dasharray:2 4,color:#000000
+    classDef data fill:#ddf1d5,stroke:#82b366,color:#000000
+    classDef user_input fill:#fff2cc,stroke:#d6b655,color:#000000
+
+    class setup,calibration,preparation,estimation,allocation phase
+    class predictors,lulc_data,projection data
+    class domain_categories,domain_space,domain_time user_input
 ```
 
-If `evoland_db$new()` encounters a previously existing database, it will
-load it. If there is no database yet, it will create a new database with
-the `evoland` database schema. The database connection will only be
-closed once the db object is removed from the workspace and garbage
-collected (i.e. `rm(db); gc()`); until then, there will be a lock on the
-database, even for reading! You can call the file whatever you like! You
-may call it `my_lulc_model.db` or `🪶🤓.😘` or
-`arealstatistik-model.evolanddb`, though I strongly advise against using
-non-ascii characters in filenames. Underneath, the file is always a
-[DuckDB](https://duckdb.org/) database. The `.evolanddb` suffix is a
-clear indication what the purpose of the file is, so let’s go with that
-for our actual workflow:
+## 1 Setup
+
+We’ll use the following packages:
 
 ``` r
 library(evoland)
 library(data.table)
-db <- evoland_db$new(path = "arealstatistik-model.evolanddb")
+library(terra)
 ```
 
-### Construct Coordinate Set
+### 1.1 Creating an `evoland` database
 
-The coordinate points provide the fundamental geographic domain on which
-our model will operate. These points may lie anywhere in cartesian
-space; in their simplest form, they describe a dense matrix of square
-cells in a given coordinate reference system. The essential part of the
-table that we’ll use later to build a correct sample of land use classes
-corresponding to the coordinate point IDs is also built.
+First, we load the package and create an `evoland_db` database object:
+unlike most R objects (e.g. `data.frame`), this is a mutable
+object[¹](#fn1), meaning we can alter its state like we would with a
+Python object. This nicely mirrors our persistent database on disk.
+
+If there is no directory at `path`, we’ll create a new DB: a set of
+parquet files following clearly defined parquet files. If there *is* a
+directory, we resume from where we left off.
 
 ``` r
-db$set_coords(
-  type = "square",
-  epsg = 2056,
-  extent = terra::ext(c(
-    xmin = 2697000,
-    xmax = 2698000,
-    ymin = 1252000,
-    ymax = 1253000
-  )),
-  resolution = 100
-)
-minimal_coords_t <- db$coords_minimal
+db <- evoland_db$new(path = "firstmodel.evolanddb")
 ```
 
-### Retrieve Data
-
-Let’s define a data source (along with an MD5 checksum, enabling our
-future selves to notice when the underlying file is changed) and
-download them to the directory at `getOption("evoland.cachedir")`. This
-option is read on package load from the `EVOLAND_CACHEDIR` environment
-variable, defaulting to `~/evoland-cache`. For reporting purposes, the
-URL and checksum are written to the reporting table.
+Go ahead and print the
+``` d`` object. There are already a ```runs_t`and a`reporting_t\` table,
+which are bare-bones for now but will be used to track our [modelling
+runs](https://ethzplus.github.io/evoland-plus/reference/runs_t.md) and
+metadata for producing graphs and tables.
 
 ``` r
-lulc_files <-
-  data.frame(
-    url = "https://dam-api.bfs.admin.ch/hub/api/dam/assets/32376216/appendix",
-    md5sum = "c32937eb4a11fc9c5c58c66e9830360a"
-  ) |>
-  download_and_verify(target_dir = getOption("evoland.cachedir"))
-
-db$commit(
-  data.frame(
-    key = c("lulc_data_url", "lulc_data_md5sum", "lulc_data_provider"),
-    value = c(lulc_files$url, lulc_files$md5sum, "BFS Arealstatistik")
-  ),
-  table_name = "reporting_t",
-  method = "append"
-)
-
-zippath <- file.path(
-  getOption("evoland.cachedir"),
-  lulc_files$md5sum,
-  lulc_files$local_filename
-)
-
-# find singular csv
-csv_file <-
-  unzip(zippath, list = TRUE) |>
-  (\(x) x[["Name"]])() |>
-  stringi::stri_subset_fixed(".csv")
-stopifnot(length(csv_file) == 1L)
+db
 ```
 
-### Read Data
+    <evoland_db> Object. Inherits from <parquet_db>
+     | Database: firstmodel.evolanddb
+     | Write Options: format parquet, compression zstd
+     | Active Run: 0
+     | Lineage: 0
 
-Now that we have the file and know the name of the contained CSV file,
-let’s read it into a data.table. The columns matching with
-`AS[0-9]{2}_72` indicate the land use / land cover in one of the [72
-NOAS04
-classes](https://www.bfs.admin.ch/bfs/de/home/statistiken/raum-umwelt/nomenklaturen/arealstatistik/noas2004.html).
+    Tables Present:
+      reporting_t, runs_t
 
-> The Arealstatistik provides information on the flight years (columns
-> `FJxx`) for the orthophotographs from which the classification was
-> derived; we might eventually be able to use this information as an
-> auxiliary predictor of the form “number of years difference between
-> flight year and standardized period start”.
+    DB Methods:
+      column_max, commit, delete_from, execute, fetch, get_query, get_read_expr,
+      get_table_metadata, get_table_path, list_tables, row_count
 
-``` r
-csv_con <- unz(zippath, csv_file, open = "r")
-arealstat_dt <-
-  readLines(csv_con) |>
-  data.table::fread(
-    text = _,
-    # selecting only years 1985-2018 for now; Arealstatistik 2025 is not yet finished
-    select = c(
-      "E_COORD",
-      "N_COORD",
-      "AS85_72",
-      "AS97_72",
-      "AS09_72",
-      "AS18_72"
-      # "AS25_72"
-    )
-  )
-close(csv_con)
-```
+    Public Methods:
+      alloc_dinamica, create_alloc_params_t, eval_alloc_params_t, fit_full_models,
+      fit_partial_models, generate_neighbor_predictors, get_obs_trans_rates,
+      get_pruned_trans_preds_t, lulc_data_as_rast, pred_data_wide_v,
+      predict_trans_pot, set_full_trans_preds, set_neighbors, set_report,
+      trans_pred_data_v, trans_rates_dinamica_v, upsert_new_neighbors
 
-### Recode LULC Classes
+    Active Bindings:
+      coords_minimal, extent, id_run, lulc_meta_long_v, pred_sources_v, run_lineage,
+      trans_v
 
-We can define a table of land use metadata from a list of lists. This
-allows us to legibly determine a pretty name for reporting purposes and
-a description that contains a more detailed operationalisation. Each
-class is assigned a numeric `id_lulc`, which is used throughout the
-database. Each class also refers to a vector of `src_classes`, which
-we’ll use to recode/aggregate the source material to our internal
-classification system.
+### 1.2 Defining our model framework
+
+Before we do anything else, let’s declare the framework of our model:
+
+- **Land Use / Cover Categories**: A set of *land use and/or land cover
+  classes* between which changes can occur
+- **Spatial Domain**: A set of *coordinates*, built from a geographic
+  specification
+- **Temporal Domain**: A set of *periods*, describing a regular time
+  series
+
+#### 1.2.1 LULC Categories
+
+We define our fundamental LULC classes. The `src_classes` field maps the
+underlying data source’s classes to our conceptual categories.
 
 ``` r
-# create metadata lookup table
 db$lulc_meta_t <- create_lulc_meta_t(
   list(
-    closed_forest = list(
-      pretty_name = "Dense Forest",
-      description = "Normal forest; Forest strips; Afforestations; Felling areas; Brush forest",
-      src_classes = c(50:53, 57L)
+    forest = list(
+      pretty_name = "Forest",
+      description = "Areas with lots of trees",
+      src_classes = 1:3
     ),
     arable = list(
       pretty_name = "Arable Land",
-      src_classes = 41L
+      src_classes = c(4, 8)
     ),
     urban = list(
-      pretty_name = "Urban areas",
-      description = "Industrial and commercial buildings; Surroundings of industrial and commercial buildings; One- and two-family houses; Surroundings of one- and two-family houses; Terraced houses; Surroundings of terraced houses; Blocks of flats; Surroundings of blocks of flats; Public buildings; Surroundings of public buildings; Agricultural buildings; Surroundings of agricultural buildings; Unspecified buildings; Surroundings of unspecified buildings; Parking areas; Construction sites; Unexploited urban areas; Public parks; Sports facilities; Golf courses; Camping areas; Garden allotments; Cemeteries",
-      src_classes = c(1:14, 19L, 29:36)
+      pretty_name = "Urban Areas",
+      description = "Where nature goes to die",
+      src_classes = 5:7
     ),
     static = list(
-      pretty_name = "Static / immutable classes",
-      description = "Motorways; Green motorway environs; Roads and paths; Green road environs;  Sealed railway areas; Green railway environs;  Airports; Airfields, green airport environs;  Energy supply plants; Waste water treatment plants; Other supply or waste treatment plants; Dumps; Quarries, mines;  Lakes; Rivers; Flood protection structures; Avalanche and rockfall barriers;  Wetlands; Alpine sports facilities; Rocks; Screes, sand; Landscape interventions",
-      src_classes = c(15:18, 20:28, 61:63, 66:71)
+      pretty_name = "Immutable",
+      description = "Areas where we cannot conceptualize change",
+      src_classes = 9:10
     )
   )
 )
+```
 
-# lulc_meta_long_v provides an "unrolled" aka "unnested longer" form
-# each src_class is related to one id_lulc
-lulc_meta_long_dt <- db$lulc_meta_long_v[, .(id_lulc, src_class)]
+#### 1.2.2 Spatial domain
 
-# longer form: arealstatistik AS replaced by id_lulc
-# data.table has form that can be coerced to multilayer terra::rast using type = "xylz"
-lulc_dt <-
-  data.table::melt(
-    # pivot longer with year from regex and coords as ID columns
-    arealstat_dt,
-    id.vars = c("E_COORD", "N_COORD"),
-    value.name = "src_class",
-    measure.vars = data.table::measure(
-      year = as.integer, # match group
-      pattern = "AS([0-9]{2})_72"
-    )
-  )[
-    ,
-    year := ifelse(year > 84L, year + 1900L, year + 2000L) # two-digit year to four digit
-  ][
-    lulc_meta_long_dt,
-    .(
-      x = E_COORD,
-      y = N_COORD,
-      year,
-      id_lulc
-    ),
-    on = "src_class",
+The spatial coordinate points provide the fundamental geographic domain
+on which our model will operate. We use a dense square raster, but since
+we register individual coordinate points, we could subset these to any
+oddly shaped region of interest.
+
+``` r
+# template SpatRaster: 30x30 grid in Swiss LV95, later used for synthetic data generation
+template_rast <- terra::rast(
+  crs = "EPSG:2056",
+  extent = terra::ext(c(
+    xmin = 2697000,
+    xmax = 2700000,
+    ymin = 1252000,
+    ymax = 1255000
+  )),
+  resolution = 100
+)
+
+db$coords_t <- create_coords_t_square(
+  epsg = terra::crs(template_rast, describe = TRUE)$code |> as.integer(),
+  extent = terra::ext(template_rast),
+  resolution = terra::res(template_rast)[1]
+)
+```
+
+You can retrieve coords_t from disk and filter using [`data.table`
+semantics](https://raw.githubusercontent.com/rstudio/cheatsheets/master/datatable.pdf):
+
+``` r
+db$coords_t[lon == 2699650]
+```
+
+    Coordinate Table
+    longitude (x) range: [2699650, 2699650]
+    latitude  (y) range: [1252050, 1254950]
+    Key: <id_coord>
+        id_coord     lon     lat elevation geom_polygon
+           <int>   <num>   <num>     <num>       <list>
+     1:       27 2699650 1254950        NA       [NULL]
+     2:       57 2699650 1254850        NA       [NULL]
+     3:       87 2699650 1254750        NA       [NULL]
+     4:      117 2699650 1254650        NA       [NULL]
+     5:      147 2699650 1254550        NA       [NULL]
+    ---
+    26:      777 2699650 1252450        NA       [NULL]
+    27:      807 2699650 1252350        NA       [NULL]
+    28:      837 2699650 1252250        NA       [NULL]
+    29:      867 2699650 1252150        NA       [NULL]
+    30:      897 2699650 1252050        NA       [NULL]
+
+We can also retrieve a minimal representation (id, lat, lon) using an
+active binding, i.e. a method tied to the database that dynamically
+computes a property when called:
+
+``` r
+db$coords_minimal[1:2]
+```
+
+    Key: <id_coord>
+       id_coord     lon     lat
+          <int>   <num>   <num>
+    1:        1 2697050 1254950
+    2:        2 2697150 1254950
+
+#### 1.2.3 Temporal domain
+
+We also define our temporal domain. Note that an additional “0th” period
+is added at the end of the observed range; this is used for labelling
+predictor or intervention data as static.
+
+``` r
+db$periods_t <- create_periods_t(
+  period_length_str = "P10Y", # 10 year period
+  start_observed = "1995-01-01",
+  end_observed = "2020-01-01",
+  end_extrapolated = "2030-01-01"
+)
+```
+
+## 2 Ingesting Data
+
+### 2.1 LULC Data
+
+For this tutorial, we do not read real observed LULC data: instead, we
+generate a synthetic LULC raster with 3 layers (one per period) by
+adding autoregressive noise to a noisy raster.
+
+``` r
+# autoregressive noise with skellam distribution
+n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
+noise1 <- runif(n_cells, min = 0, max = 10)
+noise2 <- noise1 + stats::rpois(n_cells, 1) - stats::rpois(n_cells, 1)
+noise3 <- noise2 + stats::rpois(n_cells, 1) - stats::rpois(n_cells, 1)
+
+synthetic_lulc <-
+  rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
+  focal(w = 3, fun = mean, na.rm = TRUE) |>
+  clamp(lower = 0, upper = 10) |>
+  classify(rcl = data.frame(from = 0:9, to = 1:10, becomes = sample(1:10, 10)))
+
+plot(synthetic_lulc, nc = 3)
+```
+
+![](evoland_files/figure-html/synthesize-and-agg-lulc-data-1.png)
+
+We now extract the generated values at our coordinates using
+`extract_using_coords_t`, giving us a tabular representation of
+`id_coord, id_period, src_class` tuples. In a second step, we join in a
+long representation of the LULC metadata, associating `id_lulc` with
+`src_class`.
+
+``` r
+synthetic_at_coords <- extract_using_coords_t(synthetic_lulc, db$coords_t)
+
+synthetic_joint_meta <-
+  synthetic_at_coords[, .(
+    id_coord,
+    id_period = substr(layer, 4, 4) |> as.integer(),
+    src_class = value
+  )][
+    db$lulc_meta_long_v, # map from id_lulc to src_class
+    on = .(src_class),
     nomatch = NULL
   ]
-
-# setting a key on a data.table pre-sorts it
-data.table::setkey(lulc_dt, year, x, y)
 ```
 
-### Rasterize and Sample
-
-We want to take advantage of the spatial structure of the data to
-extract the coordinate values of the Arealstatistik at the points where
-our coordinates are declared. Hence, we rasterize the tabular data into
-a multilayer
-[`terra::rast`](https://rspatial.github.io/terra/reference/rast.html)
-object.
+We now have the LULC data in an almost canonical format. We need to add
+information on which `id_run` this data belongs to: run 0 is the base
+run, providing observed data (see
+[`db$runs_t`](https://ethzplus.github.io/evoland-plus/reference/runs_t.md)
+for details). The call to
+[`as_lulc_data_t`](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
+ensures that the data we want to insert actually conforms to the form we
+are expecting.
 
 ``` r
-r <-
-  terra::rast(
-    lulc_dt,
-    type = "xylz",
-    crs = "EPSG:2056"
-  ) |>
-  terra::as.int() # necessary because terra::rast casts to numeric?
+db$lulc_data_t <- as_lulc_data_t(synthetic_joint_meta[, .(
+  id_run = 0L, # Base run ID
+  id_period,
+  id_lulc,
+  id_coord
+)])
 ```
 
-Now we have what’s essentially a 3D array with spatial properties, let’s
-use extract and some pivoting magic to coerce these data into a table
-with an `id_coord, id_lulc` tuple for each period.
+Now that we have LULC data in our DB, we can derive data from it,
+e.g. we grab a view where a transition occurred, i.e. the anterior and
+posterior LULC ID are not the same.
 
 ``` r
-id_coord_yr_lulc_dt <-
-  terra::extract(
-    x = r,
-    y = as.matrix(minimal_coords_t[, .(lon, lat)]),
-    method = "simple"
-  ) |>
-  data.table::as.data.table() |>
-  cbind(id_coord = minimal_coords_t[["id_coord"]]) |>
-  data.table::melt(
-    id.vars = "id_coord",
-    measure.vars = data.table::measure(
-      year = as.integer,
-      pattern = "([0-9]{4})"
-    ),
-    value.name = "id_lulc"
-  ) |>
-  na.omit(cols = "id_lulc")
+db$trans_v[id_lulc_anterior != id_lulc_posterior]
 ```
 
-### Associate with Regular Periods
+         id_period id_lulc_anterior id_lulc_posterior id_coord
+             <int>            <int>             <int>    <int>
+      1:         2                3                 4        2
+      2:         3                4                 3        2
+      3:         2                3                 4        3
+      4:         2                1                 2        6
+      5:         3                2                 1        6
+     ---
+    569:         3                2                 1      895
+    570:         3                4                 3      897
+    571:         2                1                 4      898
+    572:         3                2                 1      899
+    573:         2                2                 1      900
 
-Since our land use change model runs in discrete time and our original
-land use data is not in a regular time series, we here associate each
-`id_coord, id_lulc` tuple with a regular discrete `id_period`. The model
-will run on 10yr periods, starting in 1985. Periods starting after 2020
-are marked as extrapolation periods. For now, the join condition (left
-closed) is only codified here and in the wiki. Making this canonical
-will save future modellers headaches.
+### 2.2 Add Predictors and Neighbors
+
+You have seen above how
+[`extract_using_coords_t`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
+can be used to transform a `SpatRaster` into a tabular form. It can also
+be used with `SpatVector` objects, and the resulting tables need not
+just be LULC data: we could also use it to extract predictor
+information. For demo purposes, we’ll use test data that comes with
+`evoland`. Note that the metadata holds a `fill_value` used to define
+what value should be used at a coordinate point with no explicit data
+set - e.g. if a square kilometre does not have a population count set,
+we can infer that it should be zero.
 
 ``` r
-# setup transition periods
-db$periods_t <- periods_t <- create_periods_t(
-  period_length_str = "P10Y",
-  start_observed = "1985-01-01",
-  end_observed = "2020-01-01",
-  end_extrapolated = "2060-01-01"
+db$pred_meta_t <- evoland:::test_pred_meta_t
+db$pred_data_t <- evoland:::test_pred_data_t
+```
+
+Statistical models like GLMs or random forests lack inherent spatial
+concepts, so we explicitly calculate neighborhood relations for each
+coordinate to create spatial predictors (e.g., “number of neighboring
+forest cells within 100m”). This is done by creating a neighbor lookup
+table
+([`db$set_neighbors`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+and then counting the number of neighbors within each distance break
+class and land use category (`db$generate_neighbor_predictors`).
+
+``` r
+db$set_neighbors(
+  max_distance = 1000,
+  distance_breaks = c(0, 100, 500, 1000),
+  quiet = TRUE
 )
+```
 
-# build date objects from years. use 1st of january
-id_coord_yr_lulc_dt[
-  ,
-  year := data.table::as.IDate(paste0(year, "-01-01"))
-]
+``` r
+db$generate_neighbor_predictors()
+```
 
-lulc_data_t <-
-  as_lulc_data_t(
-    id_coord_yr_lulc_dt[
-      periods_t,
-      .(
-        id_coord,
-        id_lulc,
-        id_period
-      ),
-      on = .(
-        # left closed interval
-        year >= start_date,
-        year < end_date
-      ),
-      nomatch = NULL
-    ]
+Messages
+
+    Computed 208360 neighbor relationships
+    Appended 8 neighbor predictor variables with 21521 data points
+
+Have a look at the predictor metadata we have defined, it now contains
+new rows for the neighbor predictors:
+
+``` r
+db$pred_meta_t
+```
+
+    Predictor Metadata Table
+    Number of predictors: 12
+    Key: <name>
+        id_pred                       name
+          <int>                     <char>
+     1:       1                  elevation
+     2:      10   id_lulc_1_dist_[100,500)
+     3:       6 id_lulc_1_dist_[500,1e+03]
+     4:       9   id_lulc_2_dist_[100,500)
+     5:       5 id_lulc_2_dist_[500,1e+03]
+     6:      12   id_lulc_3_dist_[100,500)
+     7:       8 id_lulc_3_dist_[500,1e+03]
+     8:      11   id_lulc_4_dist_[100,500)
+     9:       7 id_lulc_4_dist_[500,1e+03]
+    10:       3               is_protected
+    11:       2                 population
+    12:       4                  soil_type
+    8 variables not shown: [pretty_name <char>, description <char>, orig_format <char>, sources <list>, unit <char>, factor_levels <list>, data_type <fctr>, fill_value <lgcl>]
+
+## 3 Calibration
+
+### 3.1 Eligible Transitions and Predictor Pruning
+
+We filter transitions eligible for modeling based on a minimum number of
+observed occurrences.
+
+``` r
+db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 50)
+```
+
+Because each transition may be modelled using different predictors (aka
+*features*), we start out by setting the `trans_preds_t` table to the
+full cross product of viable transitions and predictors. We then carry
+out a feature selection step in `get_pruned_trans_preds_t`, which here
+is used with a two-stage covariance filter. First, candidate features
+are ranked and then selected up to a given correlation threshold, see
+[`covariance_filter`](https://ethzplus.github.io/evoland-plus/reference/covariance_filter.md).
+The assignment to `db$trans_preds_t` will overwrite the existing
+relations; you will be prompted if you want to do this if you’re running
+R interactively.
+
+``` r
+db$set_full_trans_preds()
+# Note: we're suppressing warnings about non-convergence due to our random synthetic data.
+db$trans_preds_t <- db$get_pruned_trans_preds_t(
+  filter_fun = covariance_filter,
+  corcut = 0.1
+)
+```
+
+### 3.2 Transition Models
+
+Now we fit partial models using training/validation splits, allowing for
+a goodness-of-fit (gof) estimation. Here, we only fit a single partial
+model per transition, where we normally would create a list of
+candidates. We can then pick the models with the best goodness of fit to
+retrain full models on all of the available predictor data; the full
+models are then used during extrapolation.
+
+``` r
+db$trans_models_t <- db$fit_partial_models(
+  fit_fun = fit_glm,
+  gof_fun = gof_glm,
+  sample_frac = 0.7,
+  seed = 42
+)
+```
+
+``` r
+db$trans_models_t <- db$fit_full_models(
+  gof_criterion = "auc",
+  gof_maximize = TRUE
+)
+```
+
+Messages
+
+    Fitting partial models for 6 transitions...
+    Fitting full models for 6 transitions...
+
+### 3.3 Transition Rates and Allocation Parameters
+
+As a constrained pattern-based model, we need to provide transition
+rates to the DinamicaEGO allocator. In a simple approach, we can
+extrapolate the rate of each transition from the observed data:
+
+``` r
+db$trans_rates_t <-
+  db$get_obs_trans_rates() |>
+  extrapolate_trans_rates(
+    periods = db$periods_t,
+    coord_count = n_cells
   )
 ```
 
-### Finalize: Ingest
-
-Now that we have the data prepared and validated in the correct format,
-we upsert them into the database. An upsert is a database operation that
-either in*serts* new data or *up*dates existing entries.
+We estimate allocation parameters for DinamicaEGO, which determine the
+shape and size of new patches, respectively which fraction of converted
+land use is in new versus expanded patches. This estimation procedure is
+not unbiased and hence a single estimate may not be enough: normally, we
+would perturb the estimate and use multiple `id_run`s to identify the
+best parametrization. For simplicity, we now just take the estimates for
+granted and assign `id_run=0`, i.e. the base run ID.
 
 ``` r
-db$lulc_data_t <- lulc_data_t
+alloc_for_eval <- db$create_alloc_params_t(n_perturbations = 0)
 ```
 
-## Bonus: Getting rid of unused coords
+``` r
+alloc_for_eval[, id_run := 0L] # overwrite id_run=1
+db$alloc_params_t <- alloc_for_eval
+```
 
-Now that we know which coordinates we have fundamental data for, let’s
-use that information to reduce the amount of coordinates we’ll go
-forward with:
+Messages
+
+    Computing allocation parameters for 6 transitions across 2 periods...
+      Processing period 1 -> 2
+      Processing period 2 -> 3
+    Aggregating parameters across periods...
+    Creating 0 randomly perturbed versions per transition...
+    Successfully computed 6 allocation parameter sets (6 transitions x (0 perturbations + best estimate))
+
+## 4 Prediction + Allocation
+
+With all components in place, we run the allocation step. If Dinamica is
+not installed, you’ll get a warning that the anterior LULC map is
+returned as the posterior.
 
 ``` r
-id_coord_keep <- lulc_data_t[, id_coord]
-db$commit(
-  x = db$coords_t[id_coord %in% id_coord_keep],
-  table_name = "coords_t",
-  method = "overwrite"
+db$alloc_dinamica(
+  id_period = db$periods_t[is_extrapolated == TRUE, id_period],
+  gof_criterion = "auc",
+  gof_maximize = TRUE
 )
 ```
 
-For this domain in the middle of Switzerland, this represents a small
-amount of savings - but as the sparsity of the domain grows, e.g. by
-omission of adjacent administrative areas, or by omission of certain
-land use classes - the advantage of the tabular representation becomes
-clearer.
+    Warning in run_alloc_dinamica(work_dir = iteration_dir, echo = FALSE,
+    write_logfile = TRUE): DinamicaConsole not found on PATH; Copying anterior.tif
+    to posterior.tif as fallback so we can test.
+
+Messages
+
+    Starting Dinamica allocation simulation
+    Periods: 4
+    Run: 0
+    Work directory: dinamica_rundir/run_0
+    Loading origin period 4 from lulc_data_t...
+    === Iteration 1/0 ===
+    Running Dinamica allocation: period 3 -> 4
+      Wrote transition rates to trans_rates.csv
+      Wrote expansion table to expansion_table.csv
+      Wrote patcher table to patcher_table.csv
+      Wrote anterior LULC to anterior.tif
+      Writing probability maps...
+    Predicting transition potential for 6 transitions
+    Predicting trans 1/6 (id_trans 3)
+    Predicting trans 2/6 (id_trans 7)
+    Predicting trans 3/6 (id_trans 4)
+    Predicting trans 4/6 (id_trans 1)
+    Predicting trans 5/6 (id_trans 8)
+    Predicting trans 6/6 (id_trans 2)
+      Executing Dinamica EGO...
+      Converting posterior raster to lulc_data_t...
+      Extracted 900 cells
+    Iteration 1 complete
+    Simulation complete!
+    Results written to: lulc_data_t
+    Cleaning up intermediate files...
+
+### 4.1 Visualization
+
+Finally, we can extract the simulated LULC maps into `SpatRaster`
+objects to visualize them.
+
+``` r
+labels <- db$periods_t[
+  id_period != 0,
+  paste0(year(start_date), " to ", year(end_date))
+]
+plot_maps <- db$lulc_data_as_rast() |> setNames(labels)
+
+plot(plot_maps, type = "classes", levels = db$lulc_meta_t$pretty_name)
+```
+
+![](evoland_files/figure-html/visualization-1.png)
+
+Of the four maps, only the first three show changes. Due to Dinamica not
+being available on our github runner, the extrapolated step should look
+exactly like the step before.
+
+------------------------------------------------------------------------
+
+1.  Specifically, we’re creating an R6 object instead of an S3 or S4
+    one. This is called “encapsulated object oriented programming”
+    (cf. [Advanced R](https://adv-r.hadley.nz/r6.html)) and you might
+    know it from Python (e.g. `pandas_df.drop_duplicates()`).

@@ -10,9 +10,9 @@ extrapolated using linear regression.
 ``` r
 as_trans_rates_t(x)
 
-create_obs_trans_rates_t(trans_v, trans_meta)
+get_obs_trans_rates(self)
 
-create_extr_trans_rates_t(obs_rates, periods)
+extrapolate_trans_rates(obs_rates, periods, coord_count = NA_integer_)
 
 # S3 method for class 'trans_rates_t'
 print(x, nrow = 10, ...)
@@ -24,43 +24,48 @@ print(x, nrow = 10, ...)
 
   A list or data.frame coercible to a data.table
 
-- trans_v:
+- self:
 
-  A transitions view table with columns: id_period, id_lulc_anterior,
-  id_lulc_posterior, id_coord
-
-- trans_meta:
-
-  A trans_meta_t table with transition metadata including id_trans,
-  id_lulc_anterior, and id_lulc_posterior
+  a DB instance
 
 - obs_rates:
 
-  A trans_rates_t table with observed historical rates
+  A trans_rates_t table of observed transition rates for historical
+  periods
 
 - periods:
 
-  A periods_t table defining the time periods
+  A periods_t table with is_extrapolated = TRUE for future periods
+
+- coord_count:
+
+  Optional integer specifying the number of coordinates (cells) for
+  normalization
 
 - nrow:
 
   see
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 - ...:
 
   passed to
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 ## Value
 
 A data.table of class "trans_rates_t" with columns:
 
+- `id_run`: Foreign key to runs_t
+
 - `id_period`: Foreign key to periods_t
 
 - `id_trans`: Foreign key to trans_meta_t
 
-- `rate`: Transition rate (0 to 1)
+- `count`: Absolute count of transitions
+
+- `rate`: Transition rate: count of transitions in (id_trans, id_period)
+  over (id_period)
 
 ## Methods (by generic)
 
@@ -69,12 +74,12 @@ A data.table of class "trans_rates_t" with columns:
 
 ## Functions
 
-- `create_obs_trans_rates_t()`: Calculate observed transition rates from
+- `get_obs_trans_rates()`: Calculate observed transition rates from
   historical data. For each period and transition type, calculates the
   rate as the proportion of id_lulc_anterior cells that transitioned to
   id_lulc_posterior.
 
-- `create_extr_trans_rates_t()`: Extrapolate future transition rates
-  using linear regression. For each transition type (id_trans), fits a
-  linear model of rate vs period number and extrapolates to future
-  periods. Negative predicted rates are set to 0.
+- `extrapolate_trans_rates()`: Return future transition rates using
+  linear regression. For each id_run + id_trans, fits a linear model of
+  rate vs period number and extrapolates to future periods. Negative
+  predicted rates are set to 0.

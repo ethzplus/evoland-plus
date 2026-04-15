@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -43,7 +43,9 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">extract_using_coords_t</span><span class="op">(</span><span class="va">x</span>, <span class="va">coords_t</span>, na_omit <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">extract_using_coords_t</span><span class="op">(</span><span class="va">x</span>, <span class="va">coords</span>, na_omit <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">tabular_to_raster</span><span class="op">(</span><span class="va">data</span>, <span class="va">coords</span>, value_col <span class="op">=</span> <span class="st">"id_lulc"</span>, resolution <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -51,22 +53,41 @@
 
 
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
-<dd><p>The object to extract from; use "simple" extraction for rasters, i.e. no resampling is done.</p></dd>
+<dd><p>The object to extract from; use "simple" extraction for rasters, i.e. no
+resampling is done.</p></dd>
 
 
-<dt id="arg-coords-t">coords_t<a class="anchor" aria-label="anchor" href="#arg-coords-t"></a></dt>
-<dd><p>A coords_t object containing coordinate points with an "epsg" attribute</p></dd>
+<dt id="arg-coords">coords<a class="anchor" aria-label="anchor" href="#arg-coords"></a></dt>
+<dd><p>A <a href="coords_t.html">coords_t</a> object with coordinate information. Must have
+<code>epsg</code> and optionally <code>resolution</code> attributes.</p></dd>
+
+
+<dt id="arg-na-omit">na_omit<a class="anchor" aria-label="anchor" href="#arg-na-omit"></a></dt>
+<dd><p>Logical, whether to omit rows with NA values in the output</p></dd>
+
+
+<dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
+<dd><p>A data.table with column id_coord and value_col</p></dd>
+
+
+<dt id="arg-resolution">resolution<a class="anchor" aria-label="anchor" href="#arg-resolution"></a></dt>
+<dd><p>Numeric, raster resolution in CRS units. If <code>NULL</code>,
+use "resolution" attribute on coords, or estimate from coord spacing.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A long data.table with <code>id_coord</code>, a <code>layer</code>/<code>attribute</code> column, and a <code>value</code> column.
-NAs are omitted</p>
+    <p><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a> with LULC values. If multiple periods present in data,
+returns a multi-layer raster with one layer per period.</p>
     </div>
     <div class="section level2">
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
-<ul><li><p><code>extract_using_coords_t()</code>: Extract values from a SpatRaster or SpatVector object using a (minimal) <code>coords_t</code></p></li>
+<ul><li><p><code>extract_using_coords_t()</code>: Extract values from a SpatRaster or SpatVector object using a
+(minimal) <code>coords_t</code> object. Returns a long data.table with <code>id_coord</code>,
+<code>layer</code>/<code>attribute</code>, and <code>value</code>.</p></li>
+<li><p><code>tabular_to_raster()</code>: Converts a table with id_coord information to a SpatRaster.
+Useful for spatial analysis and validation that requires raster format.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,17 +47,6 @@
 <span></span>
 <span><span class="fu">create_intrv_meta_t</span><span class="op">(</span><span class="va">intrv_spec</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">create_intrv_meta_t_row</span><span class="op">(</span></span>
-<span>  name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  pretty_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  description <span class="op">=</span> <span class="cn">NA_character_</span>,</span>
-<span>  id_period_list <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  id_trans_list <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">integer</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  pre_allocation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/logical.html" class="external-link">logical</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  sources <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>url <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span>, md5sum <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  <span class="va">params</span></span>
-<span><span class="op">)</span></span>
-<span></span>
 <span><span class="co"># S3 method for class 'intrv_meta_t'</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -67,47 +56,15 @@
 
 
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
-<dd><p>An object that can be passed to <code><a href="https://rdatatable.gitlab.io/data.table/reference/setDT.html" class="external-link">data.table::setDT()</a></code></p></dd>
+<dd><p>An object that can be passed to <code><a href="https://rdrr.io/pkg/data.table/man/setDT.html" class="external-link">data.table::setDT()</a></code></p></dd>
 
 
 <dt id="arg-intrv-spec">intrv_spec<a class="anchor" aria-label="anchor" href="#arg-intrv-spec"></a></dt>
 <dd><p>A list of intervention specifications, schema: see examples</p></dd>
 
 
-<dt id="arg-name">name<a class="anchor" aria-label="anchor" href="#arg-name"></a></dt>
-<dd><p>Name for use in code and queries</p></dd>
-
-
-<dt id="arg-pretty-name">pretty_name<a class="anchor" aria-label="anchor" href="#arg-pretty-name"></a></dt>
-<dd><p>Name for plots/output</p></dd>
-
-
-<dt id="arg-description">description<a class="anchor" aria-label="anchor" href="#arg-description"></a></dt>
-<dd><p>Long description / operationalisation</p></dd>
-
-
-<dt id="arg-id-period-list">id_period_list<a class="anchor" aria-label="anchor" href="#arg-id-period-list"></a></dt>
-<dd><p>Array of associated period IDs</p></dd>
-
-
-<dt id="arg-id-trans-list">id_trans_list<a class="anchor" aria-label="anchor" href="#arg-id-trans-list"></a></dt>
-<dd><p>Array of associated transition IDs</p></dd>
-
-
-<dt id="arg-pre-allocation">pre_allocation<a class="anchor" aria-label="anchor" href="#arg-pre-allocation"></a></dt>
-<dd><p>Boolean indicating if intervention is pre-allocation</p></dd>
-
-
-<dt id="arg-sources">sources<a class="anchor" aria-label="anchor" href="#arg-sources"></a></dt>
-<dd><p>Data frame of sources with columns <code>url</code> and `md5sum</p></dd>
-
-
-<dt id="arg-params">params<a class="anchor" aria-label="anchor" href="#arg-params"></a></dt>
-<dd><p>A list of parameters, depth 1; children can only have length 1</p></dd>
-
-
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>passed to <code><a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table()</a></code></p></dd>
+<dd><p>passed to <code><a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table()</a></code></p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -131,7 +88,6 @@
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
 <ul><li><p><code>create_intrv_meta_t()</code>: Creates an intrv_meta_t table from intervention specifications</p></li>
-<li><p><code>create_intrv_meta_t_row()</code>: Creates an metadata entry / row</p></li>
 </ul></div>
 
     <div class="section level2">
@@ -161,12 +117,12 @@
 <span class="r-in"><span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Intervention Metadata Table</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Number of interventions: 2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Key: &lt;id_intrv&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Key: &lt;id_run, id_intrv&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    id_intrv id_period_list id_trans_list pre_allocation             name</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       &lt;int&gt;         &lt;list&gt;        &lt;list&gt;         &lt;lgcl&gt;           &lt;char&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1:        1            7,8           1,2           TRUE  protected_areas</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:        2         [NULL]        [NULL]           TRUE hydro_predictors</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4 variables not shown: [pretty_name &lt;char&gt;, description &lt;char&gt;, sources &lt;list&gt;, params &lt;list&gt;]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2:        2                                        TRUE hydro_predictors</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5 variables not shown: [pretty_name &lt;char&gt;, description &lt;char&gt;, sources &lt;list&gt;, params &lt;list&gt;, id_run &lt;int&gt;]</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -7,24 +7,28 @@ to handle class imbalance.
 ## Usage
 
 ``` r
-fit_ranger(data, result_col = "result", num.trees = 500, ...)
+fit_ranger(data, num.trees = 100, max.depth = 100, ...)
 ```
 
 ## Arguments
 
 - data:
 
-  A data.table containing the result column and predictor columns
-  (prefixed with "id_pred\_")
+  A data.table containing the did_transition column and predictor
+  columns (prefixed with "id_pred\_")
 
-- result_col:
+- num.trees:
 
-  Name of the column representing the transition results (logical: TRUE
-  = transition occurred, FALSE = no transition)
+  Number of trees to grow in the random forest (default: 100)
+
+- max.depth:
+
+  Maximum depth of each tree (default: 100)
 
 - ...:
 
-  Additional arguments (currently unused, for future extensibility)
+  Additional arguments passed to
+  [`ranger::ranger()`](http://imbs-hl.github.io/ranger/reference/ranger.md)
 
 ## Value
 
@@ -50,7 +54,5 @@ The function:
 Default hyperparameters:
 
 - num.trees = 500
-
-- mtry = floor(sqrt(n_predictors))
 
 - min.node.size = 1

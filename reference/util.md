@@ -7,10 +7,6 @@ These are mostly used to validate evoland S3 objects.
 ``` r
 validate(x, ...)
 
-new_evoland_table(x, class_name, keycols)
-
-check_missing_names(x, required_names)
-
 x %||% y
 
 pluck_wildcard(lst, ...)
@@ -19,7 +15,7 @@ ensure_dir(dir)
 
 print_rowwise_yaml(df)
 
-cast_dt_col(x, colname, type)
+cast_dt_col(x, colname, type, levels = NULL)
 ```
 
 ## Arguments
@@ -31,19 +27,6 @@ cast_dt_col(x, colname, type)
 - ...:
 
   Index arguments. Use NA to match all elements at that level
-
-- class_name:
-
-  The class name to attach before "evoland_t"
-
-- keycols:
-
-  The columns to be set as key, see
-  [`data.table::setkey()`](https://rdatatable.gitlab.io/data.table/reference/setkey.html)
-
-- required_names:
-
-  Vector of required names
 
 - y:
 
@@ -61,19 +44,18 @@ cast_dt_col(x, colname, type)
 
   one of "int", "float", "bool", "factor"
 
-## Value
+- levels:
 
-NULL, called for side effect
+  Optional character vector of factor levels (only used when type =
+  "factor")
+
+## Value
 
 The indexed result, which may be a single element or a list of elements
 
 ## Functions
 
 - `validate()`: Provides an S3 validation generic
-
-- `new_evoland_table()`: Add evoland_t class
-
-- `check_missing_names()`: Check that all required names are present
 
 - `x %||% y`: Null coalescing operator
 

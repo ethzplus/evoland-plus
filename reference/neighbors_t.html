@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -56,7 +56,20 @@
 <span><span class="fu"><a href="util.html">validate</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'neighbors_t'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">set_neighbors</span><span class="op">(</span></span>
+<span>  <span class="va">self</span>,</span>
+<span>  max_distance <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  distance_breaks <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span>, <span class="fl">500</span>, <span class="fl">1000</span><span class="op">)</span>,</span>
+<span>  overwrite <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  quiet <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  chunksize <span class="op">=</span> <span class="fl">1e+08</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">generate_neighbor_predictors</span><span class="op">(</span><span class="va">self</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">upsert_new_neighbors</span><span class="op">(</span><span class="va">self</span>, <span class="va">id_period</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -64,7 +77,7 @@
 
 
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
-<dd><p>An object that can be passed to <code><a href="https://rdatatable.gitlab.io/data.table/reference/setDT.html" class="external-link">data.table::setDT()</a></code></p></dd>
+<dd><p>An object that can be passed to <code><a href="https://rdrr.io/pkg/data.table/man/setDT.html" class="external-link">data.table::setDT()</a></code></p></dd>
 
 
 <dt id="arg-max-distance">max_distance<a class="anchor" aria-label="anchor" href="#arg-max-distance"></a></dt>
@@ -79,11 +92,25 @@ If provided, must have at least 2 elements defining interval breaks.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Passed to <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>Passed to <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
 
 
 <dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
-<dd><p>Maximum number of rows to print. See <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>Maximum number of rows to print. See <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+
+
+<dt id="arg-self">self<a class="anchor" aria-label="anchor" href="#arg-self"></a></dt>
+<dd><p>An evoland_db object</p></dd>
+
+
+<dt id="arg-chunksize">chunksize<a class="anchor" aria-label="anchor" href="#arg-chunksize"></a></dt>
+<dd><p>Number of rows to write per chunk when inserting into the database
+to avoid memory issues (default: 1e8)</p></dd>
+
+
+<dt id="arg-id-period">id_period<a class="anchor" aria-label="anchor" href="#arg-id-period"></a></dt>
+<dd><p>Integer period ID for which to generate predictors; if
+missing, only use non-extrapolated periods</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -108,6 +135,21 @@ If provided, must have at least 2 elements defining interval breaks.</p></dd>
 
 <ul><li><p><code>create_neighbors_t()</code>: Compute neighboring coordinates within specified distances.
 This uses a spatial hash map for efficiency.</p></li>
+<li><p><code>set_neighbors()</code>: Compute neighbor relationships between coordinates
+and store in <code>self$neighbors_t</code>. This uses a spatial hash map for efficiency
+and can produce a very large table depending on max_distance.</p></li>
+<li><p><code>generate_neighbor_predictors()</code>: Generates neighbor predictors based on neighbor land
+use counts by distance class, e.g. "10 coordinate points within 200-500m are
+of class forest". This requires that <code>neighbors_t</code>, <code>lulc_data_t</code>,
+<code>lulc_meta_t</code>, and <code>pred_meta_t</code> are all present in the database. The
+generated predictors are stored in <code>pred_data_t</code> and metadata in
+<code>pred_meta_t</code>.</p></li>
+<li><p><code>upsert_new_neighbors()</code>: Append neighbor predictors for a specific period.
+This is used after extrapolating transition rates to new periods, so we can
+generate predictors for those periods. This requires that <code>neighbors_t</code>,
+<code>lulc_data_t</code>, <code>lulc_meta_t</code>, and <code>pred_meta_t</code> are all present in the
+database. <code>pred_meta_t</code> must have neighbor predictors already generated by
+<code>generate_neighbor_predictors()</code></p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

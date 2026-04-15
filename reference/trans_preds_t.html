@@ -11,7 +11,7 @@ modelling each transition type."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,7 +52,17 @@ modelling each transition type.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">as_trans_preds_t</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'trans_preds_t'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">set_full_trans_preds</span><span class="op">(</span><span class="va">self</span>, overwrite <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">get_pruned_trans_preds_t</span><span class="op">(</span></span>
+<span>  <span class="va">self</span>,</span>
+<span>  filter_fun <span class="op">=</span> <span class="va">covariance_filter</span>,</span>
+<span>  cluster <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  ordered_pred_data <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -60,26 +70,56 @@ modelling each transition type.</p>
 
 
 <dl><dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
-<dd><p>see <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>see <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>passed to <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>passed to <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+
+
+<dt id="arg-overwrite">overwrite<a class="anchor" aria-label="anchor" href="#arg-overwrite"></a></dt>
+<dd><p>Bool, should a potentially existing table be overwritten?</p></dd>
+
+
+<dt id="arg-filter-fun">filter_fun<a class="anchor" aria-label="anchor" href="#arg-filter-fun"></a></dt>
+<dd><p>A function that takes a transition-predictor data (cf. trans_pred_data_v) and
+returns a character vector of column names to keep, see e.g. <a href="covariance_filter.html">covariance_filter</a></p></dd>
+
+
+<dt id="arg-cluster">cluster<a class="anchor" aria-label="anchor" href="#arg-cluster"></a></dt>
+<dd><p>An optional cluster object, see <a href="evoland_db_util.html">run_parallel_evoland</a></p></dd>
+
+
+<dt id="arg-ordered-pred-data">ordered_pred_data<a class="anchor" aria-label="anchor" href="#arg-ordered-pred-data"></a></dt>
+<dd><p>Bool, should the predictor data be ordered? needed
+for fully deterministic behavior</p></dd>
 
 
 <dt id="arg-db">db<a class="anchor" aria-label="anchor" href="#arg-db"></a></dt>
 <dd><p>An <a href="evoland_db.html">evoland_db</a> instance with populated trans_meta_t and pred_meta_t tables</p></dd>
 
+
+<dt id="arg-na-value">na_value<a class="anchor" aria-label="anchor" href="#arg-na-value"></a></dt>
+<dd><p>Value to use for missing data when retrieving predictor data</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data.table of class "trans_preds_t" with columns:</p><ul><li><p><code>id_pred</code>: Foreign key to pred_meta_t</p></li>
+    <p>A data.table of class "trans_preds_t" with columns:</p><ul><li><p><code>id_run</code>: Foreign key to runs_t</p></li>
+<li><p><code>id_pred</code>: Foreign key to pred_meta_t</p></li>
 <li><p><code>id_trans</code>: Foreign key to trans_meta_t</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="methods-by-generic-">Methods (by generic)<a class="anchor" aria-label="anchor" href="#methods-by-generic-"></a></h2>
 
 <ul><li><p><code>print(trans_preds_t)</code>: Print a trans_preds_t object, passing params to data.table print</p></li>
+</ul></div>
+    <div class="section level2">
+    <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
+
+<ul><li><p><code>set_full_trans_preds()</code>: Set an initial full set of transition / predictor relations</p></li>
+<li><p><code>get_pruned_trans_preds_t()</code>: Get a pruned set of transition-predictor relationships
+based on a filtering function</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

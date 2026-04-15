@@ -13,8 +13,7 @@ feature set.
 ``` r
 grrf_filter(
   data,
-  result_col = "result",
-  weights = compute_balanced_weights(data[[result_col]]),
+  weights = compute_balanced_weights(data[["did_transition"]]),
   gamma = 0.5,
   num.trees = 500,
   max.depth = 100,
@@ -27,12 +26,8 @@ grrf_filter(
 - data:
 
   A data.table of target variable and candidate covariates to be
-  filtered; wide format with one predictor per column.
-
-- result_col:
-
-  Name of the column representing the transition results (0: no trans,
-  1: trans)
+  filtered; wide format with one predictor per column. Target variable
+  expected to be named "did_transition".
 
 - weights:
 

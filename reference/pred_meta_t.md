@@ -8,7 +8,7 @@ predictor metadata.
 ``` r
 as_pred_meta_t(x)
 
-create_pred_meta_t(pred_spec)
+create_pred_meta_t(pred_spec, starting_id = 1L)
 
 # S3 method for class 'pred_meta_t'
 print(x, ...)
@@ -19,7 +19,7 @@ print(x, ...)
 - x:
 
   An object that is accepted by
-  [`data.table::setDT()`](https://rdatatable.gitlab.io/data.table/reference/setDT.html)
+  [`data.table::setDT()`](https://rdrr.io/pkg/data.table/man/setDT.html)
 
 - pred_spec:
 
@@ -28,7 +28,7 @@ print(x, ...)
 - ...:
 
   passed to
-  [`data.table::print.data.table()`](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [`data.table::print.data.table()`](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 ## Value
 
@@ -44,11 +44,20 @@ A data.table of class "pred_meta_t" with columns:
 
 - `orig_format`: Original format description
 
-- `sources`: Sources, a data.frame with cols `url` and `md5sum`
+- `sources`: Sources, list column of data.frames with cols `url` and
+  `md5sum`
 
-- `unit`: SI-compatible unit (nullable for categorical)
+- `unit`: SI units for physical properties, or more complex descriptors
+  like "number of annual visitors"
 
-- `factor_levels`: Map of factor levels (nullable)
+- `data_type`: Factor with levels "int", "float", "bool", "factor". Used
+  for coercion.
+
+- `fill_value`: Value to use for missing data for
+  [coords_t](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
+  coordinate points that are not explicitly stored.
+
+- `factor_levels`: list of character vectors; order matters!
 
 ## Methods (by generic)
 
@@ -78,7 +87,8 @@ create_pred_meta_t(list(
          url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
          md5sum = "4b782128495b5af8467e2259bd57def2"
        )
-     )
+     ),
+     data_type = "float"
    ),
    distance_to_lake = list(
      unit = "m",
@@ -88,14 +98,16 @@ create_pred_meta_t(list(
      sources = list(list(
        url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
        md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
-     ))
+     )),
+     data_type = "float"
    )
  ))
 #> Predictor Metadata Table
 #> Number of predictors: 2
-#>                name              pretty_name
-#>              <char>                   <char>
-#> 1:            noise   Maximum noise exposure
-#> 2: distance_to_lake Distance to closest lake
-#> 5 variables not shown: [description <char>, orig_format <char>, sources <list>, unit <char>, factor_levels <list>]
+#> Key: <name>
+#>    id_pred             name              pretty_name
+#>      <int>           <char>                   <char>
+#> 1:       2 distance_to_lake Distance to closest lake
+#> 2:       1            noise   Maximum noise exposure
+#> 7 variables not shown: [description <char>, orig_format <char>, sources <list>, unit <char>, factor_levels <list>, data_type <fctr>, fill_value <lgcl>]
 ```

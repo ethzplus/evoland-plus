@@ -19,9 +19,9 @@ inherited by domain-specific database classes.
 
   Write options for DuckDB parquet output
 
-- `partitioning`:
+- `read_only`:
 
-  Named list of character vectors defining partition columns for tables
+  If true, prevents writes that are not parallel-safe
 
 ## Methods
 
@@ -29,21 +29,15 @@ inherited by domain-specific database classes.
 
 - [`parquet_db$new()`](#method-parquet_db-new)
 
-- [`parquet_db$set_partitioning()`](#method-parquet_db-set_partitioning)
-
 - [`parquet_db$execute()`](#method-parquet_db-execute)
 
 - [`parquet_db$get_query()`](#method-parquet_db-get_query)
 
-- [`parquet_db$attach_table()`](#method-parquet_db-attach_table)
-
-- [`parquet_db$detach_table()`](#method-parquet_db-detach_table)
-
 - [`parquet_db$row_count()`](#method-parquet_db-row_count)
 
-- [`parquet_db$list_tables()`](#method-parquet_db-list_tables)
+- [`parquet_db$column_max()`](#method-parquet_db-column_max)
 
-- [`parquet_db$with_tables()`](#method-parquet_db-with_tables)
+- [`parquet_db$list_tables()`](#method-parquet_db-list_tables)
 
 - [`parquet_db$fetch()`](#method-parquet_db-fetch)
 
@@ -55,6 +49,10 @@ inherited by domain-specific database classes.
 
 - [`parquet_db$print()`](#method-parquet_db-print)
 
+- [`parquet_db$get_table_path()`](#method-parquet_db-get_table_path)
+
+- [`parquet_db$get_read_expr()`](#method-parquet_db-get_read_expr)
+
 - [`parquet_db$clone()`](#method-parquet_db-clone)
 
 ------------------------------------------------------------------------
@@ -65,13 +63,17 @@ Initialize a new parquet_db object
 
 #### Usage
 
-    parquet_db$new(path, extensions = character(0))
+    parquet_db$new(path, read_only = FALSE, extensions = character(0))
 
 #### Arguments
 
 - `path`:
 
   Character string. Path to the data folder.
+
+- `read_only`:
+
+  Logical. If true, prevents writes that are not parallel-safe.
 
 - `extensions`:
 
@@ -80,26 +82,6 @@ Initialize a new parquet_db object
 #### Returns
 
 A new `parquet_db` object
-
-------------------------------------------------------------------------
-
-### Method `set_partitioning()`
-
-Set partitioning scheme for a table
-
-#### Usage
-
-    parquet_db$set_partitioning(table_name, cols)
-
-#### Arguments
-
-- `table_name`:
-
-  Character string
-
-- `cols`:
-
-  Character vector of column names to partition by
 
 ------------------------------------------------------------------------
 
@@ -143,57 +125,10 @@ A data.table with query results
 
 ------------------------------------------------------------------------
 
-### Method `attach_table()`
-
-Attach a table from parquet file as a temporary table in DuckDB
-
-#### Usage
-
-    parquet_db$attach_table(table_name, columns = "*", where = NULL)
-
-#### Arguments
-
-- `table_name`:
-
-  Character. Name of table to attach.
-
-- `columns`:
-
-  Character vector. Optional SQL column selection, defaults to "\*"
-
-- `where`:
-
-  Character. Optional SQL WHERE clause to subset the table.
-
-#### Returns
-
-Invisible NULL (called for side effects)
-
-------------------------------------------------------------------------
-
-### Method `detach_table()`
-
-Detach a table from the in-memory database
-
-#### Usage
-
-    parquet_db$detach_table(table_name)
-
-#### Arguments
-
-- `table_name`:
-
-  Character. Name of table to drop.
-
-#### Returns
-
-Invisible NULL (called for side effects)
-
-------------------------------------------------------------------------
-
 ### Method `row_count()`
 
-Get row count for a table
+Get row count for a table (without applying id_run subsetting); returns
+0 if table does not exist
 
 #### Usage
 
@@ -211,9 +146,34 @@ Integer number of rows
 
 ------------------------------------------------------------------------
 
+### Method `column_max()`
+
+Get maximum for a column in a table (without applying id_run
+subsetting); returns 0 if table does not exist
+
+#### Usage
+
+    parquet_db$column_max(table_name, column_name)
+
+#### Arguments
+
+- `table_name`:
+
+  Character string. Name of the table to query.
+
+- `column_name`:
+
+  Character string. Name of the column to get the maximum value for.
+
+#### Returns
+
+Maximum value of the column
+
+------------------------------------------------------------------------
+
 ### Method `list_tables()`
 
-List all tables (files) in storage
+List all tables (files and folders) in storage
 
 #### Usage
 
@@ -225,49 +185,23 @@ Character vector of table names
 
 ------------------------------------------------------------------------
 
-### Method `with_tables()`
-
-Execute a function with specified tables attached, handling
-attach/detach automatically. If a table is already attached in the
-DuckDB instance, it won't be re-attached or detached.
-
-#### Usage
-
-    parquet_db$with_tables(tables, func, ...)
-
-#### Arguments
-
-- `tables`:
-
-  Character vector of table names to attach
-
-- `func`:
-
-  Function to execute with tables attached
-
-- `...`:
-
-  Additional arguments passed to func
-
-#### Returns
-
-Result of func
-
-------------------------------------------------------------------------
-
 ### Method `fetch()`
 
 Fetch data from a table
 
 #### Usage
 
-    parquet_db$fetch(table_name, where = NULL, limit = NULL, map_cols = NULL)
+    parquet_db$fetch(table_name, cols = NULL, where = NULL, limit = NULL)
 
 #### Arguments
 
 - `table_name`:
 
   Character string. Name of the table to query.
+
+- `cols`:
+
+  SQL column selection string (e.g., "col1, col2" or "\*")
 
 - `where`:
 
@@ -334,55 +268,36 @@ Number of rows deleted
 ### Method `commit()`
 
 Commit data using overwrite, append, or upsert modes. Handles
-autoincrement, key identity columns, and list-to-MAP conversion.
+partitioning, key identity columns, and list-to-MAP conversion. These
+four special column types may be passed as attributes to the `x`
+argument. If the table has previously been written to, these settings
+are recovered from the parquet metadata.
 
 #### Usage
 
-    parquet_db$commit(
-      x,
-      table_name,
-      key_cols,
-      autoincrement_cols = character(0),
-      map_cols = character(0),
-      partition_cols = character(0),
-      method = c("overwrite", "append", "upsert")
-    )
+    parquet_db$commit(x, table_name, method = c("overwrite", "append", "upsert"))
 
 #### Arguments
 
 - `x`:
 
-  Data frame to commit. If character, in-duckdb-memory table.
+  If data.table, the data to commit. If character, treated as an
+  in-DuckDB-memory table or view name.
 
 - `table_name`:
 
-  Character string table name
-
-- `key_cols`:
-
-  Character vector of columns that define uniqueness. If missing, use
-  all columns starting with `id_`
-
-- `autoincrement_cols`:
-
-  Character vector of column names to auto-increment
-
-- `map_cols`:
-
-  Character vector of columns to convert to MAP format
-
-- `partition_cols`:
-
-  Character vector of columns to use for partitioning
+  Target table name to commit to.
 
 - `method`:
 
   Character, one of "overwrite", "append", "upsert" (upsert being an
-  update for existing rows, and insert for new rows)
+  update for existing rows, and insert for new rows; this necessitates
+  loading the full data into memory to know what to update. This may be
+  expensive.
 
 #### Returns
 
-Invisible NULL (called for side effects)
+Number of rows written
 
 ------------------------------------------------------------------------
 
@@ -392,9 +307,13 @@ Print method for parquet_db
 
 #### Usage
 
-    parquet_db$print(...)
+    parquet_db$print(subheaders = character(0), ...)
 
 #### Arguments
+
+- `subheaders`:
+
+  optional character vector; insert as subheaders lines
 
 - `...`:
 
@@ -402,19 +321,47 @@ Print method for parquet_db
 
 #### Returns
 
-self (invisibly) param x Data frame to commit. If character,
-in-duckdb-memory table. param table_name Character string table name
-param autoincrement_cols Character vector of column names to
-auto-increment return Invisible NULL (called for side effects) param x
-Data frame to commit. If character, in-duckdb-memory table. param
-table_name Character string table name param autoincrement_cols
-Character vector of column names to auto-increment return Invisible NULL
-(called for side effects) param x Data frame to commit. If character,
-in-duckdb-memory table. param table_name Character string table name
-param key_cols Character vector of columns that define uniqueness. If
-missing, use all columns starting with `id_` param autoincrement_cols
-Character vector of column names to auto-increment return Invisible NULL
-(called for side effects)
+self (invisibly)
+
+------------------------------------------------------------------------
+
+### Method `get_table_path()`
+
+Get file path (or directory path) for a table
+
+#### Usage
+
+    parquet_db$get_table_path(table_name)
+
+#### Arguments
+
+- `table_name`:
+
+  Character string table name
+
+#### Returns
+
+Character path
+
+------------------------------------------------------------------------
+
+### Method `get_read_expr()`
+
+Get SQL expression to read a table
+
+#### Usage
+
+    parquet_db$get_read_expr(table_name)
+
+#### Arguments
+
+- `table_name`:
+
+  Character string table name
+
+#### Returns
+
+Character string SQL expression
 
 ------------------------------------------------------------------------
 

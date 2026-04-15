@@ -6,7 +6,7 @@ multiple performance metrics including correlation, MSE, and AUC.
 ## Usage
 
 ``` r
-gof_glm(model, test_data, result_col = "result", ...)
+gof_glm(model, test_data, ...)
 ```
 
 ## Arguments
@@ -19,10 +19,6 @@ gof_glm(model, test_data, result_col = "result", ...)
 
   A data.table containing test data with the same structure as training
   data
-
-- result_col:
-
-  Name of the column representing the transition results
 
 - ...:
 

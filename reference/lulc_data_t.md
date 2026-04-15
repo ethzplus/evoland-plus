@@ -9,6 +9,8 @@ as_lulc_data_t(x)
 
 # S3 method for class 'lulc_data_t'
 print(x, nrow = 10, ...)
+
+lulc_data_as_rast(self, id_period = NULL)
 ```
 
 ## Arguments
@@ -16,34 +18,40 @@ print(x, nrow = 10, ...)
 - x:
 
   An object that can be passed to
-  [`data.table::setDT()`](https://rdatatable.gitlab.io/data.table/reference/setDT.html)
+  [`data.table::setDT()`](https://rdrr.io/pkg/data.table/man/setDT.html)
 
 - nrow:
 
   see
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 - ...:
 
   passed to
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
+
+- id_period:
+
+  Integer or vector of integers specifying which periods to retrieve;
+  returned as layers.
 
 ## Value
 
 A data.table of class "lulc_data_t" with columns:
 
-- `id_coord`: Foreign key to coords_t
+- `id_run`: Foreign key to runs_t
+
+- `id_period`: Foreign key to periods_t
 
 - `id_lulc`: Foreign key to lulc_meta_t
 
-- `id_period`: Foreign key to periods_t
+- `id_coord`: Foreign key to coords_t
 
 ## Methods (by generic)
 
 - `print(lulc_data_t)`: Print an lulc_data_t object, passing params to
   data.table print
 
-## See also
+## Functions
 
-[evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
-method `$lulc_data_as_rast()` for converting to terra SpatRast
+- `lulc_data_as_rast()`: Retrieve LULC data as SpatRaster

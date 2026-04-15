@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -47,13 +47,6 @@
 
       <dl><dt>
 
-          <code><a href="alloc_dinamica.html">alloc_dinamica</a></code>
-
-        </dt>
-        <dd>Dinamica EGO Allocation Methods</dd>
-
-        <dt>
-
           <code><a href="calc_fuzzy_similarity.html">calc_fuzzy_similarity()</a></code>
 
         </dt>
@@ -75,13 +68,6 @@
 
         <dt>
 
-          <code><a href="create_alloc_params_t.html">create_alloc_params_t</a></code>
-
-        </dt>
-        <dd>Initialize Allocation Parameters Table</dd>
-
-        <dt>
-
           <code><a href="create_change_map.html">create_change_map()</a></code>
 
         </dt>
@@ -89,35 +75,21 @@
 
         <dt>
 
-          <code><a href="eval_alloc_params_t.html">eval_alloc_params_t</a></code>
-
-        </dt>
-        <dd>Evaluate Allocation Parameters with Fuzzy Similarity</dd>
-
-        <dt>
-
           <code><a href="evoland_db.html">evoland_db</a></code>
 
         </dt>
-        <dd>R6 Class for Folder-Based Data Storage Interface</dd>
+        <dd><code>evoland_db</code> - R6 Class for lulc data management</dd>
 
         <dt>
 
-          <code><a href="evoland_db_neighbors.html">evoland_db_neighbors</a></code>
+          <code><a href="evoland_db_util.html">get_evoland_db_read_expr()</a></code> <code><a href="evoland_db_util.html">run_parallel_evoland()</a></code>
 
         </dt>
-        <dd>Neighbor analysis methods for evoland_db</dd>
+        <dd>Utility functions and methods for <code>evoland_db</code></dd>
 
         <dt>
 
-          <code><a href="evoland_db_tables.html">evoland_db_tables</a></code>
-
-        </dt>
-        <dd>Table active bindings for evoland_db</dd>
-
-        <dt>
-
-          <code><a href="evoland_db_views.html">evoland_db_views</a></code>
+          <code><a href="evoland_db_views.html">evoland_db_views</a></code> <code><a href="evoland_db_views.html">lulc_meta_long_v</a></code> <code><a href="evoland_db_views.html">pred_sources_v</a></code> <code><a href="evoland_db_views.html">trans_v</a></code> <code><a href="evoland_db_views.html">coords_minimal</a></code> <code><a href="evoland_db_views.html">trans_pred_data_v</a></code> <code><a href="evoland_db_views.html">trans_rates_dinamica_v</a></code>
 
         </dt>
         <dd>Views on the evoland-plus data model</dd>
@@ -173,17 +145,10 @@
 
         <dt>
 
-          <code><a href="intrv_meta_t.html">as_intrv_meta_t()</a></code> <code><a href="intrv_meta_t.html">create_intrv_meta_t()</a></code> <code><a href="intrv_meta_t.html">create_intrv_meta_t_row()</a></code> <code><a href="intrv_meta_t.html">print(<i>&lt;intrv_meta_t&gt;</i>)</a></code>
+          <code><a href="intrv_meta_t.html">as_intrv_meta_t()</a></code> <code><a href="intrv_meta_t.html">create_intrv_meta_t()</a></code> <code><a href="intrv_meta_t.html">print(<i>&lt;intrv_meta_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Intervention Metadata Table / Entries</dd>
-
-        <dt>
-
-          <code><a href="lulc_data_t.html">as_lulc_data_t()</a></code> <code><a href="lulc_data_t.html">print(<i>&lt;lulc_data_t&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Create LULC Data Table</dd>
 
         <dt>
 
@@ -194,7 +159,7 @@
 
         <dt>
 
-          <code><a href="neighbors_t.html">as_neighbors_t()</a></code> <code><a href="neighbors_t.html">create_neighbors_t()</a></code> <code><a href="neighbors_t.html">validate(<i>&lt;neighbors_t&gt;</i>)</a></code> <code><a href="neighbors_t.html">print(<i>&lt;neighbors_t&gt;</i>)</a></code>
+          <code><a href="neighbors_t.html">as_neighbors_t()</a></code> <code><a href="neighbors_t.html">create_neighbors_t()</a></code> <code><a href="neighbors_t.html">validate(<i>&lt;neighbors_t&gt;</i>)</a></code> <code><a href="neighbors_t.html">print(<i>&lt;neighbors_t&gt;</i>)</a></code> <code><a href="neighbors_t.html">set_neighbors()</a></code> <code><a href="neighbors_t.html">generate_neighbor_predictors()</a></code> <code><a href="neighbors_t.html">upsert_new_neighbors()</a></code>
 
         </dt>
         <dd>Create Neighbors Table</dd>
@@ -215,13 +180,6 @@
 
         <dt>
 
-          <code><a href="pred_data_t.html">as_pred_data_t()</a></code> <code><a href="pred_data_t.html">print(<i>&lt;pred_data_t&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Create Predictor Data Table</dd>
-
-        <dt>
-
           <code><a href="pred_meta_t.html">as_pred_meta_t()</a></code> <code><a href="pred_meta_t.html">create_pred_meta_t()</a></code> <code><a href="pred_meta_t.html">print(<i>&lt;pred_meta_t&gt;</i>)</a></code>
 
         </dt>
@@ -229,24 +187,10 @@
 
         <dt>
 
-          <code><a href="reporting_t.html">as_reporting_t()</a></code>
+          <code><a href="runs_t.html">as_runs_t()</a></code> <code><a href="runs_t.html">print(<i>&lt;runs_t&gt;</i>)</a></code> <code><a href="runs_t.html">db_active_id_run()</a></code>
 
         </dt>
-        <dd>Create Reporting Table</dd>
-
-        <dt>
-
-          <code><a href="run_parallel_task.html">run_parallel_task()</a></code>
-
-        </dt>
-        <dd>Run a function in parallel over a list of items</dd>
-
-        <dt>
-
-          <code><a href="tabular_to_raster.html">tabular_to_raster()</a></code>
-
-        </dt>
-        <dd>Convert tabular LULC data to raster</dd>
+        <dd>Create Runs Table</dd>
 
         <dt>
 
@@ -257,28 +201,28 @@
 
         <dt>
 
-          <code><a href="trans_models_t.html">as_trans_models_t()</a></code> <code><a href="trans_models_t.html">print(<i>&lt;trans_models_t&gt;</i>)</a></code>
+          <code><a href="trans_models_t.html">as_trans_models_t()</a></code> <code><a href="trans_models_t.html">fit_partial_models()</a></code> <code><a href="trans_models_t.html">fit_full_models()</a></code> <code><a href="trans_models_t.html">print(<i>&lt;trans_models_t&gt;</i>)</a></code>
 
         </dt>
         <dd>Create Transition Models Table</dd>
 
         <dt>
 
-          <code><a href="trans_preds_t.html">as_trans_preds_t()</a></code> <code><a href="trans_preds_t.html">print(<i>&lt;trans_preds_t&gt;</i>)</a></code>
+          <code><a href="trans_pot_t.html">as_trans_pot_t()</a></code> <code><a href="trans_pot_t.html">print(<i>&lt;trans_pot_t&gt;</i>)</a></code> <code><a href="trans_pot_t.html">predict_trans_pot()</a></code>
+
+        </dt>
+        <dd>Calculate Transition Potential</dd>
+
+        <dt>
+
+          <code><a href="trans_preds_t.html">as_trans_preds_t()</a></code> <code><a href="trans_preds_t.html">print(<i>&lt;trans_preds_t&gt;</i>)</a></code> <code><a href="trans_preds_t.html">set_full_trans_preds()</a></code> <code><a href="trans_preds_t.html">get_pruned_trans_preds_t()</a></code>
 
         </dt>
         <dd>Create Transition-Predictor Relationship Table</dd>
 
         <dt>
 
-          <code><a href="trans_rates_t.html">as_trans_rates_t()</a></code> <code><a href="trans_rates_t.html">create_obs_trans_rates_t()</a></code> <code><a href="trans_rates_t.html">create_extr_trans_rates_t()</a></code> <code><a href="trans_rates_t.html">print(<i>&lt;trans_rates_t&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Create Transition Rates Table</dd>
-
-        <dt>
-
-          <code><a href="util.html">validate()</a></code> <code><a href="util.html">new_evoland_table()</a></code> <code><a href="util.html">check_missing_names()</a></code> <code><a href="util.html">`%||%`</a></code> <code><a href="util.html">pluck_wildcard()</a></code> <code><a href="util.html">ensure_dir()</a></code> <code><a href="util.html">print_rowwise_yaml()</a></code> <code><a href="util.html">cast_dt_col()</a></code>
+          <code><a href="util.html">validate()</a></code> <code><a href="util.html">`%||%`</a></code> <code><a href="util.html">pluck_wildcard()</a></code> <code><a href="util.html">ensure_dir()</a></code> <code><a href="util.html">print_rowwise_yaml()</a></code> <code><a href="util.html">cast_dt_col()</a></code>
 
         </dt>
         <dd>evoland utility functions</dd>
@@ -299,14 +243,7 @@
 
         <dt>
 
-          <code><a href="util_parallel.html">util_parallel</a></code>
-
-        </dt>
-        <dd>Parallel Processing Utilities</dd>
-
-        <dt>
-
-          <code><a href="util_terra.html">extract_using_coords_t()</a></code>
+          <code><a href="util_terra.html">extract_using_coords_t()</a></code> <code><a href="util_terra.html">tabular_to_raster()</a></code>
 
         </dt>
         <dd>evoland utility functions to work with terra objects</dd>

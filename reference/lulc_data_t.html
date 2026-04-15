@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,7 +46,9 @@
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">as_lulc_data_t</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'lulc_data_t'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">lulc_data_as_rast</span><span class="op">(</span><span class="va">self</span>, id_period <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -54,22 +56,28 @@
 
 
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
-<dd><p>An object that can be passed to <code><a href="https://rdatatable.gitlab.io/data.table/reference/setDT.html" class="external-link">data.table::setDT()</a></code></p></dd>
+<dd><p>An object that can be passed to <code><a href="https://rdrr.io/pkg/data.table/man/setDT.html" class="external-link">data.table::setDT()</a></code></p></dd>
 
 
 <dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
-<dd><p>see <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>see <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>passed to <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>passed to <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+
+
+<dt id="arg-id-period">id_period<a class="anchor" aria-label="anchor" href="#arg-id-period"></a></dt>
+<dd><p>Integer or vector of integers specifying which periods to
+retrieve; returned as layers.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data.table of class "lulc_data_t" with columns:</p><ul><li><p><code>id_coord</code>: Foreign key to coords_t</p></li>
-<li><p><code>id_lulc</code>: Foreign key to lulc_meta_t</p></li>
+    <p>A data.table of class "lulc_data_t" with columns:</p><ul><li><p><code>id_run</code>: Foreign key to runs_t</p></li>
 <li><p><code>id_period</code>: Foreign key to periods_t</p></li>
+<li><p><code>id_lulc</code>: Foreign key to lulc_meta_t</p></li>
+<li><p><code>id_coord</code>: Foreign key to coords_t</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="methods-by-generic-">Methods (by generic)<a class="anchor" aria-label="anchor" href="#methods-by-generic-"></a></h2>
@@ -77,9 +85,10 @@
 <ul><li><p><code>print(lulc_data_t)</code>: Print an lulc_data_t object, passing params to data.table print</p></li>
 </ul></div>
     <div class="section level2">
-    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><a href="evoland_db.html">evoland_db</a> method <code>$lulc_data_as_rast()</code> for converting to terra SpatRast</p></div>
-    </div>
+    <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
+
+<ul><li><p><code>lulc_data_as_rast()</code>: Retrieve LULC data as SpatRaster</p></li>
+</ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

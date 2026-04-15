@@ -24,12 +24,12 @@ print(x, nrow = 10, ...)
 - nrow:
 
   see
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 - ...:
 
   passed to
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 ## Value
 
@@ -70,9 +70,9 @@ create_lulc_meta_t(list(
 ))
 #> LULC Metadata Table
 #> Number of classes: 2
-#> Key: <id_lulc>
+#> Key: <name>
 #>    id_lulc   name  pretty_name                description src_classes
 #>      <int> <char>       <char>                     <char>      <list>
-#> 1:       1 forest Dense Forest Mature, dense forest cover         1,2
-#> 2:       2 arable  Arable land     Non-permanent cropland     3,4,5,6
+#> 1:       2 arable  Arable land     Non-permanent cropland     3,4,5,6
+#> 2:       1 forest Dense Forest Mature, dense forest cover         1,2
 ```

@@ -7,7 +7,7 @@ binomial as it better handles overdispersion in the data.
 ## Usage
 
 ``` r
-fit_glm(data, result_col = "result", ...)
+fit_glm(data, ...)
 ```
 
 ## Arguments
@@ -17,14 +17,9 @@ fit_glm(data, result_col = "result", ...)
   A data.table containing the result column and predictor columns
   (prefixed with "id_pred\_")
 
-- result_col:
-
-  Name of the column representing the transition results (logical: TRUE
-  = transition occurred, FALSE = no transition)
-
 - ...:
 
-  Additional arguments (currently unused, for future extensibility)
+  Additional arguments (currently ignored, for future extensibility)
 
 ## Value
 

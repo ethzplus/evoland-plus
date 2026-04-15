@@ -1,20 +1,15 @@
-# evoland-plus
-
-**evoland** **v**isualizes, **o**ptimizes, **l**ocalizes and **a**nd
-**d**etermines **p**redictable **l**and **u**se **s**hifts
+# evoland-plus ![plus shaped logo](reference/figures/evoland-plus-logo.svg)
 
 ## Overview
 
 The `evoland-plus` R package (or `evoland` for short) provides tools for
 analyzing and projecting land use evolution. The package implements a
 statistically calibrated, constrained model for predicting locations of
-future land use / land cover change (LULCC).
-
-### Analytic Aim
-
-The fundamental purpose of `evoland-plus` is to:
+future land use / land cover change (LULCC). The fundamental purpose of
+`evoland-plus` is to:
 
 - **Gather and process** land use/land cover data from multiple sources
+  into a clearly defined database structure.
 - **Calibrate statistical models** to understand historical land use
   transitions
 - **Project future land use patterns** using predictive models and
@@ -22,32 +17,53 @@ The fundamental purpose of `evoland-plus` is to:
 - **Support scenario analysis** through interventions and parameter
   modifications
 
-The package follows a three-phase workflow:
+## Installation
 
-1.  **Data Preparation**: Marshalling heterogeneous data sources into a
-    unified database structure
-2.  **Calibration**: Feature selection, training Markovian transition
-    models, and parameterizing allocation strategies
-3.  **Prediction + Allocation**: Recursive model evaluation to generate
-    future land use projections
+We suggest you use [rv](https://a2-ai.github.io/rv-docs/) to manage your
+dependencies in an encapsulated environment. Simply create an
+`rproject.toml` at the project root and execute `rv sync`.
 
-This represents a re-implementation and enhancement of the land use
-model published at <https://github.com/ethzplus/evoland-plus-legacy>,
-building on substantial prior experience while modernizing the technical
-implementation.
+``` toml
+# sample rproject.toml
+[project]
+name = "evoland-plus"
+r_version = "4.5"
 
-## Development Environment Setup
+repositories = [
+    { alias = "CRAN", url = "https://stat.ethz.ch/CRAN/" },
+]
+dependencies = [
+    # just use it: load using library(evoland)
+    { name = "evoland", git = "https://github.com/ethzplus/evoland-plus/", branch = "main" },
+]
+```
 
-You can use `renv` to set up a development environment with all
-dependencies. When you run `renv::init()` from inside the project
-directory, you’ll be asked to either install dependencies from the
-`DESCRIPTION` file, or to discover them from all project files. The
-former should be faster and sufficient, given that dependencies should
-always be declared in DESCRIPTION. During development,
-`devtools::load_all()` acts as though you were calling
-[`library(evoland)`](https://ethzplus.github.io/evoland-plus) on an
-installed package. This makes it easy to rapidly reload code when you’ve
-changed something.
+If you want to develop the model logic itself, you can opt to only
+install dependencies but not the package itself:
+
+``` toml
+dependencies = [    
+    # only install dependencies declared in DESCRIPTION
+    { name = "evoland", path = "~/path/to/local/repo", dependencies_only = true, install_suggestions = true },
+    "devtools", # sundry development tasks
+    "mirai", # modern multiprocessing
+    "httpgd", # webview plotting
+    "languageserver", # assuming your IDE loads the rv library instead of system
+]
+```
+
+During development, `devtools::load_all()` acts as though you were
+calling [`library(evoland)`](https://ethzplus.github.io/evoland-plus) on
+an installed package. This makes it easy to rapidly reload code when
+you’ve changed something.
+
+## Contributing
+
+PRs are very welcome! It’s probably best to first discuss the underlying
+issue; @mmyrte is very happy to help figure out a solution. Code should
+be autoformatted using [air](https://posit-dev.github.io/air/) before
+committing. Tests are written as `tinytest`s that can be run after
+package installation, ensuring that your system is set up correctly.
 
 ## Documentation
 
@@ -69,136 +85,159 @@ This project is licensed under the AGPL-3 License - see the
 [LICENSE.md](https://ethzplus.github.io/evoland-plus/LICENSE.md) file
 for details.
 
-## Contributing
-
-Don’t hesitate to get in contact with @mmyrte and/or @blenback if you’d
-like to contribute!
-
 ## Acknowledgments
 
-This work builds upon the foundational research and implementation
-available at <https://github.com/blenback/LULCC-CH>.
+This work represents a re-implementation and enhancement of [Benjamin
+Black’s](https://ethzplus.github.io/blenback) land use model published
+at <https://github.com/ethzplus/evoland-plus-legacy>, building on
+substantial prior experience while modernizing the technical
+implementation.
 
 # Package index
 
 ## All functions
 
-- [`alloc_dinamica`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
-  : Dinamica EGO Allocation Methods
 - [`calc_fuzzy_similarity()`](https://ethzplus.github.io/evoland-plus/reference/calc_fuzzy_similarity.md)
   : Compute fuzzy neighborhood similarity between two categorical
   rasters
+
 - [`calc_transition_similarity()`](https://ethzplus.github.io/evoland-plus/reference/calc_transition_similarity.md)
   : Compute fuzzy similarity of differences for transition validation
+
 - [`as_coords_t()`](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
   [`print(`*`<coords_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
   [`create_coords_t_square()`](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
   : Coordinate Tables
-- [`create_alloc_params_t`](https://ethzplus.github.io/evoland-plus/reference/create_alloc_params_t.md)
-  : Initialize Allocation Parameters Table
+
 - [`create_change_map()`](https://ethzplus.github.io/evoland-plus/reference/create_change_map.md)
   : Create change/difference map between two time periods
-- [`eval_alloc_params_t`](https://ethzplus.github.io/evoland-plus/reference/eval_alloc_params_t.md)
-  : Evaluate Allocation Parameters with Fuzzy Similarity
+
 - [`evoland_db`](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
-  : R6 Class for Folder-Based Data Storage Interface
-- [`evoland_db_neighbors`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_neighbors.md)
-  : Neighbor analysis methods for evoland_db
-- [`evoland_db_tables`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_tables.md)
-  : Table active bindings for evoland_db
+  :
+
+  `evoland_db` - R6 Class for lulc data management
+
+- [`get_evoland_db_read_expr()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_util.md)
+  [`run_parallel_evoland()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_util.md)
+  :
+
+  Utility functions and methods for `evoland_db`
+
 - [`evoland_db_views`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  [`lulc_meta_long_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  [`pred_sources_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  [`trans_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  [`coords_minimal`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  [`trans_pred_data_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  [`trans_rates_dinamica_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   : Views on the evoland-plus data model
+
 - [`fit_glm()`](https://ethzplus.github.io/evoland-plus/reference/fit_glm.md)
   : GLM Model Fitting for Transition Models
+
 - [`fit_ranger()`](https://ethzplus.github.io/evoland-plus/reference/fit_ranger.md)
   : Random Forest Model Fitting for Transition Models
+
 - [`fuzzy_similarity`](https://ethzplus.github.io/evoland-plus/reference/fuzzy_similarity.md)
   : Fuzzy Similarity for Spatial Validation
+
 - [`gof_glm()`](https://ethzplus.github.io/evoland-plus/reference/gof_glm.md)
   : Goodness of Fit Evaluation for GLM Models
+
 - [`gof_ranger()`](https://ethzplus.github.io/evoland-plus/reference/gof_ranger.md)
   : Goodness of Fit Evaluation for Random Forest Models
+
 - [`grrf_filter()`](https://ethzplus.github.io/evoland-plus/reference/grrf_filter.md)
   : Guided Regularized Random Forest Feature Selection
+
 - [`as_intrv_masks_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
   [`print(`*`<intrv_masks_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
   : Create Intervention Masks Table
+
 - [`as_intrv_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_meta_t.md)
   [`create_intrv_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_meta_t.md)
-  [`create_intrv_meta_t_row()`](https://ethzplus.github.io/evoland-plus/reference/intrv_meta_t.md)
   [`print(`*`<intrv_meta_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/intrv_meta_t.md)
   : Create Intervention Metadata Table / Entries
-- [`as_lulc_data_t()`](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
-  [`print(`*`<lulc_data_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
-  : Create LULC Data Table
+
 - [`as_lulc_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.md)
   [`create_lulc_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.md)
   [`print(`*`<lulc_meta_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.md)
   : Create LULC Metadata Table
+
 - [`as_neighbors_t()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`create_neighbors_t()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`validate(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`print(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+  [`set_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+  [`generate_neighbor_predictors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+  [`upsert_new_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   : Create Neighbors Table
+
 - [`parquet_db`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
   : R6 Base Class for Parquet-Backed DuckDB Storage
+
 - [`as_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
   [`create_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
   [`print(`*`<periods_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
   : Create Period Table
-- [`as_pred_data_t()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
-  [`print(`*`<pred_data_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
-  : Create Predictor Data Table
+
 - [`as_pred_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
   [`create_pred_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
   [`print(`*`<pred_meta_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
   : Create Predictor Metadata Table
-- [`as_reporting_t()`](https://ethzplus.github.io/evoland-plus/reference/reporting_t.md)
-  : Create Reporting Table
-- [`run_parallel_task()`](https://ethzplus.github.io/evoland-plus/reference/run_parallel_task.md)
-  : Run a function in parallel over a list of items
-- [`tabular_to_raster()`](https://ethzplus.github.io/evoland-plus/reference/tabular_to_raster.md)
-  : Convert tabular LULC data to raster
+
+- [`as_runs_t()`](https://ethzplus.github.io/evoland-plus/reference/runs_t.md)
+  [`print(`*`<runs_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/runs_t.md)
+  [`db_active_id_run()`](https://ethzplus.github.io/evoland-plus/reference/runs_t.md)
+  : Create Runs Table
+
 - [`as_trans_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
   [`create_trans_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
   [`print(`*`<trans_meta_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
   : Create Transition Metadata Table
+
 - [`as_trans_models_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+  [`fit_partial_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+  [`fit_full_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
   [`print(`*`<trans_models_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
   : Create Transition Models Table
+
+- [`as_trans_pot_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md)
+  [`print(`*`<trans_pot_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md)
+  [`predict_trans_pot()`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md)
+  : Calculate Transition Potential
+
 - [`as_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   [`print(`*`<trans_preds_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
+  [`set_full_trans_preds()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
+  [`get_pruned_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   : Create Transition-Predictor Relationship Table
-- [`as_trans_rates_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
-  [`create_obs_trans_rates_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
-  [`create_extr_trans_rates_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
-  [`print(`*`<trans_rates_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
-  : Create Transition Rates Table
+
 - [`validate()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
-  [`new_evoland_table()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
-  [`check_missing_names()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`` `%||%` ``](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`pluck_wildcard()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`ensure_dir()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`print_rowwise_yaml()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`cast_dt_col()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   : evoland utility functions
+
 - [`exec_dinamica()`](https://ethzplus.github.io/evoland-plus/reference/util_dinamica.md)
   [`run_alloc_dinamica()`](https://ethzplus.github.io/evoland-plus/reference/util_dinamica.md)
   [`process_dinamica_script()`](https://ethzplus.github.io/evoland-plus/reference/util_dinamica.md)
   : Dinamica Utility Functions
+
 - [`download_and_verify()`](https://ethzplus.github.io/evoland-plus/reference/util_download.md)
   : Utilities to download and manage files
-- [`util_parallel`](https://ethzplus.github.io/evoland-plus/reference/util_parallel.md)
-  : Parallel Processing Utilities
+
 - [`extract_using_coords_t()`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
+  [`tabular_to_raster()`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
   : evoland utility functions to work with terra objects
 
 # Articles
 
 ### All vignettes
 
-- [Getting Started - Ingest Swiss Arealstatistik LULC
-  Data](https://ethzplus.github.io/evoland-plus/articles/evoland.md):
+- [\`evoland-plus\`
+  tutorial](https://ethzplus.github.io/evoland-plus/articles/evoland.md):
 - [Ingest GeoTIFFs as
   Predictors](https://ethzplus.github.io/evoland-plus/articles/ingest-predictors.md):

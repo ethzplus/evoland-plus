@@ -73,4 +73,4 @@ the Euclidean distance from the center cell.
 
 Hagen, A. (2003). Fuzzy set approach to assessing similarity of
 categorical maps. International Journal of Geographical Information
-Science, 17(3), 235-249.
+Science, 17(3), 235-249. https://doi.org/10.1080/13658810210157822

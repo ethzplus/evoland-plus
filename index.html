@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -53,20 +53,15 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><div class="section level1">
-<div class="page-header"><h1 id="evoland-plus">evoland-plus<a class="anchor" aria-label="anchor" href="#evoland-plus"></a>
+<div class="page-header"><h1 id="evoland-plus-">evoland-plus <img src="reference/figures/evoland-plus-logo.svg" alt="plus shaped logo" height="150" width="150" align="right"><a class="anchor" aria-label="anchor" href="#evoland-plus-"></a>
 </h1></div>
-<p><strong>evoland</strong> <strong>v</strong>isualizes, <strong>o</strong>ptimizes, <strong>l</strong>ocalizes and <strong>a</strong>nd <strong>d</strong>etermines <strong>p</strong>redictable <strong>l</strong>and <strong>u</strong>se <strong>s</strong>hifts</p>
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>The <code>evoland-plus</code> R package (or <code>evoland</code> for short) provides tools for analyzing and projecting land use evolution. The package implements a statistically calibrated, constrained model for predicting locations of future land use / land cover change (LULCC).</p>
-<div class="section level3">
-<h3 id="analytic-aim">Analytic Aim<a class="anchor" aria-label="anchor" href="#analytic-aim"></a>
-</h3>
-<p>The fundamental purpose of <code>evoland-plus</code> is to:</p>
+<p>The <code>evoland-plus</code> R package (or <code>evoland</code> for short) provides tools for analyzing and projecting land use evolution. The package implements a statistically calibrated, constrained model for predicting locations of future land use / land cover change (LULCC). The fundamental purpose of <code>evoland-plus</code> is to:</p>
 <ul>
 <li>
-<strong>Gather and process</strong> land use/land cover data from multiple sources</li>
+<strong>Gather and process</strong> land use/land cover data from multiple sources into a clearly defined database structure.</li>
 <li>
 <strong>Calibrate statistical models</strong> to understand historical land use transitions</li>
 <li>
@@ -74,22 +69,38 @@
 <li>
 <strong>Support scenario analysis</strong> through interventions and parameter modifications</li>
 </ul>
-<p>The package follows a three-phase workflow:</p>
-<ol style="list-style-type: decimal">
-<li>
-<strong>Data Preparation</strong>: Marshalling heterogeneous data sources into a unified database structure</li>
-<li>
-<strong>Calibration</strong>: Feature selection, training Markovian transition models, and parameterizing allocation strategies</li>
-<li>
-<strong>Prediction + Allocation</strong>: Recursive model evaluation to generate future land use projections</li>
-</ol>
-<p>This represents a re-implementation and enhancement of the land use model published at <a href="https://github.com/ethzplus/evoland-plus-legacy" class="external-link uri">https://github.com/ethzplus/evoland-plus-legacy</a>, building on substantial prior experience while modernizing the technical implementation.</p>
-</div>
 </div>
 <div class="section level2">
-<h2 id="development-environment-setup">Development Environment Setup<a class="anchor" aria-label="anchor" href="#development-environment-setup"></a>
+<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>You can use <code>renv</code> to set up a development environment with all dependencies. When you run <code>renv::init()</code> from inside the project directory, you’ll be asked to either install dependencies from the <code>DESCRIPTION</code> file, or to discover them from all project files. The former should be faster and sufficient, given that dependencies should always be declared in DESCRIPTION. During development, <code>devtools::load_all()</code> acts as though you were calling <code><a href="https://ethzplus.github.io/evoland-plus">library(evoland)</a></code> on an installed package. This makes it easy to rapidly reload code when you’ve changed something.</p>
+<p>We suggest you use <a href="https://a2-ai.github.io/rv-docs/" class="external-link">rv</a> to manage your dependencies in an encapsulated environment. Simply create an <code>rproject.toml</code> at the project root and execute <code>rv sync</code>.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode toml"><code class="sourceCode toml"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># sample rproject.toml</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="kw">[project]</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="dt">name</span> <span class="op">=</span> <span class="st">"evoland-plus"</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="dt">r_version</span> <span class="op">=</span> <span class="st">"4.5"</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="dt">repositories</span> <span class="op">=</span> <span class="op">[</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>    <span class="op">{ </span><span class="dt">alias</span><span class="op"> =</span> <span class="st">"CRAN"</span><span class="op">, </span><span class="dt">url</span><span class="op"> =</span> <span class="st">"https://stat.ethz.ch/CRAN/"</span><span class="op"> },</span></span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="op">]</span></span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="dt">dependencies</span> <span class="op">=</span> <span class="op">[</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>    <span class="co"># just use it: load using library(evoland)</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>    <span class="op">{ </span><span class="dt">name</span><span class="op"> =</span> <span class="st">"evoland"</span><span class="op">, </span><span class="dt">git</span><span class="op"> =</span> <span class="st">"https://github.com/ethzplus/evoland-plus/"</span><span class="op">, </span><span class="dt">branch</span><span class="op"> =</span> <span class="st">"main"</span><span class="op"> },</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="op">]</span></span></code></pre></div>
+<p>If you want to develop the model logic itself, you can opt to only install dependencies but not the package itself:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode toml"><code class="sourceCode toml"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="dt">dependencies</span> <span class="op">=</span> <span class="op">[</span>    </span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>    <span class="co"># only install dependencies declared in DESCRIPTION</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>    <span class="op">{ </span><span class="dt">name</span><span class="op"> =</span> <span class="st">"evoland"</span><span class="op">, </span><span class="dt">path</span><span class="op"> =</span> <span class="st">"~/path/to/local/repo"</span><span class="op">, </span><span class="dt">dependencies_only</span><span class="op"> =</span> <span class="cn">true</span><span class="op">, </span><span class="dt">install_suggestions</span><span class="op"> =</span> <span class="cn">true</span><span class="op"> },</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>    <span class="st">"devtools"</span><span class="op">,</span> <span class="co"># sundry development tasks</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>    <span class="st">"mirai"</span><span class="op">,</span> <span class="co"># modern multiprocessing</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>    <span class="st">"httpgd"</span><span class="op">,</span> <span class="co"># webview plotting</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>    <span class="st">"languageserver"</span><span class="op">,</span> <span class="co"># assuming your IDE loads the rv library instead of system</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="op">]</span></span></code></pre></div>
+<p>During development, <code>devtools::load_all()</code> acts as though you were calling <code><a href="https://ethzplus.github.io/evoland-plus">library(evoland)</a></code> on an installed package. This makes it easy to rapidly reload code when you’ve changed something.</p>
+</div>
+<div class="section level2">
+<h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
+</h2>
+<p>PRs are very welcome! It’s probably best to first discuss the underlying issue; @mmyrte is very happy to help figure out a solution. Code should be autoformatted using <a href="https://posit-dev.github.io/air/" class="external-link">air</a> before committing. Tests are written as <code>tinytest</code>s that can be run after package installation, ensuring that your system is set up correctly.</p>
 </div>
 <div class="section level2">
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
@@ -117,14 +128,9 @@
 <p>This project is licensed under the AGPL-3 License - see the <a href="LICENSE.html">LICENSE.md</a> file for details.</p>
 </div>
 <div class="section level2">
-<h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
-</h2>
-<p>Don’t hesitate to get in contact with @mmyrte and/or @blenback if you’d like to contribute!</p>
-</div>
-<div class="section level2">
 <h2 id="acknowledgments">Acknowledgments<a class="anchor" aria-label="anchor" href="#acknowledgments"></a>
 </h2>
-<p>This work builds upon the foundational research and implementation available at <a href="https://github.com/blenback/LULCC-CH" class="external-link uri">https://github.com/blenback/LULCC-CH</a>.</p>
+<p>This work represents a re-implementation and enhancement of <a href="/blenback">Benjamin Black’s</a> land use model published at <a href="https://github.com/ethzplus/evoland-plus-legacy" class="external-link uri">https://github.com/ethzplus/evoland-plus-legacy</a>, building on substantial prior experience while modernizing the technical implementation.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><div class="links">

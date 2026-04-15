@@ -7,7 +7,7 @@ AUC, and out-of-bag error.
 ## Usage
 
 ``` r
-gof_ranger(model, test_data, result_col = "result", ...)
+gof_ranger(model, test_data)
 ```
 
 ## Arguments
@@ -20,10 +20,6 @@ gof_ranger(model, test_data, result_col = "result", ...)
 
   A data.table containing test data with the same structure as training
   data
-
-- result_col:
-
-  Name of the column representing the transition results
 
 - ...:
 

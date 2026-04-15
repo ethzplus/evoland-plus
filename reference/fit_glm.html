@@ -11,7 +11,7 @@ handles overdispersion in the data."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,7 +49,7 @@ handles overdispersion in the data.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fit_glm</span><span class="op">(</span><span class="va">data</span>, result_col <span class="op">=</span> <span class="st">"result"</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fit_glm</span><span class="op">(</span><span class="va">data</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -61,13 +61,8 @@ handles overdispersion in the data.</p>
 (prefixed with "id_pred_")</p></dd>
 
 
-<dt id="arg-result-col">result_col<a class="anchor" aria-label="anchor" href="#arg-result-col"></a></dt>
-<dd><p>Name of the column representing the transition results
-(logical: TRUE = transition occurred, FALSE = no transition)</p></dd>
-
-
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Additional arguments (currently unused, for future extensibility)</p></dd>
+<dd><p>Additional arguments (currently ignored, for future extensibility)</p></dd>
 
 </dl></div>
     <div class="section level2">

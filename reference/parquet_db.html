@@ -13,7 +13,7 @@ domain-specific database classes."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -65,8 +65,8 @@ domain-specific database classes.</p>
 <dd><p>Write options for DuckDB parquet output</p></dd>
 
 
-<dt><code>partitioning</code></dt>
-<dd><p>Named list of character vectors defining partition columns for tables</p></dd>
+<dt><code>read_only</code></dt>
+<dd><p>If true, prevents writes that are not parallel-safe</p></dd>
 
 
 </dl><p></p></div>
@@ -78,31 +78,34 @@ domain-specific database classes.</p>
 <h3 id="public-methods">Public methods<a class="anchor" aria-label="anchor" href="#public-methods"></a></h3>
 
 <ul><li><p><a href="#method-parquet_db-new"><code>parquet_db$new()</code></a></p></li>
-<li><p><a href="#method-parquet_db-set_partitioning"><code>parquet_db$set_partitioning()</code></a></p></li>
 <li><p><a href="#method-parquet_db-execute"><code>parquet_db$execute()</code></a></p></li>
 <li><p><a href="#method-parquet_db-get_query"><code>parquet_db$get_query()</code></a></p></li>
-<li><p><a href="#method-parquet_db-attach_table"><code>parquet_db$attach_table()</code></a></p></li>
-<li><p><a href="#method-parquet_db-detach_table"><code>parquet_db$detach_table()</code></a></p></li>
 <li><p><a href="#method-parquet_db-row_count"><code>parquet_db$row_count()</code></a></p></li>
+<li><p><a href="#method-parquet_db-column_max"><code>parquet_db$column_max()</code></a></p></li>
 <li><p><a href="#method-parquet_db-list_tables"><code>parquet_db$list_tables()</code></a></p></li>
-<li><p><a href="#method-parquet_db-with_tables"><code>parquet_db$with_tables()</code></a></p></li>
 <li><p><a href="#method-parquet_db-fetch"><code>parquet_db$fetch()</code></a></p></li>
 <li><p><a href="#method-parquet_db-get_table_metadata"><code>parquet_db$get_table_metadata()</code></a></p></li>
 <li><p><a href="#method-parquet_db-delete_from"><code>parquet_db$delete_from()</code></a></p></li>
 <li><p><a href="#method-parquet_db-commit"><code>parquet_db$commit()</code></a></p></li>
 <li><p><a href="#method-parquet_db-print"><code>parquet_db$print()</code></a></p></li>
+<li><p><a href="#method-parquet_db-get_table_path"><code>parquet_db$get_table_path()</code></a></p></li>
+<li><p><a href="#method-parquet_db-get_read_expr"><code>parquet_db$get_read_expr()</code></a></p></li>
 <li><p><a href="#method-parquet_db-clone"><code>parquet_db$clone()</code></a></p></li>
 </ul></div><p></p><hr><a id="method-parquet_db-new"></a><div class="section">
 <h3 id="method-new-">Method <code>new()</code><a class="anchor" aria-label="anchor" href="#method-new-"></a></h3>
 <p>Initialize a new parquet_db object</p><div class="section">
 <h4 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/parquet_db.html">parquet_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="va">path</span>, extensions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/parquet_db.html">parquet_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="va">path</span>, read_only <span class="op">=</span> <span class="cn">FALSE</span>, extensions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
 <h4 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>path</code></dt>
 <dd><p>Character string. Path to the data folder.</p></dd>
+
+
+<dt><code>read_only</code></dt>
+<dd><p>Logical. If true, prevents writes that are not parallel-safe.</p></dd>
 
 
 <dt><code>extensions</code></dt>
@@ -116,35 +119,15 @@ domain-specific database classes.</p>
 <p>A new <code>parquet_db</code> object</p>
 </div>
 
-</div><p></p><hr><a id="method-parquet_db-set_partitioning"></a><div class="section">
-<h3 id="method-set-partitioning-">Method <code>set_partitioning()</code><a class="anchor" aria-label="anchor" href="#method-set-partitioning-"></a></h3>
-<p>Set partitioning scheme for a table</p><div class="section">
-<h4 id="usage-1">Usage<a class="anchor" aria-label="anchor" href="#usage-1"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">set_partitioning</span><span class="op">(</span><span class="va">table_name</span>, <span class="va">cols</span><span class="op">)</span></span></code></pre></div><p></p></div>
-</div>
-
-<div class="section">
-<h4 id="arguments-1">Arguments<a class="anchor" aria-label="anchor" href="#arguments-1"></a></h4>
-<p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
-<dd><p>Character string</p></dd>
-
-
-<dt><code>cols</code></dt>
-<dd><p>Character vector of column names to partition by</p></dd>
-
-
-</dl><p></p></div>
-</div>
-
 </div><p></p><hr><a id="method-parquet_db-execute"></a><div class="section">
 <h3 id="method-execute-">Method <code>execute()</code><a class="anchor" aria-label="anchor" href="#method-execute-"></a></h3>
 <p>Execute a SQL statement</p><div class="section">
-<h4 id="usage-2">Usage<a class="anchor" aria-label="anchor" href="#usage-2"></a></h4>
+<h4 id="usage-1">Usage<a class="anchor" aria-label="anchor" href="#usage-1"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">execute</span><span class="op">(</span><span class="va">statement</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-2">Arguments<a class="anchor" aria-label="anchor" href="#arguments-2"></a></h4>
+<h4 id="arguments-1">Arguments<a class="anchor" aria-label="anchor" href="#arguments-1"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>statement</code></dt>
 <dd><p>A SQL statement</p></dd>
 
@@ -159,12 +142,12 @@ domain-specific database classes.</p>
 </div><p></p><hr><a id="method-parquet_db-get_query"></a><div class="section">
 <h3 id="method-get-query-">Method <code>get_query()</code><a class="anchor" aria-label="anchor" href="#method-get-query-"></a></h3>
 <p>Execute a SQL query and return results</p><div class="section">
-<h4 id="usage-3">Usage<a class="anchor" aria-label="anchor" href="#usage-3"></a></h4>
+<h4 id="usage-2">Usage<a class="anchor" aria-label="anchor" href="#usage-2"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">get_query</span><span class="op">(</span><span class="va">statement</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-3">Arguments<a class="anchor" aria-label="anchor" href="#arguments-3"></a></h4>
+<h4 id="arguments-2">Arguments<a class="anchor" aria-label="anchor" href="#arguments-2"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>statement</code></dt>
 <dd><p>A SQL query statement</p></dd>
 
@@ -176,126 +159,79 @@ domain-specific database classes.</p>
 <p>A data.table with query results</p>
 </div>
 
-</div><p></p><hr><a id="method-parquet_db-attach_table"></a><div class="section">
-<h3 id="method-attach-table-">Method <code>attach_table()</code><a class="anchor" aria-label="anchor" href="#method-attach-table-"></a></h3>
-<p>Attach a table from parquet file as a temporary table in DuckDB</p><div class="section">
-<h4 id="usage-4">Usage<a class="anchor" aria-label="anchor" href="#usage-4"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">attach_table</span><span class="op">(</span><span class="va">table_name</span>, columns <span class="op">=</span> <span class="st">"*"</span>, where <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div><p></p><hr><a id="method-parquet_db-row_count"></a><div class="section">
+<h3 id="method-row-count-">Method <code>row_count()</code><a class="anchor" aria-label="anchor" href="#method-row-count-"></a></h3>
+<p>Get row count for a table (without applying id_run subsetting); returns 0
+if table does not exist</p><div class="section">
+<h4 id="usage-3">Usage<a class="anchor" aria-label="anchor" href="#usage-3"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">row_count</span><span class="op">(</span><span class="va">table_name</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-4">Arguments<a class="anchor" aria-label="anchor" href="#arguments-4"></a></h4>
+<h4 id="arguments-3">Arguments<a class="anchor" aria-label="anchor" href="#arguments-3"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
-<dd><p>Character. Name of table to attach.</p></dd>
-
-
-<dt><code>columns</code></dt>
-<dd><p>Character vector. Optional SQL column selection, defaults to "*"</p></dd>
-
-
-<dt><code>where</code></dt>
-<dd><p>Character. Optional SQL WHERE clause to subset the table.</p></dd>
+<dd><p>Character string. Name of the table to query.</p></dd>
 
 
 </dl><p></p></div>
 </div>
 <div class="section">
 <h4 id="returns-3">Returns<a class="anchor" aria-label="anchor" href="#returns-3"></a></h4>
-<p>Invisible NULL (called for side effects)</p>
+<p>Integer number of rows</p>
 </div>
 
-</div><p></p><hr><a id="method-parquet_db-detach_table"></a><div class="section">
-<h3 id="method-detach-table-">Method <code>detach_table()</code><a class="anchor" aria-label="anchor" href="#method-detach-table-"></a></h3>
-<p>Detach a table from the in-memory database</p><div class="section">
-<h4 id="usage-5">Usage<a class="anchor" aria-label="anchor" href="#usage-5"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">detach_table</span><span class="op">(</span><span class="va">table_name</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div><p></p><hr><a id="method-parquet_db-column_max"></a><div class="section">
+<h3 id="method-column-max-">Method <code>column_max()</code><a class="anchor" aria-label="anchor" href="#method-column-max-"></a></h3>
+<p>Get maximum for a column in a table (without applying id_run subsetting);
+returns 0 if table does not exist</p><div class="section">
+<h4 id="usage-4">Usage<a class="anchor" aria-label="anchor" href="#usage-4"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">column_max</span><span class="op">(</span><span class="va">table_name</span>, <span class="va">column_name</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-5">Arguments<a class="anchor" aria-label="anchor" href="#arguments-5"></a></h4>
+<h4 id="arguments-4">Arguments<a class="anchor" aria-label="anchor" href="#arguments-4"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
-<dd><p>Character. Name of table to drop.</p></dd>
+<dd><p>Character string. Name of the table to query.</p></dd>
+
+
+<dt><code>column_name</code></dt>
+<dd><p>Character string. Name of the column to get the maximum value for.</p></dd>
 
 
 </dl><p></p></div>
 </div>
 <div class="section">
 <h4 id="returns-4">Returns<a class="anchor" aria-label="anchor" href="#returns-4"></a></h4>
-<p>Invisible NULL (called for side effects)</p>
-</div>
-
-</div><p></p><hr><a id="method-parquet_db-row_count"></a><div class="section">
-<h3 id="method-row-count-">Method <code>row_count()</code><a class="anchor" aria-label="anchor" href="#method-row-count-"></a></h3>
-<p>Get row count for a table</p><div class="section">
-<h4 id="usage-6">Usage<a class="anchor" aria-label="anchor" href="#usage-6"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">row_count</span><span class="op">(</span><span class="va">table_name</span><span class="op">)</span></span></code></pre></div><p></p></div>
-</div>
-
-<div class="section">
-<h4 id="arguments-6">Arguments<a class="anchor" aria-label="anchor" href="#arguments-6"></a></h4>
-<p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
-<dd><p>Character string. Name of the table to query.</p></dd>
-
-
-</dl><p></p></div>
-</div>
-<div class="section">
-<h4 id="returns-5">Returns<a class="anchor" aria-label="anchor" href="#returns-5"></a></h4>
-<p>Integer number of rows</p>
+<p>Maximum value of the column</p>
 </div>
 
 </div><p></p><hr><a id="method-parquet_db-list_tables"></a><div class="section">
 <h3 id="method-list-tables-">Method <code>list_tables()</code><a class="anchor" aria-label="anchor" href="#method-list-tables-"></a></h3>
-<p>List all tables (files) in storage</p><div class="section">
-<h4 id="usage-7">Usage<a class="anchor" aria-label="anchor" href="#usage-7"></a></h4>
+<p>List all tables (files and folders) in storage</p><div class="section">
+<h4 id="usage-5">Usage<a class="anchor" aria-label="anchor" href="#usage-5"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">list_tables</span><span class="op">(</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="returns-6">Returns<a class="anchor" aria-label="anchor" href="#returns-6"></a></h4>
+<h4 id="returns-5">Returns<a class="anchor" aria-label="anchor" href="#returns-5"></a></h4>
 <p>Character vector of table names</p>
-</div>
-
-</div><p></p><hr><a id="method-parquet_db-with_tables"></a><div class="section">
-<h3 id="method-with-tables-">Method <code>with_tables()</code><a class="anchor" aria-label="anchor" href="#method-with-tables-"></a></h3>
-<p>Execute a function with specified tables attached, handling attach/detach automatically.
-If a table is already attached in the DuckDB instance, it won't be re-attached or detached.</p><div class="section">
-<h4 id="usage-8">Usage<a class="anchor" aria-label="anchor" href="#usage-8"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">with_tables</span><span class="op">(</span><span class="va">tables</span>, <span class="va">func</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
-</div>
-
-<div class="section">
-<h4 id="arguments-7">Arguments<a class="anchor" aria-label="anchor" href="#arguments-7"></a></h4>
-<p></p><div class="arguments"><dl><dt><code>tables</code></dt>
-<dd><p>Character vector of table names to attach</p></dd>
-
-
-<dt><code>func</code></dt>
-<dd><p>Function to execute with tables attached</p></dd>
-
-
-<dt><code>...</code></dt>
-<dd><p>Additional arguments passed to func</p></dd>
-
-
-</dl><p></p></div>
-</div>
-<div class="section">
-<h4 id="returns-7">Returns<a class="anchor" aria-label="anchor" href="#returns-7"></a></h4>
-<p>Result of func</p>
 </div>
 
 </div><p></p><hr><a id="method-parquet_db-fetch"></a><div class="section">
 <h3 id="method-fetch-">Method <code>fetch()</code><a class="anchor" aria-label="anchor" href="#method-fetch-"></a></h3>
 <p>Fetch data from a table</p><div class="section">
-<h4 id="usage-9">Usage<a class="anchor" aria-label="anchor" href="#usage-9"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">fetch</span><span class="op">(</span><span class="va">table_name</span>, where <span class="op">=</span> <span class="cn">NULL</span>, limit <span class="op">=</span> <span class="cn">NULL</span>, map_cols <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<h4 id="usage-6">Usage<a class="anchor" aria-label="anchor" href="#usage-6"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">fetch</span><span class="op">(</span><span class="va">table_name</span>, cols <span class="op">=</span> <span class="cn">NULL</span>, where <span class="op">=</span> <span class="cn">NULL</span>, limit <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-8">Arguments<a class="anchor" aria-label="anchor" href="#arguments-8"></a></h4>
+<h4 id="arguments-5">Arguments<a class="anchor" aria-label="anchor" href="#arguments-5"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
 <dd><p>Character string. Name of the table to query.</p></dd>
+
+
+<dt><code>cols</code></dt>
+<dd><p>SQL column selection string (e.g., "col1, col2" or "*")</p></dd>
 
 
 <dt><code>where</code></dt>
@@ -313,19 +249,19 @@ If a table is already attached in the DuckDB instance, it won't be re-attached o
 </dl><p></p></div>
 </div>
 <div class="section">
-<h4 id="returns-8">Returns<a class="anchor" aria-label="anchor" href="#returns-8"></a></h4>
+<h4 id="returns-6">Returns<a class="anchor" aria-label="anchor" href="#returns-6"></a></h4>
 <p>A data.table</p>
 </div>
 
 </div><p></p><hr><a id="method-parquet_db-get_table_metadata"></a><div class="section">
 <h3 id="method-get-table-metadata-">Method <code>get_table_metadata()</code><a class="anchor" aria-label="anchor" href="#method-get-table-metadata-"></a></h3>
 <p>Get table metadata</p><div class="section">
-<h4 id="usage-10">Usage<a class="anchor" aria-label="anchor" href="#usage-10"></a></h4>
+<h4 id="usage-7">Usage<a class="anchor" aria-label="anchor" href="#usage-7"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">get_table_metadata</span><span class="op">(</span><span class="va">table_name</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-9">Arguments<a class="anchor" aria-label="anchor" href="#arguments-9"></a></h4>
+<h4 id="arguments-6">Arguments<a class="anchor" aria-label="anchor" href="#arguments-6"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
 <dd><p>Character string. Name of the table to query.</p></dd>
 
@@ -333,19 +269,19 @@ If a table is already attached in the DuckDB instance, it won't be re-attached o
 </dl><p></p></div>
 </div>
 <div class="section">
-<h4 id="returns-9">Returns<a class="anchor" aria-label="anchor" href="#returns-9"></a></h4>
+<h4 id="returns-7">Returns<a class="anchor" aria-label="anchor" href="#returns-7"></a></h4>
 <p>Named list</p>
 </div>
 
 </div><p></p><hr><a id="method-parquet_db-delete_from"></a><div class="section">
 <h3 id="method-delete-from-">Method <code>delete_from()</code><a class="anchor" aria-label="anchor" href="#method-delete-from-"></a></h3>
 <p>Delete rows from a table</p><div class="section">
-<h4 id="usage-11">Usage<a class="anchor" aria-label="anchor" href="#usage-11"></a></h4>
+<h4 id="usage-8">Usage<a class="anchor" aria-label="anchor" href="#usage-8"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">delete_from</span><span class="op">(</span><span class="va">table_name</span>, where <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-10">Arguments<a class="anchor" aria-label="anchor" href="#arguments-10"></a></h4>
+<h4 id="arguments-7">Arguments<a class="anchor" aria-label="anchor" href="#arguments-7"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
 <dd><p>Character string. Name of the table to delete from.</p></dd>
 
@@ -357,108 +293,118 @@ If a table is already attached in the DuckDB instance, it won't be re-attached o
 </dl><p></p></div>
 </div>
 <div class="section">
-<h4 id="returns-10">Returns<a class="anchor" aria-label="anchor" href="#returns-10"></a></h4>
+<h4 id="returns-8">Returns<a class="anchor" aria-label="anchor" href="#returns-8"></a></h4>
 <p>Number of rows deleted</p>
 </div>
 
 </div><p></p><hr><a id="method-parquet_db-commit"></a><div class="section">
 <h3 id="method-commit-">Method <code>commit()</code><a class="anchor" aria-label="anchor" href="#method-commit-"></a></h3>
-<p>Commit data using overwrite, append, or upsert modes. Handles autoincrement, key
-identity columns, and list-to-MAP conversion.</p><div class="section">
-<h4 id="usage-12">Usage<a class="anchor" aria-label="anchor" href="#usage-12"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">commit</span><span class="op">(</span></span>
-<span>  <span class="va">x</span>,</span>
-<span>  <span class="va">table_name</span>,</span>
-<span>  <span class="va">key_cols</span>,</span>
-<span>  autoincrement_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
-<span>  map_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
-<span>  partition_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"overwrite"</span>, <span class="st">"append"</span>, <span class="st">"upsert"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span></code></pre></div><p></p></div>
+<p>Commit data using overwrite, append, or upsert modes. Handles partitioning,
+key identity columns, and list-to-MAP conversion. These four
+special column types may be passed as attributes to the <code>x</code> argument. If the
+table has previously been written to, these settings are recovered from the
+parquet metadata.</p><div class="section">
+<h4 id="usage-9">Usage<a class="anchor" aria-label="anchor" href="#usage-9"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">commit</span><span class="op">(</span><span class="va">x</span>, <span class="va">table_name</span>, method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"overwrite"</span>, <span class="st">"append"</span>, <span class="st">"upsert"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-11">Arguments<a class="anchor" aria-label="anchor" href="#arguments-11"></a></h4>
+<h4 id="arguments-8">Arguments<a class="anchor" aria-label="anchor" href="#arguments-8"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>x</code></dt>
-<dd><p>Data frame to commit. If character, in-duckdb-memory table.</p></dd>
+<dd><p>If data.table, the data to commit. If character, treated as an
+in-DuckDB-memory table or view name.</p></dd>
 
 
 <dt><code>table_name</code></dt>
-<dd><p>Character string table name</p></dd>
-
-
-<dt><code>key_cols</code></dt>
-<dd><p>Character vector of columns that define uniqueness. If missing,
-use all columns starting with <code>id_</code></p></dd>
-
-
-<dt><code>autoincrement_cols</code></dt>
-<dd><p>Character vector of column names to auto-increment</p></dd>
-
-
-<dt><code>map_cols</code></dt>
-<dd><p>Character vector of columns to convert to MAP format</p></dd>
-
-
-<dt><code>partition_cols</code></dt>
-<dd><p>Character vector of columns to use for partitioning</p></dd>
+<dd><p>Target table name to commit to.</p></dd>
 
 
 <dt><code>method</code></dt>
 <dd><p>Character, one of "overwrite", "append", "upsert" (upsert being an
-update for existing rows, and insert for new rows)</p></dd>
+update for existing rows, and insert for new rows; this necessitates loading the
+full data into memory to know what to update. This may be expensive.</p></dd>
 
 
 </dl><p></p></div>
 </div>
 <div class="section">
-<h4 id="returns-11">Returns<a class="anchor" aria-label="anchor" href="#returns-11"></a></h4>
-<p>Invisible NULL (called for side effects)</p>
+<h4 id="returns-9">Returns<a class="anchor" aria-label="anchor" href="#returns-9"></a></h4>
+<p>Number of rows written</p>
 </div>
 
 </div><p></p><hr><a id="method-parquet_db-print"></a><div class="section">
 <h3 id="method-print-">Method <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code><a class="anchor" aria-label="anchor" href="#method-print-"></a></h3>
 <p>Print method for parquet_db</p><div class="section">
-<h4 id="usage-13">Usage<a class="anchor" aria-label="anchor" href="#usage-13"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">print</span><span class="op">(</span><span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<h4 id="usage-10">Usage<a class="anchor" aria-label="anchor" href="#usage-10"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">print</span><span class="op">(</span>subheaders <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-12">Arguments<a class="anchor" aria-label="anchor" href="#arguments-12"></a></h4>
-<p></p><div class="arguments"><dl><dt><code>...</code></dt>
+<h4 id="arguments-9">Arguments<a class="anchor" aria-label="anchor" href="#arguments-9"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>subheaders</code></dt>
+<dd><p>optional character vector; insert as subheaders lines</p></dd>
+
+
+<dt><code>...</code></dt>
 <dd><p>Not used</p></dd>
 
 
 </dl><p></p></div>
 </div>
 <div class="section">
+<h4 id="returns-10">Returns<a class="anchor" aria-label="anchor" href="#returns-10"></a></h4>
+<p>self (invisibly)</p>
+</div>
+
+</div><p></p><hr><a id="method-parquet_db-get_table_path"></a><div class="section">
+<h3 id="method-get-table-path-">Method <code>get_table_path()</code><a class="anchor" aria-label="anchor" href="#method-get-table-path-"></a></h3>
+<p>Get file path (or directory path) for a table</p><div class="section">
+<h4 id="usage-11">Usage<a class="anchor" aria-label="anchor" href="#usage-11"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">get_table_path</span><span class="op">(</span><span class="va">table_name</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+<div class="section">
+<h4 id="arguments-10">Arguments<a class="anchor" aria-label="anchor" href="#arguments-10"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
+<dd><p>Character string table name</p></dd>
+
+
+</dl><p></p></div>
+</div>
+<div class="section">
+<h4 id="returns-11">Returns<a class="anchor" aria-label="anchor" href="#returns-11"></a></h4>
+<p>Character path</p>
+</div>
+
+</div><p></p><hr><a id="method-parquet_db-get_read_expr"></a><div class="section">
+<h3 id="method-get-read-expr-">Method <code>get_read_expr()</code><a class="anchor" aria-label="anchor" href="#method-get-read-expr-"></a></h3>
+<p>Get SQL expression to read a table</p><div class="section">
+<h4 id="usage-12">Usage<a class="anchor" aria-label="anchor" href="#usage-12"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">get_read_expr</span><span class="op">(</span><span class="va">table_name</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+<div class="section">
+<h4 id="arguments-11">Arguments<a class="anchor" aria-label="anchor" href="#arguments-11"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>table_name</code></dt>
+<dd><p>Character string table name</p></dd>
+
+
+</dl><p></p></div>
+</div>
+<div class="section">
 <h4 id="returns-12">Returns<a class="anchor" aria-label="anchor" href="#returns-12"></a></h4>
-<p>self (invisibly)
-param x Data frame to commit. If character, in-duckdb-memory table.
-param table_name Character string table name
-param autoincrement_cols Character vector of column names to auto-increment
-return Invisible NULL (called for side effects)
-param x Data frame to commit. If character, in-duckdb-memory table.
-param table_name Character string table name
-param autoincrement_cols Character vector of column names to auto-increment
-return Invisible NULL (called for side effects)
-param x Data frame to commit. If character, in-duckdb-memory table.
-param table_name Character string table name
-param key_cols Character vector of columns that define uniqueness. If missing,
-use all columns starting with <code>id_</code>
-param autoincrement_cols Character vector of column names to auto-increment
-return Invisible NULL (called for side effects)</p>
+<p>Character string SQL expression</p>
 </div>
 
 </div><p></p><hr><a id="method-parquet_db-clone"></a><div class="section">
 <h3 id="method-clone-">Method <code>clone()</code><a class="anchor" aria-label="anchor" href="#method-clone-"></a></h3>
 <p>The objects of this class are cloneable with this method.</p><div class="section">
-<h4 id="usage-14">Usage<a class="anchor" aria-label="anchor" href="#usage-14"></a></h4>
+<h4 id="usage-13">Usage<a class="anchor" aria-label="anchor" href="#usage-13"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">parquet_db</span><span class="op">$</span><span class="fu">clone</span><span class="op">(</span>deep <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-13">Arguments<a class="anchor" aria-label="anchor" href="#arguments-13"></a></h4>
+<h4 id="arguments-12">Arguments<a class="anchor" aria-label="anchor" href="#arguments-12"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>deep</code></dt>
 <dd><p>Whether to make a deep clone.</p></dd>
 

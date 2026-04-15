@@ -1,6 +1,5 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://ethzplus.github.io/evoland-plus/404.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/AGENTS.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/LICENSE.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/articles/evoland.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/articles/index.html</loc></url>
@@ -8,22 +7,17 @@
 <url><loc>https://ethzplus.github.io/evoland-plus/authors.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/index.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica_setup_inputs.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica_single_iteration.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/alloc_params_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/calc_fuzzy_similarity.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/calc_transition_similarity.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/coords_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/covariance_filter.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/reference/create_alloc_params_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/create_change_map.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/dot-build_weight_matrix.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/dot-compute_fuzzy_neighborhoods.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/dot-compute_similarity_map.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/reference/eval_alloc_params_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/evoland_db.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/reference/evoland_db_neighbors.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/reference/evoland_db_tables.html</loc></url>
+<url><loc>https://ethzplus.github.io/evoland-plus/reference/evoland_db_util.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/fit_glm.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/fit_ranger.html</loc></url>
@@ -38,20 +32,20 @@
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/neighbors_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/parquet_db.html</loc></url>
+<url><loc>https://ethzplus.github.io/evoland-plus/reference/parquet_db_utils.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/periods_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/pred_data_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/reporting_t.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/reference/run_parallel_task.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/reference/tabular_to_raster.html</loc></url>
+<url><loc>https://ethzplus.github.io/evoland-plus/reference/runs_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/trans_models_t.html</loc></url>
+<url><loc>https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/util.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/util_dinamica.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/util_download.html</loc></url>
-<url><loc>https://ethzplus.github.io/evoland-plus/reference/util_parallel.html</loc></url>
 <url><loc>https://ethzplus.github.io/evoland-plus/reference/util_terra.html</loc></url>
 </urlset>
 

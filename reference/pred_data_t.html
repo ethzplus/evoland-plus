@@ -11,7 +11,7 @@ data. Different data types (float, int, bool) have different subclasses
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,10 +49,18 @@ data. Different data types (float, int, bool) have different subclasses
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">as_pred_data_t</span><span class="op">(</span><span class="va">x</span>, <span class="va">type</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">as_pred_data_t</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'pred_data_t'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">pred_data_available_v</span><span class="op">(</span><span class="va">self</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">trans_pred_data_v</span><span class="op">(</span><span class="va">self</span>, <span class="va">id_trans</span>, <span class="va">id_pred</span>, ordered <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">pred_data_wide_v</span><span class="op">(</span><span class="va">self</span>, <span class="va">id_trans</span>, <span class="va">id_period_anterior</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">set_pred_coltypes</span><span class="op">(</span><span class="va">result</span>, <span class="va">pred_meta_t</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -63,29 +71,76 @@ data. Different data types (float, int, bool) have different subclasses
 <dd><p>Coercible to data.table</p></dd>
 
 
-<dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
-<dd><p>Character string specifying the data type: "float", "int", or "bool"</p></dd>
-
-
 <dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
-<dd><p>see <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>see <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>passed to <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>passed to <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+
+
+<dt id="arg-self-">self, <a class="anchor" aria-label="anchor" href="#arg-self-"></a></dt>
+<dd><p><a href="evoland_db.html">evoland_db</a> instance to query</p></dd>
+
+
+<dt id="arg-id-trans">id_trans<a class="anchor" aria-label="anchor" href="#arg-id-trans"></a></dt>
+<dd><p>Integer transition ID, see <a href="trans_meta_t.html">trans_meta_t</a></p></dd>
+
+
+<dt id="arg-id-pred">id_pred<a class="anchor" aria-label="anchor" href="#arg-id-pred"></a></dt>
+<dd><p>Optional integer vector of predictor IDs to include; if
+missing, use all predictor IDs from <a href="pred_meta_t.html">pred_meta_t</a></p></dd>
+
+
+<dt id="arg-ordered">ordered<a class="anchor" aria-label="anchor" href="#arg-ordered"></a></dt>
+<dd><ul><li><p>if TRUE, order output by id_period then id_coord (otherwise no
+guaranteed order; need ordering for reproducible subsampling)</p></li>
+</ul></dd>
+
+
+<dt id="arg-id-period-anterior">id_period_anterior<a class="anchor" aria-label="anchor" href="#arg-id-period-anterior"></a></dt>
+<dd><p>Scalar integerish of anterior period ID, i.e. we
+get the predictors that explain the processes over the next N years</p></dd>
+
+
+<dt id="arg-result">result<a class="anchor" aria-label="anchor" href="#arg-result"></a></dt>
+<dd><p>data.table with predictor columns named <code>id_pred_{n}</code></p></dd>
+
+
+<dt id="arg-pred-meta-t">pred_meta_t<a class="anchor" aria-label="anchor" href="#arg-pred-meta-t"></a></dt>
+<dd><p>see <a href="pred_meta_t.html">pred_meta_t</a></p></dd>
+
+
+<dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
+<dd><p>Character string specifying the data type: "float", "int", or "bool"</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data.table of class "pred_data_t_<type>" and "pred_data_t" with columns:</type></p><ul><li><p><code>id_pred</code>: Foreign key to pred_meta_t</p></li>
+    <p>A data.table of class "pred_data_t_<type>" and "pred_data_t" with columns:</type></p><ul><li><p><code>id_run</code>: Foreign key to runs_t</p></li>
+<li><p><code>id_pred</code>: Foreign key to pred_meta_t</p></li>
 <li><p><code>id_coord</code>: Foreign key to coords_t</p></li>
 <li><p><code>id_period</code>: Foreign key to periods_t</p></li>
 <li><p><code>value</code>: Predictor value (type depends on subclass)</p></li>
-</ul></div>
+</ul><p>data.table with columns id_coord, id_period, did_transition (bool),
+and one column per predictor (<code>id_pred_{n}</code>)</p>
+    </div>
     <div class="section level2">
     <h2 id="methods-by-generic-">Methods (by generic)<a class="anchor" aria-label="anchor" href="#methods-by-generic-"></a></h2>
 
 <ul><li><p><code>print(pred_data_t)</code>: Print a pred_data_t object, passing params to data.table print</p></li>
+</ul></div>
+    <div class="section level2">
+    <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
+
+<ul><li><p><code>pred_data_available_v()</code>: Check if predictor data is complete, i.e. each entry in
+<a href="pred_meta_t.html">pred_meta_t</a> is either present in period 0 or for all other periods for a given run.</p></li>
+<li><p><code>trans_pred_data_v()</code>: Get transitions along with their predictor data in a wide data.table</p></li>
+<li><p><code>pred_data_wide_v()</code>: Get predictor data in a wide data.table for transition potential
+prediction (cols <code>id_coord, id_pred_{n}</code>)</p></li>
+<li><p><code>set_pred_coltypes()</code>: In-place casting of predictor columns to their
+correct data types based on pred_meta_t; also fills NA values with fill_value
+from pred_meta_t if specified</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

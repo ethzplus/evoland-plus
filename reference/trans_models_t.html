@@ -11,7 +11,7 @@ structure for storing fitted models."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,8 +51,20 @@ structure for storing fitted models.</p>
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">as_trans_models_t</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span></span>
+<span><span class="fu">fit_partial_models</span><span class="op">(</span></span>
+<span>  <span class="va">self</span>,</span>
+<span>  <span class="va">fit_fun</span>,</span>
+<span>  <span class="va">gof_fun</span>,</span>
+<span>  sample_frac <span class="op">=</span> <span class="fl">0.7</span>,</span>
+<span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  cluster <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">fit_full_models</span><span class="op">(</span><span class="va">self</span>, <span class="va">gof_criterion</span>, <span class="va">gof_maximize</span>, cluster <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span></span>
 <span><span class="co"># S3 method for class 'trans_models_t'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -63,17 +75,58 @@ structure for storing fitted models.</p>
 <dd><p>A list or data.frame coercible to a data.table</p></dd>
 
 
-<dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
-<dd><p>see <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dt id="arg-self-">self, <a class="anchor" aria-label="anchor" href="#arg-self-"></a></dt>
+<dd><p><a href="evoland_db.html">evoland_db</a> instance to query for transitions and predictor data</p></dd>
 
 
-<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>passed to <a href="https://rdatatable.gitlab.io/data.table/reference/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dt id="arg-fit-fun">fit_fun<a class="anchor" aria-label="anchor" href="#arg-fit-fun"></a></dt>
+<dd><p>Function that takes a data.frame with predictors and did_transition columns
+and returns a fitted model object. The data argument is passed as the first argument
+to the function, and additional arguments can be passed via ...</p></dd>
+
+
+<dt id="arg-gof-fun">gof_fun<a class="anchor" aria-label="anchor" href="#arg-gof-fun"></a></dt>
+<dd><p>Function that takes a fitted model object and a test data.frame and
+returns a list of goodness-of-fit metrics. The model argument is passed as the first
+argument and the test_data argument is passed as the second argument.</p></dd>
+
+
+<dt id="arg-sample-frac">sample_frac<a class="anchor" aria-label="anchor" href="#arg-sample-frac"></a></dt>
+<dd><p>Numeric between 0 and 1 indicating
+the fraction of data to use for training the partial models. The rest is used for
+testing and calculating goodness-of-fit metrics. Default is 0.7 (70% training, 30%
+testing).</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Optional integer seed for reproducible subsampling.</p></dd>
+
+
+<dt id="arg-cluster">cluster<a class="anchor" aria-label="anchor" href="#arg-cluster"></a></dt>
+<dd><p>An optional cluster object created by <code><a href="https://rdrr.io/r/parallel/makeCluster.html" class="external-link">parallel::makeCluster()</a></code> or
+<code>mirai::make_cluster()</code>.</p></dd>
+
+
+<dt id="arg-gof-criterion">gof_criterion<a class="anchor" aria-label="anchor" href="#arg-gof-criterion"></a></dt>
+<dd><p>Character string specifying which goodness-of-fit metric to use for
+selecting the best partial model for each transition (e.g., "roc_auc", "rmse").</p></dd>
+
+
+<dt id="arg-gof-maximize">gof_maximize<a class="anchor" aria-label="anchor" href="#arg-gof-maximize"></a></dt>
+<dd><p>Logical indicating whether to select the model with the maximum
+(TRUE) or minimum (FALSE) value of the specified goodness-of-fit criterion. Default
+is TRUE.</p></dd>
+
+
+<dt id="arg-partial-models">partial_models<a class="anchor" aria-label="anchor" href="#arg-partial-models"></a></dt>
+<dd><p>A trans_models_t table containing the fitted partial models and
+their goodness-of-fit metrics.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data.table of class "trans_models_t" with columns:</p><ul><li><p><code>id_trans</code>: Foreign key to trans_meta_t</p></li>
+    <p>A data.table of class "trans_models_t" with columns:</p><ul><li><p><code>id_run</code>: Foreign key to runs_t</p></li>
+<li><p><code>id_trans</code>: Foreign key to trans_meta_t</p></li>
 <li><p><code>model_family</code>: Model family (e.g., "rf", "glm", "bayesian")</p></li>
 <li><p><code>model_params</code>: Map of model (hyper) parameters</p></li>
 <li><p><code>goodness_of_fit</code>: Map of various measures of fit (e.g., ROC AUC, RMSE)</p></li>
@@ -84,7 +137,15 @@ structure for storing fitted models.</p>
     <div class="section level2">
     <h2 id="methods-by-generic-">Methods (by generic)<a class="anchor" aria-label="anchor" href="#methods-by-generic-"></a></h2>
 
-<ul><li><p><code>print(trans_models_t)</code>: Print a trans_models_t object, passing params to data.table print</p></li>
+<ul><li><p><code>print(trans_models_t)</code>: Print a trans_models_t object as yaml-style list</p></li>
+</ul></div>
+    <div class="section level2">
+    <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
+
+<ul><li><p><code>fit_partial_models()</code>: Fit partial models for each viable transition and store
+results in a trans_models_t table.</p></li>
+<li><p><code>fit_full_models()</code>: Fit full models for each transition based on the best
+partial model according to a specified goodness-of-fit criterion.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

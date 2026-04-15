@@ -17,9 +17,8 @@ character vector of selected variable names.
 ``` r
 covariance_filter(
   data,
-  result_col = "result",
   rank_fun = rank_poly_glm,
-  weights = compute_balanced_weights(data[[result_col]]),
+  weights = compute_balanced_weights(data[["did_transition"]]),
   corcut = 0.7,
   ...
 )
@@ -36,12 +35,8 @@ select_by_correlation(cor_mat, corcut)
 - data:
 
   A data.table of target variable and candidate covariates to be
-  filtered; wide format with one predictor per column.
-
-- result_col:
-
-  Name of the column representing the transition results (0: no trans,
-  1: trans)
+  filtered; wide format with one predictor per column, except a binary
+  "did_transition" column (0: no trans, 1: trans)
 
 - rank_fun:
 

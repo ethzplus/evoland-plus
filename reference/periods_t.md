@@ -47,12 +47,12 @@ print(x, nrow = 10, ...)
 - nrow:
 
   see
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 - ...:
 
   passed to
-  [data.table::print.data.table](https://rdatatable.gitlab.io/data.table/reference/print.data.table.html)
+  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
 
 ## Value
 
