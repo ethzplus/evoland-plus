@@ -1,6 +1,4 @@
-# evoland-plus
-
-**evoland** **v**isualizes, **o**ptimizes, **l**ocalizes and **a**nd **d**etermines **p**redictable **l**and **u**se **s**hifts
+# evoland-plus <img src="man/figures/evoland-plus-logo.svg" alt="plus shaped logo" height="150" width="150" align="right" />
 
 ## Overview
 
@@ -12,12 +10,10 @@ The fundamental purpose of `evoland-plus` is to:
 - **Project future land use patterns** using predictive models and allocation algorithms
 - **Support scenario analysis** through interventions and parameter modifications
 
+## Installation
 
-## Development Environment Setup
-
-We suggest you use [rv](https://a2-ai.github.io/rv-docs/) to manage dependencies.
+We suggest you use [rv](https://a2-ai.github.io/rv-docs/) to manage your dependencies in an encapsulated environment.
 Simply create an `rproject.toml` at the project root and execute `rv sync`.
-
 ```toml
 # sample rproject.toml
 [project]
@@ -27,9 +23,18 @@ r_version = "4.5"
 repositories = [
     { alias = "CRAN", url = "https://stat.ethz.ch/CRAN/" },
 ]
-
 dependencies = [
-    { name = "evoland", path = ".", dependencies_only = true, install_suggestions = true },
+    # just use it: load using library(evoland)
+    { name = "evoland", git = "https://github.com/ethzplus/evoland-plus/", branch = "main" },
+]
+```
+
+If you want to develop the model logic itself, you can opt to only install dependencies but not the package itself:
+
+```toml
+dependencies = [    
+    # only install dependencies declared in DESCRIPTION
+    { name = "evoland", path = "~/path/to/local/repo", dependencies_only = true, install_suggestions = true },
     "devtools", # sundry development tasks
     "mirai", # modern multiprocessing
     "httpgd", # webview plotting
@@ -39,7 +44,13 @@ dependencies = [
 
 During development, `devtools::load_all()` acts as though you were calling `library(evoland)` on an installed package.
 This makes it easy to rapidly reload code when you've changed something.
-Code must be autoformatted using [air](https://posit-dev.github.io/air/) before committing.
+
+## Contributing
+
+PRs are very welcome!
+It's probably best to first discuss the underlying issue; @mmyrte is very happy to help figure out a solution.
+Code should be autoformatted using [air](https://posit-dev.github.io/air/) before committing.
+Tests are written as `tinytest`s that can be run after package installation, ensuring that your system is set up correctly.
 
 ## Documentation
 
@@ -55,10 +66,6 @@ This package uses pkgdown, see <http://ethzplus.github.io/evoland-plus>.
 ## License
 
 This project is licensed under the AGPL-3 License - see the [LICENSE.md](LICENSE.md) file for details.
-
-## Contributing
-
-Don't hesitate to get in contact with @mmyrte and/or @blenback if you'd like to contribute!
 
 ## Acknowledgments
 
