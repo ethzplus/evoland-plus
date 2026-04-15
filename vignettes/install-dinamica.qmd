@@ -1,0 +1,138 @@
+---
+title: Installing Dinamica EGO
+author: Jan Hartman
+date: last-modified
+vignette: >
+  %\VignetteIndexEntry{install-dinamica}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+execute:
+  enabled: false
+---
+
+`evoland-plus` uses [Dinamica EGO](https://dinamicaego.com/) as its spatial allocation engine.
+This vignette explains how to install it so the package can find and use it.
+
+## Platform Support
+
+::: {.callout-warning}
+Dinamica EGO is **only distributed as a Linux x86 / amd64 binary**.
+It does **not** run on ARM architectures (e.g. Apple Silicon, Raspberry Pi) or on macOS.
+Windows support has not been tested.
+:::
+
+If you are on an unsupported platform, your best option is to use the pre-built Docker image at
+<https://github.com/ethzplus/rocker-geospatial-dinamica/>.
+The repository ships a [devcontainer](https://containers.dev/) configuration, so you can
+open the project directly inside the container from VS Code or any other IDE that supports
+the devcontainer specification — just make sure [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+is running first.
+
+## Installing on Linux x86 / amd64
+
+The steps below mirror the
+[`Dockerfile`](https://github.com/ethzplus/rocker-geospatial-dinamica/blob/main/Dockerfile)
+used to build the official container image.
+
+### 1. Download the AppImage
+
+Download Dinamica EGO 8 from <https://dinamicaego.com/dinamica-8/> and save it as
+`DinamicaEGO.AppImage`.
+
+### 2. Extract the AppImage
+
+AppImages are self-contained archives.
+Run the following to extract Dinamica's contents into a `squashfs-root` subdirectory:
+
+```bash
+chmod +x DinamicaEGO.AppImage
+./DinamicaEGO.AppImage --appimage-extract
+```
+
+### 3. Place the files in `/opt/dinamica`
+
+Move the *contents* of the extracted `squashfs-root` directory (not the directory itself)
+into `/opt/dinamica`:
+
+```bash
+sudo mkdir -p /opt/dinamica
+sudo mv squashfs-root/* /opt/dinamica/
+```
+
+### 4. Install the bundled R package
+
+Dinamica ships its own R package inside the installation directory.
+Install it from the extracted path:
+
+```bash
+Rscript -e "remotes::install_local(
+  list.files(
+    '/opt/dinamica/usr/bin/Data/R',
+    pattern = 'Dinamica_.*.tar.gz',
+    recursive = TRUE,
+    full.names = TRUE
+  )
+)"
+```
+
+### 5. Set the required environment variables
+
+Add the following lines to your shell profile (e.g. `~/.bashrc` or `~/.profile`) so they
+are set for every session, then reload the profile or log out and back in:
+
+```bash
+export DINAMICA_EGO_8_INSTALLATION_DIRECTORY="/opt/dinamica/usr/bin"
+export DINAMICA_EGO_CLI="/opt/dinamica/usr/bin/DinamicaConsole"
+export DINAMICA_EGO_8_HOME="/opt/dinamica"
+export DINAMICA_EGO_8_TEMP_DIR="/tmp/dinamica"
+export PATH="$PATH:/opt/dinamica/usr/bin"
+export LD_LIBRARY_PATH="/opt/dinamica/usr/lib/:$LD_LIBRARY_PATH"
+```
+
+Create the temporary directory Dinamica uses at runtime:
+
+```bash
+mkdir -p /tmp/dinamica
+```
+
+### 6. Create the Dinamica configuration file
+
+Dinamica looks for a per-user configuration file in your home directory.
+Create `~/.dinamica_ego_8.conf` with at least the following content (adjust the CRAN
+mirror if you prefer a different one):
+
+```ini
+AlternativePathForR = "/usr/local/bin/Rscript"
+ClConfig = "0"
+MemoryAllocationPolicy = "1"
+RCranMirror = "https://cloud.r-project.org/"
+```
+
+### 7. Verify the installation
+
+Check that Dinamica can be found on the PATH:
+
+```bash
+DinamicaConsole --version
+```
+
+You should see version information printed to the terminal.
+From R, you can confirm that `evoland` can locate it:
+
+```r
+library(evoland)
+evoland:::find_dinamica()
+```
+
+## Troubleshooting
+
+**`DinamicaConsole: command not found`**
+: Make sure `/opt/dinamica/usr/bin` is on your `PATH` and that you have reloaded your
+  shell profile.
+
+**Shared library errors (`libXXX.so not found`)**
+: Make sure `LD_LIBRARY_PATH` includes `/opt/dinamica/usr/lib/`.
+
+**Dinamica silently falls back to the anterior LULC map**
+: The `DINAMICA_EGO_CLI` environment variable is not set or points to a wrong path.
+  Double-check the path with `echo $DINAMICA_EGO_CLI` and that the file is executable.

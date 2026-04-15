@@ -417,6 +417,7 @@ db$alloc_params_t <- alloc_for_eval
 
 With all components in place, we run the allocation step.
 If Dinamica is not installed, you'll get a warning that the anterior LULC map is returned as the posterior.
+For installation instructions, see the [Installing Dinamica EGO](install-dinamica.html) vignette.
 
 ```{r}
 #| label: allocation

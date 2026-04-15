@@ -52,6 +52,12 @@ It's probably best to first discuss the underlying issue; @mmyrte is very happy 
 Code should be autoformatted using [air](https://posit-dev.github.io/air/) before committing.
 Tests are written as `tinytest`s that can be run after package installation, ensuring that your system is set up correctly.
 
+## Dinamica EGO
+
+`evoland-plus` uses [Dinamica EGO](https://dinamicaego.com/) as its spatial allocation engine.
+See the [Installing Dinamica EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html) vignette for installation instructions.
+Note that Dinamica only runs on **Linux x86 / amd64**; users on other platforms should use the [Docker container](https://github.com/ethzplus/rocker-geospatial-dinamica/).
+
 ## Documentation
 
 This package uses pkgdown, see <http://ethzplus.github.io/evoland-plus>.
