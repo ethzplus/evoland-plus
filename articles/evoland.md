@@ -335,17 +335,17 @@ db$trans_v[id_lulc_anterior != id_lulc_posterior]
 
          id_period id_lulc_anterior id_lulc_posterior id_coord
              <int>            <int>             <int>    <int>
-      1:         2                3                 4        2
-      2:         3                4                 3        2
-      3:         2                3                 4        3
-      4:         2                1                 2        6
-      5:         3                2                 1        6
+      1:         3                2                 1        6
+      2:         3                2                 4        7
+      3:         2                1                 2        8
+      4:         2                1                 4       11
+      5:         3                3                 4       16
      ---
-    569:         3                2                 1      895
-    570:         3                4                 3      897
-    571:         2                1                 4      898
-    572:         3                2                 1      899
-    573:         2                2                 1      900
+    519:         3                2                 1      887
+    520:         3                4                 1      891
+    521:         3                1                 4      894
+    522:         2                2                 1      898
+    523:         3                1                 2      898
 
 ### 2.2 Add Predictors and Neighbors
 
@@ -389,7 +389,7 @@ db$generate_neighbor_predictors()
 Messages
 
     Computed 208360 neighbor relationships
-    Appended 8 neighbor predictor variables with 21521 data points
+    Appended 8 neighbor predictor variables with 18446 data points
 
 Have a look at the predictor metadata we have defined, it now contains
 new rows for the neighbor predictors:
@@ -475,8 +475,8 @@ db$trans_models_t <- db$fit_full_models(
 
 Messages
 
-    Fitting partial models for 6 transitions...
-    Fitting full models for 6 transitions...
+    Fitting partial models for 4 transitions...
+    Fitting full models for 4 transitions...
 
 ### 3.3 Transition Rates and Allocation Parameters
 
@@ -512,12 +512,12 @@ db$alloc_params_t <- alloc_for_eval
 
 Messages
 
-    Computing allocation parameters for 6 transitions across 2 periods...
+    Computing allocation parameters for 4 transitions across 2 periods...
       Processing period 1 -> 2
       Processing period 2 -> 3
     Aggregating parameters across periods...
     Creating 0 randomly perturbed versions per transition...
-    Successfully computed 6 allocation parameter sets (6 transitions x (0 perturbations + best estimate))
+    Successfully computed 4 allocation parameter sets (4 transitions x (0 perturbations + best estimate))
 
 ## 4 Prediction + Allocation
 
@@ -551,13 +551,11 @@ Messages
       Wrote patcher table to patcher_table.csv
       Wrote anterior LULC to anterior.tif
       Writing probability maps...
-    Predicting transition potential for 6 transitions
-    Predicting trans 1/6 (id_trans 3)
-    Predicting trans 2/6 (id_trans 7)
-    Predicting trans 3/6 (id_trans 4)
-    Predicting trans 4/6 (id_trans 1)
-    Predicting trans 5/6 (id_trans 8)
-    Predicting trans 6/6 (id_trans 2)
+    Predicting transition potential for 4 transitions
+    Predicting trans 1/4 (id_trans 3)
+    Predicting trans 2/4 (id_trans 4)
+    Predicting trans 3/4 (id_trans 1)
+    Predicting trans 4/4 (id_trans 8)
       Executing Dinamica EGO...
       Converting posterior raster to lulc_data_t...
       Extracted 900 cells
