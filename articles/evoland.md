@@ -335,17 +335,17 @@ db$trans_v[id_lulc_anterior != id_lulc_posterior]
 
          id_period id_lulc_anterior id_lulc_posterior id_coord
              <int>            <int>             <int>    <int>
-      1:         3                2                 1        6
-      2:         3                2                 4        7
-      3:         2                1                 2        8
-      4:         2                1                 4       11
-      5:         3                3                 4       16
+      1:         3                1                 4        1
+      2:         2                1                 2        3
+      3:         3                2                 1        3
+      4:         2                3                 1        4
+      5:         3                1                 3        4
      ---
-    519:         3                2                 1      887
-    520:         3                4                 1      891
-    521:         3                1                 4      894
-    522:         2                2                 1      898
-    523:         3                1                 2      898
+    635:         2                2                 1      894
+    636:         2                1                 2      895
+    637:         3                2                 1      895
+    638:         3                3                 2      897
+    639:         3                1                 2      899
 
 ### 2.2 Add Predictors and Neighbors
 
@@ -389,7 +389,7 @@ db$generate_neighbor_predictors()
 Messages
 
     Computed 208360 neighbor relationships
-    Appended 8 neighbor predictor variables with 18446 data points
+    Appended 8 neighbor predictor variables with 20031 data points
 
 Have a look at the predictor metadata we have defined, it now contains
 new rows for the neighbor predictors:
@@ -523,7 +523,10 @@ Messages
 
 With all components in place, we run the allocation step. If Dinamica is
 not installed, you’ll get a warning that the anterior LULC map is
-returned as the posterior.
+returned as the posterior. For installation instructions, see the
+[Installing Dinamica
+EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.md)
+vignette.
 
 ``` r
 db$alloc_dinamica(
@@ -552,10 +555,10 @@ Messages
       Wrote anterior LULC to anterior.tif
       Writing probability maps...
     Predicting transition potential for 4 transitions
-    Predicting trans 1/4 (id_trans 3)
-    Predicting trans 2/4 (id_trans 4)
-    Predicting trans 3/4 (id_trans 1)
-    Predicting trans 4/4 (id_trans 8)
+    Predicting trans 1/4 (id_trans 2)
+    Predicting trans 2/4 (id_trans 5)
+    Predicting trans 3/4 (id_trans 3)
+    Predicting trans 4/4 (id_trans 4)
       Executing Dinamica EGO...
       Converting posterior raster to lulc_data_t...
       Extracted 900 cells

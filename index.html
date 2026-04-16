@@ -37,6 +37,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="articles/ingest-predictors.html">Ingest GeoTIFFs as Predictors</a></li>
+    <li><a class="dropdown-item" href="articles/install-dinamica.html">Installing Dinamica EGO</a></li>
   </ul>
 </li>
       </ul>
@@ -101,6 +102,11 @@
 <h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
 </h2>
 <p>PRs are very welcome! It’s probably best to first discuss the underlying issue; @mmyrte is very happy to help figure out a solution. Code should be autoformatted using <a href="https://posit-dev.github.io/air/" class="external-link">air</a> before committing. Tests are written as <code>tinytest</code>s that can be run after package installation, ensuring that your system is set up correctly.</p>
+</div>
+<div class="section level2">
+<h2 id="dinamica-ego">Dinamica EGO<a class="anchor" aria-label="anchor" href="#dinamica-ego"></a>
+</h2>
+<p><code>evoland-plus</code> uses <a href="https://dinamicaego.com/" class="external-link">Dinamica EGO</a> as its spatial allocation engine. See the <a href="https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html">Installing Dinamica EGO</a> vignette for installation instructions. Note that Dinamica only runs on <strong>Linux x86 / amd64</strong> (the Windows installer exists but is untested with <code>evoland-plus</code>); users on other platforms should use the <a href="https://github.com/ethzplus/rocker-geospatial-dinamica/" class="external-link">Docker container</a>.</p>
 </div>
 <div class="section level2">
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>

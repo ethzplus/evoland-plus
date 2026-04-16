@@ -38,6 +38,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/ingest-predictors.html">Ingest GeoTIFFs as Predictors</a></li>
+    <li><a class="dropdown-item" href="../articles/install-dinamica.html">Installing Dinamica EGO</a></li>
   </ul>
 </li>
       </ul>
@@ -59,7 +60,7 @@
 <code>evoland-plus</code> tutorial</h1>
 
       <p class="author">Jan Hartman</p>
-      <p class="date">2026-04-15</p>
+      <p class="date">2026-04-16</p>
 
       <small class="dont-index">Source: <a href="https://github.com/ethzplus/evoland-plus/blob/main/vignettes/evoland.qmd" class="external-link"><code>vignettes/evoland.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -372,17 +373,17 @@ Key: &lt;id_coord&gt;
 <div class="cell-output cell-output-stdout">
 <pre><code>     id_period id_lulc_anterior id_lulc_posterior id_coord
          &lt;int&gt;            &lt;int&gt;             &lt;int&gt;    &lt;int&gt;
-  1:         3                2                 1        6
-  2:         3                2                 4        7
-  3:         2                1                 2        8
-  4:         2                1                 4       11
-  5:         3                3                 4       16
+  1:         3                1                 4        1
+  2:         2                1                 2        3
+  3:         3                2                 1        3
+  4:         2                3                 1        4
+  5:         3                1                 3        4
  ---
-519:         3                2                 1      887
-520:         3                4                 1      891
-521:         3                1                 4      894
-522:         2                2                 1      898
-523:         3                1                 2      898</code></pre>
+635:         2                2                 1      894
+636:         2                1                 2      895
+637:         3                2                 1      895
+638:         3                3                 2      897
+639:         3                1                 2      899</code></pre>
 </div>
 </div>
 </section><section class="level2" data-number="2.2"><h3 data-number="2.2" id="add-predictors-and-neighbors">
@@ -408,7 +409,7 @@ Key: &lt;id_coord&gt;
 <details><summary>
 Messages
 </summary><pre>Computed 208360 neighbor relationships
-Appended 8 neighbor predictor variables with 18446 data points
+Appended 8 neighbor predictor variables with 20031 data points
 </pre>
 </details><p>Have a look at the predictor metadata we have defined, it now contains new rows for the neighbor predictors:</p>
 <div class="cell">
@@ -512,7 +513,7 @@ Successfully computed 4 allocation parameter sets (4 transitions x (0 perturbati
 </details></section></section><section class="section level2" data-number="4"><h2 data-number="4" id="prediction-allocation">
 <span class="header-section-number">4</span> Prediction + Allocation<a class="anchor" aria-label="anchor" href="#prediction-allocation"></a>
 </h2>
-<p>With all components in place, we run the allocation step. If Dinamica is not installed, you’ll get a warning that the anterior LULC map is returned as the posterior.</p>
+<p>With all components in place, we run the allocation step. If Dinamica is not installed, you’ll get a warning that the anterior LULC map is returned as the posterior. For installation instructions, see the <a href="install-dinamica.html">Installing Dinamica EGO</a> vignette.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="fu">alloc_dinamica</span><span class="op">(</span></span>
@@ -541,10 +542,10 @@ Running Dinamica allocation: period 3 -&gt; 4
   Wrote anterior LULC to anterior.tif
   Writing probability maps...
 Predicting transition potential for 4 transitions
-Predicting trans 1/4 (id_trans 3)
-Predicting trans 2/4 (id_trans 4)
-Predicting trans 3/4 (id_trans 1)
-Predicting trans 4/4 (id_trans 8)
+Predicting trans 1/4 (id_trans 2)
+Predicting trans 2/4 (id_trans 5)
+Predicting trans 3/4 (id_trans 3)
+Predicting trans 4/4 (id_trans 4)
   Executing Dinamica EGO...
   Converting posterior raster to lulc_data_t...
   Extracted 900 cells
