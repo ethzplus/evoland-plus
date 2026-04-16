@@ -52,6 +52,23 @@ exec_dinamica <- function(
   }
   args <- c(args, model_path)
 
+  dinamica_home <- Sys.getenv("DINAMICA_EGO_8_HOME", unset = "")
+  dinamica_lib_path <- if (nzchar(dinamica_home)) {
+    file.path(dinamica_home, "usr", "lib")
+  } else {
+    ""
+  }
+  current_ld <- Sys.getenv("LD_LIBRARY_PATH", unset = "")
+  new_ld <- if (nzchar(dinamica_lib_path)) {
+    if (nzchar(current_ld)) {
+      paste0(dinamica_lib_path, ":", current_ld)
+    } else {
+      dinamica_lib_path
+    }
+  } else {
+    current_ld
+  }
+
   if (write_logfile) {
     logfile_path <- file.path(
       dirname(model_path),
@@ -82,7 +99,8 @@ exec_dinamica <- function(
       spinner = TRUE,
       env = c(
         "current",
-        DINAMICA_HOME = dirname(model_path)
+        DINAMICA_HOME = dirname(model_path),
+        LD_LIBRARY_PATH = new_ld
       )
     )
   } else {
@@ -100,7 +118,8 @@ exec_dinamica <- function(
       spinner = TRUE,
       env = c(
         "current",
-        DINAMICA_HOME = dirname(model_path)
+        DINAMICA_HOME = dirname(model_path),
+        LD_LIBRARY_PATH = new_ld
       )
     )
   }

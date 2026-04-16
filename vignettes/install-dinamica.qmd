@@ -16,17 +16,24 @@ This vignette explains how to install it so the package can find and use it.
 ## Platform Support
 
 ::: {.callout-warning}
-Dinamica EGO is **only distributed as a Linux x86 / amd64 binary**.
+Dinamica EGO is distributed as a **Linux x86 / amd64 AppImage** and a **Windows installer**.
 It does **not** run on ARM architectures (e.g. Apple Silicon, Raspberry Pi) or on macOS.
-Windows support has not been tested.
+The Linux AppImage path described in this vignette is well-tested; the Windows installer
+has **not been tested** with `evoland-plus`.
 :::
 
-If you are on an unsupported platform, your best option is to use the pre-built Docker image at
+If you are on an unsupported platform, your best option is to build the Docker image from
 <https://github.com/ethzplus/rocker-geospatial-dinamica/>.
-The repository ships a [devcontainer](https://containers.dev/) configuration, so you can
-open the project directly inside the container from VS Code or any other IDE that supports
-the devcontainer specification — just make sure [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-is running first.
+Because Dinamica EGO cannot be redistributed, the image is not pre-built; you must clone
+that repository and build it locally.
+The repository ships a [devcontainer](https://containers.dev/) configuration, so once the
+image is built you can open the project directly inside the container from VS Code or any
+other IDE that supports the devcontainer specification — just make sure a Docker-compatible
+runtime is running first (e.g.
+[Docker Desktop](https://www.docker.com/products/docker-desktop/),
+[OrbStack](https://orbstack.dev/),
+[Colima](https://github.com/abiosoft/colima), or
+[Portainer](https://www.portainer.io/)).
 
 ## Installing on Linux x86 / amd64
 
@@ -62,7 +69,10 @@ sudo mv squashfs-root/* /opt/dinamica/
 ### 4. Install the bundled R package
 
 Dinamica ships its own R package inside the installation directory.
-Install it from the extracted path:
+Using `remotes::install_local()` is recommended because it automatically resolves and
+installs the package's dependencies (listed in its `DESCRIPTION` file).
+The alternative — `R CMD INSTALL` — would require you to find and install each dependency
+by hand first.
 
 ```bash
 Rscript -e "remotes::install_local(
@@ -77,8 +87,9 @@ Rscript -e "remotes::install_local(
 
 ### 5. Set the required environment variables
 
-Add the following lines to your shell profile (e.g. `~/.bashrc` or `~/.profile`) so they
-are set for every session, then reload the profile or log out and back in:
+Add the following lines to your shell profile (e.g. `~/.bashrc`, `~/.profile`, or
+`~/.zshenv` for Zsh users) so they are set for every session, then reload the profile
+or log out and back in:
 
 ```bash
 export DINAMICA_EGO_8_INSTALLATION_DIRECTORY="/opt/dinamica/usr/bin"
@@ -86,8 +97,14 @@ export DINAMICA_EGO_CLI="/opt/dinamica/usr/bin/DinamicaConsole"
 export DINAMICA_EGO_8_HOME="/opt/dinamica"
 export DINAMICA_EGO_8_TEMP_DIR="/tmp/dinamica"
 export PATH="$PATH:/opt/dinamica/usr/bin"
-export LD_LIBRARY_PATH="/opt/dinamica/usr/lib/:$LD_LIBRARY_PATH"
 ```
+
+::: {.callout-note}
+`LD_LIBRARY_PATH` does **not** need to be set manually.
+`evoland` automatically prepends `/opt/dinamica/usr/lib` (derived from
+`DINAMICA_EGO_8_HOME`) to `LD_LIBRARY_PATH` when it invokes `DinamicaConsole`, so
+your system-wide library path is never affected.
+:::
 
 Create the temporary directory Dinamica uses at runtime:
 
@@ -98,8 +115,11 @@ mkdir -p /tmp/dinamica
 ### 6. Create the Dinamica configuration file
 
 Dinamica looks for a per-user configuration file in your home directory.
-Create `~/.dinamica_ego_8.conf` with at least the following content (adjust the CRAN
-mirror if you prefer a different one):
+Create `~/.dinamica_ego_8.conf` with at least the following content.
+The `AlternativePathForR` key must point to the `Rscript` binary that `evoland` uses;
+verify the correct path with `which Rscript` in your terminal and update the value
+accordingly.
+Adjust the CRAN mirror if you prefer a different one:
 
 ```ini
 AlternativePathForR = "/usr/local/bin/Rscript"
@@ -117,11 +137,21 @@ DinamicaConsole --version
 ```
 
 You should see version information printed to the terminal.
-From R, you can confirm that `evoland` can locate it:
+From R, run the Dinamica-specific test file that ships with `evoland` to confirm the
+full integration works:
 
 ```r
 library(evoland)
-evoland:::find_dinamica()
+tinytest::run_test_file(
+  system.file("tinytest", "test_util_dinamica.R", package = "evoland")
+)
+```
+
+Alternatively, run the full test suite (takes longer but validates the complete
+installation):
+
+```r
+tinytest::test_package("evoland")
 ```
 
 ## Troubleshooting
@@ -133,6 +163,6 @@ evoland:::find_dinamica()
 **Shared library errors (`libXXX.so not found`)**
 : Make sure `LD_LIBRARY_PATH` includes `/opt/dinamica/usr/lib/`.
 
-**Dinamica silently falls back to the anterior LULC map**
+**Dinamica falls back to the anterior LULC map with a warning**
 : The `DINAMICA_EGO_CLI` environment variable is not set or points to a wrong path.
   Double-check the path with `echo $DINAMICA_EGO_CLI` and that the file is executable.

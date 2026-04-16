@@ -56,7 +56,7 @@ Tests are written as `tinytest`s that can be run after package installation, ens
 
 `evoland-plus` uses [Dinamica EGO](https://dinamicaego.com/) as its spatial allocation engine.
 See the [Installing Dinamica EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html) vignette for installation instructions.
-Note that Dinamica only runs on **Linux x86 / amd64**; users on other platforms should use the [Docker container](https://github.com/ethzplus/rocker-geospatial-dinamica/).
+Note that Dinamica only runs on **Linux x86 / amd64** (the Windows installer exists but is untested with `evoland-plus`); users on other platforms should use the [Docker container](https://github.com/ethzplus/rocker-geospatial-dinamica/).
 
 ## Documentation
 
