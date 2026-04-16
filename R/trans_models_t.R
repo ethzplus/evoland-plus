@@ -139,20 +139,20 @@ fit_partial_model_worker <- function(
           trained_learner
         }
 
-      l_id <- extract_from$id
-      l_params <- Filter(
+      learner_id_val <- extract_from$id
+      learner_params_val <- Filter(
         function(v) is.atomic(v) && length(v) == 1L,
         extract_from$param_set$values
       )
-      l_params <- if (length(l_params) == 0L) NULL else l_params
-      l_spec <- qs2::qs_serialize(extract_from$clone(deep = TRUE)$reset())
+      learner_params_val <- if (length(learner_params_val) == 0L) NULL else learner_params_val
+      learner_spec_blob <- qs2::qs_serialize(extract_from$clone(deep = TRUE)$reset())
 
       data.table::data.table(
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
-        learner_id = l_id,
-        learner_params = list(l_params),
-        learner_spec = list(l_spec),
+        learner_id = learner_id_val,
+        learner_params = list(learner_params_val),
+        learner_spec = list(learner_spec_blob),
         crossval_measures = list(scores),
         crossval_predictions = list(qs2::qs_serialize(prediction)),
         learner_full = list(NULL)
@@ -210,17 +210,17 @@ fit_full_model_worker <- function(item, db, ...) {
 
       # Reconstruct learner: try learner_spec first, fall back to do.call(lrn, ...)
       learner_spec_raw <- item[["learner_spec"]][[1L]]
-      l_id <- item[["learner_id"]]
-      l_params <- item[["learner_params"]][[1L]]
+      learner_id_val <- item[["learner_id"]]
+      learner_params_val <- item[["learner_params"]][[1L]]
 
       trained_learner <- tryCatch(
         qs2::qs_deserialize(learner_spec_raw),
         error = function(e) {
           warning(glue::glue(
-            "learner_spec deserialization failed for {l_id}: {e$message}; ",
+            "learner_spec deserialization failed for {learner_id_val}: {e$message}; ",
             "falling back to do.call reconstruction"
           ))
-          do.call(mlr3::lrn, c(list(l_id), as.list(l_params)))
+          do.call(mlr3::lrn, c(list(learner_id_val), as.list(learner_params_val)))
         }
       )
 
@@ -229,7 +229,7 @@ fit_full_model_worker <- function(item, db, ...) {
       list(
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
-        learner_id = l_id,
+        learner_id = learner_id_val,
         learner_full = list(qs2::qs_serialize(trained_learner))
       )
     },
