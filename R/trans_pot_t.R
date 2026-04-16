@@ -113,10 +113,10 @@ predict_trans_pot <- function(
     # Get model for this transition
     model_row <- self$get_query(glue::glue(
       r"[
-      select model_obj_full
+      select learner_full
       from {self$get_read_expr("trans_models_t")}
       where id_trans = {id_trans}
-      order by goodness_of_fit['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
+      order by crossval_measures['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
       limit 1
       ]"
     ))
@@ -125,8 +125,8 @@ predict_trans_pot <- function(
       stop(glue::glue("Expecting exactly one model for id_trans={id_trans}"))
     }
 
-    # Deserialize full model
-    model_obj <- qs2::qs_deserialize(model_row$model_obj_full[[1]])
+    # Deserialize full learner
+    learner_obj <- qs2::qs_deserialize(model_row$learner_full[[1]])
 
     # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
     pred_data_post <- self$pred_data_wide_v(
@@ -141,33 +141,10 @@ predict_trans_pot <- function(
       next
     }
 
-    # Predict probabilities
-    # Drop id_coord for prediction
+    # Predict probabilities using mlr3 predict_newdata; drop id_coord (non-feature)
     pred_cols <- grep("^id_pred_", names(pred_data_post), value = TRUE)
-
-    # Predict - assuming model has predict() method that returns probabilities
-    # FIXME apparently not all models respect the standard function signature, pull in
-    # mlr3
-    if (inherits(model_obj, "ranger")) {
-      probs <-
-        predict(
-          model_obj,
-          data = pred_data_post[, -"id_coord"],
-          type = "response"
-        )[[
-          "predictions" # assume model has been run with probability = TRUE
-        ]][,
-          "TRUE" # matrix column for transition _does_ occur
-        ]
-    } else {
-      probs <-
-        predict(
-          model_obj,
-          newdata = pred_data_post[, -"id_coord"],
-          type = "response"
-        ) |>
-        setNames(NULL)
-    }
+    pred_feature_data <- pred_data_post[, .SD, .SDcols = pred_cols]
+    probs <- learner_obj$predict_newdata(pred_feature_data)$prob[, "TRUE"]
     # Ensure probabilities are in [0, 1]
     probs <- pmax(0, pmin(1, probs))
 

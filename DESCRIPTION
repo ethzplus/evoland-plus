@@ -26,6 +26,8 @@ Imports:
 Suggests:
     base64enc,
     butcher,
+    mlr3,
+    mlr3viz,
     pROC,
     processx,
     quarto,

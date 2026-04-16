@@ -5,6 +5,10 @@ if (!at_home()) {
   exit_file("Integration tests skipped (not at_home)")
 }
 
+if (!requireNamespace("mlr3", quietly = TRUE)) {
+  exit_file("mlr3 not available; skipping allocation integration tests")
+}
+
 source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
 db <- make_test_db()
 db$trans_rates_t <- db$get_obs_trans_rates()
@@ -13,18 +17,24 @@ db$trans_rates_t <- extrapolate_trans_rates(
   db$periods_t,
   coord_count = nrow(db$coords_t)
 )
-# test the package's standard glm quasibinomial fit and append to disk
+
+test_learner <- mlr3::lrn("classif.featureless", predict_type = "prob")
+test_measures <- list(mlr3::msr("classif.auc"))
+
+# test the package's featureless learner fit and append to disk
 expect_message(
   db$trans_models_t <- db$fit_partial_models(
-    fit_fun = fit_glm,
-    gof_fun = gof_glm,
+    learner = test_learner,
+    measures = test_measures,
     seed = 1244244,
   ),
   "Fitting partial models for 2 transitions..."
 )
 expect_message(
   db$trans_models_t <- db$fit_full_models(
-    gof_criterion = "auc",
+    learner = test_learner,
+    measures = test_measures,
+    gof_criterion = "classif.auc",
     gof_maximize = TRUE
   ),
   "Fitting full models for"

@@ -173,12 +173,15 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Fit full models on complete data using the best partial model configuration for
     #' each transition, see [fit_full_models()]
-    #' @param partial_models A trans_models_t table with partial models (see [fit_partial_models()])
-    #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
+    #' @param learner An mlr3 `Learner` or `AutoTuner` object; used as last-resort
+    #'   fallback for reconstruction.
+    #' @param measures A list of mlr3 `Measure` objects; kept for API consistency.
+    #' @param gof_criterion Which cross-validation measure to use for model selection (e.g., `"classif.auc"`)
     #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
     #' @param cluster Optional cluster object for parallel processing
     fit_full_models = function(
-      partial_models,
+      learner,
+      measures,
       gof_criterion,
       gof_maximize,
       cluster = NULL
@@ -189,21 +192,27 @@ evoland_db <- R6::R6Class(
     #' @description Fit partial models for each viable transition using stratified
     #' sampling. Models are trained on a subsample and evaluated on held-out data, see
     #' [fit_partial_models()] for details.
-    #' @param fit_fun Function for generating a model object.
-    #' @param gof_fun Function to evaluate goodness of fit.
+    #' @param learner An mlr3 `Learner` or `AutoTuner` R6 object.
+    #' @param measures A list of mlr3 `Measure` objects for scoring the held-out split.
     #' @param sample_frac Fraction in \(0, 1\) for stratified sampling.
     #' @param seed Random seed for reproducible sampling
     #' @param cluster Optional cluster object for parallel processing
-    #' @param ... additional arguments passed to fit_fun
     fit_partial_models = function(
-      fit_fun,
+      learner,
+      measures,
       sample_frac = 0.7,
-      gof_fun,
       seed = NULL,
-      cluster = NULL,
-      ...
+      cluster = NULL
     ) {
       create_method_binding(fit_partial_models)
+    },
+
+    #' @description
+    #' Get cross-validation plots for stored predictions, see [get_crossval_plots()]
+    #' @param id_run Optional integer; filter by run ID.
+    #' @param id_trans Optional integer; filter by transition ID.
+    get_crossval_plots = function(id_run = NULL, id_trans = NULL) {
+      create_method_binding(get_crossval_plots)
     },
 
     #' @description
