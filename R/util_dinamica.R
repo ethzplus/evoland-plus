@@ -53,21 +53,14 @@ exec_dinamica <- function(
   args <- c(args, model_path)
 
   dinamica_home <- Sys.getenv("DINAMICA_EGO_8_HOME", unset = "")
-  dinamica_lib_path <- if (nzchar(dinamica_home)) {
-    file.path(dinamica_home, "usr", "lib")
-  } else {
-    ""
+  if (!nzchar(dinamica_home)) {
+    stop(
+      "Environment variable DINAMICA_EGO_8_HOME is not set. ",
+      "Please set it to the Dinamica EGO installation directory (e.g. /opt/dinamica).",
+      call. = FALSE
+    )
   }
-  current_ld <- Sys.getenv("LD_LIBRARY_PATH", unset = "")
-  new_ld <- if (nzchar(dinamica_lib_path)) {
-    if (nzchar(current_ld)) {
-      paste0(dinamica_lib_path, ":", current_ld)
-    } else {
-      dinamica_lib_path
-    }
-  } else {
-    current_ld
-  }
+  new_ld <- file.path(dinamica_home, "usr", "lib")
 
   if (write_logfile) {
     logfile_path <- file.path(

@@ -26,7 +26,7 @@ If you are on an unsupported platform, your best option is to build the Docker i
 <https://github.com/ethzplus/rocker-geospatial-dinamica/>.
 Because Dinamica EGO cannot be redistributed, the image is not pre-built; you must clone
 that repository and build it locally.
-The repository ships a [devcontainer](https://containers.dev/) configuration, so once the
+The `evoland-plus` repository ships a [devcontainer](https://containers.dev/) configuration, so once the
 image is built you can open the project directly inside the container from VS Code or any
 other IDE that supports the devcontainer specification — just make sure a Docker-compatible
 runtime is running first (e.g.
@@ -161,7 +161,10 @@ tinytest::test_package("evoland")
   shell profile.
 
 **Shared library errors (`libXXX.so not found`)**
-: Make sure `LD_LIBRARY_PATH` includes `/opt/dinamica/usr/lib/`.
+: `evoland` sets `LD_LIBRARY_PATH` to `$DINAMICA_EGO_8_HOME/usr/lib` for every
+  `DinamicaConsole` call. If you still see library errors, verify that
+  `DINAMICA_EGO_8_HOME` is set correctly with `echo $DINAMICA_EGO_8_HOME` and that
+  the shared libraries exist under that path.
 
 **Dinamica falls back to the anterior LULC map with a warning**
 : The `DINAMICA_EGO_CLI` environment variable is not set or points to a wrong path.
