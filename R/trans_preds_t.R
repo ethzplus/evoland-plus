@@ -169,6 +169,13 @@ prune_trans_worker <- function(item, db, filter_fun, ordered_pred_data = FALSE, 
   )
 }
 
+# TODO: mlr3filters (https://mlr3filters.mlr-org.com/) provides a range of filter methods
+# (mutual information, permutation importance, correlation-based, etc.) that could replace or
+# supplement the current covariance_filter approach here. This refactoring should follow the
+# same patterns as trans_models_t: accept an mlr3 Filter object (or id string + params) in
+# place of filter_fun, store the filter id and parameters as DuckDB-native MAP columns, and
+# serialize the filter object as a BLOB for full reproducibility.
+
 #' @describeIn trans_preds_t Get a pruned set of transition-predictor relationships
 #' based on a filtering function
 #' @param filter_fun A function that takes a transition-predictor data (cf. [trans_pred_data_v]) and
