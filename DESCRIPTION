@@ -19,6 +19,7 @@ Imports:
     DBI,
     duckdb (>= 1.5.2),
     glue,
+    mlr3,
     qs2,
     R6,
     Rcpp,
@@ -26,7 +27,6 @@ Imports:
 Suggests:
     base64enc,
     butcher,
-    mlr3,
     mlr3viz,
     pROC,
     processx,

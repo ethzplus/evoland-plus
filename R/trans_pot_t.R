@@ -116,7 +116,7 @@ predict_trans_pot <- function(
       select learner_full
       from {self$get_read_expr("trans_models_t")}
       where id_trans = {id_trans}
-      order by crossval_measures['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
+      order by crossval_score['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
       limit 1
       ]"
     ))
@@ -141,10 +141,8 @@ predict_trans_pot <- function(
       next
     }
 
-    # Predict probabilities using mlr3 predict_newdata; drop id_coord (non-feature)
-    pred_cols <- grep("^id_pred_", names(pred_data_post), value = TRUE)
-    pred_feature_data <- pred_data_post[, .SD, .SDcols = pred_cols]
-    probs <- learner_obj$predict_newdata(pred_feature_data)$prob[, "TRUE"]
+    # Predict probabilities using mlr3 predict_newdata; id_coord is dropped automatically
+    probs <- learner_obj$predict_newdata(pred_data_post)$prob[, "TRUE"]
     # Ensure probabilities are in [0, 1]
     probs <- pmax(0, pmin(1, probs))
 

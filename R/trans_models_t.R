@@ -16,7 +16,7 @@
 #'     querying; complete hyperparameters are captured by `learner_spec`
 #'   - `learner_spec`: BLOB of serialized untrained mlr3 `Learner`; for
 #'     AutoTuners, this is the optimal inner learner after tuning
-#'   - `crossval_measures`: MAP of cross-validation performance scores
+#'   - `crossval_score`: MAP of cross-validation performance scores
 #'     (from `prediction$score(measures)`)
 #'   - `crossval_predictions`: BLOB of serialized mlr3 `PredictionClassif`
 #'     on the held-out test split
@@ -31,7 +31,7 @@ as_trans_models_t <- function(x) {
       learner_id = character(0),
       learner_params = list(),
       learner_spec = list(),
-      crossval_measures = list(),
+      crossval_score = list(),
       crossval_predictions = list(),
       learner_full = list()
     )
@@ -45,7 +45,7 @@ as_trans_models_t <- function(x) {
     x,
     "trans_models_t",
     key_cols = c("id_run", "id_trans", "learner_id"),
-    map_cols = c("learner_params", "crossval_measures"),
+    map_cols = c("learner_params", "crossval_score"),
     partition_cols = "id_run"
   )
 }
@@ -153,7 +153,7 @@ fit_partial_model_worker <- function(
         learner_id = learner_id_val,
         learner_params = list(learner_params_val),
         learner_spec = list(learner_spec_blob),
-        crossval_measures = list(scores),
+        crossval_score = list(scores),
         crossval_predictions = list(qs2::qs_serialize(prediction)),
         learner_full = list(NULL)
       )
@@ -168,7 +168,7 @@ fit_partial_model_worker <- function(
         learner_id = "error",
         learner_params = list(NULL),
         learner_spec = list(NULL),
-        crossval_measures = list(NULL),
+        crossval_score = list(NULL),
         crossval_predictions = list(NULL),
         learner_full = list(NULL)
       )
@@ -216,11 +216,12 @@ fit_full_model_worker <- function(item, db, ...) {
       trained_learner <- tryCatch(
         qs2::qs_deserialize(learner_spec_raw),
         error = function(e) {
+          fallback <- do.call(mlr3::lrn, c(list(learner_id_val), as.list(learner_params_val)))
           warning(glue::glue(
             "learner_spec deserialization failed for {learner_id_val}: {e$message}; ",
-            "falling back to do.call reconstruction"
+            "falling back to reconstructed learner: {fallback$format()}"
           ))
-          do.call(mlr3::lrn, c(list(learner_id_val), as.list(learner_params_val)))
+          fallback
         }
       )
 
@@ -254,8 +255,10 @@ fit_full_model_worker <- function(item, db, ...) {
 #' @param learner An mlr3 `Learner` or `AutoTuner` object. A deep clone is trained
 #'   for each transition; the original object is not modified. For `AutoTuner`,
 #'   the optimal inner learner is extracted after tuning.
-#' @param measures A list of mlr3 `Measure` objects (e.g. `list(mlr3::msr("classif.auc"))`)
-#'   used to score the held-out predictions; results are written to `crossval_measures`.
+#' @param measures Either a character vector of mlr3 measure IDs
+#'   (e.g. `c("classif.auc", "classif.acc")`) or a list of instantiated mlr3
+#'   `Measure` objects (e.g. `list(mlr3::msr("classif.auc"))`). Character IDs are
+#'   converted via `mlr3::msrs()` internally. Results are written to `crossval_score`.
 #' @param sample_frac Numeric between 0 and 1 indicating
 #' the fraction of data to use for training the partial models. The rest is used for
 #' testing and calculating goodness-of-fit metrics. Default is 0.7 (70% training, 30%
@@ -263,6 +266,9 @@ fit_full_model_worker <- function(item, db, ...) {
 #' @param seed Optional integer seed for reproducible subsampling.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
+#' @return A [trans_models_t] table with one row per viable transition, containing
+#'   the learner identity, serialized spec, cross-validation scores (`crossval_score`),
+#'   and serialized held-out predictions (`crossval_predictions`).
 fit_partial_models <- function(
   self,
   learner,
@@ -271,6 +277,11 @@ fit_partial_models <- function(
   seed = NULL,
   cluster = NULL
 ) {
+  # Accept either a character vector of measure IDs or a list of Measure objects
+  if (is.character(measures)) {
+    measures <- mlr3::msrs(measures)
+  }
+
   trans_preds_nested <-
     data.table::as.data.table(self$trans_preds_t)[,
       .(id_pred = list(id_pred)),
@@ -289,7 +300,7 @@ fit_partial_models <- function(
   stopifnot(
     "No viable transitions" = nrow(viable_trans) > 0L,
     "learner must be an mlr3 Learner or AutoTuner" = inherits(learner, "Learner"),
-    "measures must be a non-empty list" = is.list(measures) && length(measures) > 0L,
+    "measures must be a non-empty character vector or list" = (is.list(measures) || is.character(measures)) && length(measures) > 0L,
     "sample_frac must be between 0 and 1" = sample_frac > 0 && sample_frac < 1
   )
 
@@ -320,14 +331,18 @@ fit_partial_models <- function(
 #' @param learner An mlr3 `Learner` or `AutoTuner` object; kept for API consistency and
 #'   used as a last-resort fallback if both `learner_spec` deserialization and
 #'   `do.call(mlr3::lrn, ...)` reconstruction fail.
-#' @param measures A list of mlr3 `Measure` objects; kept for API consistency.
-#' @param gof_criterion Character string specifying which cross-validation measure to use
+#' @param measures Either a character vector of mlr3 measure IDs or a list of `Measure`
+#'   objects; kept for API consistency.
+#' @param gof_criterion Character string specifying which cross-validation score to use
 #'   for selecting the best partial model per transition (must match a key in
-#'   `crossval_measures`, e.g. `"classif.auc"`).
+#'   `crossval_score`, e.g. `"classif.auc"`).
 #' @param gof_maximize Logical; select the model with the maximum (`TRUE`) or minimum
 #'   (`FALSE`) value of `gof_criterion`. Default is `TRUE`.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
+#' @return A [trans_models_t] table with one row per transition, containing the columns
+#'   from the best partial model plus `learner_full` with the serialized fully-trained
+#'   learner.
 fit_full_models <- function(
   self,
   learner,
@@ -369,7 +384,7 @@ fit_full_models <- function(
       and pn.id_trans = tm.id_trans
     qualify row_number() over (
         partition by tm.id_run, tm.id_trans
-        order by tm.crossval_measures['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
+        order by tm.crossval_score['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
     ) = 1;
     ]"
   ))
@@ -414,7 +429,7 @@ fit_full_models <- function(
       "learner_id",
       "learner_params",
       "learner_spec",
-      "crossval_measures",
+      "crossval_score",
       "crossval_predictions"
     ),
     where = glue::glue(
@@ -430,7 +445,7 @@ fit_full_models <- function(
     `:=`(
       learner_params = i.learner_params,
       learner_spec = i.learner_spec,
-      crossval_measures = i.crossval_measures,
+      crossval_score = i.crossval_score,
       crossval_predictions = i.crossval_predictions
     )
   ] |>
@@ -450,7 +465,7 @@ validate.trans_models_t <- function(x, ...) {
       "learner_id",
       "learner_params",
       "learner_spec",
-      "crossval_measures",
+      "crossval_score",
       "crossval_predictions",
       "learner_full"
     )
@@ -467,7 +482,7 @@ validate.trans_models_t <- function(x, ...) {
     is.character(x[["learner_id"]]),
     is.list(x[["learner_params"]]),
     is.list(x[["learner_spec"]]),
-    is.list(x[["crossval_measures"]]),
+    is.list(x[["crossval_score"]]),
     is.list(x[["crossval_predictions"]]),
     is.list(x[["learner_full"]]),
     all(x[["id_trans"]] > 0),

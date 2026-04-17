@@ -14,7 +14,7 @@ trans_models_t <- as_trans_models_t(data.table::data.table(
   learner_spec = list(
     charToRaw("learner spec blob")
   ),
-  crossval_measures = list(
+  crossval_score = list(
     list(classif.auc = 0.8)
   ),
   crossval_predictions = list(
@@ -45,7 +45,8 @@ db <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
 
 # Use a simple featureless learner for fast, dependency-free testing
 test_learner <- mlr3::lrn("classif.featureless", predict_type = "prob")
-test_measures <- list(mlr3::msr("classif.auc"), mlr3::msr("classif.acc"))
+# measures can be passed as a character vector of IDs (convenience) or as a list of Measure objects
+test_measures <- c("classif.auc", "classif.acc")
 
 # Test fit_partial_models
 expect_message(
@@ -63,7 +64,7 @@ expect_length(
 )
 expect_true(all(
   c("id_run", "id_trans", "learner_id", "learner_params",
-    "learner_spec", "crossval_measures", "crossval_predictions", "learner_full") %in%
+    "learner_spec", "crossval_score", "crossval_predictions", "learner_full") %in%
     names(partial_models)
 ))
 expect_equal(
@@ -85,9 +86,9 @@ deserialized_spec <- qs2::qs_deserialize(partial_models$learner_spec[[1]])
 expect_true(inherits(deserialized_spec, "Learner"))
 expect_equal(deserialized_spec$id, "classif.featureless")
 
-# crossval_measures should be named lists with measure IDs as keys
+# crossval_score should be named lists with measure IDs as keys
 expect_true(all(vapply(
-  partial_models$crossval_measures,
+  partial_models$crossval_score,
   function(m) !is.null(m) && is.list(m) && "classif.auc" %in% names(m),
   logical(1)
 )))
