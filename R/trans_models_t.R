@@ -219,7 +219,7 @@ fit_full_model_worker <- function(item, db, ...) {
           fallback <- do.call(mlr3::lrn, c(list(learner_id_val), as.list(learner_params_val)))
           warning(glue::glue(
             "learner_spec deserialization failed for {learner_id_val}: {e$message}; ",
-            "falling back to reconstructed learner: {fallback$format()}"
+            "falling back to reconstructed learner: {paste(fallback$format(), collapse = ' ')}"
           ))
           fallback
         }
@@ -300,7 +300,10 @@ fit_partial_models <- function(
   stopifnot(
     "No viable transitions" = nrow(viable_trans) > 0L,
     "learner must be an mlr3 Learner or AutoTuner" = inherits(learner, "Learner"),
-    "measures must be a non-empty character vector or list" = (is.list(measures) || is.character(measures)) && length(measures) > 0L,
+    "measures must be a non-empty character vector or list of Measure objects" = (
+      (is.character(measures) || (is.list(measures) && all(vapply(measures, inherits, logical(1), "Measure")))) &&
+        length(measures) > 0L
+    ),
     "sample_frac must be between 0 and 1" = sample_frac > 0 && sample_frac < 1
   )
 
