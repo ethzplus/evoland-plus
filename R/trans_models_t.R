@@ -300,10 +300,11 @@ fit_partial_models <- function(
   stopifnot(
     "No viable transitions" = nrow(viable_trans) > 0L,
     "learner must be an mlr3 Learner or AutoTuner" = inherits(learner, "Learner"),
-    "measures must be a non-empty character vector or list of Measure objects" = (
-      (is.character(measures) || (is.list(measures) && all(vapply(measures, inherits, logical(1), "Measure")))) &&
-        length(measures) > 0L
-    ),
+    "measures must be a non-empty character vector or list of Measure objects" = ((is.character(
+      measures
+    ) ||
+      (is.list(measures) && all(vapply(measures, inherits, logical(1), "Measure")))) &&
+      length(measures) > 0L),
     "sample_frac must be between 0 and 1" = sample_frac > 0 && sample_frac < 1
   )
 
@@ -553,9 +554,12 @@ get_crossval_plots <- function(self, id_run = NULL, id_trans = NULL) {
   })
 
   names(plots) <- paste0(
-    "id_run=", models$id_run,
-    "_id_trans=", models$id_trans,
-    "_", models$learner_id
+    "id_run=",
+    models$id_run,
+    "_id_trans=",
+    models$id_trans,
+    "_",
+    models$learner_id
   )
 
   plots

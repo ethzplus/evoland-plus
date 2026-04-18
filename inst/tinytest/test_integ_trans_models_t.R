@@ -63,8 +63,16 @@ expect_length(
   8L # columns
 )
 expect_true(all(
-  c("id_run", "id_trans", "learner_id", "learner_params",
-    "learner_spec", "crossval_score", "crossval_predictions", "learner_full") %in%
+  c(
+    "id_run",
+    "id_trans",
+    "learner_id",
+    "learner_params",
+    "learner_spec",
+    "crossval_score",
+    "crossval_predictions",
+    "learner_full"
+  ) %in%
     names(partial_models)
 ))
 expect_equal(
