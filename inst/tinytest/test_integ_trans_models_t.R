@@ -32,10 +32,6 @@ if (!at_home()) {
   exit_file("Integration tests skipped (not at_home)")
 }
 
-if (!requireNamespace("mlr3", quietly = TRUE)) {
-  exit_file("mlr3 not available; skipping integration tests")
-}
-
 # Load fixtures via helper
 source(file.path(
   system.file("tinytest", package = "evoland"),
@@ -101,13 +97,11 @@ expect_true(all(vapply(
   logical(1)
 )))
 
-# Test fit_full_models, which reconstructs and retrains on full data
+# Test fit_full_models in score-select mode (picks best partial model by crossval_score)
 expect_message(
   db$trans_models_t <- full_models <- db$fit_full_models(
-    learner = test_learner,
-    measures = test_measures,
-    gof_criterion = "classif.auc",
-    gof_maximize = TRUE
+    select_score = "classif.auc",
+    select_maximize = TRUE
   ),
   "Fitting full models for"
 )
@@ -133,10 +127,8 @@ expect_false(is.null(deserialized_full$model))
 # Test model selection with minimize criterion
 expect_message(
   full_models_min <- db$fit_full_models(
-    learner = test_learner,
-    measures = test_measures,
-    gof_criterion = "classif.acc",
-    gof_maximize = FALSE
+    select_score = "classif.acc",
+    select_maximize = FALSE
   ),
   "Fitting full models for"
 )
@@ -178,14 +170,12 @@ expect_error(
   "sample_frac must be between 0 and 1"
 )
 
-# Test error handling - missing trans_models_t for full model fitting
+# Test error handling - missing trans_models_t for full model fitting (score-select mode)
 db$delete_from("trans_models_t")
 expect_error(
   db$fit_full_models(
-    learner = test_learner,
-    measures = test_measures,
-    gof_criterion = "classif.auc",
-    gof_maximize = TRUE
+    select_score = "classif.auc",
+    select_maximize = TRUE
   ),
   "trans_models_t is missing"
 )
@@ -217,7 +207,7 @@ expect_equal(
   "error"
 )
 
-# Test print method
+# Test print method (score-select mode)
 db3 <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
 db3$trans_models_t <- db3$fit_partial_models(
   learner = test_learner,
@@ -225,12 +215,52 @@ db3$trans_models_t <- db3$fit_partial_models(
   seed = 42
 )
 db3$trans_models_t <- db3$fit_full_models(
-  learner = test_learner,
-  measures = test_measures,
-  gof_criterion = "classif.auc",
-  gof_maximize = TRUE
+  select_score = "classif.auc",
+  select_maximize = TRUE
 )
 expect_stdout(
   print(db3$trans_models_t),
   "Transition Models Table|Total models"
 )
+
+# Test direct-learner mode: fit_full_models with a learner (no partial models needed)
+db4 <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
+expect_message(
+  full_models_direct <- db4$fit_full_models(
+    learner = test_learner
+  ),
+  "Fitting full models for"
+)
+# direct mode: crossval_score and crossval_predictions should be NULL
+expect_true(all(vapply(full_models_direct$crossval_score, is.null, logical(1))))
+expect_true(all(vapply(full_models_direct$crossval_predictions, is.null, logical(1))))
+# learner_full should be populated
+expect_true(all(vapply(full_models_direct$learner_full, is.raw, logical(1))))
+deserialized_direct <- qs2::qs_deserialize(full_models_direct$learner_full[[1]])
+expect_true(inherits(deserialized_direct, "Learner"))
+expect_false(is.null(deserialized_direct$model))
+
+# Test get_crossval_plots (requires mlr3viz)
+if (!requireNamespace("mlr3viz", quietly = TRUE)) {
+  exit_file("mlr3viz not available; skipping get_crossval_plots tests")
+}
+
+db5 <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
+db5$trans_models_t <- db5$fit_partial_models(
+  learner = test_learner,
+  measures = test_measures,
+  seed = 42
+)
+
+plots <- db5$get_crossval_plots()
+expect_true(is.list(plots))
+expect_equal(length(plots), nrow(db5$trans_models_t))
+# Each element should be a ggplot (or NULL for rows without predictions)
+non_null_plots <- Filter(Negate(is.null), plots)
+expect_true(length(non_null_plots) > 0L)
+expect_true(all(vapply(non_null_plots, inherits, logical(1), "gg")))
+
+# Filter by id_trans
+plots_filtered <- db5$get_crossval_plots(id_trans = db5$trans_models_t$id_trans[[1]])
+expect_true(is.list(plots_filtered))
+expect_equal(length(plots_filtered), 1L)

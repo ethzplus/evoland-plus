@@ -11,7 +11,8 @@
 #' @return A data.table of class "trans_models_t" with columns:
 #'   - `id_run`: Foreign key to runs_t
 #'   - `id_trans`: Foreign key to trans_meta_t
-#'   - `learner_id`: mlr3 learner key, e.g. `"classif.ranger"`
+#'   - `learner_id`: mlr3 twoclass [LearnerClassif](https://mlr3.mlr-org.com/reference/LearnerClassif.html)
+#'     key, e.g. `"classif.ranger"`
 #'   - `learner_params`: MAP of atomic scalar learner hyperparameters for
 #'     querying; complete hyperparameters are captured by `learner_spec`
 #'   - `learner_spec`: BLOB of serialized untrained mlr3 `Learner`; for
@@ -60,10 +61,6 @@ fit_partial_model_worker <- function(
   seed = NULL,
   sample_frac = 0.7
 ) {
-  if (!requireNamespace("mlr3", quietly = TRUE)) {
-    stop("Package 'mlr3' is required. Install with: install.packages('mlr3')")
-  }
-
   id_run_orig <- db$id_run
   on.exit(db$id_run <- id_run_orig, add = TRUE)
   db$id_run <- item[["id_run"]]
@@ -178,12 +175,11 @@ fit_partial_model_worker <- function(
 }
 
 # Worker function for full model fitting
-# Not exported; used internally by fit_full_models
-fit_full_model_worker <- function(item, db, ...) {
-  if (!requireNamespace("mlr3", quietly = TRUE)) {
-    stop("Package 'mlr3' is required. Install with: install.packages('mlr3')")
-  }
-
+# Not exported; used internally by fit_full_models.
+# Operates in two modes depending on whether `learner` is NULL:
+#  - direct mode (learner != NULL): train the passed learner clone on full data
+#  - score-select mode (learner == NULL): reconstruct from item$learner_spec and retrain
+fit_full_model_worker <- function(item, db, learner = NULL, ...) {
   tryCatch(
     {
       # Fetch full data
@@ -209,22 +205,39 @@ fit_full_model_worker <- function(item, db, ...) {
         positive = "TRUE"
       )
 
-      # Reconstruct learner: try learner_spec first, fall back to do.call(lrn, ...)
-      learner_spec_raw <- item[["learner_spec"]][[1L]]
-      learner_id_val <- item[["learner_id"]]
-      learner_params_val <- item[["learner_params"]][[1L]]
-
-      trained_learner <- tryCatch(
-        qs2::qs_deserialize(learner_spec_raw),
-        error = function(e) {
-          fallback <- do.call(mlr3::lrn, c(list(learner_id_val), as.list(learner_params_val)))
-          warning(glue::glue(
-            "learner_spec deserialization failed for {learner_id_val}: {e$message}; ",
-            "falling back to reconstructed learner: {paste(fallback$format(), collapse = ' ')}"
-          ))
-          fallback
-        }
-      )
+      if (!is.null(learner)) {
+        # Direct mode: use the passed learner directly
+        trained_learner <- learner$clone(deep = TRUE)
+        learner_id_val <- trained_learner$id
+        learner_params_val <- Filter(
+          function(v) is.atomic(v) && length(v) == 1L,
+          trained_learner$param_set$values
+        )
+        learner_params_val <- if (length(learner_params_val) == 0L) NULL else learner_params_val
+        learner_spec_blob <- qs2::qs_serialize(trained_learner$clone(deep = TRUE)$reset())
+        crossval_score_val <- list(NULL)
+        crossval_predictions_val <- list(NULL)
+      } else {
+        # Score-select mode: reconstruct from learner_spec; fall back to do.call
+        learner_spec_raw <- item[["learner_spec"]][[1L]]
+        learner_id_val <- item[["learner_id"]]
+        learner_params_val <- item[["learner_params"]][[1L]]
+        trained_learner <- tryCatch(
+          qs2::qs_deserialize(learner_spec_raw),
+          error = function(e) {
+            fallback <- do.call(mlr3::lrn, c(list(learner_id_val), as.list(learner_params_val)))
+            warning(glue::glue(
+              "learner_spec deserialization failed for {learner_id_val}: {e$message}; ",
+              "falling back to reconstructed learner: {paste(fallback$format(), collapse = ' ')}"
+            ))
+            fallback
+          }
+        )
+        learner_spec_blob <- learner_spec_raw
+        # Pass through cross-validation results from the partial model
+        crossval_score_val <- item[["crossval_score"]]
+        crossval_predictions_val <- item[["crossval_predictions"]]
+      }
 
       trained_learner$train(full_task)
 
@@ -232,6 +245,10 @@ fit_full_model_worker <- function(item, db, ...) {
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
         learner_id = learner_id_val,
+        learner_params = list(learner_params_val),
+        learner_spec = list(learner_spec_blob),
+        crossval_score = crossval_score_val,
+        crossval_predictions = crossval_predictions_val,
         learner_full = list(qs2::qs_serialize(trained_learner))
       )
     },
@@ -242,7 +259,11 @@ fit_full_model_worker <- function(item, db, ...) {
       list(
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
-        learner_id = item[["learner_id"]],
+        learner_id = if (!is.null(learner)) learner$id else item[["learner_id"]],
+        learner_params = list(NULL),
+        learner_spec = list(NULL),
+        crossval_score = list(NULL),
+        crossval_predictions = list(NULL),
         learner_full = list(NULL)
       )
     }
@@ -251,7 +272,9 @@ fit_full_model_worker <- function(item, db, ...) {
 
 
 #' @describeIn trans_models_t Fit partial (cross-validation) models for each viable
-#' transition and store results in a trans_models_t table.
+#' transition; returns a [trans_models_t] object with one row per viable transition,
+#' containing the learner identity, serialized spec, cross-validation scores
+#' (`crossval_score`), and serialized held-out predictions (`crossval_predictions`).
 #' @param self [evoland_db] instance to query for transitions and predictor data
 #' @param learner An mlr3 `Learner` or `AutoTuner` object. A deep clone is trained
 #'   for each transition; the original object is not modified. For `AutoTuner`,
@@ -267,9 +290,6 @@ fit_full_model_worker <- function(item, db, ...) {
 #' @param seed Optional integer seed for reproducible subsampling.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
-#' @return A [trans_models_t] table with one row per viable transition, containing
-#'   the learner identity, serialized spec, cross-validation scores (`crossval_score`),
-#'   and serialized held-out predictions (`crossval_predictions`).
 fit_partial_models <- function(
   self,
   learner,
@@ -330,131 +350,151 @@ fit_partial_models <- function(
     as_trans_models_t()
 }
 
-#' @describeIn trans_models_t Fit full models for each transition based on the best
-#' partial model according to a specified cross-validation criterion.
+#' @describeIn trans_models_t Fit full models (trained on the complete dataset) for each
+#' viable transition and return a [trans_models_t] object with `learner_full` populated.
+#' Two mutually exclusive modes are supported:
+#' - **Direct-learner mode** (`learner` provided, `select_score` omitted): a fresh clone of
+#'   `learner` is trained on the full data for each transition. `crossval_score` and
+#'   `crossval_predictions` will be `NULL` in the result. Does not require a prior
+#'   call to [fit_partial_models()].
+#' - **Score-select mode** (`select_score` provided, `learner` omitted): selects the best
+#'   partial model per transition by `select_score`, reconstructs its learner from
+#'   `learner_spec`, and retrains on the full data. Requires [fit_partial_models()] to
+#'   have been run first.
 #' @param self [evoland_db] instance to query for transitions and predictor data
-#' @param learner An mlr3 `Learner` or `AutoTuner` object; kept for API consistency and
-#'   used as a last-resort fallback if both `learner_spec` deserialization and
-#'   `do.call(mlr3::lrn, ...)` reconstruction fail.
-#' @param measures Either a character vector of mlr3 measure IDs or a list of `Measure`
-#'   objects; kept for API consistency.
-#' @param gof_criterion Character string specifying which cross-validation score to use
-#'   for selecting the best partial model per transition (must match a key in
-#'   `crossval_score`, e.g. `"classif.auc"`).
-#' @param gof_maximize Logical; select the model with the maximum (`TRUE`) or minimum
-#'   (`FALSE`) value of `gof_criterion`. Default is `TRUE`.
+#' @param learner An mlr3 `Learner` or `AutoTuner` object for direct-learner mode.
+#'   Must be `NULL` when `select_score` is provided.
+#' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used to
+#'   rank partial models in score-select mode. Must be `NULL` when `learner` is provided.
+#' @param select_maximize Logical; if `TRUE` (default) the model with the highest
+#'   `select_score` is selected; if `FALSE`, the lowest. Only used in score-select mode.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
-#' @return A [trans_models_t] table with one row per transition, containing the columns
-#'   from the best partial model plus `learner_full` with the serialized fully-trained
-#'   learner.
 fit_full_models <- function(
   self,
-  learner,
-  measures,
-  gof_criterion,
-  gof_maximize,
+  learner = NULL,
+  select_score = NULL,
+  select_maximize = TRUE,
   cluster = NULL
 ) {
+  has_learner <- !is.null(learner)
+  has_score <- !is.null(select_score)
+
   stopifnot(
-    "gof_criterion must be a character string" = is.character(gof_criterion) &&
-      length(gof_criterion) == 1L,
-    "gof_maximize must be set to TRUE or FALSE" = isTRUE(gof_maximize) || isFALSE(gof_maximize),
-    "trans_models_t is missing" = file.exists(self$get_table_path("trans_models_t"))
+    "Provide exactly one of 'learner' or 'select_score'" = xor(has_learner, has_score)
   )
 
-  # Get the best partial model per transition (scalar columns only; MAP/BLOB via fetch below)
-  best_model_ids <- self$get_query(glue::glue(
-    r"[
-    with preds_nested as (
+  if (has_learner) {
+    stopifnot(
+      "learner must be an mlr3 Learner or AutoTuner" = inherits(learner, "Learner")
+    )
+
+    # Direct mode: get viable transitions with their predictor lists
+    trans_preds_nested <-
+      data.table::as.data.table(self$trans_preds_t)[,
+        .(id_pred = list(id_pred)),
+        by = .(id_run, id_trans)
+      ]
+
+    viable_trans <-
+      self$trans_meta_t[
+        is_viable == TRUE,
+        .(id_trans)
+      ][
+        trans_preds_nested,
+        on = "id_trans"
+      ]
+
+    message(glue::glue(
+      "Fitting full models for {nrow(viable_trans)} transitions..."
+    ))
+
+    viable_trans |>
+      split(by = c("id_run", "id_trans")) |>
+      run_parallel_evoland(
+        items = _,
+        worker_fun = fit_full_model_worker,
+        parent_db = self,
+        cluster = cluster,
+        learner = learner,
+      ) |>
+      data.table::rbindlist() |>
+      as_trans_models_t()
+  } else {
+    # Score-select mode
+    stopifnot(
+      "select_score must be a character string" = is.character(select_score) &&
+        length(select_score) == 1L,
+      "select_maximize must be TRUE or FALSE" = isTRUE(select_maximize) || isFALSE(select_maximize),
+      "trans_models_t is missing" = file.exists(self$get_table_path("trans_models_t"))
+    )
+
+    # Identify the best partial model per transition (using QUALIFY window function)
+    # and get the predictor ID lists from trans_preds_t in the same query
+    best_model_ids <- self$get_query(glue::glue(
+      r"[
+      with preds_nested as (
+        select
+          id_run,
+          id_trans,
+          list(id_pred) as id_pred
+        from
+          {self$get_read_expr("trans_preds_t")}
+        group by
+          id_run, id_trans
+      )
       select
-        id_run,
-        id_trans,
-        list(id_pred) as id_pred
+        tm.id_run,
+        tm.id_trans,
+        tm.learner_id,
+        pn.id_pred,
       from
-        {self$get_read_expr("trans_preds_t")}
-      group by
-        id_run, id_trans
+        {self$get_read_expr("trans_models_t")} tm,
+        preds_nested pn
+      where
+        pn.id_run = tm.id_run
+        and pn.id_trans = tm.id_trans
+      qualify row_number() over (
+          partition by tm.id_run, tm.id_trans
+          order by tm.crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
+      ) = 1;
+      ]"
+    ))
+
+    # Fetch all trans_models_t columns (including MAP/BLOB) for the best rows in one shot
+    learner_id_csv <- paste0("'", best_model_ids$learner_id, "'", collapse = ", ")
+    best_specs <- self$fetch(
+      "trans_models_t",
+      cols = c(
+        "id_run", "id_trans", "learner_id",
+        "learner_spec", "learner_params",
+        "crossval_score", "crossval_predictions"
+      ),
+      where = glue::glue(
+        "id_run in ({toString(best_model_ids$id_run)}) and ",
+        "id_trans in ({toString(best_model_ids$id_trans)}) and ",
+        "learner_id in ({learner_id_csv})"
+      )
     )
-    select
-      tm.id_run,
-      tm.id_trans,
-      tm.learner_id,
-      pn.id_pred,
-    from
-      {self$get_read_expr("trans_models_t")} tm,
-      preds_nested pn
-    where
-      pn.id_run = tm.id_run
-      and pn.id_trans = tm.id_trans
-    qualify row_number() over (
-        partition by tm.id_run, tm.id_trans
-        order by tm.crossval_score['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
-    ) = 1;
-    ]"
-  ))
 
-  # Fetch learner_spec (BLOB) and learner_params (MAP) for the best rows via fetch()
-  # so that MAP columns are properly deserialized to named lists.
-  learner_id_csv <- paste0("'", best_model_ids$learner_id, "'", collapse = ", ")
-  best_specs <- self$fetch(
-    "trans_models_t",
-    cols = c("id_run", "id_trans", "learner_id", "learner_spec", "learner_params"),
-    where = glue::glue(
-      "id_run in ({toString(best_model_ids$id_run)}) and ",
-      "id_trans in ({toString(best_model_ids$id_trans)}) and ",
-      "learner_id in ({learner_id_csv})"
-    )
-  )
+    # Join to add id_pred from the ranking query
+    best_models <- best_model_ids[best_specs, on = c("id_run", "id_trans", "learner_id")]
 
-  # Join to add id_pred and build complete item list for workers
-  best_models <- best_model_ids[best_specs, on = c("id_run", "id_trans", "learner_id")]
+    message(glue::glue(
+      "Fitting full models for {nrow(best_models)} transitions..."
+    ))
 
-  message(glue::glue(
-    "Fitting full models for {nrow(best_models)} transitions..."
-  ))
-
-  full_models <-
     best_models |>
-    split(by = c("id_run", "id_trans")) |>
-    run_parallel_evoland(
-      items = _,
-      worker_fun = fit_full_model_worker,
-      parent_db = self,
-      cluster = cluster,
-    ) |>
-    data.table::rbindlist()
-
-  # Fetch remaining columns from the best partial models and join
-  partial_models <- self$fetch(
-    "trans_models_t",
-    cols = c(
-      "id_run",
-      "id_trans",
-      "learner_id",
-      "learner_params",
-      "learner_spec",
-      "crossval_score",
-      "crossval_predictions"
-    ),
-    where = glue::glue(
-      "id_run in ({toString(full_models$id_run)}) and ",
-      "id_trans in ({toString(full_models$id_trans)}) and ",
-      "learner_id in ({paste0(\"'\", full_models$learner_id, \"'\", collapse = \", \")})"
-    )
-  )
-
-  full_models[
-    partial_models,
-    on = c("id_run", "id_trans", "learner_id"),
-    `:=`(
-      learner_params = i.learner_params,
-      learner_spec = i.learner_spec,
-      crossval_score = i.crossval_score,
-      crossval_predictions = i.crossval_predictions
-    )
-  ] |>
-    as_trans_models_t()
+      split(by = c("id_run", "id_trans")) |>
+      run_parallel_evoland(
+        items = _,
+        worker_fun = fit_full_model_worker,
+        parent_db = self,
+        cluster = cluster,
+      ) |>
+      data.table::rbindlist() |>
+      as_trans_models_t()
+  }
 }
 
 

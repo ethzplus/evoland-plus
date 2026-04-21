@@ -5,10 +5,6 @@ if (!at_home()) {
   exit_file("Integration tests skipped (not at_home)")
 }
 
-if (!requireNamespace("mlr3", quietly = TRUE)) {
-  exit_file("mlr3 not available; skipping allocation integration tests")
-}
-
 source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
 db <- make_test_db()
 db$trans_rates_t <- db$get_obs_trans_rates()
@@ -19,7 +15,7 @@ db$trans_rates_t <- extrapolate_trans_rates(
 )
 
 test_learner <- mlr3::lrn("classif.featureless", predict_type = "prob")
-test_measures <- list(mlr3::msr("classif.auc"))
+test_measures <- c("classif.auc")
 
 # test the package's featureless learner fit and append to disk
 expect_message(
@@ -30,15 +26,31 @@ expect_message(
   ),
   "Fitting partial models for 2 transitions..."
 )
+
+# Score-select mode: pick best partial model by classif.auc and retrain on full data
 expect_message(
   db$trans_models_t <- db$fit_full_models(
-    learner = test_learner,
-    measures = test_measures,
-    gof_criterion = "classif.auc",
-    gof_maximize = TRUE
+    select_score = "classif.auc",
+    select_maximize = TRUE
   ),
   "Fitting full models for"
 )
+
+# Direct-learner mode: train a fresh learner on full data without cross-validation
+db_direct <- make_test_db()
+db_direct$trans_rates_t <- db_direct$get_obs_trans_rates()
+db_direct$trans_rates_t <- extrapolate_trans_rates(
+  db_direct$trans_rates_t,
+  db_direct$periods_t,
+  coord_count = nrow(db_direct$coords_t)
+)
+expect_message(
+  full_direct <- db_direct$fit_full_models(
+    learner = test_learner
+  ),
+  "Fitting full models for"
+)
+expect_true(all(vapply(full_direct$learner_full, is.raw, logical(1))))
 
 # no data for period 4 yet
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)

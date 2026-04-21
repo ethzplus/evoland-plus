@@ -171,19 +171,19 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Fit full models on complete data using the best partial model configuration for
-    #' each transition, see [fit_full_models()]
-    #' @param learner An mlr3 `Learner` or `AutoTuner` object; used as last-resort
-    #'   fallback for reconstruction.
-    #' @param measures A list of mlr3 `Measure` objects; kept for API consistency.
-    #' @param gof_criterion Which cross-validation measure to use for model selection (e.g., `"classif.auc"`)
-    #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
+    #' Fit full models (trained on the complete dataset) for each viable transition,
+    #' see [fit_full_models()]. Two mutually exclusive modes: pass `learner` to train
+    #' directly, or pass `select_score` to pick the best partial model by score.
+    #' @param learner An mlr3 `Learner` or `AutoTuner` for direct-learner mode (`NULL`
+    #'   when `select_score` is used).
+    #' @param select_score Measure ID string for score-select mode, e.g. `"classif.auc"`
+    #'   (`NULL` when `learner` is used).
+    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
     #' @param cluster Optional cluster object for parallel processing
     fit_full_models = function(
-      learner,
-      measures,
-      gof_criterion,
-      gof_maximize,
+      learner = NULL,
+      select_score = NULL,
+      select_maximize = TRUE,
       cluster = NULL
     ) {
       create_method_binding(fit_full_models)
