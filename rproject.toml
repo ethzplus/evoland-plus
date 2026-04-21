@@ -1,0 +1,16 @@
+[project]
+name = "evoland-plus"
+r_version = "4.5"
+
+repositories = [
+  { alias = "CRAN", url = "https://stat.ethz.ch/CRAN/" },
+]
+
+dependencies = [
+  { name = "evoland", path = ".", install_suggestions = true },
+  # dev dependencies
+  "devtools",
+  "mirai",
+  "httpgd",
+  "languageserver",
+]
