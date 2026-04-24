@@ -36,22 +36,6 @@ expect_message(
   "Fitting full models for"
 )
 
-# Direct-learner mode: train a fresh learner on full data without cross-validation
-db_direct <- make_test_db()
-db_direct$trans_rates_t <- db_direct$get_obs_trans_rates()
-db_direct$trans_rates_t <- extrapolate_trans_rates(
-  db_direct$trans_rates_t,
-  db_direct$periods_t,
-  coord_count = nrow(db_direct$coords_t)
-)
-expect_message(
-  full_direct <- db_direct$fit_full_models(
-    learner = test_learner
-  ),
-  "Fitting full models for"
-)
-expect_true(all(vapply(full_direct$learner_full, is.raw, logical(1))))
-
 # no data for period 4 yet
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 

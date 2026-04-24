@@ -80,6 +80,7 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
 \item \href{#method-evoland_db-fit_full_models}{\code{evoland_db$fit_full_models()}}
 \item \href{#method-evoland_db-fit_partial_models}{\code{evoland_db$fit_partial_models()}}
+\item \href{#method-evoland_db-get_crossval_plots}{\code{evoland_db$get_crossval_plots()}}
 \item \href{#method-evoland_db-set_full_trans_preds}{\code{evoland_db$set_full_trans_preds()}}
 \item \href{#method-evoland_db-get_pruned_trans_preds_t}{\code{evoland_db$get_pruned_trans_preds_t()}}
 \item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
@@ -401,13 +402,14 @@ NULL (default), all periods are included.}
 \if{html}{\out{<a id="method-evoland_db-fit_full_models"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-fit_full_models}{}}}
 \subsection{Method \code{fit_full_models()}}{
-Fit full models on complete data using the best partial model configuration for
-each transition, see \code{\link[=fit_full_models]{fit_full_models()}}
+Fit full models (trained on the complete dataset) for each viable transition,
+see \code{\link[=fit_full_models]{fit_full_models()}}. Two mutually exclusive modes: pass \code{learner} to train
+directly, or pass \code{select_score} to pick the best partial model by score.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$fit_full_models(
-  partial_models,
-  gof_criterion,
-  gof_maximize,
+  learner = NULL,
+  select_score = NULL,
+  select_maximize = TRUE,
   cluster = NULL
 )}\if{html}{\out{</div>}}
 }
@@ -415,11 +417,13 @@ each transition, see \code{\link[=fit_full_models]{fit_full_models()}}
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{partial_models}}{A trans_models_t table with partial models (see \code{\link[=fit_partial_models]{fit_partial_models()}})}
+\item{\code{learner}}{An mlr3 \code{Learner} or \code{AutoTuner} for direct-learner mode (\code{NULL}
+when \code{select_score} is used).}
 
-\item{\code{gof_criterion}}{Which goodness-of-fit metric to use for model selection (e.g., "auc")}
+\item{\code{select_score}}{Measure ID string for score-select mode, e.g. \code{"classif.auc"}
+(\code{NULL} when \code{learner} is used).}
 
-\item{\code{gof_maximize}}{Maximize (TRUE) or minimize (FALSE) the gof_criterion?}
+\item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
 
 \item{\code{cluster}}{Optional cluster object for parallel processing}
 }
@@ -435,29 +439,45 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
 \code{\link[=fit_partial_models]{fit_partial_models()}} for details.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$fit_partial_models(
-  fit_fun,
+  learner,
+  measures,
   sample_frac = 0.7,
-  gof_fun,
   seed = NULL,
-  cluster = NULL,
-  ...
+  cluster = NULL
 )}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{fit_fun}}{Function for generating a model object.}
+\item{\code{learner}}{An mlr3 \code{Learner} or \code{AutoTuner} R6 object.}
+
+\item{\code{measures}}{A list of mlr3 \code{Measure} objects for scoring the held-out split.}
 
 \item{\code{sample_frac}}{Fraction in \(0, 1\) for stratified sampling.}
-
-\item{\code{gof_fun}}{Function to evaluate goodness of fit.}
 
 \item{\code{seed}}{Random seed for reproducible sampling}
 
 \item{\code{cluster}}{Optional cluster object for parallel processing}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-get_crossval_plots"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-get_crossval_plots}{}}}
+\subsection{Method \code{get_crossval_plots()}}{
+Get cross-validation plots for stored predictions, see \code{\link[=get_crossval_plots]{get_crossval_plots()}}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_crossval_plots(id_run = NULL, id_trans = NULL)}\if{html}{\out{</div>}}
+}
 
-\item{\code{...}}{additional arguments passed to fit_fun}
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{id_run}}{Optional integer; filter by run ID.}
+
+\item{\code{id_trans}}{Optional integer; filter by transition ID.}
 }
 \if{html}{\out{</div>}}
 }

@@ -79,7 +79,8 @@ hive style parquet file partitioning.}
 \item{table_name}{The name of the table to bind to.}
 
 \item{mode}{The mode of the binding, which determines the behavior when
-committing data. Options are: "write_once" (default, only allows writing if table doesn't exist), "upsert"}
+committing data. Options are: "write_once" (default, only allows writing if
+table doesn't exist), "upsert", "append", and "overwrite".}
 
 \item{fun}{The underlying function to bind as an R6 method, which must have a \code{self} argument}
 

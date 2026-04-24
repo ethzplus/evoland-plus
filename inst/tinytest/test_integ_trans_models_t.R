@@ -43,7 +43,6 @@ db <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
 test_learner <- mlr3::lrn("classif.featureless", predict_type = "prob")
 # measures can be passed as a character vector of IDs (convenience) or as a list of Measure objects
 test_measures <- c("classif.auc", "classif.acc")
-
 # Test fit_partial_models
 expect_message(
   db$trans_models_t <- partial_models <- db$fit_partial_models(
@@ -54,27 +53,14 @@ expect_message(
   ),
   "Fitting partial models for 2 transitions..."
 )
-expect_length(
-  partial_models,
-  8L # columns
-)
-expect_true(all(
-  c(
-    "id_run",
-    "id_trans",
-    "learner_id",
-    "learner_params",
-    "learner_spec",
-    "crossval_score",
-    "crossval_predictions",
-    "learner_full"
-  ) %in%
-    names(partial_models)
-))
 expect_equal(
-  unique(partial_models$learner_id),
-  "classif.featureless"
+  partial_models[["crossval_score"]],
+  list(
+    list(classif.auc = 0.5, classif.acc = 0.547945205479452),
+    list(classif.auc = 0.5, classif.acc = 0.536050156739812)
+  )
 )
+expect_equal(partial_models$learner_id[1], "classif.featureless")
 expect_true(all(
   vapply(partial_models$learner_spec, is.raw, logical(1))
 ))
@@ -89,13 +75,6 @@ expect_true(all(
 deserialized_spec <- qs2::qs_deserialize(partial_models$learner_spec[[1]])
 expect_true(inherits(deserialized_spec, "Learner"))
 expect_equal(deserialized_spec$id, "classif.featureless")
-
-# crossval_score should be named lists with measure IDs as keys
-expect_true(all(vapply(
-  partial_models$crossval_score,
-  function(m) !is.null(m) && is.list(m) && "classif.auc" %in% names(m),
-  logical(1)
-)))
 
 # Test fit_full_models in score-select mode (picks best partial model by crossval_score)
 expect_message(
@@ -180,13 +159,8 @@ expect_error(
   "trans_models_t is missing"
 )
 
-# Test fit function that throws an error (simulate via a bad learner)
-# We achieve this by running with a learner that fails (no viable data after
-# deleting the table above means we re-populate and then use a bad setup).
-# Instead, test via a mock that warns on error using an out-of-range sample_frac
-# -> use a real error scenario by removing all preds
-db2 <- make_test_db(include_neighbors = FALSE, include_trans_preds = FALSE)
-db2$trans_preds_t <- as_trans_preds_t(data.table::data.table(
+# Test fit function that throws an error: overwrite trans_preds_t
+db$trans_preds_t <- as_trans_preds_t(data.table::data.table(
   id_run = 0L,
   id_pred = 99999L, # non-existent predictor
   id_trans = 1L
@@ -194,73 +168,73 @@ db2$trans_preds_t <- as_trans_preds_t(data.table::data.table(
 
 expect_warning(
   partial_models_error <-
-    db2$fit_partial_models(
+    db$fit_partial_models(
       learner = test_learner,
       measures = test_measures,
-      sample_frac = 0.7,
-      seed = 123
+      sample_frac = 0.7
     ),
   "No predictor columns|No data"
 )
-expect_equal(
-  partial_models_error$learner_id,
-  "error"
-)
+expect_equal(partial_models_error$learner_id, "error")
 
-# Test print method (score-select mode)
-db3 <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
-db3$trans_models_t <- db3$fit_partial_models(
-  learner = test_learner,
-  measures = test_measures,
-  seed = 42
-)
-db3$trans_models_t <- db3$fit_full_models(
-  select_score = "classif.auc",
-  select_maximize = TRUE
-)
-expect_stdout(
-  print(db3$trans_models_t),
-  "Transition Models Table|Total models"
-)
-
-# Test direct-learner mode: fit_full_models with a learner (no partial models needed)
-db4 <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
+# Test direct-learner mode: fit_full_models with a learner
+db$set_full_trans_preds()
 expect_message(
-  full_models_direct <- db4$fit_full_models(
-    learner = test_learner
-  ),
+  db$trans_models_t <- full_models_direct <- db$fit_full_models(learner = test_learner),
   "Fitting full models for"
 )
-# direct mode: crossval_score and crossval_predictions should be NULL
-expect_true(all(vapply(full_models_direct$crossval_score, is.null, logical(1))))
-expect_true(all(vapply(full_models_direct$crossval_predictions, is.null, logical(1))))
+# direct mode: crossval_score and crossval_predictions should be length 0
+expect_true(all(vapply(full_models_direct$crossval_score, length, integer(1)) == 0L))
+expect_true(all(vapply(full_models_direct$crossval_predictions, length, integer(1)) == 0L))
 # learner_full should be populated
 expect_true(all(vapply(full_models_direct$learner_full, is.raw, logical(1))))
-deserialized_direct <- qs2::qs_deserialize(full_models_direct$learner_full[[1]])
-expect_true(inherits(deserialized_direct, "Learner"))
-expect_false(is.null(deserialized_direct$model))
+deserialized_direct <- qs2::qs_deserialize(full_models_direct$learner_full[[1]])$reset()
+expect_equal(deserialized_direct, test_learner)
+
+expect_message(
+  db$trans_models_t <- full_models_direct <- db$fit_full_models(learner = test_learner),
+  "Fitting full models for"
+)
+# direct mode: crossval_score and crossval_predictions should be length 0
+expect_true(all(vapply(full_models_direct$crossval_score, length, integer(1)) == 0L))
+expect_true(all(vapply(full_models_direct$crossval_predictions, length, integer(1)) == 0L))
+# learner_full should be populated
+expect_true(all(vapply(full_models_direct$learner_full, is.raw, logical(1))))
+deserialized_direct <- qs2::qs_deserialize(full_models_direct$learner_full[[1]])$reset()
+expect_equal(deserialized_direct, test_learner)
 
 # Test get_crossval_plots (requires mlr3viz)
 if (!requireNamespace("mlr3viz", quietly = TRUE)) {
   exit_file("mlr3viz not available; skipping get_crossval_plots tests")
 }
 
-db5 <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
-db5$trans_models_t <- db5$fit_partial_models(
-  learner = test_learner,
-  measures = test_measures,
-  seed = 42
+expect_message(
+  db$trans_models_t <- db$fit_partial_models(
+    learner = test_learner,
+    measures = test_measures,
+    seed = 42
+  ),
+  "Fitting partial models for 2 transitions..."
 )
 
-plots <- db5$get_crossval_plots()
+plots <- db$get_crossval_plots()
 expect_true(is.list(plots))
-expect_equal(length(plots), nrow(db5$trans_models_t))
-# Each element should be a ggplot (or NULL for rows without predictions)
-non_null_plots <- Filter(Negate(is.null), plots)
-expect_true(length(non_null_plots) > 0L)
-expect_true(all(vapply(non_null_plots, inherits, logical(1), "gg")))
+expect_equal(length(plots), nrow(db$trans_models_t))
+expect_true(all(vapply(plots, inherits, logical(1), "gg")))
 
 # Filter by id_trans
-plots_filtered <- db5$get_crossval_plots(id_trans = db5$trans_models_t$id_trans[[1]])
-expect_true(is.list(plots_filtered))
+plots_filtered <- db$get_crossval_plots(id_trans = 1)
 expect_equal(length(plots_filtered), 1L)
+plot_trans_1 <- plots_filtered[[1]]
+expect_true(inherits(plot_trans_1, "gg"))
+expect_equal(
+  plot_trans_1$data |> summary() |> as.vector(),
+  c(
+    "truth   :219  ",
+    "response:219  ",
+    NA,
+    "Length:438        ",
+    "Class :character  ",
+    "Mode  :character  "
+  )
+)

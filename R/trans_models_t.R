@@ -164,9 +164,9 @@ fit_partial_model_worker <- function(
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
         learner_id = "error",
-        learner_params = list(NULL),
+        learner_params = list(list()),
         learner_spec = list(NULL),
-        crossval_score = list(NULL),
+        crossval_score = list(list()),
         crossval_predictions = list(NULL),
         learner_full = list(NULL)
       )
@@ -215,7 +215,7 @@ fit_full_model_worker <- function(item, db, learner = NULL, ...) {
         )
         learner_params_val <- if (length(learner_params_val) == 0L) NULL else learner_params_val
         learner_spec_blob <- qs2::qs_serialize(trained_learner$clone(deep = TRUE)$reset())
-        crossval_score_val <- list(NULL)
+        crossval_score_val <- list(list())
         crossval_predictions_val <- list(NULL)
       } else {
         # Score-select mode: reconstruct from learner_spec; fall back to do.call
@@ -260,9 +260,9 @@ fit_full_model_worker <- function(item, db, learner = NULL, ...) {
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
         learner_id = if (!is.null(learner)) learner$id else item[["learner_id"]],
-        learner_params = list(NULL),
+        learner_params = list(list()),
         learner_spec = list(NULL),
-        crossval_score = list(NULL),
+        crossval_score = list(list()),
         crossval_predictions = list(NULL),
         learner_full = list(NULL)
       )
@@ -466,9 +466,13 @@ fit_full_models <- function(
     best_specs <- self$fetch(
       "trans_models_t",
       cols = c(
-        "id_run", "id_trans", "learner_id",
-        "learner_spec", "learner_params",
-        "crossval_score", "crossval_predictions"
+        "id_run",
+        "id_trans",
+        "learner_id",
+        "learner_spec",
+        "learner_params",
+        "crossval_score",
+        "crossval_predictions"
       ),
       where = glue::glue(
         "id_run in ({toString(best_model_ids$id_run)}) and ",
