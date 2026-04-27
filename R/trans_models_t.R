@@ -431,8 +431,9 @@ fit_full_models <- function(
 
     # Identify the best partial model per transition (using QUALIFY window function)
     # and get the predictor ID lists from trans_preds_t in the same query
-    best_model_ids <- self$get_query(glue::glue(
-      r"[
+    best_models <-
+      self$get_query(glue::glue(
+        r"[
       with preds_nested as (
         select
           id_run,
@@ -448,6 +449,10 @@ fit_full_models <- function(
         tm.id_trans,
         tm.learner_id,
         pn.id_pred,
+        tm.learner_spec,
+        tm.learner_params,
+        tm.crossval_score,
+        tm.crossval_predictions,
       from
         {self$get_read_expr("trans_models_t")} tm,
         preds_nested pn
@@ -458,31 +463,12 @@ fit_full_models <- function(
           partition by tm.id_run, tm.id_trans
           order by tm.crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
       ) = 1;
-      ]"
-    ))
-
-    # Fetch all trans_models_t columns (including MAP/BLOB) for the best rows in one shot
-    learner_id_csv <- paste0("'", best_model_ids$learner_id, "'", collapse = ", ")
-    best_specs <- self$fetch(
-      "trans_models_t",
-      cols = c(
-        "id_run",
-        "id_trans",
-        "learner_id",
-        "learner_spec",
-        "learner_params",
-        "crossval_score",
-        "crossval_predictions"
-      ),
-      where = glue::glue(
-        "id_run in ({toString(best_model_ids$id_run)}) and ",
-        "id_trans in ({toString(best_model_ids$id_trans)}) and ",
-        "learner_id in ({learner_id_csv})"
+        ]"
+      )) |>
+      convert_list_cols(
+        c("learner_params", "crossval_score"),
+        kv_df_to_list
       )
-    )
-
-    # Join to add id_pred from the ranking query
-    best_models <- best_model_ids[best_specs, on = c("id_run", "id_trans", "learner_id")]
 
     message(glue::glue(
       "Fitting full models for {nrow(best_models)} transitions..."
