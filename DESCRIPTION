@@ -63,8 +63,6 @@ Collate:
     'reporting_t.R'
     'runs_t.R'
     'trans_meta_t.R'
-    'trans_models_glm.R'
-    'trans_models_rf.R'
     'trans_pot_t.R'
     'trans_preds_t.R'
     'trans_rates_t.R'
