@@ -49,6 +49,8 @@ if (Sys.which("DinamicaConsole") == "") {
   expect_stdout(
     db$alloc_dinamica(
       id_periods = 4,
+      gof_criterion = "auc",
+      gof_maximize = TRUE,
       work_dir = file.path(db$path, "dinamica_test"),
       keep_intermediate = FALSE
     ),

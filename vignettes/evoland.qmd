@@ -419,8 +419,6 @@ With all components in place, we run the allocation step.
 If Dinamica is not installed, you'll get a warning that the anterior LULC map is returned as the posterior.
 For installation instructions, see the [Installing Dinamica EGO](install-dinamica.html) vignette.
 
-<!-- TODO: Check for a possible error here. In my run, db$alloc_dinamica(...) failed when writing the transition probability maps with: unable to find an inherited method for function 'rasterize' for signature '"data.table", "SpatRaster"'. db$predict_trans_pot() returned a trans_pot_t/data.table with id_trans, id_period_post, id_coord, and value, could the issue be in the table-to-raster conversion inside the allocation workflow? -->
-
 ```{r}
 #| label: allocation
 #| results: hold
