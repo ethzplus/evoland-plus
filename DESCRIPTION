@@ -22,7 +22,7 @@ Imports:
     qs2,
     R6,
     Rcpp,
-    terra (>=1.8-42)
+    terra (>= 1.8-42)
 Suggests:
     base64enc,
     butcher,
