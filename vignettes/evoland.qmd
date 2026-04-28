@@ -370,7 +370,7 @@ db$trans_preds_t <- db$get_pruned_trans_preds_t(
 
 Now we fit partial models using training/validation splits, allowing for a goodness-of-fit (gof) estimation.
 Here, we only fit a single partial model per transition, where we normally would create a list of candidates.
-We can then pick the models with the best goodness of fit to retrain full models on all of the available predictor data; the full models are then used during extrapolation.
+Next, fit_full_models() reads the partial models stored in db$trans_models_t, chooses the best model for each transition based on goodness of fit, and refits each chosen model on all available predictor data. Assigning the result back to db$trans_models_t stores these full models for the extrapolation step.
 
 ```{r}
 #| label: trans-models
