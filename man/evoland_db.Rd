@@ -64,7 +64,6 @@ Additional methods and active bindings are added to this class in separate files
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
-\item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
 \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
 \item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
@@ -82,9 +81,10 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-fit_partial_models}{\code{evoland_db$fit_partial_models()}}
 \item \href{#method-evoland_db-get_crossval_plots}{\code{evoland_db$get_crossval_plots()}}
 \item \href{#method-evoland_db-set_full_trans_preds}{\code{evoland_db$set_full_trans_preds()}}
-\item \href{#method-evoland_db-get_pruned_trans_preds_t}{\code{evoland_db$get_pruned_trans_preds_t()}}
+\item \href{#method-evoland_db-get_pred_filter_score}{\code{evoland_db$get_pred_filter_score()}}
 \item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
 \item \href{#method-evoland_db-get_obs_trans_rates}{\code{evoland_db$get_obs_trans_rates()}}
+\item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -104,15 +104,6 @@ Additional methods and active bindings are added to this class in separate files
 </ul>
 </details>
 }}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
-\subsection{Method \code{trans_rates_dinamica_v()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_rates_dinamica_v(id_period)}\if{html}{\out{</div>}}
-}
-
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-new"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-new}{}}}
@@ -500,28 +491,25 @@ Set an initial full set of transition / predictor relations, see \code{\link[=se
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-get_pruned_trans_preds_t"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-get_pruned_trans_preds_t}{}}}
-\subsection{Method \code{get_pruned_trans_preds_t()}}{
-Remove predictors from the transition-predictor relation, aka
-feature selection. See \code{\link[=get_pruned_trans_preds_t]{get_pruned_trans_preds_t()}}.
+\if{html}{\out{<a id="method-evoland_db-get_pred_filter_score"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-get_pred_filter_score}{}}}
+\subsection{Method \code{get_pred_filter_score()}}{
+Add filter scores to predictors for each \verb{id_run, id_trans}.
+See \code{\link[=get_pred_filter_score]{get_pred_filter_score()}}.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_pruned_trans_preds_t(
-  filter_fun = covariance_filter,
-  cluster = NULL,
-  ...
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_pred_filter_score(filter = "correlation", cluster = NULL, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{filter_fun}}{Defaults to \code{\link[=covariance_filter]{covariance_filter()}}, see
-\code{\link[=get_pruned_trans_preds_t]{get_pruned_trans_preds_t()}} for details.}
+\item{\code{filter}}{Character passed to \link[mlr3filters:flt]{mlr3filters::flt} or
+\link[mlr3filters:Filter]{mlr3filters::Filter} object specifying the filter method to use for
+feature selection.}
 
 \item{\code{cluster}}{Optional cluster object for parallel processing}
 
-\item{\code{...}}{Additional arguments passed to \code{filter_fun}.}
+\item{\code{...}}{Additional arguments passed to \code{flt}.}
 }
 \if{html}{\out{</div>}}
 }
@@ -554,6 +542,15 @@ Predict the transition potential for a given period, see \code{\link[=trans_pot_
 Get the transition rates that were observed, see \link{trans_rates_t}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_obs_trans_rates()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
+\subsection{Method \code{trans_rates_dinamica_v()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_rates_dinamica_v(id_period)}\if{html}{\out{</div>}}
 }
 
 }

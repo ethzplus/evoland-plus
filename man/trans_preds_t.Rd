@@ -5,7 +5,7 @@
 \alias{as_trans_preds_t}
 \alias{print.trans_preds_t}
 \alias{set_full_trans_preds}
-\alias{get_pruned_trans_preds_t}
+\alias{get_pred_filter_score}
 \title{Create Transition-Predictor Relationship Table}
 \usage{
 as_trans_preds_t(x)
@@ -14,9 +14,9 @@ as_trans_preds_t(x)
 
 set_full_trans_preds(self, overwrite = FALSE)
 
-get_pruned_trans_preds_t(
+get_pred_filter_score(
   self,
-  filter_fun = covariance_filter,
+  filter,
   cluster = NULL,
   ordered_pred_data = FALSE,
   ...
@@ -25,21 +25,21 @@ get_pruned_trans_preds_t(
 \arguments{
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
-\item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+\item{...}{Additional arguments passed to \code{flt} if \code{filter} is a character string}
 
 \item{overwrite}{Bool, should a potentially existing table be overwritten?}
 
-\item{filter_fun}{A function that takes a transition-predictor data (cf. \link{trans_pred_data_v}) and
-returns a character vector of column names to keep, see e.g. \link{covariance_filter}}
+\item{filter}{An \link[mlr3filters:Filter]{mlr3filters::Filter} object or a character string
+specifying the filter method, retrieved via \link[mlr3filters:flt]{mlr3filters::flt}. Note that your
+filter must be compatible with the feature data types; compare your
+\code{pred_meta_t} table to \url{https://mlr3filters.mlr-org.com} for filter compatibility.}
 
 \item{cluster}{An optional cluster object, see \link{run_parallel_evoland}}
 
-\item{ordered_pred_data}{Bool, should the predictor data be ordered? needed
+\item{ordered_pred_data}{Bool, should the predictor data be ordered? Needed
 for fully deterministic behavior}
 
 \item{db}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
-
-\item{na_value}{Value to use for missing data when retrieving predictor data}
 }
 \value{
 A data.table of class "trans_preds_t" with columns:
@@ -63,7 +63,11 @@ modelling each transition type.
 \itemize{
 \item \code{set_full_trans_preds()}: Set an initial full set of transition / predictor relations
 
-\item \code{get_pruned_trans_preds_t()}: Get a pruned set of transition-predictor relationships
-based on a filtering function
+\item \code{get_pred_filter_score()}: Get a filter score for all transition-predictor
+relationships based on mlr3filters. Returns trans_preds_t with an additional
+column named after the filter$id. The filter score can be used for feature
+selection: simply subset according to the score and overwrite trans_preds_t
+in the database using \code{db$trans_preds_t <- trans_preds_t[score > threshold]}
+or similar.
 
 }}

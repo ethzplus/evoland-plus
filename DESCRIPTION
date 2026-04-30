@@ -44,7 +44,6 @@ Collate:
     'trans_models_t.R'
     'alloc_dinamica.R'
     'coords_t.R'
-    'covariance_filter.R'
     'parquet_db_utils.R'
     'parquet_db.R'
     'evoland_db.R'
