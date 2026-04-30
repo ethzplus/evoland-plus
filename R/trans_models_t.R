@@ -74,7 +74,7 @@ fit_partial_model_worker <- function(
 
         # if seed is set, we want ordering for reproducible sampling
         ordered = !is.null(seed)
-      )
+      )[, -c("id_coord", "id_period_anterior")]
 
       if (nrow(trans_pred_data_full) == 0L) {
         stop(glue::glue(
@@ -105,10 +105,9 @@ fit_partial_model_worker <- function(
         sample(idx_false, n_train_false)
       )
 
-      # Subset to task columns (did_transition + predictors)
-      task_cols <- c("did_transition", pred_cols)
-      train_data <- trans_pred_data_full[train_idx, .SD, .SDcols = task_cols]
-      test_data <- trans_pred_data_full[-train_idx, .SD, .SDcols = task_cols]
+      # Split
+      train_data <- trans_pred_data_full[train_idx]
+      test_data <- trans_pred_data_full[-train_idx]
 
       # Coerce target; mlr3 uses factors internally also for twoclass classification
       train_data[, did_transition := factor(did_transition, levels = c("FALSE", "TRUE"))]

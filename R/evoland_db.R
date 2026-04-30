@@ -222,18 +222,19 @@ evoland_db <- R6::R6Class(
       create_method_binding(set_full_trans_preds)
     },
 
-    #' @description Remove predictors from the transition-predictor relation, aka
-    #' feature selection. See [get_pruned_trans_preds_t()].
-    #' @param filter_fun Defaults to [covariance_filter()], see
-    #' [get_pruned_trans_preds_t()] for details.
+    #' @description Add filter scores to predictors for each `id_run, id_trans`.
+    #' See [get_pred_filter_score()].
+    #' @param filter Character passed to [mlr3filters::flt] or
+    #' [mlr3filters::Filter] object specifying the filter method to use for
+    #' feature selection.
     #' @param cluster Optional cluster object for parallel processing
-    #' @param ... Additional arguments passed to `filter_fun`.
-    get_pruned_trans_preds_t = function(
-      filter_fun = covariance_filter,
+    #' @param ... Additional arguments passed to `flt`.
+    get_pred_filter_score = function(
+      filter = "correlation",
       cluster = NULL,
       ...
     ) {
-      create_method_binding(get_pruned_trans_preds_t)
+      create_method_binding(get_pred_filter_score)
     },
 
     #' @description

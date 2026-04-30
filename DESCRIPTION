@@ -20,6 +20,7 @@ Imports:
     duckdb (>= 1.5.2),
     glue,
     mlr3,
+    mlr3filters,
     qs2,
     R6,
     Rcpp,

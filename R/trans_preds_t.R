@@ -108,89 +108,87 @@ set_full_trans_preds <- function(self, overwrite = FALSE) {
   )
 }
 
-# Worker function for parallel transition pruning
-# Not exported; used internally by get_pruned_trans_preds_t
-prune_trans_worker <- function(item, db, filter_fun, ordered_pred_data = FALSE, ...) {
-  # item is just a data.table slice. expecting scalar id_run and id_trans
+# Worker function for parallel mlr3filter::Filter
+# Not exported; used internally by get_pred_filter_score
+pred_filter_worker <- function(item, db, filter, ordered_pred_data = FALSE) {
+  stopifnot(inherits(filter, "Filter"), inherits(item, "data.frame"))
+  # item has constant id_run and id_trans; extract first value into scalar
   id_run <- item[["id_run"]][1L]
   id_trans <- item[["id_trans"]][1L]
   id_pred <- item[["id_pred"]]
+  filter_id <- filter$id
 
   tryCatch(
     {
       # Get wide transition-predictor data
-      trans_pred_data <- db$trans_pred_data_v(
+      trans_pred_data_v <- db$trans_pred_data_v(
         id_trans = id_trans,
         id_pred = id_pred,
         ordered = ordered_pred_data
-      )
+      )[, -c("id_coord", "id_period_anterior")]
 
-      # Check if we have any data
-      pred_cols <- grep("^id_pred_", names(trans_pred_data), value = TRUE)
-      if (nrow(trans_pred_data) == 0L || length(pred_cols) == 0L) {
+      if (nrow(trans_pred_data_v) == 0L) {
         stop(glue::glue(
           "No data for transition {id_trans}; not pruning"
         ))
       }
 
-      # Return ranked + filtered predictor names as id_pred_{n}
-      filtered_preds <- filter_fun(
-        # drop vars that are irrelevant to the filtering
-        data = trans_pred_data[, .SD, .SDcols = !c("id_coord", "id_period_anterior")],
-        ...
+      # Coerce target; mlr3 uses factors internally also for twoclass classification
+      trans_pred_data_v[, did_transition := factor(did_transition, levels = c("FALSE", "TRUE"))]
+
+      filter_task <- mlr3::as_task_classif(
+        trans_pred_data_v,
+        target = "did_transition",
+        positive = "TRUE"
       )
 
-      if (length(filtered_preds) == 0L) {
-        stop(glue::glue(
-          "Filter dropped all predictors for {id_trans}; not pruning"
-        ))
-      }
-      # Parse id_pred values from column names (e.g., "id_pred_1" -> 1)
-      selected_ids <- as.integer(sub("^id_pred_", "", filtered_preds))
+      # this _will_ error if the filter is incompatible with the data. should we
+      # hard error?
+      filter$calculate(filter_task)
 
-      # Create result rows
-      return(data.table::data.table(
-        id_run = id_run,
-        id_pred = selected_ids,
-        id_trans = id_trans
-      ))
+      scores_dt <-
+        data.table::as.data.table(filter) |>
+        setNames(c("id_pred", filter_id))
+
+      scores_dt[, id_pred := as.integer(sub("^id_pred_", "", id_pred))]
+      scores_dt[, id_run := id_run]
+      scores_dt[, id_trans := id_trans]
+
+      return(scores_dt)
     },
     error = function(e) {
-      # do not prune on error
-      warning(glue::glue(
-        "Error processing transition {id_trans}: {e$message}"
-      ))
-      return(data.table::data.table(
-        id_run = id_run,
-        id_pred = id_pred,
-        id_trans = id_trans
-      ))
+      warning(glue::glue("Error processing id_trans?={id_trans}: {e$message}"))
+      item[[filter_id]] <- NA_real_
+      return(item)
     }
   )
 }
 
-# TODO: mlr3filters (https://mlr3filters.mlr-org.com/) provides a range of filter methods
-# (mutual information, permutation importance, correlation-based, etc.) that could replace or
-# supplement the current covariance_filter approach here. This refactoring should follow the
-# same patterns as trans_models_t: accept an mlr3 Filter object (or id string + params) in
-# place of filter_fun, store the filter id and parameters as DuckDB-native MAP columns, and
-# serialize the filter object as a BLOB for full reproducibility.
-
-#' @describeIn trans_preds_t Get a pruned set of transition-predictor relationships
-#' based on a filtering function
-#' @param filter_fun A function that takes a transition-predictor data (cf. [trans_pred_data_v]) and
-#' returns a character vector of column names to keep, see e.g. [covariance_filter]
-#' @param na_value Value to use for missing data when retrieving predictor data
+#' @describeIn trans_preds_t Get a filter score for all transition-predictor
+#' relationships based on mlr3filters. Returns trans_preds_t with an additional
+#' column named after the filter$id. The filter score can be used for feature
+#' selection: simply subset according to the score and overwrite trans_preds_t
+#' in the database using `db$trans_preds_t <- trans_preds_t[score > threshold]`
+#' or similar.
+#' @param filter An [mlr3filters::Filter] object or a character string
+#' specifying the filter method, retrieved via [mlr3filters::flt]. Note that your
+#' filter must be compatible with the feature data types; compare your
+#' `pred_meta_t` table to <https://mlr3filters.mlr-org.com> for filter compatibility.
 #' @param cluster An optional cluster object, see [run_parallel_evoland]
-#' @param ordered_pred_data Bool, should the predictor data be ordered? needed
+#' @param ordered_pred_data Bool, should the predictor data be ordered? Needed
 #' for fully deterministic behavior
-get_pruned_trans_preds_t <- function(
+#' @param ... Additional arguments passed to `flt` if `filter` is a character string
+get_pred_filter_score <- function(
   self,
-  filter_fun = covariance_filter,
+  filter,
   cluster = NULL,
   ordered_pred_data = FALSE,
   ...
 ) {
+  # Accept either a character vector of measure IDs or a list of Measure objects
+  if (is.character(filter)) {
+    filter <- mlr3filters::flt(filter, ...)
+  }
   if (self$row_count("trans_preds_t") == 0) {
     self$set_full_trans_preds()
   }
@@ -200,12 +198,11 @@ get_pruned_trans_preds_t <- function(
 
   run_parallel_evoland(
     items = items,
-    worker_fun = prune_trans_worker,
+    worker_fun = pred_filter_worker,
     parent_db = self,
     cluster = cluster,
-    filter_fun = filter_fun,
-    ordered_pred_data = ordered_pred_data,
-    ...
+    filter = filter,
+    ordered_pred_data = ordered_pred_data
   ) |>
     data.table::rbindlist() |>
     as_trans_preds_t()
