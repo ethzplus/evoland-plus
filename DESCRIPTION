@@ -51,7 +51,7 @@ Collate:
     'evoland_db_util.R'
     'evoland_db_views.R'
     'fuzzy_similarity.R'
-    'grrf_filter.r'
+    'grrf_learner.r'
     'init.R'
     'intrv_masks_t.R'
     'intrv_meta_t.R'
