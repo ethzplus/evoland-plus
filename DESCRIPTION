@@ -21,6 +21,7 @@ Imports:
     glue,
     mlr3,
     mlr3filters,
+    paradox,
     qs2,
     R6,
     Rcpp,

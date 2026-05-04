@@ -64,6 +64,7 @@ Additional methods and active bindings are added to this class in separate files
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
+\item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
 \item \href{#method-evoland_db-new}{\code{evoland_db$new()}}
 \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
 \item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
@@ -84,7 +85,6 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-get_pred_filter_score}{\code{evoland_db$get_pred_filter_score()}}
 \item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
 \item \href{#method-evoland_db-get_obs_trans_rates}{\code{evoland_db$get_obs_trans_rates()}}
-\item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
 }
 }
@@ -104,6 +104,15 @@ Additional methods and active bindings are added to this class in separate files
 </ul>
 </details>
 }}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
+\subsection{Method \code{trans_rates_dinamica_v()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_rates_dinamica_v(id_period)}\if{html}{\out{</div>}}
+}
+
+}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-new"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-new}{}}}
@@ -542,15 +551,6 @@ Predict the transition potential for a given period, see \code{\link[=trans_pot_
 Get the transition rates that were observed, see \link{trans_rates_t}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_obs_trans_rates()}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
-\subsection{Method \code{trans_rates_dinamica_v()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$trans_rates_dinamica_v(id_period)}\if{html}{\out{</div>}}
 }
 
 }

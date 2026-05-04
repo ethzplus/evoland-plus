@@ -1,137 +1,146 @@
-#' Guided Regularized Random Forest Feature Selection
+# Compute per-sample class-balanced weights.
+# Each sample gets a weight inversely proportional to its class frequency,
+# so that every class contributes equally to the loss.
+compute_balanced_weights <- function(y) {
+  y <- as.factor(y)
+  class_counts <- table(y)
+  n_total <- length(y)
+  n_classes <- length(class_counts)
+  class_weights <- n_total / (n_classes * as.numeric(class_counts))
+  names(class_weights) <- names(class_counts)
+  as.numeric(class_weights[as.character(y)])
+}
+
+#' Guided Regularized Random Forest Learner
 #'
-#' The `grrf_filter` returns a set of covariates for land use land cover change (LULCC) models based
-#' on feature selection with Guided Regularized Random Forests. This is a two-stage random forest
-#' approach: a first unregularized random forest estimates variable importance scores. These scores
-#' are then used to guide a second regularized random forest that penalizes less important features,
-#' resulting in a more parsimonious feature set.
+#' An [mlr3::LearnerClassif] that fits a Guided Regularized Random Forest (GRRF)
+#' for use in [mlr3filters::FilterImportance]-based feature selection.
 #'
-#' @param data A data.table of target variable and candidate covariates to be filtered; wide format
-#'        with one predictor per column. Target variable expected to be named "did_transition".
-#' @param weights Optional named vector of class weights. If NULL, class-balanced weights
-#'        are computed automatically using compute_grrf_weights().
-#' @param gamma Numeric between 0-1 controlling the weight of the normalized importance
-#'        score (the "importance coefficient"). When gamma = 0, we perform unguided
-#'        regularized random forest (no guiding effect). When gamma = 1, we apply the
-#'        strongest guiding effect, leading to the most penalization of redundant
-#'        features and the most concise feature sets. Default is 0.5.
-#' @param num.trees Number of trees to grow in each random forest. Default is 500.
-#' @param ... Additional arguments passed to ranger::ranger().
+#' The learner implements a two-stage approach:
+#' 1. An initial unregularized random forest estimates variable importance scores.
+#' 2. Those scores are normalized and used to compute per-feature split-selection
+#'    weights (`coefReg`), penalizing less informative predictors.
+#' 3. A second "guided regularized" forest is trained with those weights, and its
+#'    impurity importance scores are exposed via `$importance()`.
 #'
-#' @return A character vector of column names (covariates) to retain, ordered by
-#'         importance (most important first)
+#' Class-balanced sample weights are computed automatically from the target column,
+#' so no external weight vector is required.
 #'
-#' @details
-#' The Guided Regularized Random Forest (GRRF) algorithm works as follows:
-#' 1. Fit an initial unregularized random forest to obtain variable importance scores
-#' 2. Normalize these importance scores and use them to compute regularization
-#'    coefficients: coefReg = (1 - gamma) + gamma * normalized_importance
-#' 3. Fit a regularized random forest using these coefficients to penalize splits
-#'    on less important variables
-#' 4. Return variables with positive importance in the regularized model
-#'
-#' Class weights are used to handle class imbalance. Variables in terminal nodes are
-#' weighted by class, and splits are evaluated using weighted Gini impurity.
-#'
-#' The ranger implementation uses the `split.select.weights` parameter to apply
-#' regularization penalties, approximating the RRF regularization approach.
+#' @section Parameters:
+#' - `gamma` (`numeric [0, 1]`, default `0.5`): Guidance coefficient.
+#'   `0` = unguided regularized forest (equal penalty for all features);
+#'   `1` = strongest guiding effect (most important features penalized least).
+#' - `num.trees` (`integer >= 1`, default `500`): Number of trees in each forest.
+#' - `max.depth` (`integer >= 0`, default `100`): Maximum tree depth (`0` = unlimited).
 #'
 #' @references
 #' Deng, H., & Runger, G. (2013). Gene selection with guided regularized random forest.
-#' Pattern Recognition, 46(12), 3483-3489. https://arxiv.org/pdf/1306.0237.pdf
+#' *Pattern Recognition*, 46(12), 3483-3489. <https://doi.org/10.1016/j.patcog.2013.05.018>
 #'
-#' Original implementation by Antoine Adde, edited by Ben Black and adapted for
-#' ranger by the evoland-plus team.
+#' @examples
+#' \dontrun{
+#' library(mlr3)
+#' library(mlr3filters)
 #'
-#' @name grrf_filter
+#' learner <- LearnerClassifGrrf$new()
+#' learner$param_set$values <- list(gamma = 0.9, num.trees = 50L)
+#'
+#' filter <- mlr3filters::FilterImportance$new(learner = learner)
+#' task <- mlr3::tsk("sonar")
+#' filter$calculate(task)
+#' as.data.table(filter)
+#' }
 #'
 #' @export
+LearnerClassifGrrf <- R6::R6Class(
+  # nolint: object_name_linter.
+  "LearnerClassifGrrf",
+  inherit = mlr3::LearnerClassif,
 
-grrf_filter <- function(
-  data,
-  weights = compute_balanced_weights(data[["did_transition"]]),
-  gamma = 0.5,
-  num.trees = 500,
-  max.depth = 100,
-  ...
-) {
-  # Check if ranger is available
-  if (!requireNamespace("ranger", quietly = TRUE)) {
-    stop(
-      "Package 'ranger' is required for grrf_filter but is not installed.\n",
-      "Please install it with: install.packages('ranger')",
-      call. = FALSE
-    )
-  }
+  public = list(
+    #' @description Initialise the learner with its parameter set.
+    initialize = function() {
+      ps <- paradox::ps(
+        gamma = paradox::p_dbl(0, 1, default = 0.5, tags = "train"),
+        num.trees = paradox::p_int(1L, default = 500L, tags = "train"),
+        max.depth = paradox::p_int(0L, default = 100L, tags = "train")
+      )
+      super$initialize(
+        id = "classif.grrf",
+        packages = "ranger",
+        feature_types = c("numeric", "integer", "logical", "factor", "ordered"),
+        predict_types = "response",
+        param_set = ps,
+        properties = c("twoclass", "importance"),
+        label = "Guided Regularized Random Forest",
+        man = NA_character_
+      )
+    },
 
-  data.table::setDT(data)
+    #' @description Return impurity importance scores from the fitted GRRF.
+    #' @return Named numeric vector of importance scores, sorted decreasingly.
+    #'   All features present in the training task are included (unused features
+    #'   receive a score of 0).
+    importance = function() {
+      stopifnot(
+        "No model stored; call $train() first" = !is.null(self$model)
+      )
+      sort(self$model$variable.importance, decreasing = TRUE)
+    }
+  ),
 
-  # Validate inputs
-  stopifnot(
-    "gamma must be between 0 and 1" = gamma >= 0 && gamma <= 1,
-    "data must have at least one predictor column" = ncol(data) > 1
+  private = list(
+    .train = function(task) {
+      pv <- self$param_set$get_values(tags = "train")
+      gamma <- pv[["gamma"]] %||% 0.5
+      # ranger does not accept a "gamma" argument; strip it before forwarding
+      ranger_pv <- pv[setdiff(names(pv), "gamma")]
+
+      data <- task$data()
+      y <- data[[task$target_names]]
+      x <- data[, task$feature_names, with = FALSE]
+      weights <- compute_balanced_weights(y)
+
+      # Stage 1: unregularized forest to obtain initial importance scores
+      rf_initial <- do.call(
+        ranger::ranger,
+        c(
+          list(x = x, y = y, importance = "impurity", case.weights = weights),
+          ranger_pv
+        )
+      )
+
+      # Normalize importance to [0, 1]; degenerate (all equal) -> uniform weight
+      imp <- rf_initial$variable.importance
+      imp_range <- max(imp) - min(imp)
+      imp_normalized <- if (imp_range == 0) {
+        rep(1, length(imp))
+      } else {
+        (imp - min(imp)) / imp_range
+      }
+
+      # Higher initial importance -> higher split-selection weight -> less penalty
+      coef_reg <- (1 - gamma) + gamma * imp_normalized
+
+      # Stage 2: guided regularized forest; importance() exposes these scores
+      do.call(
+        ranger::ranger,
+        c(
+          list(
+            x = x,
+            y = y,
+            importance = "impurity",
+            case.weights = weights,
+            split.select.weights = coef_reg
+          ),
+          ranger_pv
+        )
+      )
+    },
+
+    .predict = function(task) {
+      newdata <- task$data(cols = task$feature_names)
+      list(response = predict(self$model, data = newdata)$predictions)
+    }
   )
-
-  # Prepare data: separate predictors from response
-  predictor_cols <- setdiff(names(data), "did_transition")
-  y <- as.factor(data[["did_transition"]])
-  x <- data[, ..predictor_cols]
-
-  # Step 1: Run initial unregularized random forest to get importance scores
-  rf_initial <- ranger::ranger(
-    x = x,
-    y = y,
-    num.trees = num.trees,
-    importance = "impurity",
-    case.weights = weights,
-    max.depth = max.depth,
-    ...
-  )
-
-  # Extract and normalize importance scores
-  imp_initial <- rf_initial$variable.importance
-  # Normalize to [0,1] (importance values may be negative)
-  imp_normalized <- {
-    (imp_initial - min(imp_initial)) /
-      (max(imp_initial) - min(imp_initial))
-  }
-
-  # Step 2: Calculate regularization coefficients (penalty weights)
-  # Higher importance -> higher coefficient -> less penalty
-  coef_reg <- (1 - gamma) + gamma * imp_normalized
-
-  # Step 3: Run guided regularized random forest
-  # Use split.select.weights to penalize variables with lower importance
-  # Higher weight = more likely to be selected for splitting
-  # FIXME silence expected warning about split weights without silencing progress output
-  rf_grrf <- ranger::ranger(
-    x = x,
-    y = y,
-    num.trees = num.trees,
-    importance = "impurity",
-    case.weights = weights,
-    max.depth = max.depth,
-    split.select.weights = coef_reg,
-    ...
-  )
-
-  # Extract final importance scores
-  imp_final <- rf_grrf$variable.importance
-
-  # Select variables with positive importance
-  selected_vars <- names(imp_final[imp_final > 0])
-
-  if (length(selected_vars) == 0) {
-    warning("No variables with positive importance found. Returning all variables.")
-    selected_vars <- predictor_cols
-  }
-
-  # Order by importance (descending)
-  selected_vars <- selected_vars[order(imp_final[selected_vars], decreasing = TRUE)]
-
-  message(glue::glue(
-    "Selected {length(selected_vars)}/{length(predictor_cols)} predictors"
-  ))
-
-  return(selected_vars)
-}
+)

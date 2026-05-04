@@ -44,32 +44,29 @@ cov_expected <-
   ))
 expect_equal(cov_results, cov_expected, tol = 1e-7)
 
-exit_file("grrf filter test skipped, not implemented as mlr3 filter yet")
-# test grrf filter with custom params
-expect_silent(db$set_full_trans_preds(overwrite = TRUE))
+# Test GRRF filter via FilterImportance
+grrf_learner <- LearnerClassifGrrf$new()
+grrf_learner$param_set$values <- list(gamma = 0.9, num.trees = 10L, max.depth = 100L)
+
+set.seed(13233)
 expect_message(
-  expect_stdout(
-    grrf_results <- db$get_pruned_trans_preds_t(
-      filter_fun = grrf_filter,
-      num.trees = 10,
-      gamma = 0.9
-    ),
-    "Split select weights used"
+  grrf_scores <- db$get_pred_filter_score(
+    filter = mlr3filters::FilterImportance$new(learner = grrf_learner),
+    ordered_pred_data = TRUE # for deterministic behavior
   ),
   "Processing 2 transitions"
 )
 
-# no effect due to synthetic data
 grrf_expected <-
   as_trans_preds_t(data.table::rowwiseDT(
-      id_run=, id_pred=, id_trans=,
-      0,       1,        1,
-      0,       1,        2,
-      0,       2,        1,
-      0,       2,        2,
-      0,       3,        1,
-      0,       3,        2,
-      0,       4,        1,
-      0,       4,        2
+      id_run=, id_pred=, id_trans=, importance=,
+      0,       1,        1,         163.801029 ,
+      0,       1,        2,         206.030677 ,
+      0,       2,        1,         143.560949 ,
+      0,       2,        2,         198.027489 ,
+      0,       3,        1,         3.213565   ,
+      0,       3,        2,         6.987627   ,
+      0,       4,        1,         18.974826  ,
+      0,       4,        2,         29.095217
   ))
-expect_equal(grrf_results, grrf_expected)
+expect_equal(grrf_scores, grrf_expected, tol = 1e-7)
