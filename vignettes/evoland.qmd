@@ -375,8 +375,8 @@ Next, fit_full_models() reads the partial models stored in db$trans_models_t, ch
 ```{r}
 #| label: trans-models
 db$trans_models_t <- db$fit_partial_models(
-  fit_fun = fit_glm,
-  gof_fun = gof_glm,
+  learner = mlr3::lrn("classif.featureless", predict_type = "prob"),
+  measures = c("classif.auc", "classif.acc"),
   sample_frac = 0.7,
   seed = 42
 )

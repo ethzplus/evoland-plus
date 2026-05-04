@@ -80,8 +80,9 @@ Additional methods and active bindings are added to this class in separate files
 \item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
 \item \href{#method-evoland_db-fit_full_models}{\code{evoland_db$fit_full_models()}}
 \item \href{#method-evoland_db-fit_partial_models}{\code{evoland_db$fit_partial_models()}}
+\item \href{#method-evoland_db-get_crossval_plots}{\code{evoland_db$get_crossval_plots()}}
 \item \href{#method-evoland_db-set_full_trans_preds}{\code{evoland_db$set_full_trans_preds()}}
-\item \href{#method-evoland_db-get_pruned_trans_preds_t}{\code{evoland_db$get_pruned_trans_preds_t()}}
+\item \href{#method-evoland_db-get_pred_filter_score}{\code{evoland_db$get_pred_filter_score()}}
 \item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
 \item \href{#method-evoland_db-get_obs_trans_rates}{\code{evoland_db$get_obs_trans_rates()}}
 \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
@@ -401,13 +402,14 @@ NULL (default), all periods are included.}
 \if{html}{\out{<a id="method-evoland_db-fit_full_models"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-fit_full_models}{}}}
 \subsection{Method \code{fit_full_models()}}{
-Fit full models on complete data using the best partial model configuration for
-each transition, see \code{\link[=fit_full_models]{fit_full_models()}}
+Fit full models (trained on the complete dataset) for each viable transition,
+see \code{\link[=fit_full_models]{fit_full_models()}}. Two mutually exclusive modes: pass \code{learner} to train
+directly, or pass \code{select_score} to pick the best partial model by score.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$fit_full_models(
-  partial_models,
-  gof_criterion,
-  gof_maximize,
+  learner = NULL,
+  select_score = NULL,
+  select_maximize = TRUE,
   cluster = NULL
 )}\if{html}{\out{</div>}}
 }
@@ -415,11 +417,13 @@ each transition, see \code{\link[=fit_full_models]{fit_full_models()}}
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{partial_models}}{A trans_models_t table with partial models (see \code{\link[=fit_partial_models]{fit_partial_models()}})}
+\item{\code{learner}}{An mlr3 \code{Learner} or \code{AutoTuner} for direct-learner mode (\code{NULL}
+when \code{select_score} is used).}
 
-\item{\code{gof_criterion}}{Which goodness-of-fit metric to use for model selection (e.g., "auc")}
+\item{\code{select_score}}{Measure ID string for score-select mode, e.g. \code{"classif.auc"}
+(\code{NULL} when \code{learner} is used).}
 
-\item{\code{gof_maximize}}{Maximize (TRUE) or minimize (FALSE) the gof_criterion?}
+\item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
 
 \item{\code{cluster}}{Optional cluster object for parallel processing}
 }
@@ -435,29 +439,45 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
 \code{\link[=fit_partial_models]{fit_partial_models()}} for details.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$fit_partial_models(
-  fit_fun,
+  learner,
+  measures,
   sample_frac = 0.7,
-  gof_fun,
   seed = NULL,
-  cluster = NULL,
-  ...
+  cluster = NULL
 )}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{fit_fun}}{Function for generating a model object.}
+\item{\code{learner}}{An mlr3 \code{Learner} or \code{AutoTuner} R6 object.}
+
+\item{\code{measures}}{A list of mlr3 \code{Measure} objects for scoring the held-out split.}
 
 \item{\code{sample_frac}}{Fraction in \(0, 1\) for stratified sampling.}
-
-\item{\code{gof_fun}}{Function to evaluate goodness of fit.}
 
 \item{\code{seed}}{Random seed for reproducible sampling}
 
 \item{\code{cluster}}{Optional cluster object for parallel processing}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-get_crossval_plots"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-get_crossval_plots}{}}}
+\subsection{Method \code{get_crossval_plots()}}{
+Get cross-validation plots for stored predictions, see \code{\link[=get_crossval_plots]{get_crossval_plots()}}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_crossval_plots(id_run = NULL, id_trans = NULL)}\if{html}{\out{</div>}}
+}
 
-\item{\code{...}}{additional arguments passed to fit_fun}
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{id_run}}{Optional integer; filter by run ID.}
+
+\item{\code{id_trans}}{Optional integer; filter by transition ID.}
 }
 \if{html}{\out{</div>}}
 }
@@ -480,28 +500,25 @@ Set an initial full set of transition / predictor relations, see \code{\link[=se
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-get_pruned_trans_preds_t"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-get_pruned_trans_preds_t}{}}}
-\subsection{Method \code{get_pruned_trans_preds_t()}}{
-Remove predictors from the transition-predictor relation, aka
-feature selection. See \code{\link[=get_pruned_trans_preds_t]{get_pruned_trans_preds_t()}}.
+\if{html}{\out{<a id="method-evoland_db-get_pred_filter_score"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-get_pred_filter_score}{}}}
+\subsection{Method \code{get_pred_filter_score()}}{
+Add filter scores to predictors for each \verb{id_run, id_trans}.
+See \code{\link[=get_pred_filter_score]{get_pred_filter_score()}}.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_pruned_trans_preds_t(
-  filter_fun = covariance_filter,
-  cluster = NULL,
-  ...
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$get_pred_filter_score(filter = "correlation", cluster = NULL, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{filter_fun}}{Defaults to \code{\link[=covariance_filter]{covariance_filter()}}, see
-\code{\link[=get_pruned_trans_preds_t]{get_pruned_trans_preds_t()}} for details.}
+\item{\code{filter}}{Character passed to \link[mlr3filters:flt]{mlr3filters::flt} or
+\link[mlr3filters:Filter]{mlr3filters::Filter} object specifying the filter method to use for
+feature selection.}
 
 \item{\code{cluster}}{Optional cluster object for parallel processing}
 
-\item{\code{...}}{Additional arguments passed to \code{filter_fun}.}
+\item{\code{...}}{Additional arguments passed to \code{flt}.}
 }
 \if{html}{\out{</div>}}
 }

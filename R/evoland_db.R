@@ -171,16 +171,19 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Fit full models on complete data using the best partial model configuration for
-    #' each transition, see [fit_full_models()]
-    #' @param partial_models A trans_models_t table with partial models (see [fit_partial_models()])
-    #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
-    #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
+    #' Fit full models (trained on the complete dataset) for each viable transition,
+    #' see [fit_full_models()]. Two mutually exclusive modes: pass `learner` to train
+    #' directly, or pass `select_score` to pick the best partial model by score.
+    #' @param learner An mlr3 `Learner` or `AutoTuner` for direct-learner mode (`NULL`
+    #'   when `select_score` is used).
+    #' @param select_score Measure ID string for score-select mode, e.g. `"classif.auc"`
+    #'   (`NULL` when `learner` is used).
+    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
     #' @param cluster Optional cluster object for parallel processing
     fit_full_models = function(
-      partial_models,
-      gof_criterion,
-      gof_maximize,
+      learner = NULL,
+      select_score = NULL,
+      select_maximize = TRUE,
       cluster = NULL
     ) {
       create_method_binding(fit_full_models)
@@ -189,21 +192,27 @@ evoland_db <- R6::R6Class(
     #' @description Fit partial models for each viable transition using stratified
     #' sampling. Models are trained on a subsample and evaluated on held-out data, see
     #' [fit_partial_models()] for details.
-    #' @param fit_fun Function for generating a model object.
-    #' @param gof_fun Function to evaluate goodness of fit.
+    #' @param learner An mlr3 `Learner` or `AutoTuner` R6 object.
+    #' @param measures A list of mlr3 `Measure` objects for scoring the held-out split.
     #' @param sample_frac Fraction in \(0, 1\) for stratified sampling.
     #' @param seed Random seed for reproducible sampling
     #' @param cluster Optional cluster object for parallel processing
-    #' @param ... additional arguments passed to fit_fun
     fit_partial_models = function(
-      fit_fun,
+      learner,
+      measures,
       sample_frac = 0.7,
-      gof_fun,
       seed = NULL,
-      cluster = NULL,
-      ...
+      cluster = NULL
     ) {
       create_method_binding(fit_partial_models)
+    },
+
+    #' @description
+    #' Get cross-validation plots for stored predictions, see [get_crossval_plots()]
+    #' @param id_run Optional integer; filter by run ID.
+    #' @param id_trans Optional integer; filter by transition ID.
+    get_crossval_plots = function(id_run = NULL, id_trans = NULL) {
+      create_method_binding(get_crossval_plots)
     },
 
     #' @description
@@ -213,18 +222,19 @@ evoland_db <- R6::R6Class(
       create_method_binding(set_full_trans_preds)
     },
 
-    #' @description Remove predictors from the transition-predictor relation, aka
-    #' feature selection. See [get_pruned_trans_preds_t()].
-    #' @param filter_fun Defaults to [covariance_filter()], see
-    #' [get_pruned_trans_preds_t()] for details.
+    #' @description Add filter scores to predictors for each `id_run, id_trans`.
+    #' See [get_pred_filter_score()].
+    #' @param filter Character passed to [mlr3filters::flt] or
+    #' [mlr3filters::Filter] object specifying the filter method to use for
+    #' feature selection.
     #' @param cluster Optional cluster object for parallel processing
-    #' @param ... Additional arguments passed to `filter_fun`.
-    get_pruned_trans_preds_t = function(
-      filter_fun = covariance_filter,
+    #' @param ... Additional arguments passed to `flt`.
+    get_pred_filter_score = function(
+      filter = "correlation",
       cluster = NULL,
       ...
     ) {
-      create_method_binding(get_pruned_trans_preds_t)
+      create_method_binding(get_pred_filter_score)
     },
 
     #' @description
