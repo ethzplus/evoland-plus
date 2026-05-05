@@ -38,7 +38,6 @@ vignettes/*.pdf
 # virtual environments
 renv*
 rv*
-rproject.toml
 
 # ignore duckdb database files and parquet
 *db

@@ -6,36 +6,44 @@
 \alias{fit_partial_models}
 \alias{fit_full_models}
 \alias{print.trans_models_t}
+\alias{get_crossval_plots}
 \title{Create Transition Models Table}
 \usage{
 as_trans_models_t(x)
 
 fit_partial_models(
   self,
-  fit_fun,
-  gof_fun,
+  learner,
+  measures,
   sample_frac = 0.7,
   seed = NULL,
-  cluster = NULL,
-  ...
+  cluster = NULL
 )
 
-fit_full_models(self, gof_criterion, gof_maximize, cluster = NULL)
+fit_full_models(
+  self,
+  learner = NULL,
+  select_score = NULL,
+  select_maximize = TRUE,
+  cluster = NULL
+)
 
 \method{print}{trans_models_t}(x)
+
+get_crossval_plots(self, id_run = NULL, id_trans = NULL)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
 
-\item{self, }{\link{evoland_db} instance to query for transitions and predictor data}
+\item{self}{\link{evoland_db} instance}
 
-\item{fit_fun}{Function that takes a data.frame with predictors and did_transition columns
-and returns a fitted model object. The data argument is passed as the first argument
-to the function, and additional arguments can be passed via ...}
+\item{learner}{An mlr3 \code{Learner} or \code{AutoTuner} object for direct-learner mode.
+Must be \code{NULL} when \code{select_score} is provided.}
 
-\item{gof_fun}{Function that takes a fitted model object and a test data.frame and
-returns a list of goodness-of-fit metrics. The model argument is passed as the first
-argument and the test_data argument is passed as the second argument.}
+\item{measures}{Either a character vector of mlr3 measure IDs
+(e.g. \code{c("classif.auc", "classif.acc")}) or a list of instantiated mlr3
+\code{Measure} objects (e.g. \code{list(mlr3::msr("classif.auc"))}). Character IDs are
+converted via \code{mlr3::msrs()} internally. Results are written to \code{crossval_score}.}
 
 \item{sample_frac}{Numeric between 0 and 1 indicating
 the fraction of data to use for training the partial models. The rest is used for
@@ -47,33 +55,39 @@ testing).}
 \item{cluster}{An optional cluster object created by \code{\link[parallel:makeCluster]{parallel::makeCluster()}} or
 \code{\link[mirai:make_cluster]{mirai::make_cluster()}}.}
 
-\item{gof_criterion}{Character string specifying which goodness-of-fit metric to use for
-selecting the best partial model for each transition (e.g., "roc_auc", "rmse").}
+\item{select_score}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used to
+rank partial models in score-select mode. Must be \code{NULL} when \code{learner} is provided.}
 
-\item{gof_maximize}{Logical indicating whether to select the model with the maximum
-(TRUE) or minimum (FALSE) value of the specified goodness-of-fit criterion. Default
-is TRUE.}
+\item{select_maximize}{Logical; if \code{TRUE} (default) the model with the highest
+\code{select_score} is selected; if \code{FALSE}, the lowest. Only used in score-select mode.}
 
-\item{partial_models}{A trans_models_t table containing the fitted partial models and
-their goodness-of-fit metrics.}
+\item{id_run}{Optional integer; filter by run ID.}
+
+\item{id_trans}{Optional integer; filter by transition ID.}
 }
 \value{
 A data.table of class "trans_models_t" with columns:
 \itemize{
 \item \code{id_run}: Foreign key to runs_t
 \item \code{id_trans}: Foreign key to trans_meta_t
-\item \code{model_family}: Model family (e.g., "rf", "glm", "bayesian")
-\item \code{model_params}: Map of model (hyper) parameters
-\item \code{goodness_of_fit}: Map of various measures of fit (e.g., ROC AUC, RMSE)
-\item \code{fit_call}: Character string of the original fit function call for reproducibility
-\item \code{model_obj_part}: BLOB of serialized model object for validation
-\item \code{model_obj_full}: BLOB of serialized model object for extrapolation
+\item \code{learner_id}: mlr3 twoclass \href{https://mlr3.mlr-org.com/reference/LearnerClassif.html}{LearnerClassif}
+key, e.g. \code{"classif.ranger"}
+\item \code{learner_params}: MAP of atomic scalar learner hyperparameters for
+querying; complete hyperparameters are captured by \code{learner_spec}
+\item \code{learner_spec}: BLOB of serialized untrained mlr3 \code{Learner}; for
+AutoTuners, this is the optimal inner learner after tuning
+\item \code{crossval_score}: MAP of cross-validation performance scores
+(from \code{prediction$score(measures)})
+\item \code{crossval_predictions}: BLOB of serialized mlr3 \code{PredictionClassif}
+on the held-out test split
+\item \code{learner_full}: BLOB of serialized trained mlr3 \code{Learner} fitted on
+the full dataset, used for extrapolation
 }
 }
 \description{
 Creates a trans_models_t table for storing transition model metadata and
 serialized model objects. This function creates an empty table with proper
-structure for storing fitted models.
+structure for storing fitted models via the mlr3 interface.
 }
 \section{Methods (by generic)}{
 \itemize{
@@ -82,10 +96,26 @@ structure for storing fitted models.
 }}
 \section{Functions}{
 \itemize{
-\item \code{fit_partial_models()}: Fit partial models for each viable transition and store
-results in a trans_models_t table.
+\item \code{fit_partial_models()}: Fit partial (cross-validation) models for each viable
+transition; returns a \link{trans_models_t} object with one row per viable transition,
+containing the learner identity, serialized spec, cross-validation scores
+(\code{crossval_score}), and serialized held-out predictions (\code{crossval_predictions}).
 
-\item \code{fit_full_models()}: Fit full models for each transition based on the best
-partial model according to a specified goodness-of-fit criterion.
+\item \code{fit_full_models()}: Fit full models (trained on the complete dataset) for each
+viable transition and return a \link{trans_models_t} object with \code{learner_full} populated.
+Two mutually exclusive modes are supported:
+\itemize{
+\item \strong{Direct-learner mode} (\code{learner} provided, \code{select_score} omitted): a fresh clone of
+\code{learner} is trained on the full data for each transition. \code{crossval_score} and
+\code{crossval_predictions} will be \code{NULL} in the result. Does not require a prior
+call to \code{\link[=fit_partial_models]{fit_partial_models()}}.
+\item \strong{Score-select mode} (\code{select_score} provided, \code{learner} omitted): selects the best
+partial model per transition by \code{select_score}, reconstructs its learner from
+\code{learner_spec}, and retrains on the full data. Requires \code{\link[=fit_partial_models]{fit_partial_models()}} to
+have been run first.
+}
+
+\item \code{get_crossval_plots()}: Deserialize cross-validation predictions and return
+plots via \code{mlr3viz::autoplot()}. Requires the \code{mlr3viz} package.
 
 }}

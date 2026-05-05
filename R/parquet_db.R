@@ -149,6 +149,9 @@ parquet_db <- R6::R6Class(
 
       metadata <- private$read_parquet_metadata(table_path)
       map_cols <- resolve_cols(NULL, metadata, "map_cols")
+      if (!is.null(cols)) {
+        map_cols <- intersect(cols, map_cols)
+      }
       read_expr <- self$get_read_expr(table_name)
 
       # build sql query

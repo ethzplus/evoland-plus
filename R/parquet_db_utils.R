@@ -104,13 +104,17 @@ validate.parquet_db_t <- function(x, ...) {
       }
     } else if (col %in% attr(x, "map_cols")) {
       for (val in x[[col]]) {
-        if (
-          !is.null(val) && # if not NULL any of the following being true is an error
-            (!is.list(val) || # if it's a list
-              is.null(names(val)) || # or names missing
-              any(vapply(val, Negate(is.atomic), logical(1)))) # or any element not atomic
-        ) {
-          # then throw error
+        is_valid_mapcol <- function(v) {
+          # allow NULLs
+          is.null(v) ||
+            # allow empty lists
+            (is.list(v) && length(v) == 0) ||
+            # allow named lists with atomic values
+            (is.list(v) && !is.null(names(v)) && all(vapply(v, is.atomic, logical(1))))
+        }
+
+        # negation makes the above condition easier to read
+        if (Negate(is_valid_mapcol)(val)) {
           stop(glue::glue(
             "Column '{col}' specified as map_cols must be a list of ",
             "named lists with atomic values"
@@ -304,7 +308,8 @@ kv_df_to_list <- function(x) {
 #' (missing argument), or upserts to it (assignment operation)
 #' @param table_name The name of the table to bind to.
 #' @param mode The mode of the binding, which determines the behavior when
-#' committing data. Options are: "write_once" (default, only allows writing if table doesn't exist), "upsert"
+#' committing data. Options are: "write_once" (default, only allows writing if
+#' table doesn't exist), "upsert", "append", and "overwrite".
 create_table_binding <- function(
   table_name,
   mode = c("write_once", "upsert", "append", "overwrite")

@@ -13,19 +13,25 @@ db$trans_rates_t <- extrapolate_trans_rates(
   db$periods_t,
   coord_count = nrow(db$coords_t)
 )
-# test the package's standard glm quasibinomial fit and append to disk
+
+test_learner <- mlr3::lrn("classif.featureless", predict_type = "prob")
+test_measures <- c("classif.auc")
+
+# test the package's featureless learner fit and append to disk
 expect_message(
   db$trans_models_t <- db$fit_partial_models(
-    fit_fun = fit_glm,
-    gof_fun = gof_glm,
+    learner = test_learner,
+    measures = test_measures,
     seed = 1244244,
   ),
   "Fitting partial models for 2 transitions..."
 )
+
+# Score-select mode: pick best partial model by classif.auc and retrain on full data
 expect_message(
   db$trans_models_t <- db$fit_full_models(
-    gof_criterion = "auc",
-    gof_maximize = TRUE
+    select_score = "classif.auc",
+    select_maximize = TRUE
   ),
   "Fitting full models for"
 )
