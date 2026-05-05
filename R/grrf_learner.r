@@ -1,11 +1,15 @@
 # Compute per-sample class-balanced weights.
 # Each sample gets a weight inversely proportional to its class frequency,
 # so that every class contributes equally to the loss.
+# @param y Target vector (factor or character).
+# @return Numeric vector of weights, same length as `y`.
 compute_balanced_weights <- function(y) {
   y <- as.factor(y)
   class_counts <- table(y)
   n_total <- length(y)
   n_classes <- length(class_counts)
+  # This is the heuristic in scikit-learn, n_samples / (n_classes * np.bincount(y))
+  # https://scikit-learn.org/stable/modules/generated/sklearn.utils.class_weight.compute_class_weight.html #nolint
   class_weights <- n_total / (n_classes * as.numeric(class_counts))
   names(class_weights) <- names(class_counts)
   as.numeric(class_weights[as.character(y)])
@@ -36,6 +40,10 @@ compute_balanced_weights <- function(y) {
 #' @references
 #' Deng, H., & Runger, G. (2013). Gene selection with guided regularized random forest.
 #' *Pattern Recognition*, 46(12), 3483-3489. <https://doi.org/10.1016/j.patcog.2013.05.018>
+#' and
+#' Wundervald, B. et al. (2020). Generalizing Gain Penalization for Feature Selection in
+#' Tree-Based Models. *IEEE Access*, Vol. 8, 190231 - 190239.
+#' <https://doi.org/10.1109/ACCESS.2020.3032095>
 #'
 #' @examples
 #' \dontrun{
@@ -131,7 +139,7 @@ LearnerClassifGrrf <- R6::R6Class(
             y = y,
             importance = "impurity",
             case.weights = weights,
-            split.select.weights = coef_reg
+            regularization.factor = coef_reg
           ),
           ranger_pv
         )

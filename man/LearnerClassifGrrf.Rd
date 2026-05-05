@@ -53,6 +53,10 @@ as.data.table(filter)
 \references{
 Deng, H., & Runger, G. (2013). Gene selection with guided regularized random forest.
 \emph{Pattern Recognition}, 46(12), 3483-3489. \url{https://doi.org/10.1016/j.patcog.2013.05.018}
+and
+Wundervald, B. et al. (2020). Generalizing Gain Penalization for Feature Selection in
+Tree-Based Models. \emph{IEEE Access}, Vol. 8, 190231 - 190239.
+\url{https://doi.org/10.1109/ACCESS.2020.3032095}
 }
 \section{Super classes}{
 \code{\link[mlr3:Learner]{mlr3::Learner}} -> \code{\link[mlr3:LearnerClassif]{mlr3::LearnerClassif}} -> \code{LearnerClassifGrrf}

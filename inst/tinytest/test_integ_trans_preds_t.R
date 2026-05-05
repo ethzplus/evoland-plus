@@ -31,17 +31,17 @@ expect_message(
 )
 
 perf_expected <-
-  as_trans_preds_t(data.table::rowwiseDT(
+  as_trans_preds_t(data.table::rowwiseDT( # nolint start
       id_run=, id_pred=, id_trans=, performance=,
-      0,       1,        1,         -0.4515679,
-      0,       1,        2,         -0.4639171,
-      0,       2,        1,         -0.4515679,
-      0,       2,        2,         -0.4639171,
-      0,       3,        1,         -0.4515679,
-      0,       3,        2,         -0.4639171,
-      0,       4,        1,         -0.4515679,
+      0,       1,        1,         -0.4515679  ,
+      0,       1,        2,         -0.4639171  ,
+      0,       2,        1,         -0.4515679  ,
+      0,       2,        2,         -0.4639171  ,
+      0,       3,        1,         -0.4515679  ,
+      0,       3,        2,         -0.4639171  ,
+      0,       4,        1,         -0.4515679  ,
       0,       4,        2,         -0.4639171
-  ))
+  )) # nolint end
 expect_equal(perf_results, perf_expected, tol = 1e-7)
 
 # Test GRRF filter via FilterImportance
@@ -58,15 +58,15 @@ expect_message(
 )
 
 importance_expected <-
-  as_trans_preds_t(data.table::rowwiseDT(
+  as_trans_preds_t(data.table::rowwiseDT( # nolint start
       id_run=, id_pred=, id_trans=, importance=,
-      0,       1,        1,         163.801029 ,
-      0,       1,        2,         206.030677 ,
-      0,       2,        1,         143.560949 ,
-      0,       2,        2,         198.027489 ,
-      0,       3,        1,         3.213565   ,
-      0,       3,        2,         6.987627   ,
-      0,       4,        1,         18.974826  ,
-      0,       4,        2,         29.095217
-  ))
+      0,       1,        1,         135.268208 ,
+      0,       1,        2,         170.083786 ,
+      0,       2,        1,         132.745360 ,
+      0,       2,        2,         167.511848 ,
+      0,       3,        1,           9.780672 ,
+      0,       3,        2,          13.208952 ,
+      0,       4,        1,          26.786576 ,
+      0,       4,        2,          33.555883  
+  )) # nolint end
 expect_equal(importance_results, importance_expected, tol = 1e-7)
