@@ -28,9 +28,7 @@ Imports:
     terra (>=1.8-42)
 Suggests:
     base64enc,
-    butcher,
     mlr3viz,
-    pROC,
     processx,
     quarto,
     ranger,
