@@ -131,6 +131,33 @@ expect_error(
   "learner must be an mlr3 Learner or AutoTuner"
 )
 
+# Test coercion: learner with predict_type = "response" should be auto-coerced to "prob"
+response_learner <- mlr3::lrn("classif.featureless", predict_type = "response")
+expect_equal(response_learner$predict_type, "response")
+expect_message(
+  db$fit_partial_models(
+    learner = response_learner,
+    measures = test_measures,
+    sample_frac = 0.7,
+    seed = 123
+  ),
+  "Fitting partial models"
+)
+expect_equal(response_learner$predict_type, "prob")
+
+# Test error handling - learner that does not support twoclass.
+# No built-in mlr3 learner lacks "twoclass" without extra packages, so we strip
+# the property directly to exercise this code path.
+multiclass_learner <- mlr3::lrn("classif.featureless")
+multiclass_learner$properties <- setdiff(multiclass_learner$properties, "twoclass")
+expect_error(
+  db$fit_partial_models(
+    learner = multiclass_learner,
+    measures = test_measures
+  ),
+  "learner must support twoclass classification"
+)
+
 # Test error handling - invalid sample_frac
 expect_error(
   db$fit_partial_models(

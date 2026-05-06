@@ -51,6 +51,26 @@ as_trans_models_t <- function(x) {
   )
 }
 
+# Validates that `learner` is an mlr3 Learner that supports twoclass classification,
+# then coerces its predict_type to "prob". Errors if either check fails.
+# Called before dispatching workers so the coerced learner is shared.
+coerce_learner_for_classif <- function(learner) {
+  stopifnot(
+    "learner must be an mlr3 Learner or AutoTuner" = inherits(learner, "Learner"),
+    "learner must support twoclass classification" = "twoclass" %in% learner$properties
+  )
+  if (learner$predict_type != "prob") {
+    tryCatch(
+      learner$predict_type <- "prob",
+      error = function(e) stop(glue::glue(
+        "Could not set predict_type = 'prob' on learner '{learner$id}': {e$message}. ",
+        "Make sure the learner supports probabilistic predictions."
+      ))
+    )
+  }
+  invisible(learner)
+}
+
 # Worker function for partial model fitting
 # Not exported; used internally by fit_partial_models
 fit_partial_model_worker <- function(
@@ -258,8 +278,9 @@ fit_full_model_worker <- function(item, db, learner = NULL, ...) {
 #' containing the learner identity, serialized spec, cross-validation scores
 #' (`crossval_score`), and serialized held-out predictions (`crossval_predictions`).
 #' @param self [evoland_db] instance to query for transitions and predictor data
-#' @param learner An mlr3 `Learner` or `AutoTuner` object. A deep clone is trained
-#'   for each transition; the original object is not modified. For `AutoTuner`,
+#' @param learner An mlr3 `Learner` or `AutoTuner` object that supports twoclass
+#'   classification. Its `predict_type` is coerced to `"prob"` if not already set.
+#'   A deep clone is trained for each transition. For `AutoTuner`,
 #'   the optimal inner learner is extracted after tuning.
 #' @param measures Either a character vector of mlr3 measure IDs
 #'   (e.g. `c("classif.auc", "classif.acc")`) or a list of instantiated mlr3
@@ -300,10 +321,9 @@ fit_partial_models <- function(
       on = "id_trans"
     ]
 
-  # TODO put in validator that the learner has predict_type = "prob" set
+  coerce_learner_for_classif(learner)
   stopifnot(
     "No viable transitions" = nrow(viable_trans) > 0L,
-    "learner must be an mlr3 Learner or AutoTuner" = inherits(learner, "Learner"),
     "measures must be a non-empty character vector or list of Measure objects" = ((is.character(
       measures
     ) ||
@@ -345,8 +365,9 @@ fit_partial_models <- function(
 #'   `learner_spec`, and retrains on the full data. Requires [fit_partial_models()] to
 #'   have been run first.
 #' @param self [evoland_db] instance to query for transitions and predictor data
-#' @param learner An mlr3 `Learner` or `AutoTuner` object for direct-learner mode.
-#'   Must be `NULL` when `select_score` is provided.
+#' @param learner An mlr3 `Learner` or `AutoTuner` object for direct-learner mode that
+#'   supports twoclass classification. Its `predict_type` is coerced to `"prob"` if not
+#'   already set. Must be `NULL` when `select_score` is provided.
 #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used to
 #'   rank partial models in score-select mode. Must be `NULL` when `learner` is provided.
 #' @param select_maximize Logical; if `TRUE` (default) the model with the highest
@@ -368,9 +389,7 @@ fit_full_models <- function(
   )
 
   if (has_learner) {
-    stopifnot(
-      "learner must be an mlr3 Learner or AutoTuner" = inherits(learner, "Learner")
-    )
+    coerce_learner_for_classif(learner)
 
     # Direct mode: get viable transitions with their predictor lists
     trans_preds_nested <-
