@@ -23,8 +23,8 @@ alloc_dinamica_setup_inputs <- function(
   id_period_post,
   anterior_rast,
   temp_dir,
-  gof_criterion,
-  gof_maximize
+  select_score,
+  select_maximize
 ) {
   # Get metadata
   coords_meta <- self$get_table_metadata("coords_t")
@@ -112,8 +112,8 @@ alloc_dinamica_setup_inputs <- function(
 
   trans_pots_t <- self$predict_trans_pot(
     id_period_post = id_period_post,
-    gof_criterion = gof_criterion,
-    gof_maximize = gof_maximize
+    select_score = select_score,
+    select_maximize = select_maximize
   )
 
   # Iterate over viable transitions and write probability maps
@@ -164,8 +164,8 @@ alloc_dinamica_one_period <- function(
   id_period_post,
   anterior_rast,
   iteration_dir,
-  gof_criterion,
-  gof_maximize
+  select_score,
+  select_maximize
 ) {
   message(glue::glue(
     "Running Dinamica allocation: period {id_period_ant} -> {id_period_post}"
@@ -178,8 +178,8 @@ alloc_dinamica_one_period <- function(
     id_period_post = id_period_post,
     anterior_rast = anterior_rast,
     temp_dir = iteration_dir,
-    gof_criterion = gof_criterion,
-    gof_maximize = gof_maximize
+    select_score = select_score,
+    select_maximize = select_maximize
   )
 
   gc() # just in case
@@ -233,8 +233,8 @@ alloc_dinamica_one_period <- function(
 alloc_dinamica <- function(
   self,
   id_periods,
-  gof_criterion,
-  gof_maximize,
+  select_score,
+  select_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 ) {
@@ -295,8 +295,8 @@ alloc_dinamica <- function(
       id_period_post = id_period_post,
       anterior_rast = current_rast,
       iteration_dir = iteration_dir,
-      gof_criterion = gof_criterion,
-      gof_maximize = gof_maximize
+      select_score = select_score,
+      select_maximize = select_maximize
     )
 
     # Store result
@@ -332,8 +332,8 @@ alloc_dinamica <- function(
 #' @param keep_intermediate Logical, whether to keep intermediate files from simulations
 eval_alloc_params_t <- function(
   self,
-  gof_criterion,
-  gof_maximize,
+  select_score,
+  select_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 ) {
@@ -352,10 +352,10 @@ eval_alloc_params_t <- function(
   self$id_run <- orig_id_run
 
   stopifnot(
-    "gof_criterion must be a single string" = {
-      is.character(gof_criterion) && length(gof_criterion) == 1L
+    "select_score must be a single string" = {
+      is.character(select_score) && length(select_score) == 1L
     },
-    "gof_maximize must be TRUE or FALSE" = (gof_maximize || !gof_maximize),
+    "select_maximize must be TRUE or FALSE" = (select_maximize || !select_maximize),
     "need at least 2 historical periods for evaluation" = {
       length(posterior_historical_periods) >= 1L
     },
@@ -397,8 +397,8 @@ eval_alloc_params_t <- function(
           id_periods = posterior_historical_periods,
           work_dir = work_dir,
           keep_intermediate = keep_intermediate,
-          gof_criterion = gof_criterion,
-          gof_maximize = gof_maximize
+          select_score = select_score,
+          select_maximize = select_maximize
         )
 
         # Get simulated data for final period

@@ -95,8 +95,8 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 predict_trans_pot <- function(
   self,
   id_period_post,
-  gof_criterion,
-  gof_maximize
+  select_score,
+  select_maximize
 ) {
   # TODO parallelize
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
@@ -116,7 +116,7 @@ predict_trans_pot <- function(
       select learner_full
       from {self$get_read_expr("trans_models_t")}
       where id_trans = {id_trans}
-      order by crossval_score['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
+      order by crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
       limit 1
       ]"
     ))

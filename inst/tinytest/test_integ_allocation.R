@@ -44,8 +44,8 @@ if (Sys.which("DinamicaConsole") == "") {
   expect_warning(
     db$alloc_dinamica(
       id_periods = 4,
-      gof_criterion = "auc",
-      gof_maximize = TRUE,
+      select_score = "classif.auc",
+      select_maximize = TRUE,
       work_dir = file.path(db$path, "dinamica_test"),
       keep_intermediate = FALSE
     ),
@@ -55,8 +55,8 @@ if (Sys.which("DinamicaConsole") == "") {
   expect_stdout(
     db$alloc_dinamica(
       id_periods = 4,
-      gof_criterion = "auc",
-      gof_maximize = TRUE,
+      select_score = "classif.auc",
+      select_maximize = TRUE,
       work_dir = file.path(db$path, "dinamica_test"),
       keep_intermediate = FALSE
     ),
@@ -72,8 +72,8 @@ expect_message(
   db$alloc_params_t <-
     evaluated_params <-
       db$eval_alloc_params_t(
-        gof_criterion = "auc",
-        gof_maximize = TRUE,
+        select_score = "classif.auc",
+        select_maximize = TRUE,
         work_dir = file.path(db$path, "dinamica_eval"),
         keep_intermediate = FALSE
       ),
