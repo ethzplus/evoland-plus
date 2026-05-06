@@ -80,9 +80,9 @@ alloc_dinamica_setup_inputs <- function(
   patcher_table <- alloc_params_full[, .(
     `From*` = id_lulc_anterior,
     `To*` = id_lulc_posterior,
-    Mean_Patch_Size = ifelse(is.na(mean_patch_size), 0, mean_patch_size),
+    Mean_Patch_Size = ifelse(is.na(mean_patch_size), 1, mean_patch_size),
     Patch_Size_Variance = ifelse(is.na(patch_size_variance), 0, patch_size_variance),
-    Patch_Isometry = ifelse(is.na(patch_isometry), 0, patch_isometry)
+    Patch_Isometry = ifelse(is.na(patch_isometry), 1, patch_isometry)
   )]
 
   patcher_path <- file.path(temp_dir, "patcher_table.csv")

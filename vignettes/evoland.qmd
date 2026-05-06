@@ -374,8 +374,8 @@ db$trans_preds_t <- trans_pred_scored[importance > 3]
 
 Now we fit partial models using training/validation splits, allowing for a goodness-of-fit estimation using [mlr3 Measures](https://mlr3book.mlr-org.com/chapters/chapter2/data_and_basic_modeling.html#sec-eval).
 We fit a first series of models using a featureless learner, i.e. only estimating the response from the target variable (did a transition occur?) probability distribution.
-We then fit an rpart learner.
-Next, fit_full_models() reads the partial models stored in db$trans_models_t, chooses the best model for each transition based on goodness of fit, and refits each chosen model on all available predictor data. Assigning the result back to db$trans_models_t stores these full models for the extrapolation step.
+We then fit an [rpart](https://mlr3.mlr-org.com/reference/mlr_learners_classif.rpart.html) recursive partitioning and regression learner.
+Next, `fit_full_models()` reads the partial models stored in db$trans_models_t, chooses the best model for each transition based on goodness of fit, and refits each chosen model on all available predictor data. Assigning the result back to db$trans_models_t stores these full models for the extrapolation step.
 
 ```{r}
 #| label: trans-models

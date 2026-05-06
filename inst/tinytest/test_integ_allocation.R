@@ -36,6 +36,8 @@ expect_message(
   "Fitting full models for"
 )
 
+# switching run to no 1, which is the base estimate for allocation parameters
+db$id_run <- 1L
 # no data for period 4 yet
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 
@@ -52,7 +54,7 @@ if (Sys.which("DinamicaConsole") == "") {
     "Copying anterior.tif to posterior.tif as fallback so we can test."
   )
 } else {
-  expect_stdout(
+  expect_message(
     db$alloc_dinamica(
       id_periods = 4,
       select_score = "classif.auc",
