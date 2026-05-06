@@ -341,6 +341,9 @@ db$pred_meta_t
 
 # Calibration
 
+For consistency across different model packages, `evoland-plus` uses the [`mlr3`](https://mlr-org.com/) machine learning and statistics environment.
+For a hands-on introduction, see [mlr3 by Example](https://mlr3book.mlr-org.com/chapters/chapter1/introduction_and_overview.html#mlr3-by-example).
+
 ## Eligible Transitions and Predictor Pruning
 
 We filter transitions eligible for modeling based on a minimum number of observed occurrences.
@@ -351,25 +354,27 @@ db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 50)
 ```
 
 Because each transition may be modelled using different predictors (aka *features*), we start out by setting the `trans_preds_t` table to the full cross product of viable transitions and predictors.
-We then carry out a feature selection step in `get_pruned_trans_preds_t`, which here is used with a two-stage covariance filter.
-First, candidate features are ranked and then selected up to a given correlation threshold, see [`covariance_filter`](../reference/covariance_filter.html).
+We then carry out a feature selection step in `get_pred_filter_score`, which here is used with a variable [importance filter](https://mlr3filters.mlr-org.com/reference/mlr_filters_importance.html) - an [mlr3 Learner](https://mlr3.mlr-org.com/reference/Learner.html) is passed that returns an importance score for each predictor.
+We can then subset the returned `trans_preds_t` object and overwrite the existing set of "every predictor for every transition".
 The assignment to `db$trans_preds_t` will overwrite the existing relations; you will be prompted if you want to do this if you're running R interactively.
 
 ```{r}
 #| label: prune-trans-preds
-#| output: false
 db$set_full_trans_preds()
-# Note: we're suppressing warnings about non-convergence due to our random synthetic data.
-db$trans_preds_t <- db$get_pruned_trans_preds_t(
-  filter_fun = covariance_filter,
-  corcut = 0.1
+
+trans_pred_scored <- db$get_pred_filter_score(
+  filter = mlr3filters::FilterImportance$new(
+    learner = mlr3::lrn("classif.rpart")
+  )
 )
+db$trans_preds_t <- trans_pred_scored[importance > 3]
 ```
 
 ## Transition Models
 
-Now we fit partial models using training/validation splits, allowing for a goodness-of-fit (gof) estimation.
-Here, we only fit a single partial model per transition, where we normally would create a list of candidates.
+Now we fit partial models using training/validation splits, allowing for a goodness-of-fit estimation using [mlr3 Measures](https://mlr3book.mlr-org.com/chapters/chapter2/data_and_basic_modeling.html#sec-eval).
+We fit a first series of models using a featureless learner, i.e. only estimating the response from the target variable (did a transition occur?) probability distribution.
+We then fit an rpart learner.
 Next, fit_full_models() reads the partial models stored in db$trans_models_t, chooses the best model for each transition based on goodness of fit, and refits each chosen model on all available predictor data. Assigning the result back to db$trans_models_t stores these full models for the extrapolation step.
 
 ```{r}
@@ -377,13 +382,17 @@ Next, fit_full_models() reads the partial models stored in db$trans_models_t, ch
 db$trans_models_t <- db$fit_partial_models(
   learner = mlr3::lrn("classif.featureless", predict_type = "prob"),
   measures = c("classif.auc", "classif.acc"),
-  sample_frac = 0.7,
-  seed = 42
+  sample_frac = 0.7
+)
+db$trans_models_t <- db$fit_partial_models(
+  learner = mlr3::lrn("classif.rpart", predict_type = "prob"),
+  measures = c("classif.auc", "classif.acc"),
+  sample_frac = 0.7
 )
 
 db$trans_models_t <- db$fit_full_models(
-  gof_criterion = "auc",
-  gof_maximize = TRUE
+  select_score = "classif.auc",
+  select_maximize = TRUE
 )
 ```
 
@@ -424,8 +433,8 @@ For installation instructions, see the [Installing Dinamica EGO](install-dinamic
 #| results: hold
 db$alloc_dinamica(
   id_period = db$periods_t[is_extrapolated == TRUE, id_period],
-  gof_criterion = "auc",
-  gof_maximize = TRUE
+  select_score = "classif.auc",
+  select_maximize = TRUE
 )
 ```
 
