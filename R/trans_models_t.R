@@ -62,10 +62,12 @@ coerce_learner_for_classif <- function(learner) {
   if (learner$predict_type != "prob") {
     tryCatch(
       learner$predict_type <- "prob",
-      error = function(e) stop(glue::glue(
-        "Could not set predict_type = 'prob' on learner '{learner$id}': {e$message}. ",
-        "Make sure the learner supports probabilistic predictions."
-      ))
+      error = function(e) {
+        stop(glue::glue(
+          "Could not set predict_type = 'prob' on learner '{learner$id}': {e$message}. ",
+          "Make sure the learner supports probabilistic predictions."
+        ))
+      }
     )
   }
   invisible(learner)
