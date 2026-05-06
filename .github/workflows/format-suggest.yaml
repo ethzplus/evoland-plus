@@ -15,6 +15,7 @@ on:
   # code, we are just treating it as passive data).
   # https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/
   pull_request:
+  workflow_dispatch:
 
 name: format-suggest.yaml
 
