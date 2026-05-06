@@ -89,41 +89,24 @@ fit_partial_model_worker <- function(
         ))
       }
 
-      # Stratified sampling by did_transition
-      idx_true <- which(trans_pred_data_full[["did_transition"]])
-      idx_false <- which(!trans_pred_data_full[["did_transition"]])
-
-      n_train_true <- ceiling(length(idx_true) * sample_frac)
-      n_train_false <- ceiling(length(idx_false) * sample_frac)
-
-      if (!is.null(seed)) {
-        set.seed(seed)
-      }
-
-      train_idx <- c(
-        sample(idx_true, n_train_true),
-        sample(idx_false, n_train_false)
-      )
-
-      # Split
-      train_data <- trans_pred_data_full[train_idx]
-      test_data <- trans_pred_data_full[-train_idx]
-
-      # Coerce target; mlr3 uses factors internally also for twoclass classification
-      train_data[, did_transition := factor(did_transition, levels = c("FALSE", "TRUE"))]
-      test_data[, did_transition := factor(did_transition, levels = c("FALSE", "TRUE"))]
-
       # Build mlr3 task and train a fresh clone of the learner
-      train_task <- mlr3::as_task_classif(
-        train_data,
+      full_task <- mlr3::as_task_classif(
+        trans_pred_data_full,
         target = "did_transition",
         positive = "TRUE"
       )
+      full_task$set_col_roles("did_transition", add_to = "stratum")
+      if (!is.null(seed)) {
+        set.seed(seed)
+      }
+      split <- mlr3::partition(full_task, ratio = sample_frac)
+
+      # Clone learner to train
       trained_learner <- learner$clone(deep = TRUE)
-      trained_learner$train(train_task)
+      trained_learner$train(full_task, row_ids = split$train)
 
       # Predict on test data; test_data includes did_transition as truth
-      prediction <- trained_learner$predict_newdata(test_data)
+      prediction <- trained_learner$predict(full_task, row_ids = split$test)
 
       # Score with supplied measures
       scores <- as.list(prediction$score(measures))
@@ -317,6 +300,7 @@ fit_partial_models <- function(
       on = "id_trans"
     ]
 
+  # TODO put in validator that the learner has predict_type = "prob" set
   stopifnot(
     "No viable transitions" = nrow(viable_trans) > 0L,
     "learner must be an mlr3 Learner or AutoTuner" = inherits(learner, "Learner"),

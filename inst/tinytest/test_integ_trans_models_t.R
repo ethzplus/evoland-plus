@@ -56,9 +56,10 @@ expect_message(
 expect_equal(
   partial_models[["crossval_score"]],
   list(
-    list(classif.auc = 0.5, classif.acc = 0.547945205479452),
-    list(classif.auc = 0.5, classif.acc = 0.536050156739812)
-  )
+    list(classif.auc = 0.5, classif.acc = 0.55),
+    list(classif.auc = 0.5, classif.acc = 0.5358255)
+  ),
+  tolerance = 1e-7
 )
 expect_equal(partial_models$learner_id[1], "classif.featureless")
 expect_true(all(
@@ -230,10 +231,10 @@ expect_true(inherits(plot_trans_1, "gg"))
 expect_equal(
   plot_trans_1$data |> summary() |> as.vector(),
   c(
-    "truth   :219  ",
-    "response:219  ",
+    "truth   :220  ",
+    "response:220  ",
     NA,
-    "Length:438        ",
+    "Length:440        ",
     "Class :character  ",
     "Mode  :character  "
   )
