@@ -121,8 +121,10 @@ predict_trans_pot <- function(
       ]"
     ))
 
-    if (nrow(model_row) != 1L) {
-      stop(glue::glue("Expecting exactly one model for id_trans={id_trans}"))
+    if (nrow(model_row) > 1L) {
+      stop(glue::glue("Several models found for id_trans={id_trans}"))
+    } else if (nrow(model_row) == 0L) {
+      stop(glue::glue("No model found for id_trans={id_trans}"))
     }
 
     # Deserialize full learner

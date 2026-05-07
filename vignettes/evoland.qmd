@@ -254,6 +254,7 @@ instead, we generate a synthetic LULC raster with 3 layers (one per period) by a
 #| label: synthesize-and-agg-lulc-data
 #| fig-asp: 0.3
 # autoregressive noise with skellam distribution
+set.seed(666)
 n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
 noise1 <- runif(n_cells, min = 0, max = 10)
 noise2 <- noise1 + stats::rpois(n_cells, 1) - stats::rpois(n_cells, 1)
@@ -367,7 +368,7 @@ trans_pred_scored <- db$get_pred_filter_score(
     learner = mlr3::lrn("classif.rpart")
   )
 )
-db$trans_preds_t <- trans_pred_scored[importance > 3]
+db$trans_preds_t <- trans_pred_scored[importance > 2]
 ```
 
 ## Transition Models
