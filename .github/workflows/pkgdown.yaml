@@ -3,7 +3,6 @@
 on:
   push:
     branches: [main, master]
-  pull_request:
   release:
     types: [published]
   workflow_dispatch:
@@ -36,13 +35,7 @@ jobs:
           extra-packages: any::pkgdown, local::.
           needs: website
 
-      - name: Build site (PR check — verbose, no deploy)
-        if: github.event_name == 'pull_request'
-        run: pkgdown::build_site(new_process = FALSE, install = TRUE, quiet = FALSE)
-        shell: Rscript {0}
-
-      - name: Build site (deploy path)
-        if: github.event_name != 'pull_request'
+      - name: Build site
         run: pkgdown::build_site_github_pages(new_process = FALSE, install = TRUE)
         shell: Rscript {0}
 
