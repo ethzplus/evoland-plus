@@ -13,7 +13,8 @@ number-sections: true
 #| label: cleanup
 #| include: false
 # TODO render tables into nice HTML interactive ones??
-
+# For consistency of synthetic data
+set.seed(666)
 # make sure we're starting clean
 unlink("firstmodel.evolanddb", recursive = TRUE)
 
@@ -254,7 +255,6 @@ instead, we generate a synthetic LULC raster with 3 layers (one per period) by a
 #| label: synthesize-and-agg-lulc-data
 #| fig-asp: 0.3
 # autoregressive noise with skellam distribution
-set.seed(666)
 n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
 noise1 <- runif(n_cells, min = 0, max = 10)
 noise2 <- noise1 + stats::rpois(n_cells, 1) - stats::rpois(n_cells, 1)
@@ -264,7 +264,9 @@ synthetic_lulc <-
   rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
   focal(w = 3, fun = mean, na.rm = TRUE) |>
   clamp(lower = 0, upper = 10) |>
-  classify(rcl = data.frame(from = 0:9, to = 1:10, becomes = sample(1:10, 10)))
+  classify(rcl = data.frame(
+    from = 0:9, to = 1:10, becomes = c(3, 7, 1, 10, 5, 8, 2, 9, 4, 6)
+  ))
 
 plot(synthetic_lulc, nc = 3)
 ```
@@ -351,7 +353,7 @@ We filter transitions eligible for modeling based on a minimum number of observe
 
 ```{r}
 #| label: eligible-transitions-and-predictors
-db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 50)
+db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 20)
 ```
 
 Because each transition may be modelled using different predictors (aka *features*), we start out by setting the `trans_preds_t` table to the full cross product of viable transitions and predictors.
