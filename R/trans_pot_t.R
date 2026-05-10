@@ -116,6 +116,7 @@ predict_trans_pot <- function(
       select learner_full
       from {self$get_read_expr("trans_models_t")}
       where id_trans = {id_trans}
+        and learner_full is not null
       order by crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
       limit 1
       ]"

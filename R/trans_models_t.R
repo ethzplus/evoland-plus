@@ -464,6 +464,7 @@ fit_full_models <- function(
         pn.id_run = tm.id_run
         and pn.id_trans = tm.id_trans
       qualify row_number() over (
+          -- FIXME edge case: two models with same score, what do?
           partition by tm.id_run, tm.id_trans
           order by tm.crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
       ) = 1;
