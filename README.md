@@ -13,7 +13,8 @@ The scope of `evoland-plus` is to:
 ## Installation
 
 We suggest you use [rv](https://a2-ai.github.io/rv-docs/) to manage your dependencies in an encapsulated environment.
-Simply create an `rproject.toml` at the project root and execute `rv sync`.
+Simply create an `rproject.toml` at the project root and execute `rv init && rv sync`.
+
 ```toml
 # sample rproject.toml
 [project]
@@ -32,7 +33,7 @@ dependencies = [
 If you want to develop the model logic itself, you can opt to only install dependencies but not the package itself:
 
 ```toml
-dependencies = [    
+dependencies = [
     # only install dependencies declared in DESCRIPTION
     { name = "evoland", path = "~/path/to/local/repo", dependencies_only = true, install_suggestions = true },
     "devtools", # sundry development tasks
@@ -65,9 +66,9 @@ This package uses pkgdown, see <http://ethzplus.github.io/evoland-plus>.
 - **Tutorials & How-to Guides**: Package vignettes and examples in R man pages
 - **Reference Documentation**: R man pages using the standard `?function_name`
 - **Explanation & Design Rationale**: See the [project wiki](../../wiki) for
-    - Detailed explanation of the modeling approach
-    - Database schema and architecture decisions
-    - Development guidelines and coding standards
+  - Detailed explanation of the modeling approach
+  - Database schema and architecture decisions
+  - Development guidelines and coding standards
 
 ## License
 
