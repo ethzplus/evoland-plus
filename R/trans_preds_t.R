@@ -6,7 +6,9 @@
 #'
 #' @name trans_preds_t
 #'
-#' @param db An [evoland_db] instance with populated trans_meta_t and pred_meta_t tables
+#' @param self An [evoland_db] instance with populated trans_meta_t and pred_meta_t tables
+#' @param x A list or data.frame coercible to a trans_preds_t object. If missing, an
+#' empty table will be created.
 #'
 #' @return A data.table of class "trans_preds_t" with columns:
 #'   - `id_run`: Foreign key to runs_t

@@ -14,23 +14,22 @@ RoxygenNote: 7.3.3
 Depends:
     R (>= 4.2)
 Imports:
+    DBI,
+    R6,
+    Rcpp,
     curl,
     data.table,
-    DBI,
     duckdb (>= 1.5.2),
     glue,
     mlr3,
     mlr3filters,
     paradox,
     qs2,
-    R6,
-    Rcpp,
     terra (>= 1.8-42)
 Suggests:
     base64enc,
-    butcher,
+    knitr,
     mlr3viz,
-    pROC,
     processx,
     quarto,
     ranger,

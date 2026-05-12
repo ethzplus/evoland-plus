@@ -40,6 +40,10 @@ upsert_new_neighbors(self, id_period)
 \arguments{
 \item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
 
+\item{coords_t}{A \link{coords_t} object containing coordinate points with \code{id_coord},
+\code{lon}, and \code{lat} columns, and appropriate metadata attributes (epsg, extent,
+resolution).}
+
 \item{max_distance}{Maximum distance to search for neighbors (in same units as
 coordinates)}
 
@@ -47,11 +51,15 @@ coordinates)}
 If NULL, no distance classification is performed.
 If provided, must have at least 2 elements defining interval breaks.}
 
-\item{...}{Passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+\item{quiet}{If TRUE, suppress progress messages during neighbor computation}
 
-\item{nrow}{Maximum number of rows to print. See \link[data.table:print.data.table]{data.table::print.data.table}}
+\item{...}{Passed to \code{\link[data.table:print.data.table]{data.table::print.data.table()}} resp. \code{\link[=validate]{validate()}}}
+
+\item{nrow}{Maximum number of rows to print}
 
 \item{self}{An evoland_db object}
+
+\item{overwrite}{If FALSE and \code{neighbors_t} already exists, skip computation (default: FALSE)}
 
 \item{chunksize}{Number of rows to write per chunk when inserting into the database
 to avoid memory issues (default: 1e8)}

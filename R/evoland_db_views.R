@@ -20,7 +20,7 @@
 #'   for a specific period.
 #'
 #' @name evoland_db_views
-#' @aliases lulc_meta_long_v pred_sources_v trans_v coords_minimal trans_pred_data_v
+#' @aliases lulc_meta_long_v pred_sources_v trans_v coords_minimal
 #' trans_rates_dinamica_v
 #' @include evoland_db.R
 NULL

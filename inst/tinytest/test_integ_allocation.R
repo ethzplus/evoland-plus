@@ -46,8 +46,8 @@ if (Sys.which("DinamicaConsole") == "") {
   expect_warning(
     db$alloc_dinamica(
       id_periods = 4,
-      gof_criterion = "auc",
-      gof_maximize = TRUE,
+      select_score = "classif.auc",
+      select_maximize = TRUE,
       work_dir = file.path(db$path, "dinamica_test"),
       keep_intermediate = FALSE
     ),
@@ -57,8 +57,8 @@ if (Sys.which("DinamicaConsole") == "") {
   expect_message(
     db$alloc_dinamica(
       id_periods = 4,
-      gof_criterion = "auc",
-      gof_maximize = TRUE,
+      select_score = "classif.auc",
+      select_maximize = TRUE,
       work_dir = file.path(db$path, "dinamica_test"),
       keep_intermediate = FALSE
     ),
@@ -74,8 +74,8 @@ expect_message(
   db$alloc_params_t <-
     evaluated_params <-
       db$eval_alloc_params_t(
-        gof_criterion = "auc",
-        gof_maximize = TRUE,
+        select_score = "classif.auc",
+        select_maximize = TRUE,
         work_dir = file.path(db$path, "dinamica_eval"),
         keep_intermediate = FALSE
       ),
@@ -89,8 +89,7 @@ expect_true(all(c("similarity", "frac_patcher") %in% names(evaluated_params)))
 # Check that accuracy metrics are reasonable (between 0 and 1)
 expect_true(all(
   evaluated_params$similarity <= 1 &
-    evaluated_params$similarity >= 0,
-  na.rm = TRUE
+    evaluated_params$similarity >= 0
 ))
 
 # Test error handling - invalid id_periods

@@ -116,7 +116,7 @@ validate.intrv_meta_t <- function(x, ...) {
   NextMethod()
   # TODO probably still needs a "has_mask" field, because some interventions apply to
   # the full domain
-  data.table:::setcolorder(
+  data.table::setcolorder(
     x,
     c(
       "id_intrv",

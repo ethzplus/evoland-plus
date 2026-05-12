@@ -23,8 +23,8 @@ alloc_dinamica_setup_inputs <- function(
   id_period_post,
   anterior_rast,
   temp_dir,
-  gof_criterion,
-  gof_maximize
+  select_score,
+  select_maximize
 ) {
   # Get metadata
   coords_meta <- self$get_table_metadata("coords_t")
@@ -112,8 +112,8 @@ alloc_dinamica_setup_inputs <- function(
 
   trans_pots_t <- self$predict_trans_pot(
     id_period_post = id_period_post,
-    gof_criterion = gof_criterion,
-    gof_maximize = gof_maximize
+    select_score = select_score,
+    select_maximize = select_maximize
   )
 
   # Iterate over viable transitions and write probability maps
@@ -164,8 +164,8 @@ alloc_dinamica_one_period <- function(
   id_period_post,
   anterior_rast,
   iteration_dir,
-  gof_criterion,
-  gof_maximize
+  select_score,
+  select_maximize
 ) {
   message(glue::glue(
     "Running Dinamica allocation: period {id_period_ant} -> {id_period_post}"
@@ -178,8 +178,8 @@ alloc_dinamica_one_period <- function(
     id_period_post = id_period_post,
     anterior_rast = anterior_rast,
     temp_dir = iteration_dir,
-    gof_criterion = gof_criterion,
-    gof_maximize = gof_maximize
+    select_score = select_score,
+    select_maximize = select_maximize
   )
 
   gc() # just in case
@@ -233,8 +233,8 @@ alloc_dinamica_one_period <- function(
 alloc_dinamica <- function(
   self,
   id_periods,
-  gof_criterion,
-  gof_maximize,
+  select_score,
+  select_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 ) {
@@ -295,8 +295,8 @@ alloc_dinamica <- function(
       id_period_post = id_period_post,
       anterior_rast = current_rast,
       iteration_dir = iteration_dir,
-      gof_criterion = gof_criterion,
-      gof_maximize = gof_maximize
+      select_score = select_score,
+      select_maximize = select_maximize
     )
 
     # Store result
@@ -332,8 +332,8 @@ alloc_dinamica <- function(
 #' @param keep_intermediate Logical, whether to keep intermediate files from simulations
 eval_alloc_params_t <- function(
   self,
-  gof_criterion,
-  gof_maximize,
+  select_score,
+  select_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 ) {
@@ -352,10 +352,10 @@ eval_alloc_params_t <- function(
   self$id_run <- orig_id_run
 
   stopifnot(
-    "gof_criterion must be a single string" = {
-      is.character(gof_criterion) && length(gof_criterion) == 1L
+    "select_score must be a single string" = {
+      is.character(select_score) && length(select_score) == 1L
     },
-    "gof_maximize must be TRUE or FALSE" = (gof_maximize || !gof_maximize),
+    "select_maximize must be TRUE or FALSE" = (select_maximize || !select_maximize),
     "need at least 2 historical periods for evaluation" = {
       length(posterior_historical_periods) >= 1L
     },
@@ -385,10 +385,21 @@ eval_alloc_params_t <- function(
   # Storage for per-transition similarity results
   all_similarity_results <- list()
 
+  # reset run afterwards
+  id_run_init <- self$id_run
+  on.exit(self$id_run <- id_run_init, add = TRUE)
+
   # Evaluate each run
   for (id_run in runs_required) {
     message(glue::glue("\n=== Evaluating run {id_run} ==="))
     self$id_run <- id_run
+
+    all_similarity_results[[id_run]] <-
+      data.table::data.table(
+        id_run = id_run,
+        id_trans = viable_trans[["id_trans"]],
+        similarity = NA_real_
+      )
 
     tryCatch(
       {
@@ -397,8 +408,8 @@ eval_alloc_params_t <- function(
           id_periods = posterior_historical_periods,
           work_dir = work_dir,
           keep_intermediate = keep_intermediate,
-          gof_criterion = gof_criterion,
-          gof_maximize = gof_maximize
+          select_score = select_score,
+          select_maximize = select_maximize
         )
 
         # Get simulated data for final period
@@ -407,47 +418,32 @@ eval_alloc_params_t <- function(
         message("  Computing per-transition fuzzy similarity...")
 
         # Compute fuzzy similarity per transition
-        for (i in seq_len(nrow(viable_trans))) {
-          id_trans <- viable_trans$id_trans[i]
-          id_lulc_ant <- viable_trans$id_lulc_anterior[i]
-          id_lulc_post <- viable_trans$id_lulc_posterior[i]
-
-          # Compute fuzzy similarity for this transition
-          trans_sim <- calc_transition_similarity(
+        similarities <- mapply(
+          FUN = calc_transition_similarity,
+          from_class = viable_trans[["id_lulc_anterior"]],
+          to_class = viable_trans[["id_lulc_posterior"]],
+          MoreArgs = list(
             initial_map = rast_initial,
             observed_map = rast_obs_final,
             simulated_map = rast_sim_final,
-            from_class = id_lulc_ant,
-            to_class = id_lulc_post,
             window_size = 11L,
             use_exp_decay = TRUE,
             decay_divisor = 2.0
-          )
+          ),
+          SIMPLIFY = FALSE
+        )
 
-          # Store result
-          all_similarity_results[[length(all_similarity_results) + 1L]] <- data.table::data.table(
+        all_similarity_results[[id_run]] <-
+          data.table::data.table(
             id_run = id_run,
-            id_trans = id_trans,
-            similarity = trans_sim$similarity
+            id_trans = viable_trans[["id_trans"]],
+            similarity = pluck_wildcard(similarities, NA, "similarity") |> unlist()
           )
-        }
-
-        rm(rast_sim_final)
-        gc()
       },
       error = function(e) {
         warning(glue::glue(
           "Failed to evaluate run {id_run}: {e$message}"
         ))
-
-        # Add NA results for this run
-        for (i in seq_len(nrow(viable_trans))) {
-          all_similarity_results[[length(all_similarity_results) + 1L]] <- data.table::data.table(
-            id_run = id_run,
-            id_trans = viable_trans$id_trans[i],
-            similarity = NA_real_
-          )
-        }
       }
     )
   }

@@ -5,6 +5,7 @@
 #' @name neighbors_t
 #'
 #' @param x An object that can be passed to [data.table::setDT()]
+#' @param ... Passed to [data.table::print.data.table()] resp. [validate()]
 #'
 #' @return A data.table of class "neighbors_t" with columns:
 #'   - `id_coord_origin`: Foreign key to coords_t (origin coordinate)
@@ -38,11 +39,15 @@ as_neighbors_t <- function(x) {
 
 #' @describeIn neighbors_t Compute neighboring coordinates within specified distances.
 #' This uses a spatial hash map for efficiency.
+#' @param coords_t A [coords_t] object containing coordinate points with `id_coord`,
+#' `lon`, and `lat` columns, and appropriate metadata attributes (epsg, extent,
+#' resolution).
 #' @param max_distance Maximum distance to search for neighbors (in same units as
 #' coordinates)
 #' @param distance_breaks Optional numeric vector defining distance class boundaries.
 #'   If NULL, no distance classification is performed.
 #'   If provided, must have at least 2 elements defining interval breaks.
+#' @param quiet If TRUE, suppress progress messages during neighbor computation
 #' @return A data.table with columns:
 #'   - id_coord_origin: ID of the origin coordinate
 #'   - id_coord_neighbor: ID of the neighboring coordinate
@@ -115,8 +120,7 @@ validate.neighbors_t <- function(x, ...) {
 }
 
 #' @describeIn neighbors_t Print a neighbors_t object
-#' @param nrow Maximum number of rows to print. See [data.table::print.data.table]
-#' @param ... Passed to [data.table::print.data.table]
+#' @param nrow Maximum number of rows to print
 #' @export
 print.neighbors_t <- function(x, nrow = 10, ...) {
   if (nrow(x) > 0) {
@@ -146,7 +150,8 @@ print.neighbors_t <- function(x, nrow = 10, ...) {
 #' @describeIn neighbors_t Compute neighbor relationships between coordinates
 #' and store in `self$neighbors_t`. This uses a spatial hash map for efficiency
 #' and can produce a very large table depending on max_distance.
-#' @param self An evoland_db object
+#' @param self An [evoland_db] object
+#' @param overwrite If FALSE and `neighbors_t` already exists, skip computation (default: FALSE)
 #' @param chunksize Number of rows to write per chunk when inserting into the database
 #' to avoid memory issues (default: 1e8)
 set_neighbors <- function(

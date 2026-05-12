@@ -11,7 +11,7 @@ as_runs_t(x)
 
 \method{print}{runs_t}(x, nrow = 10, ...)
 
-db_active_id_run(self, private, x)
+db_active_id_run(self, private, y)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -19,6 +19,12 @@ db_active_id_run(self, private, x)
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
+
+\item{self}{an evoland_db instance}
+
+\item{private}{an evoland_db private environment}
+
+\item{y}{(optional) scalar integerish or NULL; if provided, sets the active run ID and lineage}
 }
 \value{
 A data.table of class "runs_t" with columns:

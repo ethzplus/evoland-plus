@@ -21,6 +21,9 @@ resampling is done.}
 
 \item{data}{A data.table with column id_coord and value_col}
 
+\item{value_col}{Character, name of column in data to use as raster values. Default
+"id_lulc".}
+
 \item{resolution}{Numeric, raster resolution in CRS units. If \code{NULL},
 use "resolution" attribute on coords, or estimate from coord spacing.}
 }

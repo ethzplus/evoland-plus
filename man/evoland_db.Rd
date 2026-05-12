@@ -308,8 +308,8 @@ EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$alloc_dinamica(
   id_periods,
-  gof_criterion,
-  gof_maximize,
+  select_score,
+  select_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 )}\if{html}{\out{</div>}}
@@ -320,9 +320,10 @@ EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
 \describe{
 \item{\code{id_periods}}{Integer vector of period IDs to include in the simulation.}
 
-\item{\code{gof_criterion}}{Which goodness-of-fit metric to use for model selection (e.g., "auc")}
+\item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
+to select model for extrapolation}
 
-\item{\code{gof_maximize}}{Maximize (TRUE) or minimize (FALSE) the gof_criterion?}
+\item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
 
 \item{\code{work_dir}}{Character path for Dinamica working directory. Default "dinamica_rundir".}
 
@@ -338,8 +339,8 @@ EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
 Evaluates allocation parameters in dinamica, see \code{\link[=eval_alloc_params_t]{eval_alloc_params_t()}}
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{evoland_db$eval_alloc_params_t(
-  gof_criterion,
-  gof_maximize,
+  select_score,
+  select_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 )}\if{html}{\out{</div>}}
@@ -348,9 +349,10 @@ Evaluates allocation parameters in dinamica, see \code{\link[=eval_alloc_params_
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{gof_criterion}}{Which goodness-of-fit metric to use for model selection (e.g., "auc")}
+\item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
+to select model for extrapolation}
 
-\item{\code{gof_maximize}}{Maximize (TRUE) or minimize (FALSE) the gof_criterion?}
+\item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
 
 \item{\code{work_dir}}{Character path for Dinamica working directory. Default "dinamica_rundir".}
 
@@ -452,7 +454,8 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
 \describe{
 \item{\code{learner}}{An mlr3 \code{Learner} or \code{AutoTuner} R6 object.}
 
-\item{\code{measures}}{A list of mlr3 \code{Measure} objects for scoring the held-out split.}
+\item{\code{measures}}{A vector of \code{Measure} names passed to \link[mlr3:mlr_sugar]{mlr3::msr} or a list of
+\code{Measure} objects for scoring the held-out split.}
 
 \item{\code{sample_frac}}{Fraction in \(0, 1\) for stratified sampling.}
 
@@ -529,7 +532,7 @@ feature selection.}
 \subsection{Method \code{predict_trans_pot()}}{
 Predict the transition potential for a given period, see \code{\link[=trans_pot_t]{trans_pot_t()}}
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{evoland_db$predict_trans_pot(id_period_post, gof_criterion, gof_maximize)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{evoland_db$predict_trans_pot(id_period_post, select_score, select_maximize)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -537,9 +540,10 @@ Predict the transition potential for a given period, see \code{\link[=trans_pot_
 \describe{
 \item{\code{id_period_post}}{Integerish, posterior period of the transition potential interval}
 
-\item{\code{gof_criterion}}{Which goodness-of-fit metric to use for model selection (e.g., "auc")}
+\item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
+to select model for extrapolation}
 
-\item{\code{gof_maximize}}{Maximize (TRUE) or minimize (FALSE) the gof_criterion?}
+\item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
 }
 \if{html}{\out{</div>}}
 }

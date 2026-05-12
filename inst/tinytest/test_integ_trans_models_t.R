@@ -56,9 +56,10 @@ expect_message(
 expect_equal(
   partial_models[["crossval_score"]],
   list(
-    list(classif.auc = 0.5, classif.acc = 0.547945205479452),
-    list(classif.auc = 0.5, classif.acc = 0.536050156739812)
-  )
+    list(classif.auc = 0.5, classif.acc = 0.55),
+    list(classif.auc = 0.5, classif.acc = 0.5358255)
+  ),
+  tolerance = 1e-7
 )
 expect_equal(partial_models$learner_id[1], "classif.featureless")
 expect_true(all(
@@ -128,6 +129,33 @@ expect_error(
     measures = test_measures
   ),
   "learner must be an mlr3 Learner or AutoTuner"
+)
+
+# Test coercion: learner with predict_type = "response" should be auto-coerced to "prob"
+response_learner <- mlr3::lrn("classif.featureless", predict_type = "response")
+expect_equal(response_learner$predict_type, "response")
+expect_message(
+  db$fit_partial_models(
+    learner = response_learner,
+    measures = test_measures,
+    sample_frac = 0.7,
+    seed = 123
+  ),
+  "Fitting partial models"
+)
+expect_equal(response_learner$predict_type, "prob")
+
+# Test error handling - learner that does not support twoclass.
+# No built-in mlr3 learner lacks "twoclass" without extra packages, so we strip
+# the property directly to exercise this code path.
+multiclass_learner <- mlr3::lrn("classif.featureless")
+multiclass_learner$properties <- setdiff(multiclass_learner$properties, "twoclass")
+expect_error(
+  db$fit_partial_models(
+    learner = multiclass_learner,
+    measures = test_measures
+  ),
+  "learner must support twoclass classification"
 )
 
 # Test error handling - invalid sample_frac
@@ -230,10 +258,10 @@ expect_true(inherits(plot_trans_1, "gg"))
 expect_equal(
   plot_trans_1$data |> summary() |> as.vector(),
   c(
-    "truth   :219  ",
-    "response:219  ",
+    "truth   :220  ",
+    "response:220  ",
     NA,
-    "Length:438        ",
+    "Length:440        ",
     "Class :character  ",
     "Mode  :character  "
   )

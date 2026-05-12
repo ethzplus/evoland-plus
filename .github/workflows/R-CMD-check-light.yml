@@ -1,0 +1,35 @@
+# Light version of R CMD check for use as a PR check
+# Use ghcr.io/rocker-org/geospatial:latest - only runs on an ubuntu install with geospatial libs preinstalled.
+# Workflow derived from R-CMD-check.yml
+on:
+  pull_request:
+  workflow_dispatch:
+
+name: "R CMD check (light)"
+
+permissions: read-all
+
+jobs:
+  R-CMD-check:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/rocker-org/geospatial:latest
+    name: "rocker-org/geospatial:latest"
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck
+          needs: check
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-snapshots: true
+          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
+          error-on: '"error"'

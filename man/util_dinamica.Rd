@@ -49,13 +49,6 @@ in a directory of the exact form \verb{basename(modelpath)_ego_Submodels}, \href
 \item{mode}{Character, either "encode" or "decode"}
 
 \item{check}{Default TRUE, simple check to ensure that you're handling what you're expecting}
-
-\item{run_modelprechecks}{bool, Validate that everything's in place for a model run.
-Will never be run if calibration.}
-
-\item{config}{List of config params}
-
-\item{calibration}{bool, Is this a calibration run?}
 }
 \description{
 Interact with Dinamica from R, see \strong{Functions} section below.

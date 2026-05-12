@@ -14,3 +14,5 @@ air.toml
 ^rv.lock$
 ^rproject.toml$
 ^data-raw$
+.clangd
+.sql-formatter.json

@@ -16,12 +16,12 @@ non_dt <- data.frame(x = 1:3)
 class(non_dt) <- c("test_class", "parquet_db_t", class(non_dt))
 expect_error(validate(non_dt), "needs to be a data.table")
 
-# Test %||% operator
-expect_equal(NULL %||% "default", "default")
-expect_equal("value" %||% "default", "value")
-expect_equal(0 %||% "default", 0)
-expect_equal(FALSE %||% "default", FALSE)
-expect_equal("" %||% "default", "")
+# Test evoland:::`%||%`() operator
+expect_equal(evoland:::`%||%`(NULL, "default"), "default")
+expect_equal(evoland:::`%||%`("value", "default"), "value")
+expect_equal(evoland:::`%||%`(0, "default"), 0)
+expect_equal(evoland:::`%||%`(FALSE, "default"), FALSE)
+expect_equal(evoland:::`%||%`("", "default"), "")
 
 # Test evoland:::pluck_wildcard
 test_list <- list(

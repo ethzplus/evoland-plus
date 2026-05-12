@@ -11,7 +11,7 @@ as_trans_pot_t(x)
 
 \method{print}{trans_pot_t}(x, nrow = 10, ...)
 
-predict_trans_pot(self, id_period_post, gof_criterion, gof_maximize)
+predict_trans_pot(self, id_period_post, select_score, select_maximize)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -23,6 +23,10 @@ predict_trans_pot(self, id_period_post, gof_criterion, gof_maximize)
 \item{self}{an \link{evoland_db} instance}
 
 \item{id_period_post}{scalar integerish, passed to \code{self$pred_data_wide_v()}}
+
+\item{select_score}{character scalar, name of score/measure to identify best fitting model}
+
+\item{select_maximize}{logical scalar, whether to maximize or minimize \code{select_score}}
 }
 \value{
 A data.table of class "trans_pot_t" with columns:

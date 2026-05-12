@@ -20,6 +20,8 @@ create_trans_meta_t(
 \method{print}{trans_meta_t}(x, nrow = 10, ...)
 }
 \arguments{
+\item{x}{A list or data.frame coercible to a trans_meta_t object.}
+
 \item{transitions}{A trans_v table, with columns id_coord, id_lulc_anterior,
 id_lulc_posterior, id_period; contains transitions and non-transitions (where
 anterior == posterior)}

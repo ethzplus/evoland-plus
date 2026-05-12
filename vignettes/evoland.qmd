@@ -13,9 +13,15 @@ number-sections: true
 #| label: cleanup
 #| include: false
 # TODO render tables into nice HTML interactive ones??
-
 # make sure we're starting clean
 unlink("firstmodel.evolanddb", recursive = TRUE)
+
+set.seed(666)
+knitr::knit_hooks$set(seed = function(before, options, envir) {
+  if (before && !is.null(options$seed)) {
+    set.seed(options$seed)
+  }
+})
 
 local({
   chunk_messages <- character()
@@ -143,7 +149,7 @@ If there _is_ a directory, we resume from where we left off.
 db <- evoland_db$new(path = "firstmodel.evolanddb")
 ```
 
-Go ahead and print the `d`` object.
+Go ahead and print the `db` object.
 There are already a `runs_t` and a `reporting_t` table, which are bare-bones for now but will be used to track our [modelling runs](../reference/runs_t.html) and metadata for producing graphs and tables.
 
 ```{r}
@@ -251,6 +257,7 @@ For this tutorial, we do not read real observed LULC data:
 instead, we generate a synthetic LULC raster with 3 layers (one per period) by adding autoregressive noise to a noisy raster.
 
 ```{r}
+#| seed: 123
 #| label: synthesize-and-agg-lulc-data
 #| fig-asp: 0.3
 # autoregressive noise with skellam distribution
@@ -263,7 +270,9 @@ synthetic_lulc <-
   rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
   focal(w = 3, fun = mean, na.rm = TRUE) |>
   clamp(lower = 0, upper = 10) |>
-  classify(rcl = data.frame(from = 0:9, to = 1:10, becomes = sample(1:10, 10)))
+  classify(rcl = data.frame(
+    from = 0:9, to = 1:10, becomes = c(3, 7, 1, 10, 5, 8, 2, 9, 4, 6)
+  ))
 
 plot(synthetic_lulc, nc = 3)
 ```
@@ -272,6 +281,7 @@ We now extract the generated values at our coordinates using `extract_using_coor
 In a second step, we join in a long representation of the LULC metadata, associating `id_lulc` with `src_class`.
 
 ```{r}
+#| label: extract-and-join-lulc
 synthetic_at_coords <- extract_using_coords_t(synthetic_lulc, db$coords_t)
 
 synthetic_joint_meta <-
@@ -291,6 +301,7 @@ We need to add information on which `id_run` this data belongs to: run 0 is the 
 The call to [`as_lulc_data_t`](../reference/lulc_data_t.html) ensures that the data we want to insert actually conforms to the form we are expecting.
 
 ```{r}
+#| label: insert-lulc-data
 db$lulc_data_t <- as_lulc_data_t(synthetic_joint_meta[, .(
   id_run = 0L, # Base run ID
   id_period,
@@ -336,10 +347,14 @@ db$generate_neighbor_predictors()
 Have a look at the predictor metadata we have defined, it now contains new rows for the neighbor predictors:
 
 ```{r}
+#| label: view-pred-meta
 db$pred_meta_t
 ```
 
 # Calibration
+
+For consistency across different model packages, `evoland-plus` uses the [`mlr3`](https://mlr-org.com/) machine learning and statistics environment.
+For a hands-on introduction, see [mlr3 by Example](https://mlr3book.mlr-org.com/chapters/chapter1/introduction_and_overview.html#mlr3-by-example).
 
 ## Eligible Transitions and Predictor Pruning
 
@@ -347,43 +362,60 @@ We filter transitions eligible for modeling based on a minimum number of observe
 
 ```{r}
 #| label: eligible-transitions-and-predictors
-db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 50)
+db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 20)
 ```
 
 Because each transition may be modelled using different predictors (aka *features*), we start out by setting the `trans_preds_t` table to the full cross product of viable transitions and predictors.
-We then carry out a feature selection step in `get_pruned_trans_preds_t`, which here is used with a two-stage covariance filter.
-First, candidate features are ranked and then selected up to a given correlation threshold, see [`covariance_filter`](../reference/covariance_filter.html).
+We then carry out a feature selection step in `get_pred_filter_score`, which here is used with a variable [importance filter](https://mlr3filters.mlr-org.com/reference/mlr_filters_importance.html) - an [mlr3 Learner](https://mlr3.mlr-org.com/reference/Learner.html) is passed that returns an importance score for each predictor.
+We can then subset the returned `trans_preds_t` object and overwrite the existing set of "every predictor for every transition".
 The assignment to `db$trans_preds_t` will overwrite the existing relations; you will be prompted if you want to do this if you're running R interactively.
 
 ```{r}
+#| seed: 666
 #| label: prune-trans-preds
-#| output: false
+# set full crossproduct of transitions - predictors
 db$set_full_trans_preds()
-# Note: we're suppressing warnings about non-convergence due to our random synthetic data.
-db$trans_preds_t <- db$get_pruned_trans_preds_t(
-  filter_fun = covariance_filter,
-  corcut = 0.1
+
+# return importance scores for each predictor - transition combination
+trans_pred_scored <- db$get_pred_filter_score(
+  filter = mlr3filters::FilterImportance$new(
+    learner = mlr3::lrn("classif.rpart")
+  )
 )
+
+# overwrite using a subset
+db$trans_preds_t <- trans_pred_scored[
+  importance > 5 |
+    is.na(importance) # keep predictors that couldn't be scored
+]
 ```
 
 ## Transition Models
 
-Now we fit partial models using training/validation splits, allowing for a goodness-of-fit (gof) estimation.
-Here, we only fit a single partial model per transition, where we normally would create a list of candidates.
-Next, fit_full_models() reads the partial models stored in db$trans_models_t, chooses the best model for each transition based on goodness of fit, and refits each chosen model on all available predictor data. Assigning the result back to db$trans_models_t stores these full models for the extrapolation step.
+Now we fit partial models using training/validation splits, allowing for a goodness-of-fit estimation using [mlr3 Measures](https://mlr3book.mlr-org.com/chapters/chapter2/data_and_basic_modeling.html#sec-eval).
+We fit a first series of models using a featureless learner, i.e. only estimating the response from the target variable (did a transition occur?) probability distribution.
+We then fit an [rpart](https://mlr3.mlr-org.com/reference/mlr_learners_classif.rpart.html) recursive partitioning and regression learner.
+Next, `fit_full_models()` reads the partial models stored in `db$trans_models_t`, chooses the best model for each transition based on goodness of fit, and refits each chosen model on all available predictor data. Assigning the result back to db$trans_models_t stores these full models for the extrapolation step.
 
 ```{r}
+#| seed: 666
 #| label: trans-models
 db$trans_models_t <- db$fit_partial_models(
-  learner = mlr3::lrn("classif.featureless", predict_type = "prob"),
+  learner = mlr3::lrn("classif.featureless"),
   measures = c("classif.auc", "classif.acc"),
   sample_frac = 0.7,
-  seed = 42
+  seed = 666
+)
+db$trans_models_t <- db$fit_partial_models(
+  learner = mlr3::lrn("classif.rpart"),
+  measures = c("classif.auc", "classif.acc"),
+  sample_frac = 0.7,
+  seed = 666
 )
 
 db$trans_models_t <- db$fit_full_models(
-  gof_criterion = "auc",
-  gof_maximize = TRUE
+  select_score = "classif.auc",
+  select_maximize = TRUE
 )
 ```
 
@@ -393,6 +425,7 @@ As a constrained pattern-based model, we need to provide transition rates to the
 In a simple approach, we can extrapolate the rate of each transition from the observed data:
 
 ```{r}
+#| seed: 666
 #| label: transition-rates-alloc-params
 db$trans_rates_t <-
   db$get_obs_trans_rates() |>
@@ -408,6 +441,7 @@ normally, we would perturb the estimate and use multiple `id_run`s to identify t
 For simplicity, we now just take the estimates for granted and assign `id_run=0`, i.e. the base run ID.
 
 ```{r}
+#| seed: 666
 alloc_for_eval <- db$create_alloc_params_t(n_perturbations = 0)
 alloc_for_eval[, id_run := 0L] # overwrite id_run=1
 db$alloc_params_t <- alloc_for_eval
@@ -424,8 +458,8 @@ For installation instructions, see the [Installing Dinamica EGO](install-dinamic
 #| results: hold
 db$alloc_dinamica(
   id_period = db$periods_t[is_extrapolated == TRUE, id_period],
-  gof_criterion = "auc",
-  gof_maximize = TRUE
+  select_score = "classif.auc",
+  select_maximize = TRUE
 )
 ```
 

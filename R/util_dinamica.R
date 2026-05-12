@@ -132,10 +132,6 @@ exec_dinamica <- function(
 
 #' @describeIn util_dinamica Set up evoland-specific Dinamica EGO files; execute using
 #' [exec_dinamica()]
-#' @param run_modelprechecks bool, Validate that everything's in place for a model run.
-#' Will never be run if calibration.
-#' @param config List of config params
-#' @param calibration bool, Is this a calibration run?
 #' @param work_dir Working dir, where to place ego files and control table
 #' @param ... passed to [exec_dinamica()]
 #' @export

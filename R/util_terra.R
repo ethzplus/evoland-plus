@@ -97,6 +97,8 @@ extract_using_coords_t.SpatVector <- function(x, coords, na_omit = TRUE) {
 #' @param data A data.table with column id_coord and value_col
 #' @param coords A [coords_t] object with coordinate information. Must have
 #'   `epsg` and optionally `resolution` attributes.
+#' @param value_col Character, name of column in data to use as raster values. Default
+#' "id_lulc".
 #' @param resolution Numeric, raster resolution in CRS units. If `NULL`,
 #'   use "resolution" attribute on coords, or estimate from coord spacing.
 #'

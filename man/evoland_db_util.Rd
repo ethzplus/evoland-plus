@@ -13,6 +13,8 @@ run_parallel_evoland(items, worker_fun, parent_db, cluster = NULL, ...)
 \arguments{
 \item{self}{The \code{evoland_db} instance}
 
+\item{super}{The superclass (parent class) environment.}
+
 \item{table_name}{The name of the table to read from}
 
 \item{items}{A list of items to iterate over}

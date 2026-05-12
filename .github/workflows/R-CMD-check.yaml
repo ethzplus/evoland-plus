@@ -2,10 +2,10 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
 
-name: R-CMD-check.yaml
+name: "R CMD check (full)"
 
 permissions: read-all
 
@@ -20,11 +20,8 @@ jobs:
       matrix:
         config:
           - { os: macos-latest, r: "release" }
-          # - {os: windows-latest, r: 'release'}
-          # - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
+          - { os: windows-latest, r: "release" }
           - { os: ubuntu-latest, r: "release" }
-          # - { os: ubuntu-24.04-arm, r: "release" }
-          # - {os: ubuntu-latest,   r: 'oldrel-1'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -39,11 +36,52 @@ jobs:
         with:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
-          use-public-rspm: true
+          use-public-rspm: false
 
-      - name: Install macOS system dependencies
+      - name: Resolve macOS dependency versions
         if: runner.os == 'macos'
-        run: brew install gdal proj
+        run: |
+          brew update
+          brew info --json gdal proj | jq -r '.[].versions.stable' > brew-versions.txt
+
+      - name: Cache macOS system dependencies
+        if: runner.os == 'macos'
+        id: cache-brew
+        uses: actions/cache@v4
+        with:
+          path: |
+            /opt/homebrew/Cellar/gdal
+            /opt/homebrew/Cellar/proj
+            /usr/local/Cellar/gdal
+            /usr/local/Cellar/proj
+          key: ${{ runner.os }}-brew-gdal-proj-${{ hashFiles('brew-versions.txt') }}
+
+      - name: Install or link macOS dependencies
+        if: runner.os == 'macos'
+        run: |
+          if [ "${{ steps.cache-brew.outputs.cache-hit }}" == "true" ]; then
+            brew link gdal proj
+          else
+            brew install gdal proj
+          fi
+
+      - name: Resolve Ubuntu dependency versions
+        if: runner.os == 'linux'
+        run: |
+          sudo apt-get update
+          apt-cache policy libgdal-dev libproj-dev | grep Candidate > apt-versions.txt
+
+      - name: Cache Ubuntu system dependencies
+        if: runner.os == 'linux'
+        id: cache-apt
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-gdal-proj-${{ hashFiles('apt-versions.txt') }}
+
+      - name: Install Ubuntu dependencies
+        if: runner.os == 'linux'
+        run: sudo apt-get install -y libgdal-dev libproj-dev
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:

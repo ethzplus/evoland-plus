@@ -124,14 +124,15 @@ evoland_db <- R6::R6Class(
     #' @description Runs a path-dependent Monte Carlo simulation using Dinamica
     #' EGO, see [alloc_dinamica()]
     #' @param id_periods Integer vector of period IDs to include in the simulation.
-    #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
-    #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
+    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
+    #' to select model for extrapolation
+    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
     #' @param work_dir Character path for Dinamica working directory. Default "dinamica_rundir".
     #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
     alloc_dinamica = function(
       id_periods,
-      gof_criterion,
-      gof_maximize,
+      select_score,
+      select_maximize,
       work_dir = "dinamica_rundir",
       keep_intermediate = FALSE
     ) {
@@ -140,13 +141,14 @@ evoland_db <- R6::R6Class(
 
     #' @description
     #' Evaluates allocation parameters in dinamica, see [eval_alloc_params_t()]
-    #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
-    #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
+    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
+    #' to select model for extrapolation
+    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
     #' @param work_dir Character path for Dinamica working directory. Default "dinamica_rundir".
     #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
     eval_alloc_params_t = function(
-      gof_criterion,
-      gof_maximize,
+      select_score,
+      select_maximize,
       work_dir = "dinamica_rundir",
       keep_intermediate = FALSE
     ) {
@@ -193,7 +195,8 @@ evoland_db <- R6::R6Class(
     #' sampling. Models are trained on a subsample and evaluated on held-out data, see
     #' [fit_partial_models()] for details.
     #' @param learner An mlr3 `Learner` or `AutoTuner` R6 object.
-    #' @param measures A list of mlr3 `Measure` objects for scoring the held-out split.
+    #' @param measures A vector of `Measure` names passed to [mlr3::msr] or a list of
+    #' `Measure` objects for scoring the held-out split.
     #' @param sample_frac Fraction in \(0, 1\) for stratified sampling.
     #' @param seed Random seed for reproducible sampling
     #' @param cluster Optional cluster object for parallel processing
@@ -240,9 +243,10 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Predict the transition potential for a given period, see [trans_pot_t()]
     #' @param id_period_post Integerish, posterior period of the transition potential interval
-    #' @param gof_criterion Which goodness-of-fit metric to use for model selection (e.g., "auc")
-    #' @param gof_maximize Maximize (TRUE) or minimize (FALSE) the gof_criterion?
-    predict_trans_pot = function(id_period_post, gof_criterion, gof_maximize) {
+    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
+    #' to select model for extrapolation
+    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
+    predict_trans_pot = function(id_period_post, select_score, select_maximize) {
       create_method_binding(predict_trans_pot)
     },
 
@@ -288,7 +292,7 @@ evoland_db <- R6::R6Class(
     runs_t = create_table_binding("runs_t", "upsert"),
 
     #' @field id_run Get or set active id_run, see [runs_t]
-    id_run = function(x) create_method_binding(db_active_id_run, with_private = TRUE),
+    id_run = function(y) create_method_binding(db_active_id_run, with_private = TRUE),
     #' @field run_lineage Get id_run, see [runs_t]
     run_lineage = function() {
       private$active_run_lineage

@@ -92,11 +92,13 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' returns a `trans_pot_t` object
 #' @param self an [evoland_db] instance
 #' @param id_period_post scalar integerish, passed to `self$pred_data_wide_v()`
+#' @param select_score character scalar, name of score/measure to identify best fitting model
+#' @param select_maximize logical scalar, whether to maximize or minimize `select_score`
 predict_trans_pot <- function(
   self,
   id_period_post,
-  gof_criterion,
-  gof_maximize
+  select_score,
+  select_maximize
 ) {
   # TODO parallelize
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
@@ -116,13 +118,16 @@ predict_trans_pot <- function(
       select learner_full
       from {self$get_read_expr("trans_models_t")}
       where id_trans = {id_trans}
-      order by crossval_score['{gof_criterion}'] {ifelse(gof_maximize, "desc", "asc")}
+        and learner_full is not null
+      order by crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
       limit 1
       ]"
     ))
 
-    if (nrow(model_row) != 1L) {
-      stop(glue::glue("Expecting exactly one model for id_trans={id_trans}"))
+    if (nrow(model_row) > 1L) {
+      stop(glue::glue("Several models found for id_trans={id_trans}"))
+    } else if (nrow(model_row) == 0L) {
+      stop(glue::glue("No model found for id_trans={id_trans}"))
     }
 
     # Deserialize full learner

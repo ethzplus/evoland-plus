@@ -28,7 +28,7 @@ fit_full_models(
   cluster = NULL
 )
 
-\method{print}{trans_models_t}(x)
+\method{print}{trans_models_t}(x, ...)
 
 get_crossval_plots(self, id_run = NULL, id_trans = NULL)
 }
@@ -37,8 +37,9 @@ get_crossval_plots(self, id_run = NULL, id_trans = NULL)
 
 \item{self}{\link{evoland_db} instance}
 
-\item{learner}{An mlr3 \code{Learner} or \code{AutoTuner} object for direct-learner mode.
-Must be \code{NULL} when \code{select_score} is provided.}
+\item{learner}{An mlr3 \code{Learner} or \code{AutoTuner} object for direct-learner mode that
+supports twoclass classification. Its \code{predict_type} is coerced to \code{"prob"} if not
+already set. Must be \code{NULL} when \code{select_score} is provided.}
 
 \item{measures}{Either a character vector of mlr3 measure IDs
 (e.g. \code{c("classif.auc", "classif.acc")}) or a list of instantiated mlr3
@@ -60,6 +61,8 @@ rank partial models in score-select mode. Must be \code{NULL} when \code{learner
 
 \item{select_maximize}{Logical; if \code{TRUE} (default) the model with the highest
 \code{select_score} is selected; if \code{FALSE}, the lowest. Only used in score-select mode.}
+
+\item{...}{ignored}
 
 \item{id_run}{Optional integer; filter by run ID.}
 
@@ -91,7 +94,8 @@ structure for storing fitted models via the mlr3 interface.
 }
 \section{Methods (by generic)}{
 \itemize{
-\item \code{print(trans_models_t)}: Print a trans_models_t object as yaml-style list
+\item \code{print(trans_models_t)}: Print a trans_models_t object as yaml-style list;
+additional arguments silently ignored
 
 }}
 \section{Functions}{

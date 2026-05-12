@@ -81,28 +81,31 @@ print.runs_t <- function(x, nrow = 10, ...) {
 }
 
 #' @describeIn runs_t Get or set the active run ID; error if no lineage is found
-db_active_id_run <- function(self, private, x) {
-  if (missing(x)) {
+#' @param self an evoland_db instance
+#' @param private an evoland_db private environment
+#' @param y (optional) scalar integerish or NULL; if provided, sets the active run ID and lineage
+db_active_id_run <- function(self, private, y) {
+  if (missing(y)) {
     return(private$active_id_run)
   }
-  if (is.null(x)) {
+  if (is.null(y)) {
     private$active_id_run <- NULL
     private$active_run_lineage <- NULL
     return(invisible(NULL))
   }
   stopifnot(
     "id_run must be scalar integerish or NULL" = {
-      length(x) == 1L && as.integer(x) == x
+      length(y) == 1L && as.integer(y) == y
     }
   )
 
-  x <- as.integer(x)
-  lineage <- get_lineage(self$runs_t, x)
+  y <- as.integer(y)
+  lineage <- get_lineage(self$runs_t, y)
 
-  private$active_id_run <- x
+  private$active_id_run <- y
   private$active_run_lineage <- lineage
 
-  invisible(x)
+  invisible(y)
 }
 
 # lineage is ordered from most recent to oldest (i.e. id_run, parent_id_run,

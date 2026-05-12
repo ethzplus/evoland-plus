@@ -12,6 +12,7 @@ NULL
 #' Otherwise, constructs a read expression that filters for the active `id_run` and its lineage,
 #' using the distinctness columns to determine which slices of data to include.
 #' @param self The `evoland_db` instance
+#' @param super The superclass (parent class) environment.
 #' @param table_name The name of the table to read from
 #' @return A SQL expression string to read most specific data for slice
 get_evoland_db_read_expr <- function(self, super, table_name) {
