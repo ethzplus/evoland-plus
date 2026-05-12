@@ -242,6 +242,7 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
 
   // 3. Compute Final Statistics per Class
   std::vector<int> out_class;
+  std::vector<int> out_count;
   std::vector<double> out_mean_area;
   std::vector<double> out_variance_area;
   std::vector<double> out_mean_elongation;
@@ -275,10 +276,12 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
     }
     double mean_elong = sum_elong / n;
     out_mean_elongation.push_back(mean_elong);
+    out_count.push_back((int)areas.size());
   }
 
   return DataFrame::create(
-      Named("class") = out_class, Named("patch_area_mean") = out_mean_area,
+      Named("class") = out_class, Named("patch_count") = out_count,
+      Named("patch_area_mean") = out_mean_area,
       Named("patch_area_variance") = out_variance_area,
       Named("patch_elongation_mean") = out_mean_elongation);
 }

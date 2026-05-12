@@ -435,7 +435,7 @@ db$trans_rates_t <-
   )
 ```
 
-We estimate allocation parameters for DinamicaEGO, which determine the shape and size of new patches, respectively which fraction of converted land use is in new versus expanded patches.
+We estimate allocation parameters, which determine the shape and size of new patches, respectively which fraction of converted land use is in new versus expanded patches.
 This estimation procedure is not unbiased and hence a single estimate may not be enough:
 normally, we would perturb the estimate and use multiple `id_run`s to identify the best parametrization.
 For simplicity, we now just take the estimates for granted and assign `id_run=0`, i.e. the base run ID.
@@ -449,17 +449,58 @@ db$alloc_params_t <- alloc_for_eval
 
 # Prediction + Allocation
 
-With all components in place, we run the allocation step.
-If Dinamica is not installed, you'll get a warning that the anterior LULC map is returned as the posterior.
-For installation instructions, see the [Installing Dinamica EGO](install-dinamica.html) vignette.
+## Transition potential: raw prediction vs. allocation-ready values
+
+Internally, `evoland` separates two concerns:
+
+1. **Raw prediction** – for each viable transition, an MLR3 model predicts the
+   probability that each cell will undergo that transition.  These per-transition
+   model probabilities are stored in the `trans_pot_t` table and are
+   *not* guaranteed to be allocation-ready (they are not calibrated to the
+   target demand and may sum to more than 1 per cell across transitions).
+
+2. **Adjusted (allocation-ready) values** – the `adjusted_trans_pot_v(id_period_post)`
+   method applies two reconciliation steps:
+   - *Column scaling*: each transition's potentials are rescaled so that the
+     column mean matches the target transition rate from `trans_rates_t`.
+   - *Row closure*: where the scaled probabilities for a cell sum to more than 1,
+     all values for that cell are divided by their row sum.  The implicit
+     "no-change" probability equals `1 - sum(stored values)`.
+
+   Allocation backends (Dinamica EGO, CLUMPY) consume the adjusted values, not
+   the raw model output.
+
+## Running the allocation
+
+Use the generic `alloc()` entry point and select a backend with the `method`
+argument.  The default backend is Dinamica EGO (`method = "dinamica"`);
+a CLUMPY-style stochastic patcher is available with `method = "clumpy"`.
+
+If Dinamica is not installed, you'll get a warning that the anterior LULC map
+is returned as the posterior.  For installation instructions, see the
+[Installing Dinamica EGO](install-dinamica.html) vignette.
 
 ```{r}
 #| label: allocation
 #| results: hold
-db$alloc_dinamica(
+db$alloc(
+  method = "dinamica",
   id_period = db$periods_t[is_extrapolated == TRUE, id_period],
   select_score = "classif.auc",
   select_maximize = TRUE
+)
+```
+
+Alternatively, use the CLUMPY backend for a self-contained stochastic
+allocation that does not require an external solver:
+
+```r
+db$alloc(
+  method = "clumpy",
+  id_period = db$periods_t[is_extrapolated == TRUE, id_period],
+  select_score = "classif.auc",
+  select_maximize = TRUE,
+  seed = 42L        # optional: reproducibility
 )
 ```
 

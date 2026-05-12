@@ -87,13 +87,16 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 }
 
 
-#' @describeIn trans_pot_t For each viable transition, predict the transition potential
-#' for a given period, with cumulative probabilities for a single id_coord capped to 1;
-#' returns a `trans_pot_t` object
+#' @describeIn trans_pot_t For each viable transition, predict the raw transition
+#' potential for a given period and store it in `trans_pot_t` in the database.
+#' Raw potentials are per-transition MLR3 model probabilities; they are **not**
+#' yet allocation-ready (not column-scaled to target rates, not row-closed).
+#' Use [adjusted_trans_pot_v()] to obtain allocation-ready values.
 #' @param self an [evoland_db] instance
 #' @param id_period_post scalar integerish, passed to `self$pred_data_wide_v()`
 #' @param select_score character scalar, name of score/measure to identify best fitting model
 #' @param select_maximize logical scalar, whether to maximize or minimize `select_score`
+#' @return A `trans_pot_t` object (invisibly); the same data are committed to the DB.
 predict_trans_pot <- function(
   self,
   id_period_post,
@@ -151,7 +154,6 @@ predict_trans_pot <- function(
     # Ensure probabilities are in [0, 1]
     probs <- pmax(0, pmin(1, probs))
 
-    # Create a data.table with id_coord and probability
     gather[[id_trans]] <- data.table::data.table(
       id_trans = id_trans,
       id_coord = pred_data_post$id_coord,
@@ -159,20 +161,13 @@ predict_trans_pot <- function(
     )
   }
 
-  # normalize probabilities if they exceed 1 per id_coord
-  normalized <-
-    data.table::rbindlist(gather)[,
-      tot_pot := sum(value),
-      by = id_coord
-    ][
-      tot_pot > 1,
-      value := value / tot_pot
-    ][,
-      `:=`(
-        tot_pot = NULL,
-        id_period_post = id_period_post
-      )
-    ]
+  result <- data.table::rbindlist(gather)[, id_period_post := id_period_post]
 
-  as_trans_pot_t(normalized)
+  trans_pot <- as_trans_pot_t(result)
+
+  # Store raw potentials in the DB so that adjusted_trans_pot_v() and allocation
+  # backends can retrieve them without re-running the models.
+  self$commit(trans_pot, "trans_pot_t", method = "upsert")
+
+  invisible(trans_pot)
 }

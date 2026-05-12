@@ -9,3 +9,7 @@ calculate_class_stats_cpp <- function(mat, cellsize) {
     .Call(`_evoland_calculate_class_stats_cpp`, mat, cellsize)
 }
 
+grow_patch_cpp <- function(landscape, ant_landscape, probs, nbr_above, nbr_below, nbr_left, nbr_right, pivot, target_area, from_class, to_class, eccentricity, ncol) {
+    .Call(`_evoland_grow_patch_cpp`, landscape, ant_landscape, probs, nbr_above, nbr_below, nbr_left, nbr_right, pivot, target_area, from_class, to_class, eccentricity, ncol)
+}
+

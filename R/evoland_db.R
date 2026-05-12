@@ -121,6 +121,42 @@ evoland_db <- R6::R6Class(
     },
 
     ### Allocation methods ---
+    #' @description Generic allocation entry point. Dispatches to the backend
+    #' specified by `method`.
+    #' - `"dinamica"` (default): calls [alloc_dinamica()]
+    #' - `"clumpy"`: calls [alloc_clumpy()]
+    #' @param method Character; allocation backend, one of `"dinamica"`, `"clumpy"`.
+    #' @param id_periods Integer vector of period IDs to include in the simulation.
+    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
+    #' to select model for extrapolation.
+    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
+    #' @param ... Additional arguments forwarded to the backend (e.g. `work_dir` for
+    #' Dinamica, `seed` for CLUMPY).
+    alloc = function(
+      method = "dinamica",
+      id_periods,
+      select_score,
+      select_maximize,
+      ...
+    ) {
+      method <- match.arg(method, c("dinamica", "clumpy"))
+      switch(
+        method,
+        dinamica = self$alloc_dinamica(
+          id_periods = id_periods,
+          select_score = select_score,
+          select_maximize = select_maximize,
+          ...
+        ),
+        clumpy = self$alloc_clumpy(
+          id_periods = id_periods,
+          select_score = select_score,
+          select_maximize = select_maximize,
+          ...
+        )
+      )
+    },
+
     #' @description Runs a path-dependent Monte Carlo simulation using Dinamica
     #' EGO, see [alloc_dinamica()]
     #' @param id_periods Integer vector of period IDs to include in the simulation.
@@ -137,6 +173,21 @@ evoland_db <- R6::R6Class(
       keep_intermediate = FALSE
     ) {
       create_method_binding(alloc_dinamica)
+    },
+
+    #' @description Runs CLUMPY-style LULC allocation, see [alloc_clumpy()]
+    #' @param id_periods Integer vector of period IDs to include in the simulation.
+    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
+    #' to select model for extrapolation.
+    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
+    #' @param seed Optional integer random seed for reproducibility.
+    alloc_clumpy = function(
+      id_periods,
+      select_score,
+      select_maximize,
+      seed = NULL
+    ) {
+      create_method_binding(alloc_clumpy)
     },
 
     #' @description
@@ -241,7 +292,10 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Predict the transition potential for a given period, see [trans_pot_t()]
+    #' Predict the raw transition potential for a given period and store in
+    #' `trans_pot_t`, see [predict_trans_pot()]. Raw potentials are per-transition
+    #' model probabilities (not yet allocation-ready); use [adjusted_trans_pot_v()]
+    #' to obtain column-scaled, row-closed values.
     #' @param id_period_post Integerish, posterior period of the transition potential interval
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation
@@ -253,6 +307,31 @@ evoland_db <- R6::R6Class(
     #' @description Get the transition rates that were observed, see [trans_rates_t]
     get_obs_trans_rates = function() {
       create_method_binding(get_obs_trans_rates)
+    },
+
+    #' @description
+    #' Return transition rates formatted for Dinamica export for a specific period,
+    #' see [evoland_db_views].
+    #' @param id_period Integer period ID for which to export rates.
+    trans_rates_dinamica_v = function(id_period) {
+      stop("implemented by evoland_db_views.R via $set()")
+    },
+
+    #' @description
+    #' Return allocation-ready transition potentials for a given posterior period.
+    #' Raw potentials stored in `trans_pot_t` are column-scaled to match target
+    #' transition rates and row-closed so per-cell change probabilities sum to at
+    #' most 1.  See [evoland_db_views] for details.
+    #' @param id_period_post Integer posterior period ID.
+    adjusted_trans_pot_v = function(id_period_post) {
+      stop("implemented by evoland_db_views.R via $set()")
+    },
+
+    #' @description
+    #' Return allocation parameters in CLUMPY-compatible format (area_mean,
+    #' area_var, eccentricity per transition).  See [evoland_db_views].
+    alloc_params_clumpy_v = function() {
+      stop("implemented by evoland_db_views.R via $set()")
     }
   ),
 
@@ -284,6 +363,10 @@ evoland_db <- R6::R6Class(
     trans_models_t = create_table_binding("trans_models_t", "upsert"),
     #' @field alloc_params_t Get or upsert [alloc_params_t]
     alloc_params_t = create_table_binding("alloc_params_t", "upsert"),
+    #' @field trans_pot_t Get or upsert raw transition potentials [trans_pot_t].
+    #' These are per-transition model probabilities stored by [predict_trans_pot()].
+    #' Use [adjusted_trans_pot_v()] for allocation-ready values.
+    trans_pot_t = create_table_binding("trans_pot_t", "upsert"),
     #' @field neighbors_t Get or upsert [neighbors_t]
     neighbors_t = create_table_binding("neighbors_t", "write_once"),
     #' @field reporting_t Get or upsert [reporting_t]

@@ -41,10 +41,13 @@ db$id_run <- 1L
 # no data for period 4 yet
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 
-# Test alloc_dinamica with a simple two-period simulation
+# --------------------------------------------------------------------------
+# Test Dinamica backend via generic alloc() entry point
+# --------------------------------------------------------------------------
 if (Sys.which("DinamicaConsole") == "") {
   expect_warning(
-    db$alloc_dinamica(
+    db$alloc(
+      method = "dinamica",
       id_periods = 4,
       select_score = "classif.auc",
       select_maximize = TRUE,
@@ -55,7 +58,8 @@ if (Sys.which("DinamicaConsole") == "") {
   )
 } else {
   expect_message(
-    db$alloc_dinamica(
+    db$alloc(
+      method = "dinamica",
       id_periods = 4,
       select_score = "classif.auc",
       select_maximize = TRUE,
@@ -69,7 +73,63 @@ if (Sys.which("DinamicaConsole") == "") {
 # 900 coords in period 4 (same as period 3)
 expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
 
-# Test eval_alloc_params_t
+# trans_pot_t should now be populated
+expect_true(nrow(db$fetch("trans_pot_t")) > 0L)
+
+# adjusted_trans_pot_v should return values for period 4
+adj_pots <- db$adjusted_trans_pot_v(4L)
+expect_true(nrow(adj_pots) > 0L)
+expect_true(all(adj_pots$value >= 0 & adj_pots$value <= 1))
+
+# alloc_params_clumpy_v should return CLUMPY-format params
+clumpy_params <- db$alloc_params_clumpy_v()
+expect_true(nrow(clumpy_params) > 0L)
+expect_true(all(c("area_mean", "area_var", "eccentricity") %in% names(clumpy_params)))
+
+# --------------------------------------------------------------------------
+# Test CLUMPY backend via generic alloc() entry point
+# --------------------------------------------------------------------------
+# Reset lulc_data_t for period 5 (not yet allocated)
+expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 5")), 0L)
+
+expect_message(
+  db$alloc(
+    method = "clumpy",
+    id_periods = 5L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    seed = 42L
+  ),
+  "CLUMPY allocation"
+)
+
+# Period 5 should now be populated
+expect_true(nrow(db$fetch("lulc_data_t", where = "id_period = 5")) > 0L)
+
+# --------------------------------------------------------------------------
+# Test error handling
+# --------------------------------------------------------------------------
+# alloc() with unknown method
+expect_error(
+  db$alloc(
+    method = "unknown_backend",
+    id_periods = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE
+  )
+)
+
+# Non-contiguous periods
+expect_error(
+  db$alloc_dinamica(
+    id_periods = c(1L, 3L)
+  ),
+  "id_periods must be contiguous"
+)
+
+# --------------------------------------------------------------------------
+# Test eval_alloc_params_t (Dinamica-only)
+# --------------------------------------------------------------------------
 expect_message(
   db$alloc_params_t <-
     evaluated_params <-
@@ -91,11 +151,3 @@ expect_true(all(
   evaluated_params$similarity <= 1 &
     evaluated_params$similarity >= 0
 ))
-
-# Test error handling - invalid id_periods
-expect_error(
-  db$alloc_dinamica(
-    id_periods = c(1L, 3L) # Non-contiguous
-  ),
-  "id_periods must be contiguous"
-)

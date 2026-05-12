@@ -35,10 +35,34 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// grow_patch_cpp
+IntegerVector grow_patch_cpp(IntegerVector landscape, const IntegerVector& ant_landscape, const NumericVector& probs, const IntegerVector& nbr_above, const IntegerVector& nbr_below, const IntegerVector& nbr_left, const IntegerVector& nbr_right, int pivot, int target_area, int from_class, int to_class, double eccentricity, int ncol);
+RcppExport SEXP _evoland_grow_patch_cpp(SEXP landscapeSEXP, SEXP ant_landscapeSEXP, SEXP probsSEXP, SEXP nbr_aboveSEXP, SEXP nbr_belowSEXP, SEXP nbr_leftSEXP, SEXP nbr_rightSEXP, SEXP pivotSEXP, SEXP target_areaSEXP, SEXP from_classSEXP, SEXP to_classSEXP, SEXP eccentricitySEXP, SEXP ncolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type landscape(landscapeSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type ant_landscape(ant_landscapeSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type probs(probsSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type nbr_above(nbr_aboveSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type nbr_below(nbr_belowSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type nbr_left(nbr_leftSEXP);
+    Rcpp::traits::input_parameter< const IntegerVector& >::type nbr_right(nbr_rightSEXP);
+    Rcpp::traits::input_parameter< int >::type pivot(pivotSEXP);
+    Rcpp::traits::input_parameter< int >::type target_area(target_areaSEXP);
+    Rcpp::traits::input_parameter< int >::type from_class(from_classSEXP);
+    Rcpp::traits::input_parameter< int >::type to_class(to_classSEXP);
+    Rcpp::traits::input_parameter< double >::type eccentricity(eccentricitySEXP);
+    Rcpp::traits::input_parameter< int >::type ncol(ncolSEXP);
+    rcpp_result_gen = Rcpp::wrap(grow_patch_cpp(landscape, ant_landscape, probs, nbr_above, nbr_below, nbr_left, nbr_right, pivot, target_area, from_class, to_class, eccentricity, ncol));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 3},
     {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
+    {"_evoland_grow_patch_cpp", (DL_FUNC) &_evoland_grow_patch_cpp, 13},
     {NULL, NULL, 0}
 };
 

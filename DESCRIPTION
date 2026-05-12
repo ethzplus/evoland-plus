@@ -43,6 +43,7 @@ Collate:
     'alloc_params_t.R'
     'trans_models_t.R'
     'alloc_dinamica.R'
+    'alloc_clumpy.R'
     'coords_t.R'
     'parquet_db_utils.R'
     'parquet_db.R'
