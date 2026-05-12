@@ -385,10 +385,21 @@ eval_alloc_params_t <- function(
   # Storage for per-transition similarity results
   all_similarity_results <- list()
 
+  # reset run afterwards
+  id_run_init <- self$id_run
+  on.exit(self$id_run <- id_run_init, add = TRUE)
+
   # Evaluate each run
   for (id_run in runs_required) {
     message(glue::glue("\n=== Evaluating run {id_run} ==="))
     self$id_run <- id_run
+
+    all_similarity_results[[id_run]] <-
+      data.table::data.table(
+        id_run = id_run,
+        id_trans = viable_trans[["id_trans"]],
+        similarity = NA_real_
+      )
 
     tryCatch(
       {
@@ -407,47 +418,32 @@ eval_alloc_params_t <- function(
         message("  Computing per-transition fuzzy similarity...")
 
         # Compute fuzzy similarity per transition
-        for (i in seq_len(nrow(viable_trans))) {
-          id_trans <- viable_trans$id_trans[i]
-          id_lulc_ant <- viable_trans$id_lulc_anterior[i]
-          id_lulc_post <- viable_trans$id_lulc_posterior[i]
-
-          # Compute fuzzy similarity for this transition
-          trans_sim <- calc_transition_similarity(
+        similarities <- mapply(
+          FUN = calc_transition_similarity,
+          from_class = viable_trans[["id_lulc_anterior"]],
+          to_class = viable_trans[["id_lulc_posterior"]],
+          MoreArgs = list(
             initial_map = rast_initial,
             observed_map = rast_obs_final,
             simulated_map = rast_sim_final,
-            from_class = id_lulc_ant,
-            to_class = id_lulc_post,
             window_size = 11L,
             use_exp_decay = TRUE,
             decay_divisor = 2.0
-          )
+          ),
+          SIMPLIFY = FALSE
+        )
 
-          # Store result
-          all_similarity_results[[length(all_similarity_results) + 1L]] <- data.table::data.table(
+        all_similarity_results[[id_run]] <-
+          data.table::data.table(
             id_run = id_run,
-            id_trans = id_trans,
-            similarity = trans_sim$similarity
+            id_trans = viable_trans[["id_trans"]],
+            similarity = pluck_wildcard(similarities, NA, "similarity") |> unlist()
           )
-        }
-
-        rm(rast_sim_final)
-        gc()
       },
       error = function(e) {
         warning(glue::glue(
           "Failed to evaluate run {id_run}: {e$message}"
         ))
-
-        # Add NA results for this run
-        for (i in seq_len(nrow(viable_trans))) {
-          all_similarity_results[[length(all_similarity_results) + 1L]] <- data.table::data.table(
-            id_run = id_run,
-            id_trans = viable_trans$id_trans[i],
-            similarity = NA_real_
-          )
-        }
       }
     )
   }

@@ -89,8 +89,7 @@ expect_true(all(c("similarity", "frac_patcher") %in% names(evaluated_params)))
 # Check that accuracy metrics are reasonable (between 0 and 1)
 expect_true(all(
   evaluated_params$similarity <= 1 &
-    evaluated_params$similarity >= 0,
-  na.rm = TRUE
+    evaluated_params$similarity >= 0
 ))
 
 # Test error handling - invalid id_periods
