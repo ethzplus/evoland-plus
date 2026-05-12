@@ -71,6 +71,7 @@ pluck_wildcard <- function(lst, ...) {
 }
 
 #' @describeIn util Ensure that a directory exists; return its argument for pipeability
+#' @param dir Directory path to ensure exists
 ensure_dir <- function(dir) {
   if (dir.exists(dir)) {
     return(invisible(dir))
@@ -91,6 +92,7 @@ ensure_dir <- function(dir) {
 }
 
 #' @describeIn util Print a dataframe in a row-wise yaml style
+#' @param df A data.frame or data.table to print
 #' @export
 print_rowwise_yaml <- function(df) {
   for (i in seq_len(nrow(df))) {

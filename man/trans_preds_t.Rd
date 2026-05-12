@@ -23,9 +23,14 @@ get_pred_filter_score(
 )
 }
 \arguments{
+\item{x}{A list or data.frame coercible to a trans_preds_t object. If missing, an
+empty table will be created.}
+
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
 \item{...}{Additional arguments passed to \code{flt} if \code{filter} is a character string}
+
+\item{self}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
 
 \item{overwrite}{Bool, should a potentially existing table be overwritten?}
 
@@ -38,8 +43,6 @@ filter must be compatible with the feature data types; compare your
 
 \item{ordered_pred_data}{Bool, should the predictor data be ordered? Needed
 for fully deterministic behavior}
-
-\item{db}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
 }
 \value{
 A data.table of class "trans_preds_t" with columns:

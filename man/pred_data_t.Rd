@@ -47,17 +47,15 @@ get the predictors that explain the processes over the next N years}
 \item{result}{data.table with predictor columns named \verb{id_pred_\{n\}}}
 
 \item{pred_meta_t}{see \link{pred_meta_t}}
-
-\item{type}{Character string specifying the data type: "float", "int", or "bool"}
 }
 \value{
-A data.table of class "pred_data_t_\if{html}{\out{<type>}}" and "pred_data_t" with columns:
+A data.table of class "pred_data_t" with columns:
 \itemize{
 \item \code{id_run}: Foreign key to runs_t
 \item \code{id_pred}: Foreign key to pred_meta_t
 \item \code{id_coord}: Foreign key to coords_t
 \item \code{id_period}: Foreign key to periods_t
-\item \code{value}: Predictor value (type depends on subclass)
+\item \code{value}: Predictor value (coerced to double, recoverable through \link{pred_meta_t})
 }
 
 data.table with columns id_coord, id_period, did_transition (bool),

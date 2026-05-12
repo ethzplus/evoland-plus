@@ -292,7 +292,7 @@ evoland_db <- R6::R6Class(
     runs_t = create_table_binding("runs_t", "upsert"),
 
     #' @field id_run Get or set active id_run, see [runs_t]
-    id_run = function(x) create_method_binding(db_active_id_run, with_private = TRUE),
+    id_run = function(y) create_method_binding(db_active_id_run, with_private = TRUE),
     #' @field run_lineage Get id_run, see [runs_t]
     run_lineage = function() {
       private$active_run_lineage

@@ -92,6 +92,8 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' returns a `trans_pot_t` object
 #' @param self an [evoland_db] instance
 #' @param id_period_post scalar integerish, passed to `self$pred_data_wide_v()`
+#' @param select_score character scalar, name of score/measure to identify best fitting model
+#' @param select_maximize logical scalar, whether to maximize or minimize `select_score`
 predict_trans_pot <- function(
   self,
   id_period_post,

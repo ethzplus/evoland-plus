@@ -18,6 +18,8 @@ create_pred_meta_t(pred_spec, starting_id = 1L)
 
 \item{pred_spec}{A list of predictor specifications, schema: see examples}
 
+\item{starting_id}{Integer, starting ID for predictors; default 1L}
+
 \item{...}{passed to \code{\link[data.table:print.data.table]{data.table::print.data.table()}}}
 }
 \value{
@@ -49,7 +51,9 @@ metadata.
 }}
 \section{Functions}{
 \itemize{
-\item \code{create_pred_meta_t()}: Creates a \code{pred_meta_t} table from intervention specifications
+\item \code{create_pred_meta_t()}: Creates a \code{pred_meta_t} table from intervention
+specifications. Attributes incremental IDs to predictors, starting from
+\code{starting_id}. See examples for schema of \code{pred_spec}.
 
 }}
 \examples{
@@ -61,11 +65,11 @@ create_pred_meta_t(list(
      description = "daytime & nighttime road & rail noise exposure",
      sources = list(
        list(
-         url = "https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_tag/laerm-strassenlaerm_tag/laerm-strassenlaerm_tag_2056.tif",
+         url = "https://example.com/noisedata1.tif",
          md5sum = "a4b9f1c04ee63824f18852bfd1eecbdd"
        ),
        list(
-         url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
+         url = "https://example.com/noisedata2.tif",
          md5sum = "4b782128495b5af8467e2259bd57def2"
        )
      ),
@@ -77,7 +81,7 @@ create_pred_meta_t(list(
      orig_format = "vector",
      description = "Derived from swissTLM3D",
      sources = list(list(
-       url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
+       url = "https://example.com/dist_to_lake.tif",
        md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
      )),
      data_type = "float"

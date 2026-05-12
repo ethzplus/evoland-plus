@@ -183,7 +183,7 @@ fit_partial_model_worker <- function(
 # Operates in two modes depending on whether `learner` is NULL:
 #  - direct mode (learner != NULL): train the passed learner clone on full data
 #  - score-select mode (learner == NULL): reconstruct from item$learner_spec and retrain
-fit_full_model_worker <- function(item, db, learner = NULL, ...) {
+fit_full_model_worker <- function(item, db, learner = NULL) {
   tryCatch(
     {
       # Fetch full data
@@ -494,6 +494,7 @@ fit_full_models <- function(
 
 
 #' @export
+#' @param ... ignored, kept for signature compatibility
 validate.trans_models_t <- function(x, ...) {
   NextMethod()
 
@@ -533,8 +534,10 @@ validate.trans_models_t <- function(x, ...) {
 }
 
 #' @export
-#' @describeIn trans_models_t Print a trans_models_t object as yaml-style list
-print.trans_models_t <- function(x) {
+#' @describeIn trans_models_t Print a trans_models_t object as yaml-style list;
+#' additional arguments silently ignored
+#' @param ... ignored
+print.trans_models_t <- function(x, ...) {
   if (nrow(x) > 0) {
     n_trans <- data.table::uniqueN(x[["id_trans"]])
     learner_ids <- unique(x[["learner_id"]])

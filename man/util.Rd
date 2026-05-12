@@ -31,6 +31,10 @@ cast_dt_col(x, colname, type, levels = NULL)
 
 \item{lst}{The list to index into}
 
+\item{dir}{Directory path to ensure exists}
+
+\item{df}{A data.frame or data.table to print}
+
 \item{colname}{Name of the column}
 
 \item{type}{one of "int", "float", "bool", "factor"}

@@ -14,6 +14,8 @@ create_lulc_meta_t(lulc_class_spec)
 \method{print}{lulc_meta_t}(x, nrow = 10, ...)
 }
 \arguments{
+\item{x}{List-like coercible to \code{lulc_meta_t} via \code{\link[data.table:as.data.table]{data.table::as.data.table()}}}
+
 \item{lulc_class_spec}{A list of intervention specifications, see examples}
 
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}

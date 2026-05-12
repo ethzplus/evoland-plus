@@ -5,6 +5,7 @@
 #'
 #' @name lulc_meta_t
 #'
+#' @param x List-like coercible to `lulc_meta_t` via [data.table::as.data.table()]
 #' @return A data.table of class "lulc_meta_t" with columns:
 #'   - `id_lulc`: Unique ID for each land use class
 #'   - `name`: Name for use in code and queries
