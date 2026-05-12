@@ -18,9 +18,14 @@
 #' @importFrom data.table :=
 .datatable.aware <- TRUE
 
-
-## usethis namespace: start
+# rcpp imports
 #' @importFrom Rcpp sourceCpp
 #' @useDynLib evoland, .registration = TRUE
-## usethis namespace: end
+NULL
+
+# silence R CMD check complaints - it doesn't see :: namespace imports inside/around R6 constructors
+#' @importFrom DBI dbConnect
+#' @importFrom duckdb duckdb
+#' @importFrom paradox ps
+#' @importFrom R6 R6Class
 NULL
