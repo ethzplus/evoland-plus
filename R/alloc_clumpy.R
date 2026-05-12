@@ -151,7 +151,7 @@ alloc_clumpy_one_period <- function(
   ant_vec <- as.integer(terra::values(anterior_rast))
   post_vec <- ant_vec  # will be modified in-place
 
-  nbrs <- raster_neighbors(nrow_r, ncol_r)
+  neighbors <- raster_neighbors(nrow_r, ncol_r)
 
   # 6. Build id_coord -> raster cell (1-based, row-major) mapping
   coords_minimal <- self$coords_minimal
@@ -163,12 +163,12 @@ alloc_clumpy_one_period <- function(
   # 7. For each anterior LULC class, run GART + patch growth
   from_classes <- sort(unique(viable_trans[["id_lulc_anterior"]]))
 
-  for (from_cls in from_classes) {
-    trans_cls <- viable_trans[id_lulc_anterior == from_cls]
-    to_classes <- trans_cls[["id_lulc_posterior"]]
+  for (from_class in from_classes) {
+    trans_for_class <- viable_trans[id_lulc_anterior == from_class]
+    to_classes <- trans_for_class[["id_lulc_posterior"]]
 
-    # Cells currently in from_cls (1-based raster index)
-    from_cells <- which(!is.na(ant_vec) & ant_vec == from_cls)
+    # Cells currently in from_class (1-based raster index)
+    from_cells <- which(!is.na(ant_vec) & ant_vec == from_class)
     if (length(from_cells) == 0L) next
 
     # Build probability matrix: rows = from_cells, cols = to_classes
@@ -179,7 +179,7 @@ alloc_clumpy_one_period <- function(
     cell_to_coord <- stats::setNames(coords_minimal$id_coord, coord_to_cell)
 
     for (j in seq_along(to_classes)) {
-      id_trans_j <- trans_cls$id_trans[j]
+      id_trans_j <- trans_for_class$id_trans[j]
       pots_j <- adj_pots[id_trans == id_trans_j, .(id_coord, value)]
       if (nrow(pots_j) == 0L) next
 
@@ -193,17 +193,17 @@ alloc_clumpy_one_period <- function(
     row_sums <- rowSums(P_change)
     stay_prob <- pmax(0.0, 1.0 - row_sums)
     P_full <- cbind(P_change, stay_prob)
-    states_full <- c(to_classes, from_cls)
+    states_full <- c(to_classes, from_class)
 
     # GART: sample a final state for each cell
     sampled_states <- gart(P_full, states_full)
 
     # 8. For each to_class, grow patches from pivot cells
     for (j in seq_along(to_classes)) {
-      to_cls <- to_classes[j]
-      id_trans_j <- trans_cls$id_trans[j]
+      to_class <- to_classes[j]
+      id_trans_j <- trans_for_class$id_trans[j]
 
-      pivot_cells <- from_cells[sampled_states == to_cls]
+      pivot_cells <- from_cells[sampled_states == to_class]
       if (length(pivot_cells) == 0L) next
 
       # Shuffle pivots for unbiased ordering
@@ -222,14 +222,14 @@ alloc_clumpy_one_period <- function(
       params_j <- clumpy_params[id_trans == id_trans_j]
       area_mean <- if (nrow(params_j) > 0L) params_j$area_mean[1L] else NA_real_
       area_var  <- if (nrow(params_j) > 0L) params_j$area_var[1L]  else NA_real_
-      ecc       <- if (nrow(params_j) > 0L && !is.na(params_j$eccentricity[1L])) {
+      eccentricity_target       <- if (nrow(params_j) > 0L && !is.na(params_j$eccentricity[1L])) {
         params_j$eccentricity[1L]
       } else {
         0.5
       }
 
       for (pivot in pivot_cells) {
-        if (is.na(post_vec[pivot]) || post_vec[pivot] != from_cls) next
+        if (is.na(post_vec[pivot]) || post_vec[pivot] != from_class) next
 
         target_area <- sample_lognorm_area(area_mean, area_var)
 
@@ -237,22 +237,22 @@ alloc_clumpy_one_period <- function(
           landscape    = post_vec,
           ant_landscape = ant_vec,
           probs        = prob_vec,
-          nbr_above    = nbrs$above,
-          nbr_below    = nbrs$below,
-          nbr_left     = nbrs$left,
-          nbr_right    = nbrs$right,
+          nbr_above    = neighbors$above,
+          nbr_below    = neighbors$below,
+          nbr_left     = neighbors$left,
+          nbr_right    = neighbors$right,
           pivot        = pivot,
           target_area  = target_area,
-          from_class   = from_cls,
-          to_class     = to_cls,
-          eccentricity = ecc,
+          from_class   = from_class,
+          to_class     = to_class,
+          eccentricity = eccentricity_target,
           ncol         = ncol_r
         )
 
         # grow_patch_cpp modifies landscape in-place (the IntegerVector is
         # passed by reference in Rcpp).  Sync post_vec accordingly.
         if (length(patch_cells) > 0L) {
-          post_vec[patch_cells] <- to_cls
+          post_vec[patch_cells] <- to_class
         }
       }
     }

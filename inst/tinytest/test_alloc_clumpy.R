@@ -15,9 +15,9 @@ expect_true(result %in% c(1L, 2L))
 # With 100 cells, each gets exactly one state
 set.seed(1L)
 P100 <- matrix(rep(c(0.3, 0.7), each = 100L), nrow = 100L, ncol = 2L)
-result100 <- evoland:::gart(P100, c(10L, 20L))
-expect_equal(length(result100), 100L)
-expect_true(all(result100 %in% c(10L, 20L)))
+gart_results_many <- evoland:::gart(P100, c(10L, 20L))
+expect_equal(length(gart_results_many), 100L)
+expect_true(all(gart_results_many %in% c(10L, 20L)))
 
 # "Stay" column: assign from_class when u > cumsum of all change probs
 set.seed(7L)

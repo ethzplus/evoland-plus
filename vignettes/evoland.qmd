@@ -494,7 +494,7 @@ db$alloc(
 Alternatively, use the CLUMPY backend for a self-contained stochastic
 allocation that does not require an external solver:
 
-```r
+```{r eval=FALSE}
 db$alloc(
   method = "clumpy",
   id_period = db$periods_t[is_extrapolated == TRUE, id_period],
