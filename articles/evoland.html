@@ -60,7 +60,7 @@
 <code>evoland-plus</code> tutorial</h1>
 
       <p class="author">Jan Hartman</p>
-      <p class="date">2026-04-16</p>
+      <p class="date">2026-05-12</p>
 
       <small class="dont-index">Source: <a href="https://github.com/ethzplus/evoland-plus/blob/main/vignettes/evoland.qmd" class="external-link"><code>vignettes/evoland.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -166,7 +166,7 @@ flowchart TD
 <div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/evoland_db.html">evoland_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>path <span class="op">=</span> <span class="st">"firstmodel.evolanddb"</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p>Go ahead and print the <code>d`` object. There are already a</code>runs_t<code>and a</code>reporting_t` table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
+<p>Go ahead and print the <code>db</code> object. There are already a <code>runs_t</code> and a <code>reporting_t</code> table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span></span></code></pre></div>
@@ -186,10 +186,10 @@ DB Methods:
 
 Public Methods:
   alloc_dinamica, create_alloc_params_t, eval_alloc_params_t, fit_full_models,
-  fit_partial_models, generate_neighbor_predictors, get_obs_trans_rates,
-  get_pruned_trans_preds_t, lulc_data_as_rast, pred_data_wide_v,
-  predict_trans_pot, set_full_trans_preds, set_neighbors, set_report,
-  trans_pred_data_v, trans_rates_dinamica_v, upsert_new_neighbors
+  fit_partial_models, generate_neighbor_predictors, get_crossval_plots,
+  get_obs_trans_rates, get_pred_filter_score, lulc_data_as_rast,
+  pred_data_wide_v, predict_trans_pot, set_full_trans_preds, set_neighbors,
+  set_report, trans_pred_data_v, trans_rates_dinamica_v, upsert_new_neighbors
 
 Active Bindings:
   coords_minimal, extent, id_run, lulc_meta_long_v, pred_sources_v, run_lineage,
@@ -318,7 +318,7 @@ Key: &lt;id_coord&gt;
 <span class="header-section-number">2.1</span> LULC Data<a class="anchor" aria-label="anchor" href="#lulc-data"></a>
 </h3>
 <p>For this tutorial, we do not read real observed LULC data: instead, we generate a synthetic LULC raster with 3 layers (one per period) by adding autoregressive noise to a noisy raster.</p>
-<div class="cell">
+<div class="cell" data-seed="123">
 <div class="sourceCode cell-code" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># autoregressive noise with skellam distribution</span></span>
 <span><span class="va">n_cells</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">template_rast</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">template_rast</span><span class="op">)</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span></span>
@@ -330,7 +330,9 @@ Key: &lt;id_coord&gt;
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">rast</a></span><span class="op">(</span><span class="va">template_rast</span>, nlyrs <span class="op">=</span> <span class="fl">3</span>, vals <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">noise1</span>, <span class="va">noise2</span>, <span class="va">noise3</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/focal.html" class="external-link">focal</a></span><span class="op">(</span>w <span class="op">=</span> <span class="fl">3</span>, fun <span class="op">=</span> <span class="va">mean</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/clamp.html" class="external-link">clamp</a></span><span class="op">(</span>lower <span class="op">=</span> <span class="fl">0</span>, upper <span class="op">=</span> <span class="fl">10</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/classify.html" class="external-link">classify</a></span><span class="op">(</span>rcl <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>from <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="fl">9</span>, to <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span>, becomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span>, <span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/classify.html" class="external-link">classify</a></span><span class="op">(</span>rcl <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>    from <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="fl">9</span>, to <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span>, becomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">7</span>, <span class="fl">1</span>, <span class="fl">10</span>, <span class="fl">5</span>, <span class="fl">8</span>, <span class="fl">2</span>, <span class="fl">9</span>, <span class="fl">4</span>, <span class="fl">6</span><span class="op">)</span></span>
+<span>  <span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">synthetic_lulc</span>, nc <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
@@ -373,17 +375,17 @@ Key: &lt;id_coord&gt;
 <div class="cell-output cell-output-stdout">
 <pre><code>     id_period id_lulc_anterior id_lulc_posterior id_coord
          &lt;int&gt;            &lt;int&gt;             &lt;int&gt;    &lt;int&gt;
-  1:         3                1                 4        1
-  2:         2                1                 2        3
-  3:         3                2                 1        3
-  4:         2                3                 1        4
-  5:         3                1                 3        4
+  1:         3                4                 2        1
+  2:         2                1                 4        2
+  3:         3                4                 2        3
+  4:         2                1                 4        4
+  5:         2                2                 1        5
  ---
-635:         2                2                 1      894
-636:         2                1                 2      895
-637:         3                2                 1      895
-638:         3                3                 2      897
-639:         3                1                 2      899</code></pre>
+673:         2                3                 2      891
+674:         3                2                 1      893
+675:         3                2                 1      895
+676:         2                1                 4      897
+677:         3                4                 3      899</code></pre>
 </div>
 </div>
 </section><section class="level2" data-number="2.2"><h3 data-number="2.2" id="add-predictors-and-neighbors">
@@ -409,7 +411,7 @@ Key: &lt;id_coord&gt;
 <details><summary>
 Messages
 </summary><pre>Computed 208360 neighbor relationships
-Appended 8 neighbor predictor variables with 20031 data points
+Appended 8 neighbor predictor variables with 21591 data points
 </pre>
 </details><p>Have a look at the predictor metadata we have defined, it now contains new rows for the neighbor predictors:</p>
 <div class="cell">
@@ -439,53 +441,78 @@ Key: &lt;name&gt;
 </section></section><section class="section level2" data-number="3"><h2 data-number="3" id="calibration">
 <span class="header-section-number">3</span> Calibration<a class="anchor" aria-label="anchor" href="#calibration"></a>
 </h2>
+<p>For consistency across different model packages, <code>evoland-plus</code> uses the <a href="https://mlr-org.com/" class="external-link"><code>mlr3</code></a> machine learning and statistics environment. For a hands-on introduction, see <a href="https://mlr3book.mlr-org.com/chapters/chapter1/introduction_and_overview.html#mlr3-by-example" class="external-link">mlr3 by Example</a>.</p>
 <section class="level2" data-number="3.1"><h3 data-number="3.1" id="eligible-transitions-and-predictor-pruning">
 <span class="header-section-number">3.1</span> Eligible Transitions and Predictor Pruning<a class="anchor" aria-label="anchor" href="#eligible-transitions-and-predictor-pruning"></a>
 </h3>
 <p>We filter transitions eligible for modeling based on a minimum number of observed occurrences.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="va">trans_meta_t</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trans_meta_t.html">create_trans_meta_t</a></span><span class="op">(</span><span class="va">db</span><span class="op">$</span><span class="va">trans_v</span>, min_cardinality_abs <span class="op">=</span> <span class="fl">50</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="va">trans_meta_t</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trans_meta_t.html">create_trans_meta_t</a></span><span class="op">(</span><span class="va">db</span><span class="op">$</span><span class="va">trans_v</span>, min_cardinality_abs <span class="op">=</span> <span class="fl">20</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p>Because each transition may be modelled using different predictors (aka <em>features</em>), we start out by setting the <code>trans_preds_t</code> table to the full cross product of viable transitions and predictors. We then carry out a feature selection step in <code>get_pruned_trans_preds_t</code>, which here is used with a two-stage covariance filter. First, candidate features are ranked and then selected up to a given correlation threshold, see <a href="../reference/covariance_filter.html"><code>covariance_filter</code></a>. The assignment to <code>db$trans_preds_t</code> will overwrite the existing relations; you will be prompted if you want to do this if you’re running R interactively.</p>
-<div class="cell">
+<p>Because each transition may be modelled using different predictors (aka <em>features</em>), we start out by setting the <code>trans_preds_t</code> table to the full cross product of viable transitions and predictors. We then carry out a feature selection step in <code>get_pred_filter_score</code>, which here is used with a variable <a href="https://mlr3filters.mlr-org.com/reference/mlr_filters_importance.html" class="external-link">importance filter</a> - an <a href="https://mlr3.mlr-org.com/reference/Learner.html" class="external-link">mlr3 Learner</a> is passed that returns an importance score for each predictor. We can then subset the returned <code>trans_preds_t</code> object and overwrite the existing set of “every predictor for every transition”. The assignment to <code>db$trans_preds_t</code> will overwrite the existing relations; you will be prompted if you want to do this if you’re running R interactively.</p>
+<div class="cell" data-seed="666">
 <div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="fu">set_full_trans_preds</span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co"># Note: we're suppressing warnings about non-convergence due to our random synthetic data.</span></span>
-<span><span class="va">db</span><span class="op">$</span><span class="va">trans_preds_t</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="fu">get_pruned_trans_preds_t</span><span class="op">(</span></span>
-<span>  filter_fun <span class="op">=</span> <span class="va">covariance_filter</span>,</span>
-<span>  corcut <span class="op">=</span> <span class="fl">0.1</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># set full crossproduct of transitions - predictors</span></span>
+<span><span class="va">db</span><span class="op">$</span><span class="fu">set_full_trans_preds</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 96</code></pre>
 </div>
-</section><section class="level2" data-number="3.2"><h3 data-number="3.2" id="transition-models">
+<div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># return importance scores for each predictor - transition combination</span></span>
+<span><span class="va">trans_pred_scored</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="fu">get_pred_filter_score</span><span class="op">(</span></span>
+<span>  filter <span class="op">=</span> <span class="fu">mlr3filters</span><span class="fu">::</span><span class="va"><a href="https://mlr3filters.mlr-org.com/reference/mlr_filters_importance.html" class="external-link">FilterImportance</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
+<span>    learner <span class="op">=</span> <span class="fu">mlr3</span><span class="fu">::</span><span class="fu"><a href="https://mlr3.mlr-org.com/reference/mlr_sugar.html" class="external-link">lrn</a></span><span class="op">(</span><span class="st">"classif.rpart"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># overwrite using a subset</span></span>
+<span><span class="va">db</span><span class="op">$</span><span class="va">trans_preds_t</span> <span class="op">&lt;-</span> <span class="va">trans_pred_scored</span><span class="op">[</span></span>
+<span>  <span class="va">importance</span> <span class="op">&gt;</span> <span class="fl">5</span> <span class="op">|</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">importance</span><span class="op">)</span> <span class="co"># keep predictors that couldn't be scored</span></span>
+<span><span class="op">]</span></span></code></pre></div>
+</div>
+<details><summary>
+Messages
+</summary><pre>Processing 8 transitions...
+</pre>
+</details></section><section class="level2" data-number="3.2"><h3 data-number="3.2" id="transition-models">
 <span class="header-section-number">3.2</span> Transition Models<a class="anchor" aria-label="anchor" href="#transition-models"></a>
 </h3>
-<p>Now we fit partial models using training/validation splits, allowing for a goodness-of-fit (gof) estimation. Here, we only fit a single partial model per transition, where we normally would create a list of candidates. We can then pick the models with the best goodness of fit to retrain full models on all of the available predictor data; the full models are then used during extrapolation.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="downlit sourceCode r">
+<p>Now we fit partial models using training/validation splits, allowing for a goodness-of-fit estimation using <a href="https://mlr3book.mlr-org.com/chapters/chapter2/data_and_basic_modeling.html#sec-eval" class="external-link">mlr3 Measures</a>. We fit a first series of models using a featureless learner, i.e. only estimating the response from the target variable (did a transition occur?) probability distribution. We then fit an <a href="https://mlr3.mlr-org.com/reference/mlr_learners_classif.rpart.html" class="external-link">rpart</a> recursive partitioning and regression learner. Next, <code><a href="../reference/trans_models_t.html">fit_full_models()</a></code> reads the partial models stored in <code>db$trans_models_t</code>, chooses the best model for each transition based on goodness of fit, and refits each chosen model on all available predictor data. Assigning the result back to db$trans_models_t stores these full models for the extrapolation step.</p>
+<div class="cell" data-seed="666">
+<div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="va">trans_models_t</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="fu">fit_partial_models</span><span class="op">(</span></span>
-<span>  fit_fun <span class="op">=</span> <span class="va">fit_glm</span>,</span>
-<span>  gof_fun <span class="op">=</span> <span class="va">gof_glm</span>,</span>
+<span>  learner <span class="op">=</span> <span class="fu">mlr3</span><span class="fu">::</span><span class="fu"><a href="https://mlr3.mlr-org.com/reference/mlr_sugar.html" class="external-link">lrn</a></span><span class="op">(</span><span class="st">"classif.featureless"</span><span class="op">)</span>,</span>
+<span>  measures <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"classif.auc"</span>, <span class="st">"classif.acc"</span><span class="op">)</span>,</span>
 <span>  sample_frac <span class="op">=</span> <span class="fl">0.7</span>,</span>
-<span>  seed <span class="op">=</span> <span class="fl">42</span></span>
+<span>  seed <span class="op">=</span> <span class="fl">666</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="va">trans_models_t</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="fu">fit_partial_models</span><span class="op">(</span></span>
+<span>  learner <span class="op">=</span> <span class="fu">mlr3</span><span class="fu">::</span><span class="fu"><a href="https://mlr3.mlr-org.com/reference/mlr_sugar.html" class="external-link">lrn</a></span><span class="op">(</span><span class="st">"classif.rpart"</span><span class="op">)</span>,</span>
+<span>  measures <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"classif.auc"</span>, <span class="st">"classif.acc"</span><span class="op">)</span>,</span>
+<span>  sample_frac <span class="op">=</span> <span class="fl">0.7</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">666</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="va">trans_models_t</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="fu">fit_full_models</span><span class="op">(</span></span>
-<span>  gof_criterion <span class="op">=</span> <span class="st">"auc"</span>,</span>
-<span>  gof_maximize <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  select_score <span class="op">=</span> <span class="st">"classif.auc"</span>,</span>
+<span>  select_maximize <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <details><summary>
 Messages
-</summary><pre>Fitting partial models for 4 transitions...
-Fitting full models for 4 transitions...
+</summary><pre>Fitting partial models for 8 transitions...
+Fitting partial models for 8 transitions...
+Fitting full models for 8 transitions...
 </pre>
 </details></section><section class="level2" data-number="3.3"><h3 data-number="3.3" id="transition-rates-and-allocation-parameters">
 <span class="header-section-number">3.3</span> Transition Rates and Allocation Parameters<a class="anchor" aria-label="anchor" href="#transition-rates-and-allocation-parameters"></a>
 </h3>
 <p>As a constrained pattern-based model, we need to provide transition rates to the DinamicaEGO allocator. In a simple approach, we can extrapolate the rate of each transition from the observed data:</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="downlit sourceCode r">
+<div class="cell" data-seed="666">
+<div class="sourceCode cell-code" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="va">trans_rates_t</span> <span class="op">&lt;-</span></span>
 <span>  <span class="va">db</span><span class="op">$</span><span class="fu">get_obs_trans_rates</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/trans_rates_t.html">extrapolate_trans_rates</a></span><span class="op">(</span></span>
@@ -494,32 +521,32 @@ Fitting full models for 4 transitions...
 <span>  <span class="op">)</span></span></code></pre></div>
 </div>
 <p>We estimate allocation parameters for DinamicaEGO, which determine the shape and size of new patches, respectively which fraction of converted land use is in new versus expanded patches. This estimation procedure is not unbiased and hence a single estimate may not be enough: normally, we would perturb the estimate and use multiple <code>id_run</code>s to identify the best parametrization. For simplicity, we now just take the estimates for granted and assign <code>id_run=0</code>, i.e. the base run ID.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="downlit sourceCode r">
+<div class="cell" data-seed="666">
+<div class="sourceCode cell-code" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">alloc_for_eval</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="fu">create_alloc_params_t</span><span class="op">(</span>n_perturbations <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode cell-code" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">alloc_for_eval</span><span class="op">[</span>, <span class="va">id_run</span> <span class="op">:=</span> <span class="fl">0L</span><span class="op">]</span> <span class="co"># overwrite id_run=1</span></span>
 <span><span class="va">db</span><span class="op">$</span><span class="va">alloc_params_t</span> <span class="op">&lt;-</span> <span class="va">alloc_for_eval</span></span></code></pre></div>
 </div>
 <details><summary>
 Messages
-</summary><pre>Computing allocation parameters for 4 transitions across 2 periods...
+</summary><pre>Computing allocation parameters for 8 transitions across 2 periods...
   Processing period 1 -&gt; 2
   Processing period 2 -&gt; 3
 Aggregating parameters across periods...
 Creating 0 randomly perturbed versions per transition...
-Successfully computed 4 allocation parameter sets (4 transitions x (0 perturbations + best estimate))
+Successfully computed 8 allocation parameter sets (8 transitions x (0 perturbations + best estimate))
 </pre>
 </details></section></section><section class="section level2" data-number="4"><h2 data-number="4" id="prediction-allocation">
 <span class="header-section-number">4</span> Prediction + Allocation<a class="anchor" aria-label="anchor" href="#prediction-allocation"></a>
 </h2>
 <p>With all components in place, we run the allocation step. If Dinamica is not installed, you’ll get a warning that the anterior LULC map is returned as the posterior. For installation instructions, see the <a href="install-dinamica.html">Installing Dinamica EGO</a> vignette.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="fu">alloc_dinamica</span><span class="op">(</span></span>
 <span>  id_period <span class="op">=</span> <span class="va">db</span><span class="op">$</span><span class="va">periods_t</span><span class="op">[</span><span class="va">is_extrapolated</span> <span class="op">==</span> <span class="cn">TRUE</span>, <span class="va">id_period</span><span class="op">]</span>,</span>
-<span>  gof_criterion <span class="op">=</span> <span class="st">"auc"</span>,</span>
-<span>  gof_maximize <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  select_score <span class="op">=</span> <span class="st">"classif.auc"</span>,</span>
+<span>  select_maximize <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning in run_alloc_dinamica(work_dir = iteration_dir, echo = FALSE,
@@ -541,11 +568,15 @@ Running Dinamica allocation: period 3 -&gt; 4
   Wrote patcher table to patcher_table.csv
   Wrote anterior LULC to anterior.tif
   Writing probability maps...
-Predicting transition potential for 4 transitions
-Predicting trans 1/4 (id_trans 2)
-Predicting trans 2/4 (id_trans 5)
-Predicting trans 3/4 (id_trans 3)
-Predicting trans 4/4 (id_trans 4)
+Predicting transition potential for 8 transitions
+Predicting trans 1/8 (id_trans 4)
+Predicting trans 2/8 (id_trans 2)
+Predicting trans 3/8 (id_trans 3)
+Predicting trans 4/8 (id_trans 6)
+Predicting trans 5/8 (id_trans 5)
+Predicting trans 6/8 (id_trans 7)
+Predicting trans 7/8 (id_trans 8)
+Predicting trans 8/8 (id_trans 9)
   Executing Dinamica EGO...
   Converting posterior raster to lulc_data_t...
   Extracted 900 cells
@@ -559,7 +590,7 @@ Cleaning up intermediate files...
 </h3>
 <p>Finally, we can extract the simulated LULC maps into <code>SpatRaster</code> objects to visualize them.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">labels</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="va">periods_t</span><span class="op">[</span></span>
 <span>  <span class="va">id_period</span> <span class="op">!=</span> <span class="fl">0</span>,</span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/IDateTime.html" class="external-link">year</a></span><span class="op">(</span><span class="va">start_date</span><span class="op">)</span>, <span class="st">" to "</span>, <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/IDateTime.html" class="external-link">year</a></span><span class="op">(</span><span class="va">end_date</span><span class="op">)</span><span class="op">)</span></span>

@@ -17,6 +17,10 @@ run_parallel_evoland(items, worker_fun, parent_db, cluster = NULL, ...)
 
   The `evoland_db` instance
 
+- super:
+
+  The superclass (parent class) environment.
+
 - table_name:
 
   The name of the table to read from
@@ -42,7 +46,8 @@ run_parallel_evoland(items, worker_fun, parent_db, cluster = NULL, ...)
 
   An optional cluster object created by
   [`parallel::makeCluster()`](https://rdrr.io/r/parallel/makeCluster.html)
-  or `mirai::make_cluster()`.
+  or
+  [`mirai::make_cluster()`](https://mirai.r-lib.org/reference/make_cluster.html).
 
 - ...:
 

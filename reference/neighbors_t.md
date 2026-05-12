@@ -41,6 +41,14 @@ upsert_new_neighbors(self, id_period)
   An object that can be passed to
   [`data.table::setDT()`](https://rdrr.io/pkg/data.table/man/setDT.html)
 
+- coords_t:
+
+  A
+  [coords_t](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
+  object containing coordinate points with `id_coord`, `lon`, and `lat`
+  columns, and appropriate metadata attributes (epsg, extent,
+  resolution).
+
 - max_distance:
 
   Maximum distance to search for neighbors (in same units as
@@ -52,19 +60,29 @@ upsert_new_neighbors(self, id_period)
   no distance classification is performed. If provided, must have at
   least 2 elements defining interval breaks.
 
+- quiet:
+
+  If TRUE, suppress progress messages during neighbor computation
+
 - ...:
 
   Passed to
-  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
+  [`data.table::print.data.table()`](https://rdrr.io/pkg/data.table/man/print.data.table.html)
+  resp.
+  [`validate()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
 
 - nrow:
 
-  Maximum number of rows to print. See
-  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
+  Maximum number of rows to print
 
 - self:
 
   An evoland_db object
+
+- overwrite:
+
+  If FALSE and `neighbors_t` already exists, skip computation (default:
+  FALSE)
 
 - chunksize:
 

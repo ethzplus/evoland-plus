@@ -36,6 +36,14 @@ cast_dt_col(x, colname, type, levels = NULL)
 
   The list to index into
 
+- dir:
+
+  Directory path to ensure exists
+
+- df:
+
+  A data.frame or data.table to print
+
 - colname:
 
   Name of the column

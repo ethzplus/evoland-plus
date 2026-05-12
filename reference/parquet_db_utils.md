@@ -103,7 +103,7 @@ cols_to_select_expr(cols, table_name)
 
   The mode of the binding, which determines the behavior when committing
   data. Options are: "write_once" (default, only allows writing if table
-  doesn't exist), "upsert"
+  doesn't exist), "upsert", "append", and "overwrite".
 
 - fun:
 

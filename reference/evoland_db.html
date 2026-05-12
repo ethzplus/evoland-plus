@@ -162,8 +162,9 @@ to disk in parquet format for better compression.</p>
 <li><p><a href="#method-evoland_db-lulc_data_as_rast"><code>evoland_db$lulc_data_as_rast()</code></a></p></li>
 <li><p><a href="#method-evoland_db-fit_full_models"><code>evoland_db$fit_full_models()</code></a></p></li>
 <li><p><a href="#method-evoland_db-fit_partial_models"><code>evoland_db$fit_partial_models()</code></a></p></li>
+<li><p><a href="#method-evoland_db-get_crossval_plots"><code>evoland_db$get_crossval_plots()</code></a></p></li>
 <li><p><a href="#method-evoland_db-set_full_trans_preds"><code>evoland_db$set_full_trans_preds()</code></a></p></li>
-<li><p><a href="#method-evoland_db-get_pruned_trans_preds_t"><code>evoland_db$get_pruned_trans_preds_t()</code></a></p></li>
+<li><p><a href="#method-evoland_db-get_pred_filter_score"><code>evoland_db$get_pred_filter_score()</code></a></p></li>
 <li><p><a href="#method-evoland_db-predict_trans_pot"><code>evoland_db$predict_trans_pot()</code></a></p></li>
 <li><p><a href="#method-evoland_db-get_obs_trans_rates"><code>evoland_db$get_obs_trans_rates()</code></a></p></li>
 <li><p><a href="#method-evoland_db-clone"><code>evoland_db$clone()</code></a></p></li>
@@ -338,9 +339,9 @@ generate_neighbor_predictors() having been run.</p><div class="section">
 </div>
 
 </div><p></p><hr><a id="method-evoland_db-trans_pred_data_v"></a><div class="section">
-<h3 id="method-trans-pred-data-v-">Method <code>trans_pred_data_v()</code><a class="anchor" aria-label="anchor" href="#method-trans-pred-data-v-"></a></h3>
+<h3 id="method-trans-pred-data-v-">Method <code><a href="pred_data_t.html">trans_pred_data_v()</a></code><a class="anchor" aria-label="anchor" href="#method-trans-pred-data-v-"></a></h3>
 <p>Get transitions along with their predictor data in a wide
-data.table, see <code>trans_pred_data_v()</code></p><div class="section">
+data.table, see <code><a href="pred_data_t.html">trans_pred_data_v()</a></code></p><div class="section">
 <h4 id="usage-8">Usage<a class="anchor" aria-label="anchor" href="#usage-8"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">trans_pred_data_v</span><span class="op">(</span><span class="va">id_trans</span>, <span class="va">id_pred</span>, ordered <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
@@ -390,8 +391,8 @@ EGO, see <code><a href="alloc_dinamica.html">alloc_dinamica()</a></code></p><div
 <h4 id="usage-10">Usage<a class="anchor" aria-label="anchor" href="#usage-10"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">alloc_dinamica</span><span class="op">(</span></span>
 <span>  <span class="va">id_periods</span>,</span>
-<span>  <span class="va">gof_criterion</span>,</span>
-<span>  <span class="va">gof_maximize</span>,</span>
+<span>  <span class="va">select_score</span>,</span>
+<span>  <span class="va">select_maximize</span>,</span>
 <span>  work_dir <span class="op">=</span> <span class="st">"dinamica_rundir"</span>,</span>
 <span>  keep_intermediate <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div><p></p></div>
@@ -403,12 +404,13 @@ EGO, see <code><a href="alloc_dinamica.html">alloc_dinamica()</a></code></p><div
 <dd><p>Integer vector of period IDs to include in the simulation.</p></dd>
 
 
-<dt><code>gof_criterion</code></dt>
-<dd><p>Which goodness-of-fit metric to use for model selection (e.g., "auc")</p></dd>
+<dt><code>select_score</code></dt>
+<dd><p>Character string; mlr3 measure ID (e.g. <code>"classif.auc"</code>) used
+to select model for extrapolation</p></dd>
 
 
-<dt><code>gof_maximize</code></dt>
-<dd><p>Maximize (TRUE) or minimize (FALSE) the gof_criterion?</p></dd>
+<dt><code>select_maximize</code></dt>
+<dd><p>Logical; maximize (<code>TRUE</code>) or minimize (<code>FALSE</code>) the score.</p></dd>
 
 
 <dt><code>work_dir</code></dt>
@@ -427,8 +429,8 @@ EGO, see <code><a href="alloc_dinamica.html">alloc_dinamica()</a></code></p><div
 <p>Evaluates allocation parameters in dinamica, see <code><a href="alloc_dinamica.html">eval_alloc_params_t()</a></code></p><div class="section">
 <h4 id="usage-11">Usage<a class="anchor" aria-label="anchor" href="#usage-11"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">eval_alloc_params_t</span><span class="op">(</span></span>
-<span>  <span class="va">gof_criterion</span>,</span>
-<span>  <span class="va">gof_maximize</span>,</span>
+<span>  <span class="va">select_score</span>,</span>
+<span>  <span class="va">select_maximize</span>,</span>
 <span>  work_dir <span class="op">=</span> <span class="st">"dinamica_rundir"</span>,</span>
 <span>  keep_intermediate <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div><p></p></div>
@@ -436,12 +438,13 @@ EGO, see <code><a href="alloc_dinamica.html">alloc_dinamica()</a></code></p><div
 
 <div class="section">
 <h4 id="arguments-9">Arguments<a class="anchor" aria-label="anchor" href="#arguments-9"></a></h4>
-<p></p><div class="arguments"><dl><dt><code>gof_criterion</code></dt>
-<dd><p>Which goodness-of-fit metric to use for model selection (e.g., "auc")</p></dd>
+<p></p><div class="arguments"><dl><dt><code>select_score</code></dt>
+<dd><p>Character string; mlr3 measure ID (e.g. <code>"classif.auc"</code>) used
+to select model for extrapolation</p></dd>
 
 
-<dt><code>gof_maximize</code></dt>
-<dd><p>Maximize (TRUE) or minimize (FALSE) the gof_criterion?</p></dd>
+<dt><code>select_maximize</code></dt>
+<dd><p>Logical; maximize (<code>TRUE</code>) or minimize (<code>FALSE</code>) the score.</p></dd>
 
 
 <dt><code>work_dir</code></dt>
@@ -496,29 +499,32 @@ NULL (default), all periods are included.</p></dd>
 
 </div><p></p><hr><a id="method-evoland_db-fit_full_models"></a><div class="section">
 <h3 id="method-fit-full-models-">Method <code><a href="trans_models_t.html">fit_full_models()</a></code><a class="anchor" aria-label="anchor" href="#method-fit-full-models-"></a></h3>
-<p>Fit full models on complete data using the best partial model configuration for
-each transition, see <code><a href="trans_models_t.html">fit_full_models()</a></code></p><div class="section">
+<p>Fit full models (trained on the complete dataset) for each viable transition,
+see <code><a href="trans_models_t.html">fit_full_models()</a></code>. Two mutually exclusive modes: pass <code>learner</code> to train
+directly, or pass <code>select_score</code> to pick the best partial model by score.</p><div class="section">
 <h4 id="usage-14">Usage<a class="anchor" aria-label="anchor" href="#usage-14"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">fit_full_models</span><span class="op">(</span></span>
-<span>  <span class="va">partial_models</span>,</span>
-<span>  <span class="va">gof_criterion</span>,</span>
-<span>  <span class="va">gof_maximize</span>,</span>
+<span>  learner <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  select_score <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  select_maximize <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  cluster <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
 <h4 id="arguments-12">Arguments<a class="anchor" aria-label="anchor" href="#arguments-12"></a></h4>
-<p></p><div class="arguments"><dl><dt><code>partial_models</code></dt>
-<dd><p>A trans_models_t table with partial models (see <code><a href="trans_models_t.html">fit_partial_models()</a></code>)</p></dd>
+<p></p><div class="arguments"><dl><dt><code>learner</code></dt>
+<dd><p>An mlr3 <code>Learner</code> or <code>AutoTuner</code> for direct-learner mode (<code>NULL</code>
+when <code>select_score</code> is used).</p></dd>
 
 
-<dt><code>gof_criterion</code></dt>
-<dd><p>Which goodness-of-fit metric to use for model selection (e.g., "auc")</p></dd>
+<dt><code>select_score</code></dt>
+<dd><p>Measure ID string for score-select mode, e.g. <code>"classif.auc"</code>
+(<code>NULL</code> when <code>learner</code> is used).</p></dd>
 
 
-<dt><code>gof_maximize</code></dt>
-<dd><p>Maximize (TRUE) or minimize (FALSE) the gof_criterion?</p></dd>
+<dt><code>select_maximize</code></dt>
+<dd><p>Logical; maximize (<code>TRUE</code>) or minimize (<code>FALSE</code>) the score.</p></dd>
 
 
 <dt><code>cluster</code></dt>
@@ -535,27 +541,27 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
 <code><a href="trans_models_t.html">fit_partial_models()</a></code> for details.</p><div class="section">
 <h4 id="usage-15">Usage<a class="anchor" aria-label="anchor" href="#usage-15"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">fit_partial_models</span><span class="op">(</span></span>
-<span>  <span class="va">fit_fun</span>,</span>
+<span>  <span class="va">learner</span>,</span>
+<span>  <span class="va">measures</span>,</span>
 <span>  sample_frac <span class="op">=</span> <span class="fl">0.7</span>,</span>
-<span>  <span class="va">gof_fun</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  cluster <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  <span class="va">...</span></span>
+<span>  cluster <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
 <h4 id="arguments-13">Arguments<a class="anchor" aria-label="anchor" href="#arguments-13"></a></h4>
-<p></p><div class="arguments"><dl><dt><code>fit_fun</code></dt>
-<dd><p>Function for generating a model object.</p></dd>
+<p></p><div class="arguments"><dl><dt><code>learner</code></dt>
+<dd><p>An mlr3 <code>Learner</code> or <code>AutoTuner</code> R6 object.</p></dd>
+
+
+<dt><code>measures</code></dt>
+<dd><p>A vector of <code>Measure</code> names passed to <a href="https://mlr3.mlr-org.com/reference/mlr_sugar.html" class="external-link">mlr3::msr</a> or a list of
+<code>Measure</code> objects for scoring the held-out split.</p></dd>
 
 
 <dt><code>sample_frac</code></dt>
 <dd><p>Fraction in \(0, 1\) for stratified sampling.</p></dd>
-
-
-<dt><code>gof_fun</code></dt>
-<dd><p>Function to evaluate goodness of fit.</p></dd>
 
 
 <dt><code>seed</code></dt>
@@ -566,8 +572,24 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
 <dd><p>Optional cluster object for parallel processing</p></dd>
 
 
-<dt><code>...</code></dt>
-<dd><p>additional arguments passed to fit_fun</p></dd>
+</dl><p></p></div>
+</div>
+
+</div><p></p><hr><a id="method-evoland_db-get_crossval_plots"></a><div class="section">
+<h3 id="method-get-crossval-plots-">Method <code><a href="trans_models_t.html">get_crossval_plots()</a></code><a class="anchor" aria-label="anchor" href="#method-get-crossval-plots-"></a></h3>
+<p>Get cross-validation plots for stored predictions, see <code><a href="trans_models_t.html">get_crossval_plots()</a></code></p><div class="section">
+<h4 id="usage-16">Usage<a class="anchor" aria-label="anchor" href="#usage-16"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">get_crossval_plots</span><span class="op">(</span>id_run <span class="op">=</span> <span class="cn">NULL</span>, id_trans <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div>
+
+<div class="section">
+<h4 id="arguments-14">Arguments<a class="anchor" aria-label="anchor" href="#arguments-14"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>id_run</code></dt>
+<dd><p>Optional integer; filter by run ID.</p></dd>
+
+
+<dt><code>id_trans</code></dt>
+<dd><p>Optional integer; filter by transition ID.</p></dd>
 
 
 </dl><p></p></div>
@@ -576,12 +598,12 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
 </div><p></p><hr><a id="method-evoland_db-set_full_trans_preds"></a><div class="section">
 <h3 id="method-set-full-trans-preds-">Method <code><a href="trans_preds_t.html">set_full_trans_preds()</a></code><a class="anchor" aria-label="anchor" href="#method-set-full-trans-preds-"></a></h3>
 <p>Set an initial full set of transition / predictor relations, see <code><a href="trans_preds_t.html">set_full_trans_preds()</a></code></p><div class="section">
-<h4 id="usage-16">Usage<a class="anchor" aria-label="anchor" href="#usage-16"></a></h4>
+<h4 id="usage-17">Usage<a class="anchor" aria-label="anchor" href="#usage-17"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">set_full_trans_preds</span><span class="op">(</span>overwrite <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-14">Arguments<a class="anchor" aria-label="anchor" href="#arguments-14"></a></h4>
+<h4 id="arguments-15">Arguments<a class="anchor" aria-label="anchor" href="#arguments-15"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>overwrite</code></dt>
 <dd><p>Logical, whether to overwrite existing <code>trans_preds_t</code> table. Default FALSE.</p></dd>
 
@@ -589,23 +611,20 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
 </dl><p></p></div>
 </div>
 
-</div><p></p><hr><a id="method-evoland_db-get_pruned_trans_preds_t"></a><div class="section">
-<h3 id="method-get-pruned-trans-preds-t-">Method <code><a href="trans_preds_t.html">get_pruned_trans_preds_t()</a></code><a class="anchor" aria-label="anchor" href="#method-get-pruned-trans-preds-t-"></a></h3>
-<p>Remove predictors from the transition-predictor relation, aka
-feature selection. See <code><a href="trans_preds_t.html">get_pruned_trans_preds_t()</a></code>.</p><div class="section">
-<h4 id="usage-17">Usage<a class="anchor" aria-label="anchor" href="#usage-17"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">get_pruned_trans_preds_t</span><span class="op">(</span></span>
-<span>  filter_fun <span class="op">=</span> <span class="va">covariance_filter</span>,</span>
-<span>  cluster <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  <span class="va">...</span></span>
-<span><span class="op">)</span></span></code></pre></div><p></p></div>
+</div><p></p><hr><a id="method-evoland_db-get_pred_filter_score"></a><div class="section">
+<h3 id="method-get-pred-filter-score-">Method <code><a href="trans_preds_t.html">get_pred_filter_score()</a></code><a class="anchor" aria-label="anchor" href="#method-get-pred-filter-score-"></a></h3>
+<p>Add filter scores to predictors for each <code>id_run, id_trans</code>.
+See <code><a href="trans_preds_t.html">get_pred_filter_score()</a></code>.</p><div class="section">
+<h4 id="usage-18">Usage<a class="anchor" aria-label="anchor" href="#usage-18"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">get_pred_filter_score</span><span class="op">(</span>filter <span class="op">=</span> <span class="st">"correlation"</span>, cluster <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-15">Arguments<a class="anchor" aria-label="anchor" href="#arguments-15"></a></h4>
-<p></p><div class="arguments"><dl><dt><code>filter_fun</code></dt>
-<dd><p>Defaults to <code><a href="covariance_filter.html">covariance_filter()</a></code>, see
-<code><a href="trans_preds_t.html">get_pruned_trans_preds_t()</a></code> for details.</p></dd>
+<h4 id="arguments-16">Arguments<a class="anchor" aria-label="anchor" href="#arguments-16"></a></h4>
+<p></p><div class="arguments"><dl><dt><code>filter</code></dt>
+<dd><p>Character passed to <a href="https://mlr3filters.mlr-org.com/reference/flt.html" class="external-link">mlr3filters::flt</a> or
+<a href="https://mlr3filters.mlr-org.com/reference/Filter.html" class="external-link">mlr3filters::Filter</a> object specifying the filter method to use for
+feature selection.</p></dd>
 
 
 <dt><code>cluster</code></dt>
@@ -613,7 +632,7 @@ feature selection. See <code><a href="trans_preds_t.html">get_pruned_trans_preds
 
 
 <dt><code>...</code></dt>
-<dd><p>Additional arguments passed to <code>filter_fun</code>.</p></dd>
+<dd><p>Additional arguments passed to <code>flt</code>.</p></dd>
 
 
 </dl><p></p></div>
@@ -622,22 +641,23 @@ feature selection. See <code><a href="trans_preds_t.html">get_pruned_trans_preds
 </div><p></p><hr><a id="method-evoland_db-predict_trans_pot"></a><div class="section">
 <h3 id="method-predict-trans-pot-">Method <code><a href="trans_pot_t.html">predict_trans_pot()</a></code><a class="anchor" aria-label="anchor" href="#method-predict-trans-pot-"></a></h3>
 <p>Predict the transition potential for a given period, see <code><a href="trans_pot_t.html">trans_pot_t()</a></code></p><div class="section">
-<h4 id="usage-18">Usage<a class="anchor" aria-label="anchor" href="#usage-18"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">predict_trans_pot</span><span class="op">(</span><span class="va">id_period_post</span>, <span class="va">gof_criterion</span>, <span class="va">gof_maximize</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<h4 id="usage-19">Usage<a class="anchor" aria-label="anchor" href="#usage-19"></a></h4>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">predict_trans_pot</span><span class="op">(</span><span class="va">id_period_post</span>, <span class="va">select_score</span>, <span class="va">select_maximize</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-16">Arguments<a class="anchor" aria-label="anchor" href="#arguments-16"></a></h4>
+<h4 id="arguments-17">Arguments<a class="anchor" aria-label="anchor" href="#arguments-17"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>id_period_post</code></dt>
 <dd><p>Integerish, posterior period of the transition potential interval</p></dd>
 
 
-<dt><code>gof_criterion</code></dt>
-<dd><p>Which goodness-of-fit metric to use for model selection (e.g., "auc")</p></dd>
+<dt><code>select_score</code></dt>
+<dd><p>Character string; mlr3 measure ID (e.g. <code>"classif.auc"</code>) used
+to select model for extrapolation</p></dd>
 
 
-<dt><code>gof_maximize</code></dt>
-<dd><p>Maximize (TRUE) or minimize (FALSE) the gof_criterion?</p></dd>
+<dt><code>select_maximize</code></dt>
+<dd><p>Logical; maximize (<code>TRUE</code>) or minimize (<code>FALSE</code>) the score.</p></dd>
 
 
 </dl><p></p></div>
@@ -646,7 +666,7 @@ feature selection. See <code><a href="trans_preds_t.html">get_pruned_trans_preds
 </div><p></p><hr><a id="method-evoland_db-get_obs_trans_rates"></a><div class="section">
 <h3 id="method-get-obs-trans-rates-">Method <code><a href="trans_rates_t.html">get_obs_trans_rates()</a></code><a class="anchor" aria-label="anchor" href="#method-get-obs-trans-rates-"></a></h3>
 <p>Get the transition rates that were observed, see <a href="trans_rates_t.html">trans_rates_t</a></p><div class="section">
-<h4 id="usage-19">Usage<a class="anchor" aria-label="anchor" href="#usage-19"></a></h4>
+<h4 id="usage-20">Usage<a class="anchor" aria-label="anchor" href="#usage-20"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">get_obs_trans_rates</span><span class="op">(</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
@@ -654,12 +674,12 @@ feature selection. See <code><a href="trans_preds_t.html">get_pruned_trans_preds
 </div><p></p><hr><a id="method-evoland_db-clone"></a><div class="section">
 <h3 id="method-clone-">Method <code>clone()</code><a class="anchor" aria-label="anchor" href="#method-clone-"></a></h3>
 <p>The objects of this class are cloneable with this method.</p><div class="section">
-<h4 id="usage-20">Usage<a class="anchor" aria-label="anchor" href="#usage-20"></a></h4>
+<h4 id="usage-21">Usage<a class="anchor" aria-label="anchor" href="#usage-21"></a></h4>
 <p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">evoland_db</span><span class="op">$</span><span class="fu">clone</span><span class="op">(</span>deep <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
-<h4 id="arguments-17">Arguments<a class="anchor" aria-label="anchor" href="#arguments-17"></a></h4>
+<h4 id="arguments-18">Arguments<a class="anchor" aria-label="anchor" href="#arguments-18"></a></h4>
 <p></p><div class="arguments"><dl><dt><code>deep</code></dt>
 <dd><p>Whether to make a deep clone.</p></dd>
 

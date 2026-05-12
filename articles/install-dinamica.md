@@ -135,6 +135,7 @@ the Dinamica-specific test file that ships with `evoland` to confirm the
 full integration works:
 
 ``` r
+
 library(evoland)
 tinytest::run_test_file(
   system.file("tinytest", "test_util_dinamica.R", package = "evoland")
@@ -145,6 +146,7 @@ Alternatively, run the full test suite (takes longer but validates the
 complete installation):
 
 ``` r
+
 tinytest::test_package("evoland")
 ```
 

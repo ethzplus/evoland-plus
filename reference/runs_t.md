@@ -16,7 +16,7 @@ as_runs_t(x)
 # S3 method for class 'runs_t'
 print(x, nrow = 10, ...)
 
-db_active_id_run(self, private, x)
+db_active_id_run(self, private, y)
 ```
 
 ## Arguments
@@ -34,6 +34,19 @@ db_active_id_run(self, private, x)
 
   passed to
   [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
+
+- self:
+
+  an evoland_db instance
+
+- private:
+
+  an evoland_db private environment
+
+- y:
+
+  (optional) scalar integerish or NULL; if provided, sets the active run
+  ID and lineage
 
 ## Value
 

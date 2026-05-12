@@ -17,6 +17,11 @@ print(x, nrow = 10, ...)
 
 ## Arguments
 
+- x:
+
+  List-like coercible to `lulc_meta_t` via
+  [`data.table::as.data.table()`](https://rdrr.io/pkg/data.table/man/as.data.table.html)
+
 - lulc_class_spec:
 
   A list of intervention specifications, see examples

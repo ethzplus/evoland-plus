@@ -1,11 +1,11 @@
-pandoc: 3.1.11
+pandoc: 3.8.3
 pkgdown: 2.2.0
 pkgdown_sha: ~
 articles:
   evoland: evoland.html
   ingest-predictors: ingest-predictors.html
   install-dinamica: install-dinamica.html
-last_built: 2026-04-16T13:48Z
+last_built: 2026-05-12T09:27Z
 urls:
   reference: https://ethzplus.github.io/evoland-plus/reference
   article: https://ethzplus.github.io/evoland-plus/articles

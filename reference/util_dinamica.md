@@ -78,19 +78,6 @@ process_dinamica_script(infile, outfile, mode = "encode", check = TRUE)
   Default TRUE, simple check to ensure that you're handling what you're
   expecting
 
-- run_modelprechecks:
-
-  bool, Validate that everything's in place for a model run. Will never
-  be run if calibration.
-
-- config:
-
-  List of config params
-
-- calibration:
-
-  bool, Is this a calibration run?
-
 ## Functions
 
 - `exec_dinamica()`: Execute a Dinamica .ego file using

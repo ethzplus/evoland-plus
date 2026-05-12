@@ -83,6 +83,7 @@ flowchart TD
 We’ll use the following packages:
 
 ``` r
+
 library(evoland)
 library(data.table)
 library(terra)
@@ -91,25 +92,27 @@ library(terra)
 ### 1.1 Creating an `evoland` database
 
 First, we load the package and create an `evoland_db` database object:
-unlike most R objects (e.g. `data.frame`), this is a mutable
-object[¹](#fn1), meaning we can alter its state like we would with a
-Python object. This nicely mirrors our persistent database on disk.
+unlike most R objects (e.g. `data.frame`), this is a mutable object[^1],
+meaning we can alter its state like we would with a Python object. This
+nicely mirrors our persistent database on disk.
 
 If there is no directory at `path`, we’ll create a new DB: a set of
 parquet files following clearly defined parquet files. If there *is* a
 directory, we resume from where we left off.
 
 ``` r
+
 db <- evoland_db$new(path = "firstmodel.evolanddb")
 ```
 
-Go ahead and print the
-``` d`` object. There are already a ```runs_t`and a`reporting_t\` table,
-which are bare-bones for now but will be used to track our [modelling
+Go ahead and print the `db` object. There are already a `runs_t` and a
+`reporting_t` table, which are bare-bones for now but will be used to
+track our [modelling
 runs](https://ethzplus.github.io/evoland-plus/reference/runs_t.md) and
 metadata for producing graphs and tables.
 
 ``` r
+
 db
 ```
 
@@ -128,10 +131,10 @@ db
 
     Public Methods:
       alloc_dinamica, create_alloc_params_t, eval_alloc_params_t, fit_full_models,
-      fit_partial_models, generate_neighbor_predictors, get_obs_trans_rates,
-      get_pruned_trans_preds_t, lulc_data_as_rast, pred_data_wide_v,
-      predict_trans_pot, set_full_trans_preds, set_neighbors, set_report,
-      trans_pred_data_v, trans_rates_dinamica_v, upsert_new_neighbors
+      fit_partial_models, generate_neighbor_predictors, get_crossval_plots,
+      get_obs_trans_rates, get_pred_filter_score, lulc_data_as_rast,
+      pred_data_wide_v, predict_trans_pot, set_full_trans_preds, set_neighbors,
+      set_report, trans_pred_data_v, trans_rates_dinamica_v, upsert_new_neighbors
 
     Active Bindings:
       coords_minimal, extent, id_run, lulc_meta_long_v, pred_sources_v, run_lineage,
@@ -154,6 +157,7 @@ We define our fundamental LULC classes. The `src_classes` field maps the
 underlying data source’s classes to our conceptual categories.
 
 ``` r
+
 db$lulc_meta_t <- create_lulc_meta_t(
   list(
     forest = list(
@@ -187,6 +191,7 @@ we register individual coordinate points, we could subset these to any
 oddly shaped region of interest.
 
 ``` r
+
 # template SpatRaster: 30x30 grid in Swiss LV95, later used for synthetic data generation
 template_rast <- terra::rast(
   crs = "EPSG:2056",
@@ -210,6 +215,7 @@ You can retrieve coords_t from disk and filter using [`data.table`
 semantics](https://raw.githubusercontent.com/rstudio/cheatsheets/master/datatable.pdf):
 
 ``` r
+
 db$coords_t[lon == 2699650]
 ```
 
@@ -236,6 +242,7 @@ active binding, i.e. a method tied to the database that dynamically
 computes a property when called:
 
 ``` r
+
 db$coords_minimal[1:2]
 ```
 
@@ -252,6 +259,7 @@ is added at the end of the observed range; this is used for labelling
 predictor or intervention data as static.
 
 ``` r
+
 db$periods_t <- create_periods_t(
   period_length_str = "P10Y", # 10 year period
   start_observed = "1995-01-01",
@@ -269,6 +277,7 @@ generate a synthetic LULC raster with 3 layers (one per period) by
 adding autoregressive noise to a noisy raster.
 
 ``` r
+
 # autoregressive noise with skellam distribution
 n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
 noise1 <- runif(n_cells, min = 0, max = 10)
@@ -279,7 +288,9 @@ synthetic_lulc <-
   rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
   focal(w = 3, fun = mean, na.rm = TRUE) |>
   clamp(lower = 0, upper = 10) |>
-  classify(rcl = data.frame(from = 0:9, to = 1:10, becomes = sample(1:10, 10)))
+  classify(rcl = data.frame(
+    from = 0:9, to = 1:10, becomes = c(3, 7, 1, 10, 5, 8, 2, 9, 4, 6)
+  ))
 
 plot(synthetic_lulc, nc = 3)
 ```
@@ -293,6 +304,7 @@ long representation of the LULC metadata, associating `id_lulc` with
 `src_class`.
 
 ``` r
+
 synthetic_at_coords <- extract_using_coords_t(synthetic_lulc, db$coords_t)
 
 synthetic_joint_meta <-
@@ -317,6 +329,7 @@ ensures that the data we want to insert actually conforms to the form we
 are expecting.
 
 ``` r
+
 db$lulc_data_t <- as_lulc_data_t(synthetic_joint_meta[, .(
   id_run = 0L, # Base run ID
   id_period,
@@ -330,22 +343,23 @@ e.g. we grab a view where a transition occurred, i.e. the anterior and
 posterior LULC ID are not the same.
 
 ``` r
+
 db$trans_v[id_lulc_anterior != id_lulc_posterior]
 ```
 
          id_period id_lulc_anterior id_lulc_posterior id_coord
              <int>            <int>             <int>    <int>
-      1:         3                1                 4        1
-      2:         2                1                 2        3
-      3:         3                2                 1        3
-      4:         2                3                 1        4
-      5:         3                1                 3        4
+      1:         3                4                 2        1
+      2:         2                1                 4        2
+      3:         3                4                 2        3
+      4:         2                1                 4        4
+      5:         2                2                 1        5
      ---
-    635:         2                2                 1      894
-    636:         2                1                 2      895
-    637:         3                2                 1      895
-    638:         3                3                 2      897
-    639:         3                1                 2      899
+    673:         2                3                 2      891
+    674:         3                2                 1      893
+    675:         3                2                 1      895
+    676:         2                1                 4      897
+    677:         3                4                 3      899
 
 ### 2.2 Add Predictors and Neighbors
 
@@ -361,6 +375,7 @@ set - e.g. if a square kilometre does not have a population count set,
 we can infer that it should be zero.
 
 ``` r
+
 db$pred_meta_t <- evoland:::test_pred_meta_t
 db$pred_data_t <- evoland:::test_pred_data_t
 ```
@@ -375,6 +390,7 @@ and then counting the number of neighbors within each distance break
 class and land use category (`db$generate_neighbor_predictors`).
 
 ``` r
+
 db$set_neighbors(
   max_distance = 1000,
   distance_breaks = c(0, 100, 500, 1000),
@@ -383,18 +399,20 @@ db$set_neighbors(
 ```
 
 ``` r
+
 db$generate_neighbor_predictors()
 ```
 
 Messages
 
     Computed 208360 neighbor relationships
-    Appended 8 neighbor predictor variables with 20031 data points
+    Appended 8 neighbor predictor variables with 21591 data points
 
 Have a look at the predictor metadata we have defined, it now contains
 new rows for the neighbor predictors:
 
 ``` r
+
 db$pred_meta_t
 ```
 
@@ -419,64 +437,115 @@ db$pred_meta_t
 
 ## 3 Calibration
 
+For consistency across different model packages, `evoland-plus` uses the
+[`mlr3`](https://mlr-org.com/) machine learning and statistics
+environment. For a hands-on introduction, see [mlr3 by
+Example](https://mlr3book.mlr-org.com/chapters/chapter1/introduction_and_overview.html#mlr3-by-example).
+
 ### 3.1 Eligible Transitions and Predictor Pruning
 
 We filter transitions eligible for modeling based on a minimum number of
 observed occurrences.
 
 ``` r
-db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 50)
+
+db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 20)
 ```
 
 Because each transition may be modelled using different predictors (aka
 *features*), we start out by setting the `trans_preds_t` table to the
 full cross product of viable transitions and predictors. We then carry
-out a feature selection step in `get_pruned_trans_preds_t`, which here
-is used with a two-stage covariance filter. First, candidate features
-are ranked and then selected up to a given correlation threshold, see
-[`covariance_filter`](https://ethzplus.github.io/evoland-plus/reference/covariance_filter.md).
-The assignment to `db$trans_preds_t` will overwrite the existing
-relations; you will be prompted if you want to do this if you’re running
-R interactively.
+out a feature selection step in `get_pred_filter_score`, which here is
+used with a variable [importance
+filter](https://mlr3filters.mlr-org.com/reference/mlr_filters_importance.html) -
+an [mlr3 Learner](https://mlr3.mlr-org.com/reference/Learner.html) is
+passed that returns an importance score for each predictor. We can then
+subset the returned `trans_preds_t` object and overwrite the existing
+set of “every predictor for every transition”. The assignment to
+`db$trans_preds_t` will overwrite the existing relations; you will be
+prompted if you want to do this if you’re running R interactively.
 
 ``` r
+
+# set full crossproduct of transitions - predictors
 db$set_full_trans_preds()
-# Note: we're suppressing warnings about non-convergence due to our random synthetic data.
-db$trans_preds_t <- db$get_pruned_trans_preds_t(
-  filter_fun = covariance_filter,
-  corcut = 0.1
+```
+
+    [1] 96
+
+``` r
+
+# return importance scores for each predictor - transition combination
+trans_pred_scored <- db$get_pred_filter_score(
+  filter = mlr3filters::FilterImportance$new(
+    learner = mlr3::lrn("classif.rpart")
+  )
 )
 ```
+
+``` r
+
+# overwrite using a subset
+db$trans_preds_t <- trans_pred_scored[
+  importance > 5 |
+    is.na(importance) # keep predictors that couldn't be scored
+]
+```
+
+Messages
+
+    Processing 8 transitions...
 
 ### 3.2 Transition Models
 
 Now we fit partial models using training/validation splits, allowing for
-a goodness-of-fit (gof) estimation. Here, we only fit a single partial
-model per transition, where we normally would create a list of
-candidates. We can then pick the models with the best goodness of fit to
-retrain full models on all of the available predictor data; the full
-models are then used during extrapolation.
+a goodness-of-fit estimation using [mlr3
+Measures](https://mlr3book.mlr-org.com/chapters/chapter2/data_and_basic_modeling.html#sec-eval).
+We fit a first series of models using a featureless learner, i.e. only
+estimating the response from the target variable (did a transition
+occur?) probability distribution. We then fit an
+[rpart](https://mlr3.mlr-org.com/reference/mlr_learners_classif.rpart.html)
+recursive partitioning and regression learner. Next,
+[`fit_full_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+reads the partial models stored in `db$trans_models_t`, chooses the best
+model for each transition based on goodness of fit, and refits each
+chosen model on all available predictor data. Assigning the result back
+to db\$trans_models_t stores these full models for the extrapolation
+step.
 
 ``` r
+
 db$trans_models_t <- db$fit_partial_models(
-  fit_fun = fit_glm,
-  gof_fun = gof_glm,
+  learner = mlr3::lrn("classif.featureless"),
+  measures = c("classif.auc", "classif.acc"),
   sample_frac = 0.7,
-  seed = 42
+  seed = 666
 )
 ```
 
 ``` r
+
+db$trans_models_t <- db$fit_partial_models(
+  learner = mlr3::lrn("classif.rpart"),
+  measures = c("classif.auc", "classif.acc"),
+  sample_frac = 0.7,
+  seed = 666
+)
+```
+
+``` r
+
 db$trans_models_t <- db$fit_full_models(
-  gof_criterion = "auc",
-  gof_maximize = TRUE
+  select_score = "classif.auc",
+  select_maximize = TRUE
 )
 ```
 
 Messages
 
-    Fitting partial models for 4 transitions...
-    Fitting full models for 4 transitions...
+    Fitting partial models for 8 transitions...
+    Fitting partial models for 8 transitions...
+    Fitting full models for 8 transitions...
 
 ### 3.3 Transition Rates and Allocation Parameters
 
@@ -485,6 +554,7 @@ rates to the DinamicaEGO allocator. In a simple approach, we can
 extrapolate the rate of each transition from the observed data:
 
 ``` r
+
 db$trans_rates_t <-
   db$get_obs_trans_rates() |>
   extrapolate_trans_rates(
@@ -502,22 +572,24 @@ best parametrization. For simplicity, we now just take the estimates for
 granted and assign `id_run=0`, i.e. the base run ID.
 
 ``` r
+
 alloc_for_eval <- db$create_alloc_params_t(n_perturbations = 0)
 ```
 
 ``` r
+
 alloc_for_eval[, id_run := 0L] # overwrite id_run=1
 db$alloc_params_t <- alloc_for_eval
 ```
 
 Messages
 
-    Computing allocation parameters for 4 transitions across 2 periods...
+    Computing allocation parameters for 8 transitions across 2 periods...
       Processing period 1 -> 2
       Processing period 2 -> 3
     Aggregating parameters across periods...
     Creating 0 randomly perturbed versions per transition...
-    Successfully computed 4 allocation parameter sets (4 transitions x (0 perturbations + best estimate))
+    Successfully computed 8 allocation parameter sets (8 transitions x (0 perturbations + best estimate))
 
 ## 4 Prediction + Allocation
 
@@ -529,10 +601,11 @@ EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.md)
 vignette.
 
 ``` r
+
 db$alloc_dinamica(
   id_period = db$periods_t[is_extrapolated == TRUE, id_period],
-  gof_criterion = "auc",
-  gof_maximize = TRUE
+  select_score = "classif.auc",
+  select_maximize = TRUE
 )
 ```
 
@@ -554,11 +627,15 @@ Messages
       Wrote patcher table to patcher_table.csv
       Wrote anterior LULC to anterior.tif
       Writing probability maps...
-    Predicting transition potential for 4 transitions
-    Predicting trans 1/4 (id_trans 2)
-    Predicting trans 2/4 (id_trans 5)
-    Predicting trans 3/4 (id_trans 3)
-    Predicting trans 4/4 (id_trans 4)
+    Predicting transition potential for 8 transitions
+    Predicting trans 1/8 (id_trans 4)
+    Predicting trans 2/8 (id_trans 2)
+    Predicting trans 3/8 (id_trans 3)
+    Predicting trans 4/8 (id_trans 6)
+    Predicting trans 5/8 (id_trans 5)
+    Predicting trans 6/8 (id_trans 7)
+    Predicting trans 7/8 (id_trans 8)
+    Predicting trans 8/8 (id_trans 9)
       Executing Dinamica EGO...
       Converting posterior raster to lulc_data_t...
       Extracted 900 cells
@@ -573,6 +650,7 @@ Finally, we can extract the simulated LULC maps into `SpatRaster`
 objects to visualize them.
 
 ``` r
+
 labels <- db$periods_t[
   id_period != 0,
   paste0(year(start_date), " to ", year(end_date))
@@ -588,9 +666,7 @@ Of the four maps, only the first three show changes. Due to Dinamica not
 being available on our github runner, the extrapolated step should look
 exactly like the step before.
 
-------------------------------------------------------------------------
-
-1.  Specifically, we’re creating an R6 object instead of an S3 or S4
+[^1]: Specifically, we’re creating an R6 object instead of an S3 or S4
     one. This is called “encapsulated object oriented programming”
     (cf. [Advanced R](https://adv-r.hadley.nz/r6.html)) and you might
     know it from Python (e.g. `pandas_df.drop_duplicates()`).

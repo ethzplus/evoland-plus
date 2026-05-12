@@ -67,6 +67,10 @@ metadata.</p>
 <dd><p>A list of predictor specifications, schema: see examples</p></dd>
 
 
+<dt id="arg-starting-id">starting_id<a class="anchor" aria-label="anchor" href="#arg-starting-id"></a></dt>
+<dd><p>Integer, starting ID for predictors; default 1L</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>passed to <code><a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table()</a></code></p></dd>
 
@@ -95,7 +99,9 @@ are not explicitly stored.</p></li>
     <div class="section level2">
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
-<ul><li><p><code>create_pred_meta_t()</code>: Creates a <code>pred_meta_t</code> table from intervention specifications</p></li>
+<ul><li><p><code>create_pred_meta_t()</code>: Creates a <code>pred_meta_t</code> table from intervention
+specifications. Attributes incremental IDs to predictors, starting from
+<code>starting_id</code>. See examples for schema of <code>pred_spec</code>.</p></li>
 </ul></div>
 
     <div class="section level2">
@@ -108,11 +114,11 @@ are not explicitly stored.</p></li>
 <span class="r-in"><span>     description <span class="op">=</span> <span class="st">"daytime &amp; nighttime road &amp; rail noise exposure"</span>,</span></span>
 <span class="r-in"><span>     sources <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>       <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>         url <span class="op">=</span> <span class="st">"https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_tag/laerm-strassenlaerm_tag/laerm-strassenlaerm_tag_2056.tif"</span>,</span></span>
+<span class="r-in"><span>         url <span class="op">=</span> <span class="st">"https://example.com/noisedata1.tif"</span>,</span></span>
 <span class="r-in"><span>         md5sum <span class="op">=</span> <span class="st">"a4b9f1c04ee63824f18852bfd1eecbdd"</span></span></span>
 <span class="r-in"><span>       <span class="op">)</span>,</span></span>
 <span class="r-in"><span>       <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>         url <span class="op">=</span> <span class="st">"https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif"</span>,</span></span>
+<span class="r-in"><span>         url <span class="op">=</span> <span class="st">"https://example.com/noisedata2.tif"</span>,</span></span>
 <span class="r-in"><span>         md5sum <span class="op">=</span> <span class="st">"4b782128495b5af8467e2259bd57def2"</span></span></span>
 <span class="r-in"><span>       <span class="op">)</span></span></span>
 <span class="r-in"><span>     <span class="op">)</span>,</span></span>
@@ -124,7 +130,7 @@ are not explicitly stored.</p></li>
 <span class="r-in"><span>     orig_format <span class="op">=</span> <span class="st">"vector"</span>,</span></span>
 <span class="r-in"><span>     description <span class="op">=</span> <span class="st">"Derived from swissTLM3D"</span>,</span></span>
 <span class="r-in"><span>     sources <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>       url <span class="op">=</span> <span class="st">"https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip"</span>,</span></span>
+<span class="r-in"><span>       url <span class="op">=</span> <span class="st">"https://example.com/dist_to_lake.tif"</span>,</span></span>
 <span class="r-in"><span>       md5sum <span class="op">=</span> <span class="st">"ecb3bcfbf6316c6e7542e20de24f61b7"</span></span></span>
 <span class="r-in"><span>     <span class="op">)</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>     data_type <span class="op">=</span> <span class="st">"float"</span></span></span>

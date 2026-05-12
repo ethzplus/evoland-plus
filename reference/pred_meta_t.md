@@ -25,6 +25,10 @@ print(x, ...)
 
   A list of predictor specifications, schema: see examples
 
+- starting_id:
+
+  Integer, starting ID for predictors; default 1L
+
 - ...:
 
   passed to
@@ -67,7 +71,8 @@ A data.table of class "pred_meta_t" with columns:
 ## Functions
 
 - `create_pred_meta_t()`: Creates a `pred_meta_t` table from
-  intervention specifications
+  intervention specifications. Attributes incremental IDs to predictors,
+  starting from `starting_id`. See examples for schema of `pred_spec`.
 
 ## Examples
 
@@ -80,11 +85,11 @@ create_pred_meta_t(list(
      description = "daytime & nighttime road & rail noise exposure",
      sources = list(
        list(
-         url = "https://data.geo.admin.ch/ch.bafu.laerm-strassenlaerm_tag/laerm-strassenlaerm_tag/laerm-strassenlaerm_tag_2056.tif",
+         url = "https://example.com/noisedata1.tif",
          md5sum = "a4b9f1c04ee63824f18852bfd1eecbdd"
        ),
        list(
-         url = "https://data.geo.admin.ch/ch.bafu.laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht/laerm-bahnlaerm_nacht_2056.tif",
+         url = "https://example.com/noisedata2.tif",
          md5sum = "4b782128495b5af8467e2259bd57def2"
        )
      ),
@@ -96,7 +101,7 @@ create_pred_meta_t(list(
      orig_format = "vector",
      description = "Derived from swissTLM3D",
      sources = list(list(
-       url = "https://data.geo.admin.ch/ch.swisstopo.swisstlm3d/swisstlm3d_2025-03/swisstlm3d_2025-03_2056_5728.gpkg.zip",
+       url = "https://example.com/dist_to_lake.tif",
        md5sum = "ecb3bcfbf6316c6e7542e20de24f61b7"
      )),
      data_type = "float"

@@ -11,7 +11,7 @@ as_trans_pot_t(x)
 # S3 method for class 'trans_pot_t'
 print(x, nrow = 10, ...)
 
-predict_trans_pot(self, id_period_post, gof_criterion, gof_maximize)
+predict_trans_pot(self, id_period_post, select_score, select_maximize)
 ```
 
 ## Arguments
@@ -39,6 +39,14 @@ predict_trans_pot(self, id_period_post, gof_criterion, gof_maximize)
 - id_period_post:
 
   scalar integerish, passed to `self$pred_data_wide_v()`
+
+- select_score:
+
+  character scalar, name of score/measure to identify best fitting model
+
+- select_maximize:
+
+  logical scalar, whether to maximize or minimize `select_score`
 
 ## Value
 

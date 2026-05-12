@@ -81,6 +81,12 @@
 <dd><p>An object that can be passed to <code><a href="https://rdrr.io/pkg/data.table/man/setDT.html" class="external-link">data.table::setDT()</a></code></p></dd>
 
 
+<dt id="arg-coords-t">coords_t<a class="anchor" aria-label="anchor" href="#arg-coords-t"></a></dt>
+<dd><p>A <a href="coords_t.html">coords_t</a> object containing coordinate points with <code>id_coord</code>,
+<code>lon</code>, and <code>lat</code> columns, and appropriate metadata attributes (epsg, extent,
+resolution).</p></dd>
+
+
 <dt id="arg-max-distance">max_distance<a class="anchor" aria-label="anchor" href="#arg-max-distance"></a></dt>
 <dd><p>Maximum distance to search for neighbors (in same units as
 coordinates)</p></dd>
@@ -92,16 +98,24 @@ If NULL, no distance classification is performed.
 If provided, must have at least 2 elements defining interval breaks.</p></dd>
 
 
+<dt id="arg-quiet">quiet<a class="anchor" aria-label="anchor" href="#arg-quiet"></a></dt>
+<dd><p>If TRUE, suppress progress messages during neighbor computation</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Passed to <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>Passed to <code><a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table()</a></code> resp. <code><a href="util.html">validate()</a></code></p></dd>
 
 
 <dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
-<dd><p>Maximum number of rows to print. See <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>Maximum number of rows to print</p></dd>
 
 
 <dt id="arg-self">self<a class="anchor" aria-label="anchor" href="#arg-self"></a></dt>
 <dd><p>An evoland_db object</p></dd>
+
+
+<dt id="arg-overwrite">overwrite<a class="anchor" aria-label="anchor" href="#arg-overwrite"></a></dt>
+<dd><p>If FALSE and <code>neighbors_t</code> already exists, skip computation (default: FALSE)</p></dd>
 
 
 <dt id="arg-chunksize">chunksize<a class="anchor" aria-label="anchor" href="#arg-chunksize"></a></dt>

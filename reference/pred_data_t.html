@@ -111,18 +111,14 @@ get the predictors that explain the processes over the next N years</p></dd>
 <dt id="arg-pred-meta-t">pred_meta_t<a class="anchor" aria-label="anchor" href="#arg-pred-meta-t"></a></dt>
 <dd><p>see <a href="pred_meta_t.html">pred_meta_t</a></p></dd>
 
-
-<dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
-<dd><p>Character string specifying the data type: "float", "int", or "bool"</p></dd>
-
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data.table of class "pred_data_t_<type>" and "pred_data_t" with columns:</type></p><ul><li><p><code>id_run</code>: Foreign key to runs_t</p></li>
+    <p>A data.table of class "pred_data_t" with columns:</p><ul><li><p><code>id_run</code>: Foreign key to runs_t</p></li>
 <li><p><code>id_pred</code>: Foreign key to pred_meta_t</p></li>
 <li><p><code>id_coord</code>: Foreign key to coords_t</p></li>
 <li><p><code>id_period</code>: Foreign key to periods_t</p></li>
-<li><p><code>value</code>: Predictor value (type depends on subclass)</p></li>
+<li><p><code>value</code>: Predictor value (coerced to double, recoverable through <a href="pred_meta_t.html">pred_meta_t</a>)</p></li>
 </ul><p>data.table with columns id_coord, id_period, did_transition (bool),
 and one column per predictor (<code>id_pred_{n}</code>)</p>
     </div>

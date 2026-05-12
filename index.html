@@ -59,10 +59,10 @@
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>The <code>evoland-plus</code> R package (or <code>evoland</code> for short) provides tools for analyzing and projecting land use evolution. The package implements a statistically calibrated, constrained model for predicting locations of future land use / land cover change (LULCC). The fundamental purpose of <code>evoland-plus</code> is to:</p>
+<p>The <code>evoland-plus</code> R package (<code>evoland</code> for evolving land use, <code>plus</code> for <a href="https://plus.ethz.ch/" class="external-link">plus.ethz.ch</a>) provides tools for land use change simulations. The package implements a statistically calibrated, constrained model for predicting locations of future land use / land cover change (LULCC). The scope of <code>evoland-plus</code> is to:</p>
 <ul>
 <li>
-<strong>Gather and process</strong> land use/land cover data from multiple sources into a clearly defined database structure.</li>
+<strong>Gather and process</strong> LULCC and predictor data from multiple sources into a clearly defined database structure.</li>
 <li>
 <strong>Calibrate statistical models</strong> to understand historical land use transitions</li>
 <li>
@@ -74,7 +74,7 @@
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<p>We suggest you use <a href="https://a2-ai.github.io/rv-docs/" class="external-link">rv</a> to manage your dependencies in an encapsulated environment. Simply create an <code>rproject.toml</code> at the project root and execute <code>rv sync</code>.</p>
+<p>We suggest you use <a href="https://a2-ai.github.io/rv-docs/" class="external-link">rv</a> to manage your dependencies in an encapsulated environment. Simply create an <code>rproject.toml</code> at the project root and execute <code>rv init &amp;&amp; rv sync</code>.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode toml"><code class="sourceCode toml"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># sample rproject.toml</span></span>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="kw">[project]</span></span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="dt">name</span> <span class="op">=</span> <span class="st">"evoland-plus"</span></span>
@@ -88,7 +88,7 @@
 <span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>    <span class="op">{ </span><span class="dt">name</span><span class="op"> =</span> <span class="st">"evoland"</span><span class="op">, </span><span class="dt">git</span><span class="op"> =</span> <span class="st">"https://github.com/ethzplus/evoland-plus/"</span><span class="op">, </span><span class="dt">branch</span><span class="op"> =</span> <span class="st">"main"</span><span class="op"> },</span></span>
 <span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="op">]</span></span></code></pre></div>
 <p>If you want to develop the model logic itself, you can opt to only install dependencies but not the package itself:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode toml"><code class="sourceCode toml"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="dt">dependencies</span> <span class="op">=</span> <span class="op">[</span>    </span>
+<div class="sourceCode" id="cb2"><pre class="sourceCode toml"><code class="sourceCode toml"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="dt">dependencies</span> <span class="op">=</span> <span class="op">[</span></span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>    <span class="co"># only install dependencies declared in DESCRIPTION</span></span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>    <span class="op">{ </span><span class="dt">name</span><span class="op"> =</span> <span class="st">"evoland"</span><span class="op">, </span><span class="dt">path</span><span class="op"> =</span> <span class="st">"~/path/to/local/repo"</span><span class="op">, </span><span class="dt">dependencies_only</span><span class="op"> =</span> <span class="cn">true</span><span class="op">, </span><span class="dt">install_suggestions</span><span class="op"> =</span> <span class="cn">true</span><span class="op"> },</span></span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>    <span class="st">"devtools"</span><span class="op">,</span> <span class="co"># sundry development tasks</span></span>

@@ -9,6 +9,7 @@ This file shows how to work in either scenario. Let’s start by attaching
 a database to work in, and setting some coordinate points
 
 ``` r
+
 library(evoland)
 library(data.table)
 db <- evoland_db$new(path = "noisemodel.evolanddb")
@@ -39,6 +40,7 @@ level of noise pollution, in accordance with the current levels of
 traffic.
 
 ``` r
+
 coords_minimal <- db$coords_minimal
 
 sonbase_spec <- list(
@@ -104,6 +106,7 @@ db$add_predictor(
 Let’s see how the data looks in the DB.
 
 ``` r
+
 db$pred_meta_t
 ```
 
@@ -111,6 +114,7 @@ We can see that the `noise` predictor was assigned `id_pred = 1`, which
 makes sense, given that this was the first predictor to be ingested
 
 ``` r
+
 db$pred_data_t_float
 ```
 

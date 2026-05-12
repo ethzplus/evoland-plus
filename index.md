@@ -2,13 +2,13 @@
 
 ## Overview
 
-The `evoland-plus` R package (or `evoland` for short) provides tools for
-analyzing and projecting land use evolution. The package implements a
-statistically calibrated, constrained model for predicting locations of
-future land use / land cover change (LULCC). The fundamental purpose of
-`evoland-plus` is to:
+The `evoland-plus` R package (`evoland` for evolving land use, `plus`
+for [plus.ethz.ch](https://plus.ethz.ch/)) provides tools for land use
+change simulations. The package implements a statistically calibrated,
+constrained model for predicting locations of future land use / land
+cover change (LULCC). The scope of `evoland-plus` is to:
 
-- **Gather and process** land use/land cover data from multiple sources
+- **Gather and process** LULCC and predictor data from multiple sources
   into a clearly defined database structure.
 - **Calibrate statistical models** to understand historical land use
   transitions
@@ -21,7 +21,7 @@ future land use / land cover change (LULCC). The fundamental purpose of
 
 We suggest you use [rv](https://a2-ai.github.io/rv-docs/) to manage your
 dependencies in an encapsulated environment. Simply create an
-`rproject.toml` at the project root and execute `rv sync`.
+`rproject.toml` at the project root and execute `rv init && rv sync`.
 
 ``` toml
 # sample rproject.toml
@@ -42,7 +42,7 @@ If you want to develop the model logic itself, you can opt to only
 install dependencies but not the package itself:
 
 ``` toml
-dependencies = [    
+dependencies = [
     # only install dependencies declared in DESCRIPTION
     { name = "evoland", path = "~/path/to/local/repo", dependencies_only = true, install_suggestions = true },
     "devtools", # sundry development tasks

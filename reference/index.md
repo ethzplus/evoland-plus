@@ -2,6 +2,9 @@
 
 ## All functions
 
+- [`LearnerClassifGrrf`](https://ethzplus.github.io/evoland-plus/reference/LearnerClassifGrrf.md)
+  : Guided Regularized Random Forest Learner
+
 - [`calc_fuzzy_similarity()`](https://ethzplus.github.io/evoland-plus/reference/calc_fuzzy_similarity.md)
   : Compute fuzzy neighborhood similarity between two categorical
   rasters
@@ -33,27 +36,11 @@
   [`pred_sources_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   [`trans_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   [`coords_minimal`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
-  [`trans_pred_data_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   [`trans_rates_dinamica_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   : Views on the evoland-plus data model
 
-- [`fit_glm()`](https://ethzplus.github.io/evoland-plus/reference/fit_glm.md)
-  : GLM Model Fitting for Transition Models
-
-- [`fit_ranger()`](https://ethzplus.github.io/evoland-plus/reference/fit_ranger.md)
-  : Random Forest Model Fitting for Transition Models
-
 - [`fuzzy_similarity`](https://ethzplus.github.io/evoland-plus/reference/fuzzy_similarity.md)
   : Fuzzy Similarity for Spatial Validation
-
-- [`gof_glm()`](https://ethzplus.github.io/evoland-plus/reference/gof_glm.md)
-  : Goodness of Fit Evaluation for GLM Models
-
-- [`gof_ranger()`](https://ethzplus.github.io/evoland-plus/reference/gof_ranger.md)
-  : Goodness of Fit Evaluation for Random Forest Models
-
-- [`grrf_filter()`](https://ethzplus.github.io/evoland-plus/reference/grrf_filter.md)
-  : Guided Regularized Random Forest Feature Selection
 
 - [`as_intrv_masks_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
   [`print(`*`<intrv_masks_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
@@ -105,6 +92,7 @@
   [`fit_partial_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
   [`fit_full_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
   [`print(`*`<trans_models_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+  [`get_crossval_plots()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
   : Create Transition Models Table
 
 - [`as_trans_pot_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md)
@@ -115,7 +103,7 @@
 - [`as_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   [`print(`*`<trans_preds_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   [`set_full_trans_preds()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
-  [`get_pruned_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
+  [`get_pred_filter_score()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   : Create Transition-Predictor Relationship Table
 
 - [`validate()`](https://ethzplus.github.io/evoland-plus/reference/util.md)

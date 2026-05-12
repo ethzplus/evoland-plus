@@ -13,8 +13,8 @@ alloc_dinamica_setup_inputs(
   id_period_post,
   anterior_rast,
   temp_dir,
-  gof_criterion,
-  gof_maximize
+  select_score,
+  select_maximize
 )
 
 alloc_dinamica_one_period(
@@ -23,23 +23,23 @@ alloc_dinamica_one_period(
   id_period_post,
   anterior_rast,
   iteration_dir,
-  gof_criterion,
-  gof_maximize
+  select_score,
+  select_maximize
 )
 
 alloc_dinamica(
   self,
   id_periods,
-  gof_criterion,
-  gof_maximize,
+  select_score,
+  select_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 )
 
 eval_alloc_params_t(
   self,
-  gof_criterion,
-  gof_maximize,
+  select_score,
+  select_maximize,
   work_dir = "dinamica_rundir",
   keep_intermediate = FALSE
 )

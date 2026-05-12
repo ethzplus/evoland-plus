@@ -57,9 +57,9 @@ modelling each transition type.</p>
 <span></span>
 <span><span class="fu">set_full_trans_preds</span><span class="op">(</span><span class="va">self</span>, overwrite <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">get_pruned_trans_preds_t</span><span class="op">(</span></span>
+<span><span class="fu">get_pred_filter_score</span><span class="op">(</span></span>
 <span>  <span class="va">self</span>,</span>
-<span>  filter_fun <span class="op">=</span> <span class="va">covariance_filter</span>,</span>
+<span>  <span class="va">filter</span>,</span>
 <span>  cluster <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  ordered_pred_data <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
@@ -70,21 +70,32 @@ modelling each transition type.</p>
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
 
 
-<dl><dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
+<dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
+<dd><p>A list or data.frame coercible to a trans_preds_t object. If missing, an
+empty table will be created.</p></dd>
+
+
+<dt id="arg-nrow">nrow<a class="anchor" aria-label="anchor" href="#arg-nrow"></a></dt>
 <dd><p>see <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>passed to <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
+<dd><p>Additional arguments passed to <code>flt</code> if <code>filter</code> is a character string</p></dd>
+
+
+<dt id="arg-self">self<a class="anchor" aria-label="anchor" href="#arg-self"></a></dt>
+<dd><p>An <a href="evoland_db.html">evoland_db</a> instance with populated trans_meta_t and pred_meta_t tables</p></dd>
 
 
 <dt id="arg-overwrite">overwrite<a class="anchor" aria-label="anchor" href="#arg-overwrite"></a></dt>
 <dd><p>Bool, should a potentially existing table be overwritten?</p></dd>
 
 
-<dt id="arg-filter-fun">filter_fun<a class="anchor" aria-label="anchor" href="#arg-filter-fun"></a></dt>
-<dd><p>A function that takes a transition-predictor data (cf. trans_pred_data_v) and
-returns a character vector of column names to keep, see e.g. <a href="covariance_filter.html">covariance_filter</a></p></dd>
+<dt id="arg-filter">filter<a class="anchor" aria-label="anchor" href="#arg-filter"></a></dt>
+<dd><p>An <a href="https://mlr3filters.mlr-org.com/reference/Filter.html" class="external-link">mlr3filters::Filter</a> object or a character string
+specifying the filter method, retrieved via <a href="https://mlr3filters.mlr-org.com/reference/flt.html" class="external-link">mlr3filters::flt</a>. Note that your
+filter must be compatible with the feature data types; compare your
+<code>pred_meta_t</code> table to <a href="https://mlr3filters.mlr-org.com" class="external-link">https://mlr3filters.mlr-org.com</a> for filter compatibility.</p></dd>
 
 
 <dt id="arg-cluster">cluster<a class="anchor" aria-label="anchor" href="#arg-cluster"></a></dt>
@@ -92,16 +103,8 @@ returns a character vector of column names to keep, see e.g. <a href="covariance
 
 
 <dt id="arg-ordered-pred-data">ordered_pred_data<a class="anchor" aria-label="anchor" href="#arg-ordered-pred-data"></a></dt>
-<dd><p>Bool, should the predictor data be ordered? needed
+<dd><p>Bool, should the predictor data be ordered? Needed
 for fully deterministic behavior</p></dd>
-
-
-<dt id="arg-db">db<a class="anchor" aria-label="anchor" href="#arg-db"></a></dt>
-<dd><p>An <a href="evoland_db.html">evoland_db</a> instance with populated trans_meta_t and pred_meta_t tables</p></dd>
-
-
-<dt id="arg-na-value">na_value<a class="anchor" aria-label="anchor" href="#arg-na-value"></a></dt>
-<dd><p>Value to use for missing data when retrieving predictor data</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -119,8 +122,12 @@ for fully deterministic behavior</p></dd>
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
 <ul><li><p><code>set_full_trans_preds()</code>: Set an initial full set of transition / predictor relations</p></li>
-<li><p><code>get_pruned_trans_preds_t()</code>: Get a pruned set of transition-predictor relationships
-based on a filtering function</p></li>
+<li><p><code>get_pred_filter_score()</code>: Get a filter score for all transition-predictor
+relationships based on mlr3filters. Returns trans_preds_t with an additional
+column named after the filter$id. The filter score can be used for feature
+selection: simply subset according to the score and overwrite trans_preds_t
+in the database using <code>db$trans_preds_t &lt;- trans_preds_t[score &gt; threshold]</code>
+or similar.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

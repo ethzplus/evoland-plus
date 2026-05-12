@@ -32,6 +32,11 @@ tabular_to_raster(data, coords, value_col = "id_lulc", resolution = NULL)
 
   A data.table with column id_coord and value_col
 
+- value_col:
+
+  Character, name of column in data to use as raster values. Default
+  "id_lulc".
+
 - resolution:
 
   Numeric, raster resolution in CRS units. If `NULL`, use "resolution"

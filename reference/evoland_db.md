@@ -150,9 +150,11 @@ separate files:
 
 - [`evoland_db$fit_partial_models()`](#method-evoland_db-fit_partial_models)
 
+- [`evoland_db$get_crossval_plots()`](#method-evoland_db-get_crossval_plots)
+
 - [`evoland_db$set_full_trans_preds()`](#method-evoland_db-set_full_trans_preds)
 
-- [`evoland_db$get_pruned_trans_preds_t()`](#method-evoland_db-get_pruned_trans_preds_t)
+- [`evoland_db$get_pred_filter_score()`](#method-evoland_db-get_pred_filter_score)
 
 - [`evoland_db$predict_trans_pot()`](#method-evoland_db-predict_trans_pot)
 
@@ -339,10 +341,11 @@ generate_neighbor_predictors() having been run.
 
 ------------------------------------------------------------------------
 
-### Method `trans_pred_data_v()`
+### Method [`trans_pred_data_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
 
 Get transitions along with their predictor data in a wide data.table,
-see `trans_pred_data_v()`
+see
+[`trans_pred_data_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
 
 #### Usage
 
@@ -396,8 +399,8 @@ Runs a path-dependent Monte Carlo simulation using Dinamica EGO, see
 
     evoland_db$alloc_dinamica(
       id_periods,
-      gof_criterion,
-      gof_maximize,
+      select_score,
+      select_maximize,
       work_dir = "dinamica_rundir",
       keep_intermediate = FALSE
     )
@@ -408,13 +411,14 @@ Runs a path-dependent Monte Carlo simulation using Dinamica EGO, see
 
   Integer vector of period IDs to include in the simulation.
 
-- `gof_criterion`:
+- `select_score`:
 
-  Which goodness-of-fit metric to use for model selection (e.g., "auc")
+  Character string; mlr3 measure ID (e.g. `"classif.auc"`) used to
+  select model for extrapolation
 
-- `gof_maximize`:
+- `select_maximize`:
 
-  Maximize (TRUE) or minimize (FALSE) the gof_criterion?
+  Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
 
 - `work_dir`:
 
@@ -435,21 +439,22 @@ Evaluates allocation parameters in dinamica, see
 #### Usage
 
     evoland_db$eval_alloc_params_t(
-      gof_criterion,
-      gof_maximize,
+      select_score,
+      select_maximize,
       work_dir = "dinamica_rundir",
       keep_intermediate = FALSE
     )
 
 #### Arguments
 
-- `gof_criterion`:
+- `select_score`:
 
-  Which goodness-of-fit metric to use for model selection (e.g., "auc")
+  Character string; mlr3 measure ID (e.g. `"classif.auc"`) used to
+  select model for extrapolation
 
-- `gof_maximize`:
+- `select_maximize`:
 
-  Maximize (TRUE) or minimize (FALSE) the gof_criterion?
+  Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
 
 - `work_dir`:
 
@@ -505,33 +510,36 @@ Retrieve LULC data as a SpatRaster object for a given period. See
 
 ### Method [`fit_full_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
 
-Fit full models on complete data using the best partial model
-configuration for each transition, see
-[`fit_full_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+Fit full models (trained on the complete dataset) for each viable
+transition, see
+[`fit_full_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md).
+Two mutually exclusive modes: pass `learner` to train directly, or pass
+`select_score` to pick the best partial model by score.
 
 #### Usage
 
     evoland_db$fit_full_models(
-      partial_models,
-      gof_criterion,
-      gof_maximize,
+      learner = NULL,
+      select_score = NULL,
+      select_maximize = TRUE,
       cluster = NULL
     )
 
 #### Arguments
 
-- `partial_models`:
+- `learner`:
 
-  A trans_models_t table with partial models (see
-  [`fit_partial_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md))
+  An mlr3 `Learner` or `AutoTuner` for direct-learner mode (`NULL` when
+  `select_score` is used).
 
-- `gof_criterion`:
+- `select_score`:
 
-  Which goodness-of-fit metric to use for model selection (e.g., "auc")
+  Measure ID string for score-select mode, e.g. `"classif.auc"` (`NULL`
+  when `learner` is used).
 
-- `gof_maximize`:
+- `select_maximize`:
 
-  Maximize (TRUE) or minimize (FALSE) the gof_criterion?
+  Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
 
 - `cluster`:
 
@@ -549,27 +557,28 @@ for details.
 #### Usage
 
     evoland_db$fit_partial_models(
-      fit_fun,
+      learner,
+      measures,
       sample_frac = 0.7,
-      gof_fun,
       seed = NULL,
-      cluster = NULL,
-      ...
+      cluster = NULL
     )
 
 #### Arguments
 
-- `fit_fun`:
+- `learner`:
 
-  Function for generating a model object.
+  An mlr3 `Learner` or `AutoTuner` R6 object.
+
+- `measures`:
+
+  A vector of `Measure` names passed to
+  [mlr3::msr](https://mlr3.mlr-org.com/reference/mlr_sugar.html) or a
+  list of `Measure` objects for scoring the held-out split.
 
 - `sample_frac`:
 
   Fraction in \\0, 1\\ for stratified sampling.
-
-- `gof_fun`:
-
-  Function to evaluate goodness of fit.
 
 - `seed`:
 
@@ -579,9 +588,26 @@ for details.
 
   Optional cluster object for parallel processing
 
-- `...`:
+------------------------------------------------------------------------
 
-  additional arguments passed to fit_fun
+### Method [`get_crossval_plots()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+
+Get cross-validation plots for stored predictions, see
+[`get_crossval_plots()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+
+#### Usage
+
+    evoland_db$get_crossval_plots(id_run = NULL, id_trans = NULL)
+
+#### Arguments
+
+- `id_run`:
+
+  Optional integer; filter by run ID.
+
+- `id_trans`:
+
+  Optional integer; filter by transition ID.
 
 ------------------------------------------------------------------------
 
@@ -603,29 +629,24 @@ Set an initial full set of transition / predictor relations, see
 
 ------------------------------------------------------------------------
 
-### Method [`get_pruned_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
+### Method [`get_pred_filter_score()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
 
-Remove predictors from the transition-predictor relation, aka feature
-selection. See
-[`get_pruned_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md).
+Add filter scores to predictors for each `id_run, id_trans`. See
+[`get_pred_filter_score()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md).
 
 #### Usage
 
-    evoland_db$get_pruned_trans_preds_t(
-      filter_fun = covariance_filter,
-      cluster = NULL,
-      ...
-    )
+    evoland_db$get_pred_filter_score(filter = "correlation", cluster = NULL, ...)
 
 #### Arguments
 
-- `filter_fun`:
+- `filter`:
 
-  Defaults to
-  [`covariance_filter()`](https://ethzplus.github.io/evoland-plus/reference/covariance_filter.md),
-  see
-  [`get_pruned_trans_preds_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
-  for details.
+  Character passed to
+  [mlr3filters::flt](https://mlr3filters.mlr-org.com/reference/flt.html)
+  or
+  [mlr3filters::Filter](https://mlr3filters.mlr-org.com/reference/Filter.html)
+  object specifying the filter method to use for feature selection.
 
 - `cluster`:
 
@@ -633,7 +654,7 @@ selection. See
 
 - `...`:
 
-  Additional arguments passed to `filter_fun`.
+  Additional arguments passed to `flt`.
 
 ------------------------------------------------------------------------
 
@@ -644,7 +665,7 @@ Predict the transition potential for a given period, see
 
 #### Usage
 
-    evoland_db$predict_trans_pot(id_period_post, gof_criterion, gof_maximize)
+    evoland_db$predict_trans_pot(id_period_post, select_score, select_maximize)
 
 #### Arguments
 
@@ -652,13 +673,14 @@ Predict the transition potential for a given period, see
 
   Integerish, posterior period of the transition potential interval
 
-- `gof_criterion`:
+- `select_score`:
 
-  Which goodness-of-fit metric to use for model selection (e.g., "auc")
+  Character string; mlr3 measure ID (e.g. `"classif.auc"`) used to
+  select model for extrapolation
 
-- `gof_maximize`:
+- `select_maximize`:
 
-  Maximize (TRUE) or minimize (FALSE) the gof_criterion?
+  Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
 
 ------------------------------------------------------------------------
 

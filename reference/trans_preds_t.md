@@ -14,9 +14,9 @@ print(x, nrow = 10, ...)
 
 set_full_trans_preds(self, overwrite = FALSE)
 
-get_pruned_trans_preds_t(
+get_pred_filter_score(
   self,
-  filter_fun = covariance_filter,
+  filter,
   cluster = NULL,
   ordered_pred_data = FALSE,
   ...
@@ -25,6 +25,11 @@ get_pruned_trans_preds_t(
 
 ## Arguments
 
+- x:
+
+  A list or data.frame coercible to a trans_preds_t object. If missing,
+  an empty table will be created.
+
 - nrow:
 
   see
@@ -32,19 +37,28 @@ get_pruned_trans_preds_t(
 
 - ...:
 
-  passed to
-  [data.table::print.data.table](https://rdrr.io/pkg/data.table/man/print.data.table.html)
+  Additional arguments passed to `flt` if `filter` is a character string
+
+- self:
+
+  An
+  [evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
+  instance with populated trans_meta_t and pred_meta_t tables
 
 - overwrite:
 
   Bool, should a potentially existing table be overwritten?
 
-- filter_fun:
+- filter:
 
-  A function that takes a transition-predictor data (cf.
-  trans_pred_data_v) and returns a character vector of column names to
-  keep, see e.g.
-  [covariance_filter](https://ethzplus.github.io/evoland-plus/reference/covariance_filter.md)
+  An
+  [mlr3filters::Filter](https://mlr3filters.mlr-org.com/reference/Filter.html)
+  object or a character string specifying the filter method, retrieved
+  via
+  [mlr3filters::flt](https://mlr3filters.mlr-org.com/reference/flt.html).
+  Note that your filter must be compatible with the feature data types;
+  compare your `pred_meta_t` table to <https://mlr3filters.mlr-org.com>
+  for filter compatibility.
 
 - cluster:
 
@@ -53,18 +67,8 @@ get_pruned_trans_preds_t(
 
 - ordered_pred_data:
 
-  Bool, should the predictor data be ordered? needed for fully
+  Bool, should the predictor data be ordered? Needed for fully
   deterministic behavior
-
-- db:
-
-  An
-  [evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
-  instance with populated trans_meta_t and pred_meta_t tables
-
-- na_value:
-
-  Value to use for missing data when retrieving predictor data
 
 ## Value
 
@@ -86,5 +90,10 @@ A data.table of class "trans_preds_t" with columns:
 - `set_full_trans_preds()`: Set an initial full set of transition /
   predictor relations
 
-- `get_pruned_trans_preds_t()`: Get a pruned set of transition-predictor
-  relationships based on a filtering function
+- `get_pred_filter_score()`: Get a filter score for all
+  transition-predictor relationships based on mlr3filters. Returns
+  trans_preds_t with an additional column named after the filter\$id.
+  The filter score can be used for feature selection: simply subset
+  according to the score and overwrite trans_preds_t in the database
+  using `db$trans_preds_t <- trans_preds_t[score > threshold]` or
+  similar.

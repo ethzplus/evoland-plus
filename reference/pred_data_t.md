@@ -72,13 +72,9 @@ set_pred_coltypes(result, pred_meta_t)
   see
   [pred_meta_t](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
 
-- type:
-
-  Character string specifying the data type: "float", "int", or "bool"
-
 ## Value
 
-A data.table of class "pred_data_t\_" and "pred_data_t" with columns:
+A data.table of class "pred_data_t" with columns:
 
 - `id_run`: Foreign key to runs_t
 
@@ -88,7 +84,8 @@ A data.table of class "pred_data_t\_" and "pred_data_t" with columns:
 
 - `id_period`: Foreign key to periods_t
 
-- `value`: Predictor value (type depends on subclass)
+- `value`: Predictor value (coerced to double, recoverable through
+  [pred_meta_t](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md))
 
 data.table with columns id_coord, id_period, did_transition (bool), and
 one column per predictor (`id_pred_{n}`)

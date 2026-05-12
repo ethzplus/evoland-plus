@@ -25,6 +25,10 @@ print(x, nrow = 10, ...)
 
 ## Arguments
 
+- x:
+
+  A list or data.frame coercible to a trans_meta_t object.
+
 - transitions:
 
   A trans_v table, with columns id_coord, id_lulc_anterior,
