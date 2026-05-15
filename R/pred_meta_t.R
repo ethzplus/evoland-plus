@@ -15,7 +15,7 @@
 #'   - `orig_format`: Original format description
 #'   - `sources`: Sources, list column of data.frames with cols `url` and `md5sum`
 #'   - `unit`: SI units for physical properties, or more complex descriptors
-#'     like "number of annual visitors"
+#'     like "bed nights/year" as a proxy for touristic activity
 #'   - `data_type`: Factor with levels "int", "float", "bool", "factor".
 #'     Used for coercion.
 #'   - `fill_value`: Value to use for missing data for [coords_t] coordinate points that
@@ -36,13 +36,20 @@ as_pred_meta_t <- function(x) {
         character(0),
         levels = c("int", "float", "bool", "factor")
       ),
-      fill_value = NA,
+      fill_value = NA_character_,
       factor_levels = list(character(0))
     )
   }
 
   data.table::setDT(x) |>
-    cast_dt_col("data_type", "factor", levels = c("int", "float", "bool", "factor"))
+    cast_dt_col("id_pred", "int") |>
+    cast_dt_col("name", "char") |>
+    cast_dt_col("pretty_name", "char") |>
+    cast_dt_col("description", "char") |>
+    cast_dt_col("orig_format", "char") |>
+    cast_dt_col("unit", "char") |>
+    cast_dt_col("data_type", "factor", levels = c("int", "float", "bool", "factor")) |>
+    cast_dt_col("fill_value", "char")
 
   as_parquet_db_t(
     x,
@@ -138,7 +145,7 @@ create_pred_meta_t <- function(pred_spec, starting_id = 1L) {
         )
     },
     fill_value = unlist(
-      lapply(pluck_wildcard(pred_spec, NA, "fill_value"), function(x) x %||% NA)
+      lapply(pluck_wildcard(pred_spec, NA, "fill_value"), function(x) x %||% NA_character_)
     ),
     factor_levels = lapply(
       pluck_wildcard(pred_spec, NA, "factor_levels"),
