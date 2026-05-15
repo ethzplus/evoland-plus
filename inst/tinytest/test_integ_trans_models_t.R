@@ -256,13 +256,17 @@ expect_equal(length(plots_filtered), 1L)
 plot_trans_1 <- plots_filtered[[1]]
 expect_true(inherits(plot_trans_1, "gg"))
 expect_equal(
-  plot_trans_1$data |> summary() |> as.vector(),
+  plot_trans_1$data$variable,
+  factor(
+    c(rep("truth", 220), rep("response", 220)),
+    levels = c("truth", "response")
+  )
+)
+expect_equal(
+  plot_trans_1$data$value |> as.character(),
   c(
-    "truth   :220  ",
-    "response:220  ",
-    NA,
-    "Length:440        ",
-    "Class :character  ",
-    "Mode  :character  "
+    rep("FALSE", 121),
+    rep("TRUE", 99),
+    rep("FALSE", 220)
   )
 )
