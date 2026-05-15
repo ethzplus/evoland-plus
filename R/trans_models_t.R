@@ -494,7 +494,6 @@ fit_full_models <- function(
 
 
 #' @export
-#' @param ... ignored, kept for signature compatibility
 validate.trans_models_t <- function(x, ...) {
   NextMethod()
 

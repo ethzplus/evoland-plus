@@ -8,6 +8,7 @@
 \alias{trans_pred_data_v}
 \alias{pred_data_wide_v}
 \alias{set_pred_coltypes}
+\alias{add_predictor}
 \title{Create Predictor Data Table}
 \usage{
 as_pred_data_t(x)
@@ -21,6 +22,18 @@ trans_pred_data_v(self, id_trans, id_pred, ordered = FALSE)
 pred_data_wide_v(self, id_trans, id_period_anterior)
 
 set_pred_coltypes(result, pred_meta_t)
+
+add_predictor(
+  self,
+  pred_data_raw,
+  name,
+  fill_value,
+  pretty_name = name,
+  description = NA_character_,
+  orig_format = NA_character_,
+  sources = data.frame(url = character(0), md5sum = character(0)),
+  unit = NA_character_
+)
 }
 \arguments{
 \item{x}{Coercible to data.table}
@@ -47,6 +60,31 @@ get the predictors that explain the processes over the next N years}
 \item{result}{data.table with predictor columns named \verb{id_pred_\{n\}}}
 
 \item{pred_meta_t}{see \link{pred_meta_t}}
+
+\item{pred_data_raw}{data.table with columns id_coord, id_period, and value
+(predictor value); the data type of the value is stored in \link{pred_meta_t}}
+
+\item{name}{Character scalar, unique name of predictor. If already present in
+\code{pred_meta_t}, other parameters are ignored and the operation turns into an upsert.}
+
+\item{fill_value}{Value to use for coordinates registered in \link{coords_t} but not in
+the provided \code{pred_data_raw}. e.g. where no known population is registered,
+assume pop. 0. For a factor variable, this could be a base case, e.g. for
+different nature reserve types, this could be the "not in a reserve" type.}
+
+\item{pretty_name}{opt. Character scalar, friendly name for plots/output}
+
+\item{description}{opt. Character scalar. Long description / operationalisation}
+
+\item{orig_format}{opt. Character scalar. Original format description}
+
+\item{sources}{opt. data.frame with a \code{url} column pointing to a raw file and an
+\code{md5sum} checksum, see \code{\link[=download_and_verify]{download_and_verify()}}}
+
+\item{unit}{opt. Character scalar. SI unit for physical properties, or more complex
+descriptors like "bed nights/year" as a proxy for touristic activity}
+
+\item{self}{an \link{evoland_db} instance}
 }
 \value{
 A data.table of class "pred_data_t" with columns:
@@ -84,6 +122,9 @@ prediction (cols \verb{id_coord, id_pred_\{n\}})
 \item \code{set_pred_coltypes()}: In-place casting of predictor columns to their
 correct data types based on pred_meta_t; also fills NA values with fill_value
 from pred_meta_t if specified
+
+\item \code{add_predictor()}: Add a predictor to the database, given a data.table with
+columns id_coord, id_period, and value (predictor value). Uses the current \code{id_run}.
 
 }}
 \keyword{internal}
