@@ -20,8 +20,11 @@ jobs:
       matrix:
         config:
           - { os: macos-latest, r: "release" }
-          - { os: windows-latest, r: "release" }
           - { os: ubuntu-latest, r: "release" }
+          # r cmd build apparently fails to install the package - no errors or warnings
+          # only becomes evident when trying to build vignette
+          # pak not installing system dependencies?
+          # - { os: windows-latest, r: "release" }
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
