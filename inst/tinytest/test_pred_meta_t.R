@@ -32,6 +32,15 @@ pred_spec <- list(
     data_type = "factor",
     fill_value = "1000+m",
     factor_levels = c("0-100m", "100-500m", "500-1000m", "1000+m")
+  ),
+  awesome_index = list(
+    unit = "unitless",
+    pretty_name = "Awesomeness Index",
+    orig_format = "vector",
+    description = "Sorta looked at the moon and the stars; the vibes gave me an index",
+    # deliberately omitting
+    data_type = "int",
+    fill_value = 1L
   )
 )
 # nolint end
@@ -66,4 +75,10 @@ expect_equal(
     list(test_pred = list(data_type = "float"))
   )[["pretty_name"]],
   "test_pred"
+)
+
+
+expect_equal(
+  pred_meta_t[name == "awesome_index", sources],
+  list(data.table::data.table(url = character(), md5sum = character()))
 )

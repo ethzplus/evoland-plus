@@ -31,7 +31,7 @@ add_predictor(
   pretty_name = name,
   description = NA_character_,
   orig_format = NA_character_,
-  sources = data.frame(url = character(0), md5sum = character(0)),
+  sources = list(),
   unit = NA_character_
 )
 }
@@ -78,8 +78,8 @@ different nature reserve types, this could be the "not in a reserve" type.}
 
 \item{orig_format}{opt. Character scalar. Original format description}
 
-\item{sources}{opt. data.frame with a \code{url} column pointing to a raw file and an
-\code{md5sum} checksum, see \code{\link[=download_and_verify]{download_and_verify()}}}
+\item{sources}{opt. list of lists: each list containing one \code{url} and a
+\code{md5sum} field, see \code{\link[=create_pred_meta_t]{create_pred_meta_t()}} and \code{\link[=download_and_verify]{download_and_verify()}}}
 
 \item{unit}{opt. Character scalar. SI unit for physical properties, or more complex
 descriptors like "bed nights/year" as a proxy for touristic activity}
@@ -124,7 +124,8 @@ correct data types based on pred_meta_t; also fills NA values with fill_value
 from pred_meta_t if specified
 
 \item \code{add_predictor()}: Add a predictor to the database, given a data.table with
-columns id_coord, id_period, and value (predictor value). Uses the current \code{id_run}.
+columns \code{id_coord}, \code{id_period}, and \code{value} (predictor value). Uses the current
+\code{id_run}.
 
 }}
 \keyword{internal}

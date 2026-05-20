@@ -8,7 +8,8 @@ NULL
 
 #' @describeIn util_download Download a set of files and check their integrity against
 #'    their md5 checksum
-#' @param df_in Data frame with 'url' and 'md5sum' columns
+#' @param df_in Data frame with 'url' and 'md5sum' columns. This can be
+#' retrieved from [pred_meta_t] or [intrv_meta_t].
 #' @param target_dir Target directory for downloads, defaults to option
 #'    `evoland.cachedir`
 #' @param overwrite Whether to overwrite existing files (default: FALSE)

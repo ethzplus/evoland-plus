@@ -123,13 +123,13 @@ create_pred_meta_t <- function(pred_spec, starting_id = 1L) {
       lapply(pluck_wildcard(pred_spec, NA, "orig_format"), function(x) x %||% NA_character_)
     ),
     sources = lapply(
-      pred_spec,
-      # path is pred_spec > pred_name > sources > listelement > url/md5sum
-      function(pred) {
-        data.table::data.table(
-          url = unlist(pluck_wildcard(pred, "sources", NA, "url") %||% character()),
-          md5sum = unlist(pluck_wildcard(pred, "sources", NA, "md5sum") %||% character())
-        )
+      pluck_wildcard(pred_spec, NA, "sources"),
+      function(src) {
+        src_dt <- data.table::rbindlist(src, use.names = TRUE)
+        if (length(src_dt) == 0L) {
+          src_dt <- data.table::data.table(url = character(), md5sum = character())
+        }
+        src_dt[, .(url, md5sum)]
       }
     ),
     unit = unlist(
@@ -186,7 +186,7 @@ validate.pred_meta_t <- function(x, ...) {
     is.character(x[["unit"]]),
     is.factor(x[["data_type"]]),
     "data_type must be set" = !any(is.na(x[["data_type"]])),
-    "data_type can only be one of 'integer', 'double','factor', or 'boolean'" = setequal(
+    "data_type can only be one of 'int', 'float','factor', or 'bool'" = setequal(
       levels(x[["data_type"]]),
       c("int", "float", "bool", "factor")
     ),

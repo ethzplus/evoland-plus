@@ -252,8 +252,8 @@ set_pred_coltypes <- function(result, pred_meta_t) {
 #' @param pretty_name opt. Character scalar, friendly name for plots/output
 #' @param description opt. Character scalar. Long description / operationalisation
 #' @param orig_format opt. Character scalar. Original format description
-#' @param sources opt. data.frame with a `url` column pointing to a raw file and an
-#' `md5sum` checksum, see [download_and_verify()]
+#' @param sources opt. list of lists: each list containing one `url` and a
+#' `md5sum` field, see [create_pred_meta_t()] and [download_and_verify()]
 #' @param unit opt. Character scalar. SI unit for physical properties, or more complex
 #' descriptors like "bed nights/year" as a proxy for touristic activity
 add_predictor <- function(
@@ -264,7 +264,7 @@ add_predictor <- function(
   pretty_name = name,
   description = NA_character_,
   orig_format = NA_character_,
-  sources = data.frame(url = character(0), md5sum = character(0)),
+  sources = list(),
   unit = NA_character_
 ) {
   id_pred <- self$column_max("pred_meta_t", "id_pred") + 1L
