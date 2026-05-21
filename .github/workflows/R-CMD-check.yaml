@@ -31,7 +31,7 @@ jobs:
       R_KEEP_PKG_SOURCE: yes
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: r-lib/actions/setup-pandoc@v2
 
@@ -50,13 +50,11 @@ jobs:
       - name: Cache macOS system dependencies
         if: runner.os == 'macos'
         id: cache-brew
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
-            /opt/homebrew/Cellar/gdal
-            /opt/homebrew/Cellar/proj
-            /usr/local/Cellar/gdal
-            /usr/local/Cellar/proj
+            /opt/homebrew/Cellar/
+            /usr/local/Cellar/
           key: ${{ runner.os }}-brew-gdal-proj-${{ hashFiles('brew-versions.txt') }}
 
       - name: Install or link macOS dependencies
@@ -77,7 +75,7 @@ jobs:
       - name: Cache Ubuntu system dependencies
         if: runner.os == 'linux'
         id: cache-apt
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /var/cache/apt/archives
           key: ${{ runner.os }}-apt-gdal-proj-${{ hashFiles('apt-versions.txt') }}
