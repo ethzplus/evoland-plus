@@ -51,6 +51,27 @@ as_pred_meta_t <- function(x) {
     cast_dt_col("data_type", "factor", levels = c("int", "float", "bool", "factor")) |>
     cast_dt_col("fill_value", "char")
 
+  x[,
+    sources := lapply(
+      sources,
+      function(src) {
+        # coerce to data.table with exactly url & md5sum
+        if (
+          inherits(src, "data.frame") &&
+            all(hasName(src, c("url", "md5sum")))
+        ) {
+          return(src[, c("url", "md5sum")])
+        }
+        src_dt <- data.table::rbindlist(src, use.names = TRUE)
+        if (length(src_dt) == 0L) {
+          # length 0 is a null data frame, e.g. if src is NULL or list()
+          src_dt <- data.table::data.table(url = character(), md5sum = character())
+        }
+        src_dt[, .(url, md5sum)]
+      }
+    )
+  ]
+
   as_parquet_db_t(
     x,
     class_name = "pred_meta_t",
