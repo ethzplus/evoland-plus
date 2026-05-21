@@ -47,7 +47,7 @@ pred_spec <- list(
 
 # Test creation and validation
 pred_meta_t <- create_pred_meta_t(pred_spec)
-expect_true(nrow(pred_meta_t) == 2L)
+expect_equal(nrow(pred_meta_t), 3L)
 expect_inherits(pred_meta_t, "pred_meta_t")
 expect_true(all(
   c(
