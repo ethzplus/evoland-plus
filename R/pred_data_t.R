@@ -284,7 +284,7 @@ add_predictor <- function(
     pretty_name = pretty_name,
     description = description,
     orig_format = orig_format,
-    sources = list(sources),
+    sources = list(data.table::rbindlist(sources)),
     unit = unit,
     data_type = switch(
       class(pred_data_raw[["value"]]),
