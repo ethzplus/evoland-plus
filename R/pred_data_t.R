@@ -292,7 +292,6 @@ add_predictor <- function(
       numeric = "float",
       logical = "bool",
       factor = "factor",
-      Date = "date",
       stop("Unsupported data type for value column")
     ),
     fill_value = fill_value,
