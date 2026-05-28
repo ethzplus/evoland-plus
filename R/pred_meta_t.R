@@ -34,7 +34,8 @@ as_pred_meta_t <- function(x) {
       unit = character(0),
       data_type = factor(
         character(0),
-        levels = c("int", "float", "bool", "factor")
+        # leaving out POSIXct / Date for now; can be operationalized as int/float
+        levels = c("int", "float", "bool", "factor", "ordered")
       ),
       fill_value = NA_character_,
       factor_levels = list(character(0))
@@ -48,7 +49,7 @@ as_pred_meta_t <- function(x) {
     cast_dt_col("description", "char") |>
     cast_dt_col("orig_format", "char") |>
     cast_dt_col("unit", "char") |>
-    cast_dt_col("data_type", "factor", levels = c("int", "float", "bool", "factor")) |>
+    cast_dt_col("data_type", "factor", levels = c("int", "float", "bool", "factor", "ordered")) |>
     cast_dt_col("fill_value", "char")
 
   x[,
@@ -162,7 +163,7 @@ create_pred_meta_t <- function(pred_spec, starting_id = 1L) {
       }) |>
         unlist() |>
         factor(
-          levels = c("int", "float", "bool", "factor")
+          levels = c("int", "float", "bool", "factor", "ordered")
         )
     },
     fill_value = unlist(
@@ -207,9 +208,9 @@ validate.pred_meta_t <- function(x, ...) {
     is.character(x[["unit"]]),
     is.factor(x[["data_type"]]),
     "data_type must be set" = !any(is.na(x[["data_type"]])),
-    "data_type can only be one of 'int', 'float','factor', or 'bool'" = setequal(
+    "data_type can only be one of 'int', 'float', 'bool', 'factor', 'ordered'" = setequal(
       levels(x[["data_type"]]),
-      c("int", "float", "bool", "factor")
+      c("int", "float", "bool", "factor", "ordered")
     ),
     is.list(x[["factor_levels"]]),
     "name cannot be empty" = !any(x[["name"]] == ""),

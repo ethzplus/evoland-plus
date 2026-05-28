@@ -214,13 +214,17 @@ set_pred_coltypes <- function(result, pred_meta_t) {
     cast_type <- dtype <- as.character(meta_row$data_type)
 
     # manually reconstructing factors: cast to int, then add attrs
-    cast_type <- ifelse(dtype == "factor", "int", cast_type)
+    cast_type <- ifelse(dtype %in% c("factor", "ordered"), "int", cast_type)
 
     cast_dt_col(result, col, cast_type)
     if (dtype == "factor") {
       lvls <- meta_row$factor_levels[[1L]]
       data.table::setattr(result[[col]], "levels", lvls)
       data.table::setattr(result[[col]], "class", "factor")
+    } else if (dtype == "ordered") {
+      lvls <- meta_row$factor_levels[[1L]]
+      data.table::setattr(result[[col]], "levels", lvls)
+      data.table::setattr(result[[col]], "class", c("ordered", "factor"))
     }
 
     # if col is factor, fill_value being a character is safe
@@ -244,7 +248,7 @@ set_pred_coltypes <- function(result, pred_meta_t) {
 #' @param pred_data_raw data.table with columns id_coord, id_period, and value
 #' (predictor value); the data type of the value is stored in [pred_meta_t]
 #' @param name Character scalar, unique name of predictor. If already present in
-#' `pred_meta_t`, other parameters are ignored and the operation turns into an upsert.
+#' `pred_meta_t`, this will simply update the information.
 #' @param fill_value Value to use for coordinates registered in [coords_t] but not in
 #' the provided `pred_data_raw`. e.g. where no known population is registered,
 #' assume pop. 0. For a factor variable, this could be a base case, e.g. for
@@ -287,11 +291,12 @@ add_predictor <- function(
     sources = list(sources),
     unit = unit,
     data_type = switch(
-      class(pred_data_raw[["value"]]),
+      class(pred_data_raw[["value"]])[[1]],
       integer = "int",
       numeric = "float",
       logical = "bool",
       factor = "factor",
+      ordered = "ordered",
       stop("Unsupported data type for value column")
     ),
     fill_value = fill_value,

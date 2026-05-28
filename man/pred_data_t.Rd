@@ -65,7 +65,7 @@ get the predictors that explain the processes over the next N years}
 (predictor value); the data type of the value is stored in \link{pred_meta_t}}
 
 \item{name}{Character scalar, unique name of predictor. If already present in
-\code{pred_meta_t}, other parameters are ignored and the operation turns into an upsert.}
+\code{pred_meta_t}, this will simply update the information.}
 
 \item{fill_value}{Value to use for coordinates registered in \link{coords_t} but not in
 the provided \code{pred_data_raw}. e.g. where no known population is registered,
