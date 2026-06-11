@@ -235,7 +235,7 @@ set_pred_coltypes <- function(result, pred_meta_t) {
         result,
         i = which(is.na(result[[col]])),
         j = col,
-        value = meta_row$fill_value
+        value = fill_value
       )
     }
   }
