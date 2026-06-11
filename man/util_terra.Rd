@@ -28,7 +28,7 @@ resampling is done.}
 use "resolution" attribute on coords, or estimate from coord spacing.}
 }
 \value{
-\link[terra:SpatRaster-class]{terra::SpatRaster} with LULC values. If multiple periods present in data,
+\link[terra:SpatRaster]{terra::SpatRaster} with LULC values. If multiple periods present in data,
 returns a multi-layer raster with one layer per period.
 }
 \description{

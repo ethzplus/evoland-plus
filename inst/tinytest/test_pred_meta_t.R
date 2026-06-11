@@ -32,13 +32,22 @@ pred_spec <- list(
     data_type = "factor",
     fill_value = "1000+m",
     factor_levels = c("0-100m", "100-500m", "500-1000m", "1000+m")
+  ),
+  awesome_index = list(
+    unit = "unitless",
+    pretty_name = "Awesomeness Index",
+    orig_format = "vector",
+    description = "Sorta looked at the moon and the stars; the vibes gave me an index",
+    # deliberately omitting
+    data_type = "int",
+    fill_value = 1L
   )
 )
 # nolint end
 
 # Test creation and validation
 pred_meta_t <- create_pred_meta_t(pred_spec)
-expect_true(nrow(pred_meta_t) == 2L)
+expect_equal(nrow(pred_meta_t), 3L)
 expect_inherits(pred_meta_t, "pred_meta_t")
 expect_true(all(
   c(
@@ -66,4 +75,10 @@ expect_equal(
     list(test_pred = list(data_type = "float"))
   )[["pretty_name"]],
   "test_pred"
+)
+
+
+expect_equal(
+  pred_meta_t[name == "awesome_index", sources],
+  list(data.table::data.table(url = character(), md5sum = character()))
 )

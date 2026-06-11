@@ -420,7 +420,7 @@ fit_full_models <- function(
         worker_fun = fit_full_model_worker,
         parent_db = self,
         cluster = cluster,
-        learner = learner,
+        learner = learner
       ) |>
       data.table::rbindlist() |>
       as_trans_models_t()
@@ -485,7 +485,7 @@ fit_full_models <- function(
         items = _,
         worker_fun = fit_full_model_worker,
         parent_db = self,
-        cluster = cluster,
+        cluster = cluster
       ) |>
       data.table::rbindlist() |>
       as_trans_models_t()
@@ -494,7 +494,6 @@ fit_full_models <- function(
 
 
 #' @export
-#' @param ... ignored, kept for signature compatibility
 validate.trans_models_t <- function(x, ...) {
   NextMethod()
 

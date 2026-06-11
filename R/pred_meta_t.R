@@ -15,7 +15,7 @@
 #'   - `orig_format`: Original format description
 #'   - `sources`: Sources, list column of data.frames with cols `url` and `md5sum`
 #'   - `unit`: SI units for physical properties, or more complex descriptors
-#'     like "number of annual visitors"
+#'     like "bed nights/year" as a proxy for touristic activity
 #'   - `data_type`: Factor with levels "int", "float", "bool", "factor".
 #'     Used for coercion.
 #'   - `fill_value`: Value to use for missing data for [coords_t] coordinate points that
@@ -34,15 +34,44 @@ as_pred_meta_t <- function(x) {
       unit = character(0),
       data_type = factor(
         character(0),
-        levels = c("int", "float", "bool", "factor")
+        # leaving out POSIXct / Date for now; can be operationalized as int/float
+        levels = c("int", "float", "bool", "factor", "ordered")
       ),
-      fill_value = NA,
+      fill_value = NA_character_,
       factor_levels = list(character(0))
     )
   }
 
   data.table::setDT(x) |>
-    cast_dt_col("data_type", "factor", levels = c("int", "float", "bool", "factor"))
+    cast_dt_col("id_pred", "int") |>
+    cast_dt_col("name", "char") |>
+    cast_dt_col("pretty_name", "char") |>
+    cast_dt_col("description", "char") |>
+    cast_dt_col("orig_format", "char") |>
+    cast_dt_col("unit", "char") |>
+    cast_dt_col("data_type", "factor", levels = c("int", "float", "bool", "factor", "ordered")) |>
+    cast_dt_col("fill_value", "char")
+
+  x[,
+    sources := lapply(
+      sources,
+      function(src) {
+        # coerce to data.table with exactly url & md5sum
+        if (
+          inherits(src, "data.frame") &&
+            all(hasName(src, c("url", "md5sum")))
+        ) {
+          return(src[, c("url", "md5sum")])
+        }
+        src_dt <- data.table::rbindlist(src, use.names = TRUE)
+        if (length(src_dt) == 0L) {
+          # length 0 is a null data frame, e.g. if src is NULL or list()
+          src_dt <- data.table::data.table(url = character(), md5sum = character())
+        }
+        src_dt[, .(url, md5sum)]
+      }
+    )
+  ]
 
   as_parquet_db_t(
     x,
@@ -116,13 +145,13 @@ create_pred_meta_t <- function(pred_spec, starting_id = 1L) {
       lapply(pluck_wildcard(pred_spec, NA, "orig_format"), function(x) x %||% NA_character_)
     ),
     sources = lapply(
-      pred_spec,
-      # path is pred_spec > pred_name > sources > listelement > url/md5sum
-      function(pred) {
-        data.table::data.table(
-          url = unlist(pluck_wildcard(pred, "sources", NA, "url") %||% character()),
-          md5sum = unlist(pluck_wildcard(pred, "sources", NA, "md5sum") %||% character())
-        )
+      pluck_wildcard(pred_spec, NA, "sources"),
+      function(src) {
+        src_dt <- data.table::rbindlist(src, use.names = TRUE)
+        if (length(src_dt) == 0L) {
+          src_dt <- data.table::data.table(url = character(), md5sum = character())
+        }
+        src_dt[, .(url, md5sum)]
       }
     ),
     unit = unlist(
@@ -134,11 +163,11 @@ create_pred_meta_t <- function(pred_spec, starting_id = 1L) {
       }) |>
         unlist() |>
         factor(
-          levels = c("int", "float", "bool", "factor")
+          levels = c("int", "float", "bool", "factor", "ordered")
         )
     },
     fill_value = unlist(
-      lapply(pluck_wildcard(pred_spec, NA, "fill_value"), function(x) x %||% NA)
+      lapply(pluck_wildcard(pred_spec, NA, "fill_value"), function(x) x %||% NA_character_)
     ),
     factor_levels = lapply(
       pluck_wildcard(pred_spec, NA, "factor_levels"),
@@ -179,13 +208,17 @@ validate.pred_meta_t <- function(x, ...) {
     is.character(x[["unit"]]),
     is.factor(x[["data_type"]]),
     "data_type must be set" = !any(is.na(x[["data_type"]])),
-    "data_type can only be one of 'integer', 'double','factor', or 'boolean'" = setequal(
+    "data_type can only be one of 'int', 'float', 'bool', 'factor', 'ordered'" = setequal(
       levels(x[["data_type"]]),
-      c("int", "float", "bool", "factor")
+      c("int", "float", "bool", "factor", "ordered")
     ),
     is.list(x[["factor_levels"]]),
     "name cannot be empty" = !any(x[["name"]] == ""),
-    "single URL with multiple checksums present" = !anyDuplicated(sources_dt[["url"]])
+    "single URL with multiple checksums present" = !anyDuplicated(sources_dt[["url"]]),
+    "sources must hold exactly a url and an md5sum field" = setequal(
+      names(sources_dt),
+      c("url", "md5sum")
+    )
   )
 
   return(x)
