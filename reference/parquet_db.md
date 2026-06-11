@@ -27,7 +27,7 @@ inherited by domain-specific database classes.
 
 ### Public methods
 
-- [`parquet_db$new()`](#method-parquet_db-new)
+- [`parquet_db$new()`](#method-parquet_db-initialize)
 
 - [`parquet_db$execute()`](#method-parquet_db-execute)
 
@@ -57,7 +57,7 @@ inherited by domain-specific database classes.
 
 ------------------------------------------------------------------------
 
-### Method `new()`
+### `parquet_db$new()`
 
 Initialize a new parquet_db object
 
@@ -85,7 +85,7 @@ A new `parquet_db` object
 
 ------------------------------------------------------------------------
 
-### Method `execute()`
+### `parquet_db$execute()`
 
 Execute a SQL statement
 
@@ -105,7 +105,7 @@ Number of rows affected by statement
 
 ------------------------------------------------------------------------
 
-### Method `get_query()`
+### `parquet_db$get_query()`
 
 Execute a SQL query and return results
 
@@ -125,7 +125,7 @@ A data.table with query results
 
 ------------------------------------------------------------------------
 
-### Method `row_count()`
+### `parquet_db$row_count()`
 
 Get row count for a table (without applying id_run subsetting); returns
 0 if table does not exist
@@ -146,7 +146,7 @@ Integer number of rows
 
 ------------------------------------------------------------------------
 
-### Method `column_max()`
+### `parquet_db$column_max()`
 
 Get maximum for a column in a table (without applying id_run
 subsetting); returns 0 if table does not exist
@@ -171,7 +171,7 @@ Maximum value of the column
 
 ------------------------------------------------------------------------
 
-### Method `list_tables()`
+### `parquet_db$list_tables()`
 
 List all tables (files and folders) in storage
 
@@ -185,7 +185,7 @@ Character vector of table names
 
 ------------------------------------------------------------------------
 
-### Method `fetch()`
+### `parquet_db$fetch()`
 
 Fetch data from a table
 
@@ -221,7 +221,7 @@ A data.table
 
 ------------------------------------------------------------------------
 
-### Method `get_table_metadata()`
+### `parquet_db$get_table_metadata()`
 
 Get table metadata
 
@@ -241,7 +241,7 @@ Named list
 
 ------------------------------------------------------------------------
 
-### Method `delete_from()`
+### `parquet_db$delete_from()`
 
 Delete rows from a table
 
@@ -265,7 +265,7 @@ Number of rows deleted
 
 ------------------------------------------------------------------------
 
-### Method `commit()`
+### `parquet_db$commit()`
 
 Commit data using overwrite, append, or upsert modes. Handles
 partitioning, key identity columns, and list-to-MAP conversion. These
@@ -301,7 +301,7 @@ Number of rows written
 
 ------------------------------------------------------------------------
 
-### Method [`print()`](https://rdrr.io/r/base/print.html)
+### `parquet_db$print()`
 
 Print method for parquet_db
 
@@ -325,7 +325,7 @@ self (invisibly)
 
 ------------------------------------------------------------------------
 
-### Method `get_table_path()`
+### `parquet_db$get_table_path()`
 
 Get file path (or directory path) for a table
 
@@ -345,7 +345,7 @@ Character path
 
 ------------------------------------------------------------------------
 
-### Method `get_read_expr()`
+### `parquet_db$get_read_expr()`
 
 Get SQL expression to read a table
 
@@ -365,7 +365,7 @@ Character string SQL expression
 
 ------------------------------------------------------------------------
 
-### Method `clone()`
+### `parquet_db$clone()`
 
 The objects of this class are cloneable with this method.
 

@@ -19,6 +19,18 @@ trans_pred_data_v(self, id_trans, id_pred, ordered = FALSE)
 pred_data_wide_v(self, id_trans, id_period_anterior)
 
 set_pred_coltypes(result, pred_meta_t)
+
+add_predictor(
+  self,
+  pred_data_raw,
+  name,
+  fill_value,
+  pretty_name = name,
+  description = NA_character_,
+  orig_format = NA_character_,
+  sources = list(),
+  unit = NA_character_
+)
 ```
 
 ## Arguments
@@ -72,6 +84,58 @@ set_pred_coltypes(result, pred_meta_t)
   see
   [pred_meta_t](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
 
+- pred_data_raw:
+
+  data.table with columns id_coord, id_period, and value (predictor
+  value); the data type of the value is stored in
+  [pred_meta_t](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
+
+- name:
+
+  Character scalar, unique name of predictor. If already present in
+  `pred_meta_t`, this will simply update the information.
+
+- fill_value:
+
+  Value to use for coordinates registered in
+  [coords_t](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
+  but not in the provided `pred_data_raw`. e.g. where no known
+  population is registered, assume pop. 0. For a factor variable, this
+  could be a base case, e.g. for different nature reserve types, this
+  could be the "not in a reserve" type.
+
+- pretty_name:
+
+  opt. Character scalar, friendly name for plots/output
+
+- description:
+
+  opt. Character scalar. Long description / operationalisation
+
+- orig_format:
+
+  opt. Character scalar. Original format description
+
+- sources:
+
+  opt. list of lists: each list containing one `url` and a `md5sum`
+  field, see
+  [`create_pred_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
+  and
+  [`download_and_verify()`](https://ethzplus.github.io/evoland-plus/reference/util_download.md)
+
+- unit:
+
+  opt. Character scalar. SI unit for physical properties, or more
+  complex descriptors like "bed nights/year" as a proxy for touristic
+  activity
+
+- self:
+
+  an
+  [evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
+  instance
+
 ## Value
 
 A data.table of class "pred_data_t" with columns:
@@ -112,3 +176,7 @@ one column per predictor (`id_pred_{n}`)
 - `set_pred_coltypes()`: In-place casting of predictor columns to their
   correct data types based on pred_meta_t; also fills NA values with
   fill_value from pred_meta_t if specified
+
+- `add_predictor()`: Add a predictor to the database, given a data.table
+  with columns `id_coord`, `id_period`, and `value` (predictor value).
+  Uses the current `id_run`.

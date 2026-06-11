@@ -1,11 +1,5 @@
 # Guided Regularized Random Forest Learner
 
-Guided Regularized Random Forest Learner
-
-Guided Regularized Random Forest Learner
-
-## Details
-
 An
 [mlr3::LearnerClassif](https://mlr3.mlr-org.com/reference/LearnerClassif.html)
 that fits a Guided Regularized Random Forest (GRRF) for use in
@@ -58,7 +52,7 @@ Tree-Based Models. *IEEE Access*, Vol. 8, 190231 - 190239.
 
 ### Public methods
 
-- [`LearnerClassifGrrf$new()`](#method-LearnerClassifGrrf-new)
+- [`LearnerClassifGrrf$new()`](#method-LearnerClassifGrrf-initialize)
 
 - [`LearnerClassifGrrf$importance()`](#method-LearnerClassifGrrf-importance)
 
@@ -81,7 +75,7 @@ Inherited methods
 
 ------------------------------------------------------------------------
 
-### Method `new()`
+### `LearnerClassifGrrf$new()`
 
 Initialise the learner with its parameter set.
 
@@ -91,7 +85,7 @@ Initialise the learner with its parameter set.
 
 ------------------------------------------------------------------------
 
-### Method `importance()`
+### `LearnerClassifGrrf$importance()`
 
 Return impurity importance scores from the fitted GRRF.
 
@@ -107,7 +101,7 @@ receive a score of 0).
 
 ------------------------------------------------------------------------
 
-### Method `clone()`
+### `LearnerClassifGrrf$clone()`
 
 The objects of this class are cloneable with this method.
 

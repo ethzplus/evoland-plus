@@ -52,7 +52,7 @@ A data.table of class "pred_meta_t" with columns:
   `md5sum`
 
 - `unit`: SI units for physical properties, or more complex descriptors
-  like "number of annual visitors"
+  like "bed nights/year" as a proxy for touristic activity
 
 - `data_type`: Factor with levels "int", "float", "bool", "factor". Used
   for coercion.
@@ -114,5 +114,5 @@ create_pred_meta_t(list(
 #>      <int>           <char>                   <char>
 #> 1:       2 distance_to_lake Distance to closest lake
 #> 2:       1            noise   Maximum noise exposure
-#> 7 variables not shown: [description <char>, orig_format <char>, sources <list>, unit <char>, factor_levels <list>, data_type <fctr>, fill_value <lgcl>]
+#> 7 variables not shown: [description <char>, orig_format <char>, sources <list>, unit <char>, factor_levels <list>, data_type <fctr>, fill_value <char>]
 ```

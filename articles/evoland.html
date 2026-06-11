@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>evoland-plus tutorial • evoland</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="evoland_files/libs/quarto-html/popper.min.js"></script><script src="evoland_files/libs/quarto-html/tippy.umd.min.js"></script><link href="evoland_files/libs/quarto-html/tippy.css" rel="stylesheet">
 <link href="evoland_files/libs/quarto-html/light-border.css" rel="stylesheet">
@@ -60,7 +60,7 @@
 <code>evoland-plus</code> tutorial</h1>
 
       <p class="author">Jan Hartman</p>
-      <p class="date">2026-05-12</p>
+      <p class="date">2026-06-11</p>
 
       <small class="dont-index">Source: <a href="https://github.com/ethzplus/evoland-plus/blob/main/vignettes/evoland.qmd" class="external-link"><code>vignettes/evoland.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -185,11 +185,12 @@ DB Methods:
   get_table_metadata, get_table_path, list_tables, row_count
 
 Public Methods:
-  alloc_dinamica, create_alloc_params_t, eval_alloc_params_t, fit_full_models,
-  fit_partial_models, generate_neighbor_predictors, get_crossval_plots,
-  get_obs_trans_rates, get_pred_filter_score, lulc_data_as_rast,
-  pred_data_wide_v, predict_trans_pot, set_full_trans_preds, set_neighbors,
-  set_report, trans_pred_data_v, trans_rates_dinamica_v, upsert_new_neighbors
+  add_predictor, alloc_dinamica, create_alloc_params_t, eval_alloc_params_t,
+  fit_full_models, fit_partial_models, generate_neighbor_predictors,
+  get_crossval_plots, get_obs_trans_rates, get_pred_filter_score,
+  lulc_data_as_rast, pred_data_wide_v, predict_trans_pot, set_full_trans_preds,
+  set_neighbors, set_report, trans_pred_data_v, trans_rates_dinamica_v,
+  upsert_new_neighbors
 
 Active Bindings:
   coords_minimal, extent, id_run, lulc_meta_long_v, pred_sources_v, run_lineage,
@@ -435,7 +436,7 @@ Key: &lt;name&gt;
 10:       3               is_protected
 11:       2                 population
 12:       4                  soil_type
-8 variables not shown: [pretty_name &lt;char&gt;, description &lt;char&gt;, orig_format &lt;char&gt;, sources &lt;list&gt;, unit &lt;char&gt;, factor_levels &lt;list&gt;, data_type &lt;fctr&gt;, fill_value &lt;lgcl&gt;]</code></pre>
+8 variables not shown: [pretty_name &lt;char&gt;, description &lt;char&gt;, orig_format &lt;char&gt;, sources &lt;list&gt;, unit &lt;char&gt;, factor_levels &lt;list&gt;, data_type &lt;fctr&gt;, fill_value &lt;char&gt;]</code></pre>
 </div>
 </div>
 </section></section><section class="section level2" data-number="3"><h2 data-number="3" id="calibration">

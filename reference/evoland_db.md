@@ -19,7 +19,7 @@ separate files:
 
 ## Super class
 
-[`evoland::parquet_db`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
+[`parquet_db`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
 -\> `evoland_db`
 
 ## Active bindings
@@ -120,7 +120,7 @@ separate files:
 
 - [`evoland_db$trans_rates_dinamica_v()`](#method-evoland_db-trans_rates_dinamica_v)
 
-- [`evoland_db$new()`](#method-evoland_db-new)
+- [`evoland_db$new()`](#method-evoland_db-initialize)
 
 - [`evoland_db$get_read_expr()`](#method-evoland_db-get_read_expr)
 
@@ -133,6 +133,8 @@ separate files:
 - [`evoland_db$generate_neighbor_predictors()`](#method-evoland_db-generate_neighbor_predictors)
 
 - [`evoland_db$upsert_new_neighbors()`](#method-evoland_db-upsert_new_neighbors)
+
+- [`evoland_db$add_predictor()`](#method-evoland_db-add_predictor)
 
 - [`evoland_db$trans_pred_data_v()`](#method-evoland_db-trans_pred_data_v)
 
@@ -164,20 +166,20 @@ separate files:
 
 Inherited methods
 
-- [`evoland::parquet_db$column_max()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-column_max)
-- [`evoland::parquet_db$commit()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-commit)
-- [`evoland::parquet_db$delete_from()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-delete_from)
-- [`evoland::parquet_db$execute()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-execute)
-- [`evoland::parquet_db$fetch()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-fetch)
-- [`evoland::parquet_db$get_query()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_query)
-- [`evoland::parquet_db$get_table_metadata()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_table_metadata)
-- [`evoland::parquet_db$get_table_path()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_table_path)
-- [`evoland::parquet_db$list_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-list_tables)
-- [`evoland::parquet_db$row_count()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-row_count)
+- [`parquet_db$column_max()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-column_max)
+- [`parquet_db$commit()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-commit)
+- [`parquet_db$delete_from()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-delete_from)
+- [`parquet_db$execute()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-execute)
+- [`parquet_db$fetch()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-fetch)
+- [`parquet_db$get_query()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_query)
+- [`parquet_db$get_table_metadata()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_table_metadata)
+- [`parquet_db$get_table_path()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_table_path)
+- [`parquet_db$list_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-list_tables)
+- [`parquet_db$row_count()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-row_count)
 
 ------------------------------------------------------------------------
 
-### Method [`trans_rates_dinamica_v()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+### `evoland_db$trans_rates_dinamica_v()`
 
 #### Usage
 
@@ -185,7 +187,7 @@ Inherited methods
 
 ------------------------------------------------------------------------
 
-### Method `new()`
+### `evoland_db$new()`
 
 Initialize a new evoland_db object
 
@@ -218,7 +220,7 @@ A new `evoland_db` object
 
 ------------------------------------------------------------------------
 
-### Method `get_read_expr()`
+### `evoland_db$get_read_expr()`
 
 Get SQL expression to read a table, respecting active run hierarchy. For
 each data slice, returns data from the closest ancestor run that has it.
@@ -239,7 +241,7 @@ Character string SQL expression (a composable subquery)
 
 ------------------------------------------------------------------------
 
-### Method [`print()`](https://rdrr.io/r/base/print.html)
+### `evoland_db$print()`
 
 Print method for evoland_db
 
@@ -255,7 +257,7 @@ Print method for evoland_db
 
 ------------------------------------------------------------------------
 
-### Method `set_report()`
+### `evoland_db$set_report()`
 
 Set reporting metadata, see
 [`db_set_report()`](https://ethzplus.github.io/evoland-plus/reference/reporting_t.md)
@@ -273,7 +275,7 @@ Set reporting metadata, see
 
 ------------------------------------------------------------------------
 
-### Method [`set_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+### `evoland_db$set_neighbors()`
 
 Set the neighbors table, see
 [`set_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
@@ -312,7 +314,7 @@ Set the neighbors table, see
 
 ------------------------------------------------------------------------
 
-### Method [`generate_neighbor_predictors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+### `evoland_db$generate_neighbor_predictors()`
 
 Generate neighbor prediction table, i.e. "how many neighbors within
 distance X are of type Y", see
@@ -324,7 +326,7 @@ distance X are of type Y", see
 
 ------------------------------------------------------------------------
 
-### Method [`upsert_new_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
+### `evoland_db$upsert_new_neighbors()`
 
 Append new neighbors to predictor for a given period; depends on
 generate_neighbor_predictors() having been run.
@@ -341,7 +343,66 @@ generate_neighbor_predictors() having been run.
 
 ------------------------------------------------------------------------
 
-### Method [`trans_pred_data_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
+### `evoland_db$add_predictor()`
+
+Add a predictor using the currently active id_run, see
+[`add_predictor()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
+
+#### Usage
+
+    evoland_db$add_predictor(
+      pred_data_raw,
+      name,
+      fill_value,
+      pretty_name = name,
+      description = NA_character_,
+      orig_format = NA_character_,
+      sources = data.frame(url = character(0), md5sum = character(0)),
+      unit = NA_character_
+    )
+
+#### Arguments
+
+- `pred_data_raw`:
+
+  Data frame with columns `id_coord`, `id_period`, and `value`
+
+- `name`:
+
+  Unique short name
+
+- `fill_value`:
+
+  Value to substitute if a coordinate point in
+  [coords_t](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
+  does not have an explicit associated value
+
+- `pretty_name`:
+
+  char, Friendly name for use in reporting
+
+- `description`:
+
+  char, For use in reporting.
+
+- `orig_format`:
+
+  char, Format description of the underlying data (raster, vector…)
+
+- `sources`:
+
+  data.frame with url/md5sum columns, used for keeping track of
+  underlying raw data, see
+  [`download_and_verify()`](https://ethzplus.github.io/evoland-plus/reference/util_download.md)
+
+- `unit`:
+
+  char, SI unit for physical predictors, or descriptions like "bed
+  nights/year" as a proxy for touristic activity
+
+------------------------------------------------------------------------
+
+### `evoland_db$trans_pred_data_v()`
 
 Get transitions along with their predictor data in a wide data.table,
 see
@@ -368,7 +429,7 @@ see
 
 ------------------------------------------------------------------------
 
-### Method [`pred_data_wide_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
+### `evoland_db$pred_data_wide_v()`
 
 Retrieve a wide view of the predictor data, see
 [`pred_data_wide_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
@@ -390,7 +451,7 @@ Retrieve a wide view of the predictor data, see
 
 ------------------------------------------------------------------------
 
-### Method [`alloc_dinamica()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+### `evoland_db$alloc_dinamica()`
 
 Runs a path-dependent Monte Carlo simulation using Dinamica EGO, see
 [`alloc_dinamica()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
@@ -431,7 +492,7 @@ Runs a path-dependent Monte Carlo simulation using Dinamica EGO, see
 
 ------------------------------------------------------------------------
 
-### Method [`eval_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+### `evoland_db$eval_alloc_params_t()`
 
 Evaluates allocation parameters in dinamica, see
 [`eval_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
@@ -467,7 +528,7 @@ Evaluates allocation parameters in dinamica, see
 
 ------------------------------------------------------------------------
 
-### Method [`create_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_params_t.md)
+### `evoland_db$create_alloc_params_t()`
 
 Computes allocation parameters for all viable transitions, see
 [`create_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_params_t.md)
@@ -490,7 +551,7 @@ Computes allocation parameters for all viable transitions, see
 
 ------------------------------------------------------------------------
 
-### Method [`lulc_data_as_rast()`](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
+### `evoland_db$lulc_data_as_rast()`
 
 Retrieve LULC data as a SpatRaster object for a given period. See
 [`lulc_data_as_rast()`](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
@@ -508,7 +569,7 @@ Retrieve LULC data as a SpatRaster object for a given period. See
 
 ------------------------------------------------------------------------
 
-### Method [`fit_full_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+### `evoland_db$fit_full_models()`
 
 Fit full models (trained on the complete dataset) for each viable
 transition, see
@@ -547,7 +608,7 @@ Two mutually exclusive modes: pass `learner` to train directly, or pass
 
 ------------------------------------------------------------------------
 
-### Method [`fit_partial_models()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+### `evoland_db$fit_partial_models()`
 
 Fit partial models for each viable transition using stratified sampling.
 Models are trained on a subsample and evaluated on held-out data, see
@@ -590,7 +651,7 @@ for details.
 
 ------------------------------------------------------------------------
 
-### Method [`get_crossval_plots()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
+### `evoland_db$get_crossval_plots()`
 
 Get cross-validation plots for stored predictions, see
 [`get_crossval_plots()`](https://ethzplus.github.io/evoland-plus/reference/trans_models_t.md)
@@ -611,7 +672,7 @@ Get cross-validation plots for stored predictions, see
 
 ------------------------------------------------------------------------
 
-### Method [`set_full_trans_preds()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
+### `evoland_db$set_full_trans_preds()`
 
 Set an initial full set of transition / predictor relations, see
 [`set_full_trans_preds()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
@@ -629,7 +690,7 @@ Set an initial full set of transition / predictor relations, see
 
 ------------------------------------------------------------------------
 
-### Method [`get_pred_filter_score()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
+### `evoland_db$get_pred_filter_score()`
 
 Add filter scores to predictors for each `id_run, id_trans`. See
 [`get_pred_filter_score()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md).
@@ -658,7 +719,7 @@ Add filter scores to predictors for each `id_run, id_trans`. See
 
 ------------------------------------------------------------------------
 
-### Method [`predict_trans_pot()`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md)
+### `evoland_db$predict_trans_pot()`
 
 Predict the transition potential for a given period, see
 [`trans_pot_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md)
@@ -684,7 +745,7 @@ Predict the transition potential for a given period, see
 
 ------------------------------------------------------------------------
 
-### Method [`get_obs_trans_rates()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
+### `evoland_db$get_obs_trans_rates()`
 
 Get the transition rates that were observed, see
 [trans_rates_t](https://ethzplus.github.io/evoland-plus/reference/trans_rates_t.md)
@@ -695,7 +756,7 @@ Get the transition rates that were observed, see
 
 ------------------------------------------------------------------------
 
-### Method `clone()`
+### `evoland_db$clone()`
 
 The objects of this class are cloneable with this method.
 

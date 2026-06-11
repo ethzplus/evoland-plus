@@ -130,11 +130,12 @@ db
       get_table_metadata, get_table_path, list_tables, row_count
 
     Public Methods:
-      alloc_dinamica, create_alloc_params_t, eval_alloc_params_t, fit_full_models,
-      fit_partial_models, generate_neighbor_predictors, get_crossval_plots,
-      get_obs_trans_rates, get_pred_filter_score, lulc_data_as_rast,
-      pred_data_wide_v, predict_trans_pot, set_full_trans_preds, set_neighbors,
-      set_report, trans_pred_data_v, trans_rates_dinamica_v, upsert_new_neighbors
+      add_predictor, alloc_dinamica, create_alloc_params_t, eval_alloc_params_t,
+      fit_full_models, fit_partial_models, generate_neighbor_predictors,
+      get_crossval_plots, get_obs_trans_rates, get_pred_filter_score,
+      lulc_data_as_rast, pred_data_wide_v, predict_trans_pot, set_full_trans_preds,
+      set_neighbors, set_report, trans_pred_data_v, trans_rates_dinamica_v,
+      upsert_new_neighbors
 
     Active Bindings:
       coords_minimal, extent, id_run, lulc_meta_long_v, pred_sources_v, run_lineage,
@@ -433,7 +434,7 @@ db$pred_meta_t
     10:       3               is_protected
     11:       2                 population
     12:       4                  soil_type
-    8 variables not shown: [pretty_name <char>, description <char>, orig_format <char>, sources <list>, unit <char>, factor_levels <list>, data_type <fctr>, fill_value <lgcl>]
+    8 variables not shown: [pretty_name <char>, description <char>, orig_format <char>, sources <list>, unit <char>, factor_levels <list>, data_type <fctr>, fill_value <char>]
 
 ## 3 Calibration
 
