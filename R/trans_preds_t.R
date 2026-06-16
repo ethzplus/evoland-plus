@@ -159,7 +159,7 @@ pred_filter_worker <- function(item, db, filter, ordered_pred_data = FALSE) {
       return(scores_dt)
     },
     error = function(e) {
-      warning(glue::glue("Error processing id_trans?={id_trans}: {e$message}"))
+      warning(glue::glue("Error processing id_trans={id_trans}: {e$message}"))
       item[[filter_id]] <- NA_real_
       return(item)
     }
@@ -206,6 +206,6 @@ get_pred_filter_score <- function(
     filter = filter,
     ordered_pred_data = ordered_pred_data
   ) |>
-    data.table::rbindlist() |>
+    data.table::rbindlist(use.names = TRUE) |>
     as_trans_preds_t()
 }
