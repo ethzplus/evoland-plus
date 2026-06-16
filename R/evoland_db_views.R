@@ -116,6 +116,7 @@ evoland_db$set("active", "coords_minimal", function() {
 evoland_db$set(
   "public",
   "trans_rates_dinamica_v",
+  overwrite = TRUE,
   function(id_period) {
     stopifnot(
       "id_period must be a single integer" = {
@@ -164,6 +165,7 @@ evoland_db$set(
 evoland_db$set(
   "public",
   "adjusted_trans_pot_v",
+  overwrite = TRUE,
   function(id_period_post) {
     stopifnot(
       "id_period_post must be a single integer" = {
@@ -232,6 +234,7 @@ evoland_db$set(
 evoland_db$set(
   "public",
   "alloc_params_clumpy_v",
+  overwrite = TRUE,
   function() {
     params_read_expr <- self$get_read_expr("alloc_params_t")
 
