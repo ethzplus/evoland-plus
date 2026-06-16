@@ -244,7 +244,6 @@ set_pred_coltypes <- function(result, pred_meta_t) {
 #' @describeIn pred_data_t Add a predictor to the database, given a data.table with
 #' columns `id_coord`, `id_period`, and `value` (predictor value). Uses the current
 #' `id_run`.
-#' @param self an [evoland_db] instance
 #' @param pred_data_raw data.table with columns id_coord, id_period, and value
 #' (predictor value); the data type of the value is stored in [pred_meta_t]
 #' @param name Character scalar, unique name of predictor. If already present in
