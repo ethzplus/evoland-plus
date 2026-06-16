@@ -10,336 +10,353 @@ for efficient on-disk persistence. This class can be inherited by
 domain-specific database classes.
 }
 \section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{connection}}{DBI connection object to an in-memory DuckDB database}
+  \if{html}{\out{<div class="r6-fields">}}
+  \describe{
+    \item{\code{connection}}{DBI connection object to an in-memory DuckDB database}
 
-\item{\code{path}}{Character string path to the data folder}
+    \item{\code{path}}{Character string path to the data folder}
 
-\item{\code{writeopts}}{Write options for DuckDB parquet output}
+    \item{\code{writeopts}}{Write options for DuckDB parquet output}
 
-\item{\code{read_only}}{If true, prevents writes that are not parallel-safe}
-}
-\if{html}{\out{</div>}}
+    \item{\code{read_only}}{If true, prevents writes that are not parallel-safe}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-parquet_db-new}{\code{parquet_db$new()}}
-\item \href{#method-parquet_db-execute}{\code{parquet_db$execute()}}
-\item \href{#method-parquet_db-get_query}{\code{parquet_db$get_query()}}
-\item \href{#method-parquet_db-row_count}{\code{parquet_db$row_count()}}
-\item \href{#method-parquet_db-column_max}{\code{parquet_db$column_max()}}
-\item \href{#method-parquet_db-list_tables}{\code{parquet_db$list_tables()}}
-\item \href{#method-parquet_db-fetch}{\code{parquet_db$fetch()}}
-\item \href{#method-parquet_db-get_table_metadata}{\code{parquet_db$get_table_metadata()}}
-\item \href{#method-parquet_db-delete_from}{\code{parquet_db$delete_from()}}
-\item \href{#method-parquet_db-commit}{\code{parquet_db$commit()}}
-\item \href{#method-parquet_db-print}{\code{parquet_db$print()}}
-\item \href{#method-parquet_db-get_table_path}{\code{parquet_db$get_table_path()}}
-\item \href{#method-parquet_db-get_read_expr}{\code{parquet_db$get_read_expr()}}
-\item \href{#method-parquet_db-clone}{\code{parquet_db$clone()}}
-}
+  \itemize{
+    \item \href{#method-parquet_db-initialize}{\code{parquet_db$new()}}
+    \item \href{#method-parquet_db-execute}{\code{parquet_db$execute()}}
+    \item \href{#method-parquet_db-get_query}{\code{parquet_db$get_query()}}
+    \item \href{#method-parquet_db-row_count}{\code{parquet_db$row_count()}}
+    \item \href{#method-parquet_db-column_max}{\code{parquet_db$column_max()}}
+    \item \href{#method-parquet_db-list_tables}{\code{parquet_db$list_tables()}}
+    \item \href{#method-parquet_db-fetch}{\code{parquet_db$fetch()}}
+    \item \href{#method-parquet_db-get_table_metadata}{\code{parquet_db$get_table_metadata()}}
+    \item \href{#method-parquet_db-delete_from}{\code{parquet_db$delete_from()}}
+    \item \href{#method-parquet_db-commit}{\code{parquet_db$commit()}}
+    \item \href{#method-parquet_db-print}{\code{parquet_db$print()}}
+    \item \href{#method-parquet_db-get_table_path}{\code{parquet_db$get_table_path()}}
+    \item \href{#method-parquet_db-get_read_expr}{\code{parquet_db$get_read_expr()}}
+    \item \href{#method-parquet_db-clone}{\code{parquet_db$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-parquet_db-new"></a>}}
-\if{latex}{\out{\hypertarget{method-parquet_db-new}{}}}
-\subsection{Method \code{new()}}{
-Initialize a new parquet_db object
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$new(path, read_only = FALSE, extensions = character(0))}\if{html}{\out{</div>}}
+\if{html}{\out{<a id="method-parquet_db-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_db-initialize}{}}}
+\subsection{\code{parquet_db$new()}}{
+  Initialize a new parquet_db object
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$new(path, read_only = FALSE, extensions = character(0))}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{path}}{Character string. Path to the data folder.}
+      \item{\code{read_only}}{Logical. If true, prevents writes that are not parallel-safe.}
+      \item{\code{extensions}}{Character vector of DuckDB extensions to load (e.g., "spatial")}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new \code{parquet_db} object
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{path}}{Character string. Path to the data folder.}
-
-\item{\code{read_only}}{Logical. If true, prevents writes that are not parallel-safe.}
-
-\item{\code{extensions}}{Character vector of DuckDB extensions to load (e.g., "spatial")}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A new \code{parquet_db} object
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-execute"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-execute}{}}}
-\subsection{Method \code{execute()}}{
-Execute a SQL statement
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$execute(statement)}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$execute()}}{
+  Execute a SQL statement
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$execute(statement)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{statement}}{A SQL statement}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Number of rows affected by statement
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{statement}}{A SQL statement}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Number of rows affected by statement
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-get_query"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-get_query}{}}}
-\subsection{Method \code{get_query()}}{
-Execute a SQL query and return results
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$get_query(statement)}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$get_query()}}{
+  Execute a SQL query and return results
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$get_query(statement)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{statement}}{A SQL query statement}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A data.table with query results
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{statement}}{A SQL query statement}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A data.table with query results
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-row_count"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-row_count}{}}}
-\subsection{Method \code{row_count()}}{
-Get row count for a table (without applying id_run subsetting); returns 0
+\subsection{\code{parquet_db$row_count()}}{
+  Get row count for a table (without applying id_run subsetting); returns 0
 if table does not exist
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$row_count(table_name)}\if{html}{\out{</div>}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$row_count(table_name)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string. Name of the table to query.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Integer number of rows
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{table_name}}{Character string. Name of the table to query.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Integer number of rows
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-column_max"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-column_max}{}}}
-\subsection{Method \code{column_max()}}{
-Get maximum for a column in a table (without applying id_run subsetting);
+\subsection{\code{parquet_db$column_max()}}{
+  Get maximum for a column in a table (without applying id_run subsetting);
 returns 0 if table does not exist
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$column_max(table_name, column_name)}\if{html}{\out{</div>}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$column_max(table_name, column_name)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string. Name of the table to query.}
+      \item{\code{column_name}}{Character string. Name of the column to get the maximum value for.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Maximum value of the column
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{table_name}}{Character string. Name of the table to query.}
-
-\item{\code{column_name}}{Character string. Name of the column to get the maximum value for.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Maximum value of the column
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-list_tables"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-list_tables}{}}}
-\subsection{Method \code{list_tables()}}{
-List all tables (files and folders) in storage
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$list_tables()}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$list_tables()}}{
+  List all tables (files and folders) in storage
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$list_tables()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Character vector of table names
+  }
 }
 
-\subsection{Returns}{
-Character vector of table names
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-fetch"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-fetch}{}}}
-\subsection{Method \code{fetch()}}{
-Fetch data from a table
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$fetch(table_name, cols = NULL, where = NULL, limit = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$fetch()}}{
+  Fetch data from a table
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$fetch(table_name, cols = NULL, where = NULL, limit = NULL)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string. Name of the table to query.}
+      \item{\code{cols}}{SQL column selection string (e.g., "col1, col2" or "*")}
+      \item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
+      \item{\code{limit}}{Integer. Optional limit on number of rows to return.}
+      \item{\code{map_cols}}{Vector of columns to be converted from key/value structs to R lists}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A data.table
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{table_name}}{Character string. Name of the table to query.}
-
-\item{\code{cols}}{SQL column selection string (e.g., "col1, col2" or "*")}
-
-\item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
-
-\item{\code{limit}}{Integer. Optional limit on number of rows to return.}
-
-\item{\code{map_cols}}{Vector of columns to be converted from key/value structs to R lists}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A data.table
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-get_table_metadata"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-get_table_metadata}{}}}
-\subsection{Method \code{get_table_metadata()}}{
-Get table metadata
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$get_table_metadata(table_name)}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$get_table_metadata()}}{
+  Get table metadata
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$get_table_metadata(table_name)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string. Name of the table to query.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Named list
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{table_name}}{Character string. Name of the table to query.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Named list
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-delete_from"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-delete_from}{}}}
-\subsection{Method \code{delete_from()}}{
-Delete rows from a table
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$delete_from(table_name, where = NULL)}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$delete_from()}}{
+  Delete rows from a table
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$delete_from(table_name, where = NULL)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string. Name of the table to delete from.}
+      \item{\code{where}}{Character string. Optional WHERE clause; if NULL, deletes all rows.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Number of rows deleted
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{table_name}}{Character string. Name of the table to delete from.}
-
-\item{\code{where}}{Character string. Optional WHERE clause; if NULL, deletes all rows.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Number of rows deleted
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-commit"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-commit}{}}}
-\subsection{Method \code{commit()}}{
-Commit data using overwrite, append, or upsert modes. Handles partitioning,
+\subsection{\code{parquet_db$commit()}}{
+  Commit data using overwrite, append, or upsert modes. Handles partitioning,
 key identity columns, and list-to-MAP conversion. These four
 special column types may be passed as attributes to the \code{x} argument. If the
 table has previously been written to, these settings are recovered from the
 parquet metadata.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$commit(x, table_name, method = c("overwrite", "append", "upsert"))}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{x}}{If data.table, the data to commit. If character, treated as an
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$commit(x, table_name, method = c("overwrite", "append", "upsert"))}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{x}}{If data.table, the data to commit. If character, treated as an
 in-DuckDB-memory table or view name.}
-
-\item{\code{table_name}}{Target table name to commit to.}
-
-\item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
+      \item{\code{table_name}}{Target table name to commit to.}
+      \item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
 update for existing rows, and insert for new rows; this necessitates loading the
 full data into memory to know what to update. This may be expensive.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Number of rows written
+  }
 }
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Number of rows written
-}
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-print"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-print}{}}}
-\subsection{Method \code{print()}}{
-Print method for parquet_db
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$print(subheaders = character(0), ...)}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$print()}}{
+  Print method for parquet_db
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$print(subheaders = character(0), ...)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{subheaders}}{optional character vector; insert as subheaders lines}
+      \item{\code{...}}{Not used}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    self (invisibly)
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{subheaders}}{optional character vector; insert as subheaders lines}
-
-\item{\code{...}}{Not used}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-self (invisibly)
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-get_table_path"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-get_table_path}{}}}
-\subsection{Method \code{get_table_path()}}{
-Get file path (or directory path) for a table
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$get_table_path(table_name)}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$get_table_path()}}{
+  Get file path (or directory path) for a table
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$get_table_path(table_name)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string table name}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Character path
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{table_name}}{Character string table name}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Character path
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-get_read_expr"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-get_read_expr}{}}}
-\subsection{Method \code{get_read_expr()}}{
-Get SQL expression to read a table
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$get_read_expr(table_name)}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$get_read_expr()}}{
+  Get SQL expression to read a table
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$get_read_expr(table_name)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string table name}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Character string SQL expression
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{table_name}}{Character string table name}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Character string SQL expression
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-parquet_db-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{parquet_db$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{parquet_db$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

@@ -12,7 +12,8 @@ download_and_verify(
 )
 }
 \arguments{
-\item{df_in}{Data frame with 'url' and 'md5sum' columns}
+\item{df_in}{Data frame with 'url' and 'md5sum' columns. This can be
+retrieved from \link{pred_meta_t} or \link{intrv_meta_t}.}
 
 \item{target_dir}{Target directory for downloads, defaults to option
 \code{evoland.cachedir}}

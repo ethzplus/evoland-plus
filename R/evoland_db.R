@@ -104,6 +104,31 @@ evoland_db <- R6::R6Class(
       create_method_binding(upsert_new_neighbors)
     },
 
+    #' @description Add a predictor using the currently active id_run, see [add_predictor()]
+    #' @param pred_data_raw Data frame with columns `id_coord`, `id_period`, and `value`
+    #' @param name Unique short name
+    #' @param fill_value Value to substitute if a coordinate point in [coords_t] does
+    #' not have an explicit associated value
+    #' @param pretty_name char, Friendly name for use in reporting
+    #' @param description char, For use in reporting.
+    #' @param orig_format char, Format description of the underlying data (raster, vector…)
+    #' @param sources data.frame with url/md5sum columns, used for keeping track of
+    #' underlying raw data, see [download_and_verify()]
+    #' @param unit char, SI unit for physical predictors, or descriptions like
+    #' "bed nights/year" as a proxy for touristic activity
+    add_predictor = function(
+      pred_data_raw,
+      name,
+      fill_value,
+      pretty_name = name,
+      description = NA_character_,
+      orig_format = NA_character_,
+      sources = data.frame(url = character(0), md5sum = character(0)),
+      unit = NA_character_
+    ) {
+      create_method_binding(add_predictor)
+    },
+
     #' @description Get transitions along with their predictor data in a wide
     #' data.table, see [trans_pred_data_v()]
     #' @param id_trans Integer transition ID, see [trans_meta_t]

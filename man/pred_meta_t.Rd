@@ -32,7 +32,7 @@ A data.table of class "pred_meta_t" with columns:
 \item \code{orig_format}: Original format description
 \item \code{sources}: Sources, list column of data.frames with cols \code{url} and \code{md5sum}
 \item \code{unit}: SI units for physical properties, or more complex descriptors
-like "number of annual visitors"
+like "bed nights/year" as a proxy for touristic activity
 \item \code{data_type}: Factor with levels "int", "float", "bool", "factor".
 Used for coercion.
 \item \code{fill_value}: Value to use for missing data for \link{coords_t} coordinate points that

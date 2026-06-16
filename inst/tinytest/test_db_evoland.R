@@ -87,3 +87,59 @@ expect_equal(
   unique(db$lulc_data_t$id_lulc),
   unique(as.vector(m["id_period_1"]))
 )
+
+# add predictor via sugar add_predictor()
+somethingelse_data <- data.table::data.table(
+  id_coord = db$coords_minimal[, id_coord],
+  id_period = 1L,
+  value = factor(
+    sample(letters[1:5], size = nrow(db$coords_minimal), replace = TRUE),
+    levels = letters[1:5]
+  )
+)
+
+db$add_predictor(
+  pred_data_raw = somethingelse_data,
+  name = "somethingelse",
+  fill_value = "a",
+  unit = "letters"
+)
+
+expect_equivalent(
+  as.list(db$pred_meta_t[name == "somethingelse"]),
+  list(
+    id_pred = 11L,
+    name = "somethingelse",
+    pretty_name = "somethingelse",
+    description = NA_character_,
+    orig_format = NA_character_,
+    sources = list(data.table::data.table(url = character(), md5sum = character())),
+    unit = "letters",
+    factor_levels = list(letters[1:5]),
+    data_type = factor("factor", levels = c("int", "float", "bool", "factor")),
+    fill_value = "a"
+  )
+)
+
+somethingelse_data_roundtrip <- db$pred_data_t[id_pred == 11L]
+expect_equal(nrow(somethingelse_data_roundtrip), 900L)
+expect_inherits(somethingelse_data_roundtrip$value, "numeric")
+expect_length(unique(somethingelse_data_roundtrip$value), 5L)
+
+# try adding predictor to DB without pred_meta_t
+empty_db <- evoland_db$new(tempfile("empty_evolanddb_"))
+empty_db$add_predictor(
+  pred_data_raw = somethingelse_data,
+  name = "somethingelse",
+  fill_value = "b"
+)
+expect_equivalent(
+  data.table::as.data.table(empty_db$pred_data_t),
+  data.table::as.data.table(somethingelse_data[, .(
+    id_run = 0L,
+    id_period,
+    id_pred = 1L,
+    id_coord,
+    value = as.numeric(value)
+  )])
+)

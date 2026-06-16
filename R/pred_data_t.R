@@ -78,7 +78,8 @@ print.pred_data_t <- function(x, nrow = 10, ...) {
     n_coords <- data.table::uniqueN(x[["id_coord"]])
 
     cat(glue::glue(
-      "Raw Predictor Data Table\n",
+      "Raw Predictor Data Table (values as floats)\n",
+      "Recover original values through [pred_meta_t]\n",
       "Observations: {nrow(x)}\n",
       "Runs: {n_runs}, Periods: {n_periods}, Predictors: {n_preds}, Coordinates: {n_coords}\n\n"
     ))
@@ -213,23 +214,109 @@ set_pred_coltypes <- function(result, pred_meta_t) {
     cast_type <- dtype <- as.character(meta_row$data_type)
 
     # manually reconstructing factors: cast to int, then add attrs
-    cast_type <- ifelse(dtype == "factor", "int", cast_type)
+    cast_type <- ifelse(dtype %in% c("factor", "ordered"), "int", cast_type)
 
     cast_dt_col(result, col, cast_type)
     if (dtype == "factor") {
       lvls <- meta_row$factor_levels[[1L]]
       data.table::setattr(result[[col]], "levels", lvls)
       data.table::setattr(result[[col]], "class", "factor")
+    } else if (dtype == "ordered") {
+      lvls <- meta_row$factor_levels[[1L]]
+      data.table::setattr(result[[col]], "levels", lvls)
+      data.table::setattr(result[[col]], "class", c("ordered", "factor"))
     }
 
+    # if col is factor, fill_value being a character is safe
+    # dt set() can add a new level if it's not already present
     fill_value <- meta_row$fill_value |> type.convert(as.is = TRUE)
     if (!is.na(fill_value)) {
       data.table::set(
         result,
         i = which(is.na(result[[col]])),
         j = col,
-        value = meta_row$fill_value
+        value = fill_value
       )
     }
   }
+}
+
+#' @describeIn pred_data_t Add a predictor to the database, given a data.table with
+#' columns `id_coord`, `id_period`, and `value` (predictor value). Uses the current
+#' `id_run`.
+#' @param self an [evoland_db] instance
+#' @param pred_data_raw data.table with columns id_coord, id_period, and value
+#' (predictor value); the data type of the value is stored in [pred_meta_t]
+#' @param name Character scalar, unique name of predictor. If already present in
+#' `pred_meta_t`, this will simply update the information.
+#' @param fill_value Value to use for coordinates registered in [coords_t] but not in
+#' the provided `pred_data_raw`. e.g. where no known population is registered,
+#' assume pop. 0. For a factor variable, this could be a base case, e.g. for
+#' different nature reserve types, this could be the "not in a reserve" type.
+#' @param pretty_name opt. Character scalar, friendly name for plots/output
+#' @param description opt. Character scalar. Long description / operationalisation
+#' @param orig_format opt. Character scalar. Original format description
+#' @param sources opt. list of lists: each list containing one `url` and a
+#' `md5sum` field, see [create_pred_meta_t()] and [download_and_verify()]
+#' @param unit opt. Character scalar. SI unit for physical properties, or more complex
+#' descriptors like "bed nights/year" as a proxy for touristic activity
+add_predictor <- function(
+  self,
+  pred_data_raw,
+  name,
+  fill_value,
+  pretty_name = name,
+  description = NA_character_,
+  orig_format = NA_character_,
+  sources = list(),
+  unit = NA_character_
+) {
+  id_pred <- self$column_max("pred_meta_t", "id_pred") + 1L
+  if (id_pred > 1L) {
+    # if id_pred == 1, this is the first entry in pred_meta_t
+    # if higher, we check if this predictor is already in DB
+    existing_pred <- self$fetch("pred_meta_t", where = glue::glue("name = '{name}'"))
+    if (nrow(existing_pred) > 0L) {
+      # use pre-existing id_pred if already exists
+      id_pred <- existing_pred[["id_pred"]][1L]
+    }
+  }
+
+  new_meta_row <- data.table::data.table(
+    id_pred = id_pred,
+    name = name,
+    pretty_name = pretty_name,
+    description = description,
+    orig_format = orig_format,
+    sources = list(sources),
+    unit = unit,
+    data_type = switch(
+      class(pred_data_raw[["value"]])[[1]],
+      integer = "int",
+      numeric = "float",
+      logical = "bool",
+      factor = "factor",
+      ordered = "ordered",
+      stop("Unsupported data type for value column")
+    ),
+    fill_value = fill_value,
+    factor_levels = {
+      if (is.factor(pred_data_raw[["value"]])) {
+        list(levels(pred_data_raw[["value"]]))
+      } else {
+        list(character(0))
+      }
+    }
+  )
+
+  # upsert
+  self$pred_meta_t <- as_pred_meta_t(new_meta_row)
+
+  # construct valid pred data
+  pred_data_to_add <- data.table::copy(pred_data_raw)
+  pred_data_to_add[, id_run := self$id_run]
+  pred_data_to_add[, id_pred := id_pred]
+
+  # upsert
+  self$pred_data_t <- as_pred_data_t(pred_data_to_add)
 }
