@@ -207,11 +207,17 @@ evoland_db <- R6::R6Class(
     #'   (`NULL` when `learner` is used).
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
     #' @param cluster Optional cluster object for parallel processing
+    #' @param trans_preds Optional [trans_preds_t]; bypasses the database read in
+    #'   direct-learner mode. Ignored in score-select mode.
+    #' @param trans_meta Optional [trans_meta_t]; bypasses the database read in
+    #'   direct-learner mode. Ignored in score-select mode.
     fit_full_models = function(
       learner = NULL,
       select_score = NULL,
       select_maximize = TRUE,
-      cluster = NULL
+      cluster = NULL,
+      trans_preds = NULL,
+      trans_meta = NULL
     ) {
       create_method_binding(fit_full_models)
     },
@@ -225,12 +231,18 @@ evoland_db <- R6::R6Class(
     #' @param sample_frac Fraction in \(0, 1\) for stratified sampling.
     #' @param seed Random seed for reproducible sampling
     #' @param cluster Optional cluster object for parallel processing
+    #' @param trans_preds Optional [trans_preds_t]; bypasses the `trans_preds_t`
+    #'   database read.
+    #' @param trans_meta Optional [trans_meta_t]; bypasses the `trans_meta_t`
+    #'   database read.
     fit_partial_models = function(
       learner,
       measures,
       sample_frac = 0.7,
       seed = NULL,
-      cluster = NULL
+      cluster = NULL,
+      trans_preds = NULL,
+      trans_meta = NULL
     ) {
       create_method_binding(fit_partial_models)
     },
@@ -255,10 +267,13 @@ evoland_db <- R6::R6Class(
     #' @param filter Character passed to [mlr3filters::flt] or
     #' [mlr3filters::Filter] object specifying the filter method to use for
     #' feature selection.
+    #' @param trans_preds Optional [trans_preds_t]; when supplied, it is used
+    #'   directly instead of reading from the database.
     #' @param cluster Optional cluster object for parallel processing
     #' @param ... Additional arguments passed to `flt`.
     get_pred_filter_score = function(
       filter = "correlation",
+      trans_preds = NULL,
       cluster = NULL,
       ...
     ) {

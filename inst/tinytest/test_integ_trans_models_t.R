@@ -113,6 +113,80 @@ expect_message(
   "Fitting full models for"
 )
 
+# fit_partial_models: supply trans_preds restricted to id_trans == 1
+trans_preds_t1 <- db$trans_preds_t[id_trans == 1L]
+expect_message(
+  partial_t1 <- db$fit_partial_models(
+    learner = test_learner,
+    measures = test_measures,
+    sample_frac = 0.7,
+    seed = 123,
+    trans_preds = trans_preds_t1
+  ),
+  "Fitting partial models for 1 transitions"
+)
+expect_equal(nrow(partial_t1), 1L)
+expect_equal(partial_t1$id_trans, 1L)
+
+# fit_partial_models: supply trans_meta restricted to id_trans == 1
+trans_meta_t1 <- db$trans_meta_t[id_trans == 1L]
+expect_message(
+  partial_meta_t1 <- db$fit_partial_models(
+    learner = test_learner,
+    measures = test_measures,
+    sample_frac = 0.7,
+    seed = 123,
+    trans_meta = trans_meta_t1
+  ),
+  "Fitting partial models for 1 transitions"
+)
+expect_equal(nrow(partial_meta_t1), 1L)
+expect_equal(partial_meta_t1$id_trans, 1L)
+
+# fit_partial_models: wrong type for trans_preds should error
+expect_error(
+  db$fit_partial_models(
+    learner = test_learner,
+    measures = test_measures,
+    trans_preds = data.table::data.table(id_run = 0L, id_pred = 1L, id_trans = 1L)
+  ),
+  "trans_preds must be a trans_preds_t"
+)
+
+# fit_partial_models: wrong type for trans_meta should error
+expect_error(
+  db$fit_partial_models(
+    learner = test_learner,
+    measures = test_measures,
+    trans_meta = data.table::data.table(id_trans = 1L, is_viable = TRUE)
+  ),
+  "trans_meta must be a trans_meta_t"
+)
+
+# fit_full_models (direct mode): supply trans_preds restricted to id_trans == 1
+db$set_full_trans_preds()
+expect_message(
+  full_direct_t1 <- db$fit_full_models(
+    learner = test_learner,
+    trans_preds = db$trans_preds_t[id_trans == 1L]
+  ),
+  "Fitting full models for 1 transitions"
+)
+expect_equal(nrow(full_direct_t1), 1L)
+expect_equal(full_direct_t1$id_trans, 1L)
+expect_true(is.raw(full_direct_t1$learner_full[[1]]))
+
+# fit_full_models (direct mode): supply trans_meta restricted to id_trans == 1
+expect_message(
+  full_direct_meta_t1 <- db$fit_full_models(
+    learner = test_learner,
+    trans_meta = db$trans_meta_t[id_trans == 1L]
+  ),
+  "Fitting full models for 1 transitions"
+)
+expect_equal(nrow(full_direct_meta_t1), 1L)
+expect_equal(full_direct_meta_t1$id_trans, 1L)
+
 # Test error handling - missing learner parameter
 expect_error(
   db$fit_partial_models(

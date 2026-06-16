@@ -176,6 +176,9 @@ pred_filter_worker <- function(item, db, filter, ordered_pred_data = FALSE) {
 #' specifying the filter method, retrieved via [mlr3filters::flt]. Note that your
 #' filter must be compatible with the feature data types; compare your
 #' `pred_meta_t` table to <https://mlr3filters.mlr-org.com> for filter compatibility.
+#' @param trans_preds Optional [trans_preds_t] object. When supplied, it is used
+#' directly instead of reading from the database, which is useful for targeted
+#' exploratory work on a subset of transitions or predictors.
 #' @param cluster An optional cluster object, see [run_parallel_evoland]
 #' @param ordered_pred_data Bool, should the predictor data be ordered? Needed
 #' for fully deterministic behavior
@@ -183,6 +186,7 @@ pred_filter_worker <- function(item, db, filter, ordered_pred_data = FALSE) {
 get_pred_filter_score <- function(
   self,
   filter,
+  trans_preds = NULL,
   cluster = NULL,
   ordered_pred_data = FALSE,
   ...
@@ -191,10 +195,15 @@ get_pred_filter_score <- function(
   if (is.character(filter)) {
     filter <- mlr3filters::flt(filter, ...)
   }
-  if (self$row_count("trans_preds_t") == 0) {
-    self$set_full_trans_preds()
+  if (is.null(trans_preds)) {
+    if (self$row_count("trans_preds_t") == 0) {
+      self$set_full_trans_preds()
+    }
+    trans_preds <- self$trans_preds_t
+  } else {
+    stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
   }
-  items <- split(self$trans_preds_t, by = c("id_run", "id_trans"))
+  items <- split(trans_preds, by = c("id_run", "id_trans"))
 
   message(glue::glue("Processing {length(items)} transitions..."))
 
