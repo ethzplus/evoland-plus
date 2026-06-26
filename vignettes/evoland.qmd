@@ -263,16 +263,20 @@ instead, we generate a synthetic LULC raster with 3 layers (one per period) by a
 # autoregressive noise with skellam distribution
 n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
 noise1 <- runif(n_cells, min = 0, max = 10)
-noise2 <- noise1 + stats::rpois(n_cells, 1) - stats::rpois(n_cells, 1)
-noise3 <- noise2 + stats::rpois(n_cells, 1) - stats::rpois(n_cells, 1)
+noise2 <- noise1 + stats::rpois(n_cells, 0.2) - stats::rpois(n_cells, 0.2)
+noise3 <- noise2 + stats::rpois(n_cells, 0.2) - stats::rpois(n_cells, 0.2)
 
 synthetic_lulc <-
   rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
   focal(w = 3, fun = mean, na.rm = TRUE) |>
   clamp(lower = 0, upper = 10) |>
-  classify(rcl = data.frame(
-    from = 0:9, to = 1:10, becomes = c(3, 7, 1, 10, 5, 8, 2, 9, 4, 6)
-  ))
+  classify(
+    rcl = data.frame(
+      from = 0:9,
+      to = 1:10,
+      becomes = c(3, 7, 1, 10, 5, 8, 2, 9, 4, 6)
+    )
+  )
 
 plot(synthetic_lulc, nc = 3)
 ```
@@ -451,7 +455,7 @@ db$alloc_params_t <- alloc_for_eval
 
 ## Transition potential: raw prediction vs. allocation-ready values
 
-Internally, `evoland` separates two concerns:
+For the transition potential estimation, `evoland` separates two concerns:
 
 1. **Raw prediction** – for each viable transition, an MLR3 model predicts the
    probability that each cell will undergo that transition.  These per-transition
@@ -467,40 +471,21 @@ Internally, `evoland` separates two concerns:
      all values for that cell are divided by their row sum.  The implicit
      "no-change" probability equals `1 - sum(stored values)`.
 
-   Allocation backends (Dinamica EGO, CLUMPY) consume the adjusted values, not
-   the raw model output.
+Allocation backends (Dinamica EGO, CLUMPY) consume the adjusted values, not the raw model output.
 
 ## Running the allocation
 
-Use the generic `alloc()` entry point and select a backend with the `method`
-argument.  The default backend is Dinamica EGO (`method = "dinamica"`);
-a CLUMPY-style stochastic patcher is available with `method = "clumpy"`.
-
-If Dinamica is not installed, you'll get a warning that the anterior LULC map
-is returned as the posterior.  For installation instructions, see the
-[Installing Dinamica EGO](install-dinamica.html) vignette.
+For this tutorial, we will use the CLUMPY backend for a self-contained stochastic allocation that 
+does not require the presence of DinamicaEGO as an external solver.
 
 ```{r}
 #| label: allocation
-#| results: hold
-db$alloc(
-  method = "dinamica",
-  id_period = db$periods_t[is_extrapolated == TRUE, id_period],
-  select_score = "classif.auc",
-  select_maximize = TRUE
-)
-```
-
-Alternatively, use the CLUMPY backend for a self-contained stochastic
-allocation that does not require an external solver:
-
-```{r eval=FALSE}
-db$alloc(
-  method = "clumpy",
-  id_period = db$periods_t[is_extrapolated == TRUE, id_period],
+db$alloc_clumpy(
+  id_period = db$periods_t[is_extrapolated == TRUE, id_period], # select all extrapolation periods
   select_score = "classif.auc",
   select_maximize = TRUE,
-  seed = 42L        # optional: reproducibility
+  method = "upam",
+  seed = 42L # optional: reproducibility
 )
 ```
 
@@ -509,15 +494,38 @@ db$alloc(
 Finally, we can extract the simulated LULC maps into `SpatRaster` objects to visualize them.
 
 ```{r}
-#| label: visualization
+#| label: visualization-cats
 labels <- db$periods_t[
   id_period != 0,
   paste0(year(start_date), " to ", year(end_date))
 ]
-plot_maps <- db$lulc_data_as_rast() |> setNames(labels)
+plot_maps <-
+  db$lulc_data_as_rast() |>
+  categories(
+    layer = 0, # set for all layers
+    value = data.frame(id = 1:4, name = db$lulc_meta_t$pretty_name)
+  ) |>
+  setNames(labels)
 
-plot(plot_maps, type = "classes", levels = db$lulc_meta_t$pretty_name)
+plot(plot_maps)
 ```
 
-Of the four maps, only the first three show changes.
-Due to Dinamica not being available on our github runner, the extrapolated step should look exactly like the step before.
+Due to the extrapolated transition rates, the last step shows a similar difference as exists between the first three periods.
+We can also show the cumulative difference like so:
+
+```{r}
+#| label: visualization-changes
+changes <-
+  c(
+    create_change_map(plot_maps[[1]], plot_maps[[2]]),
+    create_change_map(plot_maps[[1]], plot_maps[[3]]),
+    create_change_map(plot_maps[[1]], plot_maps[[4]])
+  ) |>
+  categories(
+    layer = 0,
+    value = data.frame(id = 1:4, name = paste("Posterior:", db$lulc_meta_t$pretty_name))
+  ) |>
+  setNames(paste("Period", 1, "to", 2:4))
+
+plot(changes)
+```
