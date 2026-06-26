@@ -23,15 +23,39 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// calculate_class_stats_cpp
-DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize);
-RcppExport SEXP _evoland_calculate_class_stats_cpp(SEXP matSEXP, SEXP cellsizeSEXP) {
+// raster_neighbors_cpp
+List raster_neighbors_cpp(int nrow, int ncol);
+RcppExport SEXP _evoland_raster_neighbors_cpp(SEXP nrowSEXP, SEXP ncolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerMatrix >::type mat(matSEXP);
-    Rcpp::traits::input_parameter< double >::type cellsize(cellsizeSEXP);
-    rcpp_result_gen = Rcpp::wrap(calculate_class_stats_cpp(mat, cellsize));
+    Rcpp::traits::input_parameter< int >::type nrow(nrowSEXP);
+    Rcpp::traits::input_parameter< int >::type ncol(ncolSEXP);
+    rcpp_result_gen = Rcpp::wrap(raster_neighbors_cpp(nrow, ncol));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gart_cpp
+IntegerVector gart_cpp(NumericMatrix P, IntegerVector states);
+RcppExport SEXP _evoland_gart_cpp(SEXP PSEXP, SEXP statesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericMatrix >::type P(PSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type states(statesSEXP);
+    rcpp_result_gen = Rcpp::wrap(gart_cpp(P, states));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sample_lognorm_area_cpp
+int sample_lognorm_area_cpp(double area_mean, double area_var);
+RcppExport SEXP _evoland_sample_lognorm_area_cpp(SEXP area_meanSEXP, SEXP area_varSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type area_mean(area_meanSEXP);
+    Rcpp::traits::input_parameter< double >::type area_var(area_varSEXP);
+    rcpp_result_gen = Rcpp::wrap(sample_lognorm_area_cpp(area_mean, area_var));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -58,11 +82,53 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// allocate_clumpy_cpp
+IntegerVector allocate_clumpy_cpp(IntegerVector landscape, IntegerVector ant_landscape, int nrow, int ncol, IntegerVector from_classes, IntegerVector trans_from, IntegerVector trans_to, NumericMatrix probs, NumericVector area_mean, NumericVector area_var, NumericVector elongation, NumericVector target_rate, int method, int batch_size, bool rarefy, bool shuffle);
+RcppExport SEXP _evoland_allocate_clumpy_cpp(SEXP landscapeSEXP, SEXP ant_landscapeSEXP, SEXP nrowSEXP, SEXP ncolSEXP, SEXP from_classesSEXP, SEXP trans_fromSEXP, SEXP trans_toSEXP, SEXP probsSEXP, SEXP area_meanSEXP, SEXP area_varSEXP, SEXP elongationSEXP, SEXP target_rateSEXP, SEXP methodSEXP, SEXP batch_sizeSEXP, SEXP rarefySEXP, SEXP shuffleSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type landscape(landscapeSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type ant_landscape(ant_landscapeSEXP);
+    Rcpp::traits::input_parameter< int >::type nrow(nrowSEXP);
+    Rcpp::traits::input_parameter< int >::type ncol(ncolSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type from_classes(from_classesSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type trans_from(trans_fromSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type trans_to(trans_toSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type probs(probsSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type area_mean(area_meanSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type area_var(area_varSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type elongation(elongationSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type target_rate(target_rateSEXP);
+    Rcpp::traits::input_parameter< int >::type method(methodSEXP);
+    Rcpp::traits::input_parameter< int >::type batch_size(batch_sizeSEXP);
+    Rcpp::traits::input_parameter< bool >::type rarefy(rarefySEXP);
+    Rcpp::traits::input_parameter< bool >::type shuffle(shuffleSEXP);
+    rcpp_result_gen = Rcpp::wrap(allocate_clumpy_cpp(landscape, ant_landscape, nrow, ncol, from_classes, trans_from, trans_to, probs, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle));
+    return rcpp_result_gen;
+END_RCPP
+}
+// calculate_class_stats_cpp
+DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize);
+RcppExport SEXP _evoland_calculate_class_stats_cpp(SEXP matSEXP, SEXP cellsizeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerMatrix >::type mat(matSEXP);
+    Rcpp::traits::input_parameter< double >::type cellsize(cellsizeSEXP);
+    rcpp_result_gen = Rcpp::wrap(calculate_class_stats_cpp(mat, cellsize));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 3},
-    {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
+    {"_evoland_raster_neighbors_cpp", (DL_FUNC) &_evoland_raster_neighbors_cpp, 2},
+    {"_evoland_gart_cpp", (DL_FUNC) &_evoland_gart_cpp, 2},
+    {"_evoland_sample_lognorm_area_cpp", (DL_FUNC) &_evoland_sample_lognorm_area_cpp, 2},
     {"_evoland_grow_patch_cpp", (DL_FUNC) &_evoland_grow_patch_cpp, 13},
+    {"_evoland_allocate_clumpy_cpp", (DL_FUNC) &_evoland_allocate_clumpy_cpp, 16},
+    {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
     {NULL, NULL, 0}
 };
 

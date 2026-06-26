@@ -205,11 +205,17 @@ evoland_db <- R6::R6Class(
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation.
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
+    #' @param method Character; allocation method, `"usam"` (single-pass) or
+    #' `"upam"` (iterative with per-transition quota). See [alloc_clumpy()].
+    #' @param batch_size Integer; uPAM pivots processed per GART re-draw
+    #' (`1` = strict uPAM; `<= 0` = all candidates per pass). Ignored for uSAM.
     #' @param seed Optional integer random seed for reproducibility.
     alloc_clumpy = function(
       id_periods,
       select_score,
       select_maximize,
+      method = "usam",
+      batch_size = 1L,
       seed = NULL
     ) {
       create_method_binding(alloc_clumpy)

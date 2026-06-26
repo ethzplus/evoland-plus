@@ -5,11 +5,27 @@ distance_neighbors_cpp <- function(coords_t, max_distance, quiet = FALSE) {
     .Call(`_evoland_distance_neighbors_cpp`, coords_t, max_distance, quiet)
 }
 
-calculate_class_stats_cpp <- function(mat, cellsize) {
-    .Call(`_evoland_calculate_class_stats_cpp`, mat, cellsize)
+raster_neighbors_cpp <- function(nrow, ncol) {
+    .Call(`_evoland_raster_neighbors_cpp`, nrow, ncol)
+}
+
+gart_cpp <- function(P, states) {
+    .Call(`_evoland_gart_cpp`, P, states)
+}
+
+sample_lognorm_area_cpp <- function(area_mean, area_var) {
+    .Call(`_evoland_sample_lognorm_area_cpp`, area_mean, area_var)
 }
 
 grow_patch_cpp <- function(landscape, ant_landscape, probs, nbr_above, nbr_below, nbr_left, nbr_right, pivot, target_area, from_class, to_class, eccentricity, ncol) {
     .Call(`_evoland_grow_patch_cpp`, landscape, ant_landscape, probs, nbr_above, nbr_below, nbr_left, nbr_right, pivot, target_area, from_class, to_class, eccentricity, ncol)
+}
+
+allocate_clumpy_cpp <- function(landscape, ant_landscape, nrow, ncol, from_classes, trans_from, trans_to, probs, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle) {
+    .Call(`_evoland_allocate_clumpy_cpp`, landscape, ant_landscape, nrow, ncol, from_classes, trans_from, trans_to, probs, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle)
+}
+
+calculate_class_stats_cpp <- function(mat, cellsize) {
+    .Call(`_evoland_calculate_class_stats_cpp`, mat, cellsize)
 }
 

@@ -153,3 +153,27 @@ contest cells, pivot order).
 | Pivot strategy vs canonical bias-free uPAM | ⚠ simplified single-pass; no per-patch P(v|u) update, no merge rollback, doesn't dismiss all-but-one pivot |
 | 1/E(σ) pivot rarefaction before GART | ✖ missing ⇒ ~E(σ)× over-allocation (confirm `rate` semantics) |
 | Determinism via 0/1 potentials | ✔ bypasses GART draw; area & pivot-order still stochastic |
+
+---
+
+## Implementation status (addendum)
+
+The allocation backend was subsequently reworked in C++:
+
+- **Whole routine in Rcpp.** `allocate_clumpy_cpp()` (src/alloc_clumpy.cpp) now
+  runs neighbour precompute, GART, log-normal area draws and the pivot/patch
+  loop in one C++ call; the former R helpers (`gart`, `sample_lognorm_area`,
+  `raster_neighbors`) are replaced by `gart_cpp`, `sample_lognorm_area_cpp`,
+  `raster_neighbors_cpp`. R only prepares the numeric inputs.
+- **Two selectable methods.** `method = "usam"` (single-pass) and
+  `method = "upam"` (iterative GART with a per-transition pixel quota and
+  sampling without replacement). `batch_size` is the speed/fidelity dial
+  (1 = strict one-pivot-per-draw uPAM). uPAM is affordable because evoland's
+  fixed-model potentials are pool-independent, so rho(z|u) is never re-estimated.
+- **1/E(sigma) rarefaction** applied to GART input (`rarefy = TRUE`); `rate`
+  confirmed to be a quantity-of-change rate via `get_obs_trans_rates`.
+- **Negative/NaN clamp** added inside GART.
+- **Shape metric unified** into `clumpy::elongation_from_raw_moments`
+  (src/clumpy_geometry.h), used by both the patch grower and
+  `calculate_class_stats_cpp` (replacing the duplicate `patch_eccentricity` /
+  `calculate_elongation`).
