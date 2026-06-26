@@ -84,7 +84,8 @@ alloc_clumpy_one_period <- function(
   adj_pots <- self$adjusted_trans_pot_v(id_period_post)
   clumpy_params <- self$alloc_params_clumpy_v()
   rates <- self$trans_rates_t[
-    id_period == id_period_post, .(id_trans, rate)
+    id_period == id_period_post,
+    .(id_trans, rate)
   ]
 
   # 3. Viable transitions (stable order: by anterior class, then transition id)

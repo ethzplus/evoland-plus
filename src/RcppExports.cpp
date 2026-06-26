@@ -10,19 +10,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// distance_neighbors_cpp
-List distance_neighbors_cpp(DataFrame coords_t, double max_distance, bool quiet);
-RcppExport SEXP _evoland_distance_neighbors_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP quietSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< DataFrame >::type coords_t(coords_tSEXP);
-    Rcpp::traits::input_parameter< double >::type max_distance(max_distanceSEXP);
-    Rcpp::traits::input_parameter< bool >::type quiet(quietSEXP);
-    rcpp_result_gen = Rcpp::wrap(distance_neighbors_cpp(coords_t, max_distance, quiet));
-    return rcpp_result_gen;
-END_RCPP
-}
 // raster_neighbors_cpp
 List raster_neighbors_cpp(int nrow, int ncol);
 RcppExport SEXP _evoland_raster_neighbors_cpp(SEXP nrowSEXP, SEXP ncolSEXP) {
@@ -108,6 +95,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// distance_neighbors_cpp
+List distance_neighbors_cpp(DataFrame coords_t, double max_distance, bool quiet);
+RcppExport SEXP _evoland_distance_neighbors_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP quietSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< DataFrame >::type coords_t(coords_tSEXP);
+    Rcpp::traits::input_parameter< double >::type max_distance(max_distanceSEXP);
+    Rcpp::traits::input_parameter< bool >::type quiet(quietSEXP);
+    rcpp_result_gen = Rcpp::wrap(distance_neighbors_cpp(coords_t, max_distance, quiet));
+    return rcpp_result_gen;
+END_RCPP
+}
 // calculate_class_stats_cpp
 DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize);
 RcppExport SEXP _evoland_calculate_class_stats_cpp(SEXP matSEXP, SEXP cellsizeSEXP) {
@@ -122,12 +122,12 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 3},
     {"_evoland_raster_neighbors_cpp", (DL_FUNC) &_evoland_raster_neighbors_cpp, 2},
     {"_evoland_gart_cpp", (DL_FUNC) &_evoland_gart_cpp, 2},
     {"_evoland_sample_lognorm_area_cpp", (DL_FUNC) &_evoland_sample_lognorm_area_cpp, 2},
     {"_evoland_grow_patch_cpp", (DL_FUNC) &_evoland_grow_patch_cpp, 13},
     {"_evoland_allocate_clumpy_cpp", (DL_FUNC) &_evoland_allocate_clumpy_cpp, 16},
+    {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 3},
     {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
     {NULL, NULL, 0}
 };

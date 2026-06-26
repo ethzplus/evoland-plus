@@ -112,10 +112,22 @@ probs1col <- matrix(0.5, nrow = ncell, ncol = 1L) # one transition 1 -> 2
 # uSAM: runs, returns full-length valid vector
 set.seed(1L)
 res_usam <- allocate_clumpy_cpp(
-  landscape = ant, ant_landscape = ant, nrow = nr, ncol = nc,
-  from_classes = 1L, trans_from = 1L, trans_to = 2L, probs = probs1col,
-  area_mean = 2.0, area_var = 1.0, elongation = 0.0, target_rate = 0.3,
-  method = 0L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE
+  landscape = ant,
+  ant_landscape = ant,
+  nrow = nr,
+  ncol = nc,
+  from_classes = 1L,
+  trans_from = 1L,
+  trans_to = 2L,
+  probs = probs1col,
+  area_mean = 2.0,
+  area_var = 1.0,
+  elongation = 0.0,
+  target_rate = 0.3,
+  method = 0L,
+  batch_size = 1L,
+  rarefy = TRUE,
+  shuffle = TRUE
 )
 expect_equal(length(res_usam), ncell)
 expect_true(all(res_usam %in% c(1L, 2L)))
@@ -123,10 +135,22 @@ expect_true(all(res_usam %in% c(1L, 2L)))
 # uPAM: runs, returns full-length valid vector, respects a sane quota bound
 set.seed(1L)
 res_upam <- allocate_clumpy_cpp(
-  landscape = ant, ant_landscape = ant, nrow = nr, ncol = nc,
-  from_classes = 1L, trans_from = 1L, trans_to = 2L, probs = probs1col,
-  area_mean = 2.0, area_var = 1.0, elongation = 0.0, target_rate = 0.3,
-  method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE
+  landscape = ant,
+  ant_landscape = ant,
+  nrow = nr,
+  ncol = nc,
+  from_classes = 1L,
+  trans_from = 1L,
+  trans_to = 2L,
+  probs = probs1col,
+  area_mean = 2.0,
+  area_var = 1.0,
+  elongation = 0.0,
+  target_rate = 0.3,
+  method = 1L,
+  batch_size = 1L,
+  rarefy = TRUE,
+  shuffle = TRUE
 )
 expect_equal(length(res_upam), ncell)
 expect_true(all(res_upam %in% c(1L, 2L)))
@@ -137,10 +161,22 @@ expect_true(sum(res_upam == 2L) <= ncell)
 probs_forced <- matrix(1.0, nrow = ncell, ncol = 1L)
 set.seed(123L)
 res_forced <- allocate_clumpy_cpp(
-  landscape = ant, ant_landscape = ant, nrow = nr, ncol = nc,
-  from_classes = 1L, trans_from = 1L, trans_to = 2L, probs = probs_forced,
-  area_mean = 0.0, area_var = 0.0, elongation = 0.0, target_rate = 1.0,
-  method = 0L, batch_size = 1L, rarefy = FALSE, shuffle = TRUE
+  landscape = ant,
+  ant_landscape = ant,
+  nrow = nr,
+  ncol = nc,
+  from_classes = 1L,
+  trans_from = 1L,
+  trans_to = 2L,
+  probs = probs_forced,
+  area_mean = 0.0,
+  area_var = 0.0,
+  elongation = 0.0,
+  target_rate = 1.0,
+  method = 0L,
+  batch_size = 1L,
+  rarefy = FALSE,
+  shuffle = TRUE
 )
 expect_true(all(res_forced == 2L))
 
@@ -148,9 +184,21 @@ expect_true(all(res_forced == 2L))
 probs_zero <- matrix(0.0, nrow = ncell, ncol = 1L)
 set.seed(123L)
 res_zero <- allocate_clumpy_cpp(
-  landscape = ant, ant_landscape = ant, nrow = nr, ncol = nc,
-  from_classes = 1L, trans_from = 1L, trans_to = 2L, probs = probs_zero,
-  area_mean = 2.0, area_var = 1.0, elongation = 0.0, target_rate = 0.3,
-  method = 0L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE
+  landscape = ant,
+  ant_landscape = ant,
+  nrow = nr,
+  ncol = nc,
+  from_classes = 1L,
+  trans_from = 1L,
+  trans_to = 2L,
+  probs = probs_zero,
+  area_mean = 2.0,
+  area_var = 1.0,
+  elongation = 0.0,
+  target_rate = 0.3,
+  method = 0L,
+  batch_size = 1L,
+  rarefy = TRUE,
+  shuffle = TRUE
 )
 expect_true(all(res_zero == 1L))
