@@ -76,8 +76,13 @@ expect_true("patch_isometry" %in% names(params))
 # Patch isometry is derived from elongation via isometry_from_elongation()
 expect_true(is.numeric(params$patch_isometry))
 expect_equal(
-  params[c("mean_patch_size", "patch_size_variance", "patch_isometry",
-           "frac_expander", "frac_patcher")],
+  params[c(
+    "mean_patch_size",
+    "patch_size_variance",
+    "patch_isometry",
+    "frac_expander",
+    "frac_patcher"
+  )],
   list(
     mean_patch_size = 3,
     patch_size_variance = NA_real_,

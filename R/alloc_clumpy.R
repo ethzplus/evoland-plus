@@ -65,7 +65,9 @@ gart <- function(P, states) {
 #' @return Integer >= 1L, sampled patch area in cells.
 #' @keywords internal
 sample_lognorm_area <- function(area_mean, area_var) {
-  if (is.na(area_mean) || area_mean <= 0) return(1L)
+  if (is.na(area_mean) || area_mean <= 0) {
+    return(1L)
+  }
   E <- area_mean
   V <- if (is.na(area_var) || area_var <= 0) 1 else area_var
   mu <- log(E^2 / sqrt(V + E^2))
@@ -93,10 +95,10 @@ raster_neighbors <- function(nrow_r, ncol_r) {
   cols <- ((seq_len(n) - 1L) %% ncol_r) + 1L
 
   list(
-    above = ifelse(rows > 1L,      seq_len(n) - ncol_r, 0L),
-    below = ifelse(rows < nrow_r,  seq_len(n) + ncol_r, 0L),
-    left  = ifelse(cols > 1L,      seq_len(n) - 1L,     0L),
-    right = ifelse(cols < ncol_r,  seq_len(n) + 1L,     0L)
+    above = ifelse(rows > 1L, seq_len(n) - ncol_r, 0L),
+    below = ifelse(rows < nrow_r, seq_len(n) + ncol_r, 0L),
+    left = ifelse(cols > 1L, seq_len(n) - 1L, 0L),
+    right = ifelse(cols < ncol_r, seq_len(n) + 1L, 0L)
   )
 }
 
@@ -149,7 +151,7 @@ alloc_clumpy_one_period <- function(
   n_cells <- nrow_r * ncol_r
 
   ant_vec <- as.integer(terra::values(anterior_rast))
-  post_vec <- ant_vec  # will be modified in-place
+  post_vec <- ant_vec # will be modified in-place
 
   neighbors <- raster_neighbors(nrow_r, ncol_r)
 
@@ -169,7 +171,9 @@ alloc_clumpy_one_period <- function(
 
     # Cells currently in from_class (1-based raster index)
     from_cells <- which(!is.na(ant_vec) & ant_vec == from_class)
-    if (length(from_cells) == 0L) next
+    if (length(from_cells) == 0L) {
+      next
+    }
 
     # Build probability matrix: rows = from_cells, cols = to_classes
     # Probability values come from adjusted_trans_pot_v, keyed by id_coord
@@ -181,7 +185,9 @@ alloc_clumpy_one_period <- function(
     for (j in seq_along(to_classes)) {
       id_trans_j <- trans_for_class$id_trans[j]
       pots_j <- adj_pots[id_trans == id_trans_j, .(id_coord, value)]
-      if (nrow(pots_j) == 0L) next
+      if (nrow(pots_j) == 0L) {
+        next
+      }
 
       # Map from_cells -> id_coord -> value
       id_coord_j <- as.integer(cell_to_coord[as.character(from_cells)])
@@ -204,7 +210,9 @@ alloc_clumpy_one_period <- function(
       id_trans_j <- trans_for_class$id_trans[j]
 
       pivot_cells <- from_cells[sampled_states == to_class]
-      if (length(pivot_cells) == 0L) next
+      if (length(pivot_cells) == 0L) {
+        next
+      }
 
       # Shuffle pivots for unbiased ordering
       pivot_cells <- sample(pivot_cells)
@@ -221,32 +229,34 @@ alloc_clumpy_one_period <- function(
       # Patch parameters
       params_j <- clumpy_params[id_trans == id_trans_j]
       area_mean <- if (nrow(params_j) > 0L) params_j$area_mean[1L] else NA_real_
-      area_var  <- if (nrow(params_j) > 0L) params_j$area_var[1L]  else NA_real_
-      eccentricity_target       <- if (nrow(params_j) > 0L && !is.na(params_j$eccentricity[1L])) {
+      area_var <- if (nrow(params_j) > 0L) params_j$area_var[1L] else NA_real_
+      eccentricity_target <- if (nrow(params_j) > 0L && !is.na(params_j$eccentricity[1L])) {
         params_j$eccentricity[1L]
       } else {
         0.5
       }
 
       for (pivot in pivot_cells) {
-        if (is.na(post_vec[pivot]) || post_vec[pivot] != from_class) next
+        if (is.na(post_vec[pivot]) || post_vec[pivot] != from_class) {
+          next
+        }
 
         target_area <- sample_lognorm_area(area_mean, area_var)
 
         patch_cells <- grow_patch_cpp(
-          landscape    = post_vec,
+          landscape = post_vec,
           ant_landscape = ant_vec,
-          probs        = prob_vec,
-          nbr_above    = neighbors$above,
-          nbr_below    = neighbors$below,
-          nbr_left     = neighbors$left,
-          nbr_right    = neighbors$right,
-          pivot        = pivot,
-          target_area  = target_area,
-          from_class   = from_class,
-          to_class     = to_class,
+          probs = prob_vec,
+          nbr_above = neighbors$above,
+          nbr_below = neighbors$below,
+          nbr_left = neighbors$left,
+          nbr_right = neighbors$right,
+          pivot = pivot,
+          target_area = target_area,
+          from_class = from_class,
+          to_class = to_class,
           eccentricity = eccentricity_target,
-          ncol         = ncol_r
+          ncol = ncol_r
         )
 
         # grow_patch_cpp modifies landscape in-place (the IntegerVector is
@@ -263,15 +273,14 @@ alloc_clumpy_one_period <- function(
 
   # Map raster cells back to id_coord
   coord_ids <- as.integer(names(coord_to_cell))
-  cell_ids  <- as.integer(coord_to_cell)
+  cell_ids <- as.integer(coord_to_cell)
 
-  valid <- !is.na(cell_ids) & cell_ids >= 1L & cell_ids <= n_cells &
-    !is.na(post_vec[cell_ids])
+  valid <- !is.na(cell_ids) & cell_ids >= 1L & cell_ids <= n_cells & !is.na(post_vec[cell_ids])
 
   lulc_result <- data.table::data.table(
-    id_run   = self$id_run,
+    id_run = self$id_run,
     id_coord = coord_ids[valid],
-    id_lulc  = as.integer(post_vec[cell_ids[valid]]),
+    id_lulc = as.integer(post_vec[cell_ids[valid]]),
     id_period = id_period_post
   ) |>
     as_lulc_data_t()
@@ -314,7 +323,9 @@ alloc_clumpy <- function(
     ))
   }
 
-  if (!is.null(seed)) set.seed(seed)
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
 
   message(glue::glue(
     "Starting CLUMPY allocation simulation\n",
@@ -331,11 +342,11 @@ alloc_clumpy <- function(
     message(glue::glue("\n=== Iteration {i}/{length(id_periods)} ==="))
 
     lulc_result <- alloc_clumpy_one_period(
-      self           = self,
-      id_period_ant  = id_period_ant,
+      self = self,
+      id_period_ant = id_period_ant,
       id_period_post = id_period_post,
-      anterior_rast  = current_rast,
-      select_score   = select_score,
+      anterior_rast = current_rast,
+      select_score = select_score,
       select_maximize = select_maximize
     )
 

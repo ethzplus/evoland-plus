@@ -6,10 +6,10 @@ library(tinytest)
 
 # as_trans_pot_t: basic construction
 tp <- as_trans_pot_t(data.frame(
-  id_trans     = 1L,
+  id_trans = 1L,
   id_period_post = 2L,
-  id_coord     = 1L,
-  value        = 0.3
+  id_coord = 1L,
+  value = 0.3
 ))
 expect_inherits(tp, "trans_pot_t")
 expect_equal(nrow(tp), 1L)
@@ -34,19 +34,19 @@ expect_true(all(tp_valid$value >= 0 & tp_valid$value <= 1))
 
 # Simulate: 3 cells, 2 transitions
 raw_vals <- data.frame(
-  id_trans       = c(1L, 2L, 1L, 2L, 1L, 2L),
-  id_coord       = c(1L, 1L, 2L, 2L, 3L, 3L),
+  id_trans = c(1L, 2L, 1L, 2L, 1L, 2L),
+  id_coord = c(1L, 1L, 2L, 2L, 3L, 3L),
   id_period_post = 4L,
-  value          = c(0.6, 0.2, 0.1, 0.5, 0.3, 0.4)
+  value = c(0.6, 0.2, 0.1, 0.5, 0.3, 0.4)
 )
 rates <- data.frame(
-  id_trans  = c(1L, 2L),
-  rate      = c(0.2, 0.1)
+  id_trans = c(1L, 2L),
+  rate = c(0.2, 0.1)
 )
 
 # Mean raw values per transition
-mean_t1 <- mean(raw_vals$value[raw_vals$id_trans == 1L])  # (0.6+0.1+0.3)/3
-mean_t2 <- mean(raw_vals$value[raw_vals$id_trans == 2L])  # (0.2+0.5+0.4)/3
+mean_t1 <- mean(raw_vals$value[raw_vals$id_trans == 1L]) # (0.6+0.1+0.3)/3
+mean_t2 <- mean(raw_vals$value[raw_vals$id_trans == 2L]) # (0.2+0.5+0.4)/3
 
 # Column scaling
 raw_vals$scaled <- ifelse(
@@ -78,5 +78,4 @@ expect_true(all(final_row_sums <= 1 + 1e-9))
 # that the direction is correct (closer to target rate than raw means)
 col_mean_t1_scaled <- mean(adj$scaled[adj$id_trans == 1L])
 col_mean_t2_scaled <- mean(adj$scaled[adj$id_trans == 2L])
-expect_true(abs(col_mean_t1_scaled - rates$rate[1L]) <=
-              abs(mean_t1 - rates$rate[1L]) + 1e-9)
+expect_true(abs(col_mean_t1_scaled - rates$rate[1L]) <= abs(mean_t1 - rates$rate[1L]) + 1e-9)
