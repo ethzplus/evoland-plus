@@ -81,7 +81,6 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
     \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
     \item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
-    \item \href{#method-evoland_db-alloc}{\code{evoland_db$alloc()}}
     \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
     \item \href{#method-evoland_db-alloc_clumpy}{\code{evoland_db$alloc_clumpy()}}
     \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
@@ -371,42 +370,6 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
     \describe{
       \item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
       \item{\code{id_period_anterior}}{Integer ID of period to retrieve data for}
-    }
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-alloc"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-alloc}{}}}
-\subsection{\code{evoland_db$alloc()}}{
-  Generic allocation entry point. Dispatches to the backend
-specified by \code{method}.
-\itemize{
-\item \code{"dinamica"} (default): calls \code{\link[=alloc_dinamica]{alloc_dinamica()}}
-\item \code{"clumpy"}: calls \code{\link[=alloc_clumpy]{alloc_clumpy()}}
-}
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$alloc(
-  method = "dinamica",
-  id_periods,
-  select_score,
-  select_maximize,
-  ...
-)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{method}}{Character; allocation backend, one of \code{"dinamica"}, \code{"clumpy"}.}
-      \item{\code{id_periods}}{Integer vector of period IDs to include in the simulation.}
-      \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
-to select model for extrapolation.}
-      \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{...}}{Additional arguments forwarded to the backend (e.g. \code{work_dir} for
-Dinamica, \code{seed} for CLUMPY).}
     }
     \if{html}{\out{</div>}}
   }

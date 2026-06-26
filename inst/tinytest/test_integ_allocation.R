@@ -46,8 +46,7 @@ expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 # --------------------------------------------------------------------------
 if (Sys.which("DinamicaConsole") == "") {
   expect_warning(
-    db$alloc(
-      method = "dinamica",
+    db$alloc_dinamica(
       id_periods = 4,
       select_score = "classif.auc",
       select_maximize = TRUE,
@@ -58,8 +57,7 @@ if (Sys.which("DinamicaConsole") == "") {
   )
 } else {
   expect_message(
-    db$alloc(
-      method = "dinamica",
+    db$alloc_dinamica(
       id_periods = 4,
       select_score = "classif.auc",
       select_maximize = TRUE,
@@ -74,28 +72,31 @@ if (Sys.which("DinamicaConsole") == "") {
 expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
 
 # trans_pot_t should now be populated
-expect_true(nrow(db$fetch("trans_pot_t")) > 0L)
+expect_equal(db$row_count("trans_pot_t"), 900L)
 
 # adjusted_trans_pot_v should return values for period 4
 adj_pots <- db$adjusted_trans_pot_v(4L)
-expect_true(nrow(adj_pots) > 0L)
+expect_equal(nrow(adj_pots), 900L)
 expect_true(all(adj_pots$value >= 0 & adj_pots$value <= 1))
 
 # alloc_params_clumpy_v should return CLUMPY-format params
 clumpy_params <- db$alloc_params_clumpy_v()
 expect_true(nrow(clumpy_params) > 0L)
-expect_true(all(c("area_mean", "area_var", "eccentricity") %in% names(clumpy_params)))
+expect_equal(
+  c("id_run", "id_trans", "area_mean", "area_var", "eccentricity"),
+  names(clumpy_params)
+)
 
 # --------------------------------------------------------------------------
 # Test CLUMPY backend via generic alloc() entry point
 # --------------------------------------------------------------------------
 # Reset lulc_data_t for period 5 (not yet allocated)
-expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 5")), 0L)
+db$id_run <- 2L
+expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 
 expect_message(
-  db$alloc(
-    method = "clumpy",
-    id_periods = 5L,
+  db$alloc_clumpy(
+    id_periods = 4L,
     select_score = "classif.auc",
     select_maximize = TRUE,
     seed = 42L
@@ -104,7 +105,7 @@ expect_message(
 )
 
 # Period 5 should now be populated
-expect_true(nrow(db$fetch("lulc_data_t", where = "id_period = 5")) > 0L)
+expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
 
 # --------------------------------------------------------------------------
 # Test error handling

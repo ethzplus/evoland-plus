@@ -146,42 +146,6 @@ evoland_db <- R6::R6Class(
     },
 
     ### Allocation methods ---
-    #' @description Generic allocation entry point. Dispatches to the backend
-    #' specified by `method`.
-    #' - `"dinamica"` (default): calls [alloc_dinamica()]
-    #' - `"clumpy"`: calls [alloc_clumpy()]
-    #' @param method Character; allocation backend, one of `"dinamica"`, `"clumpy"`.
-    #' @param id_periods Integer vector of period IDs to include in the simulation.
-    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
-    #' to select model for extrapolation.
-    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param ... Additional arguments forwarded to the backend (e.g. `work_dir` for
-    #' Dinamica, `seed` for CLUMPY).
-    alloc = function(
-      method = "dinamica",
-      id_periods,
-      select_score,
-      select_maximize,
-      ...
-    ) {
-      method <- match.arg(method, c("dinamica", "clumpy"))
-      switch(
-        method,
-        dinamica = self$alloc_dinamica(
-          id_periods = id_periods,
-          select_score = select_score,
-          select_maximize = select_maximize,
-          ...
-        ),
-        clumpy = self$alloc_clumpy(
-          id_periods = id_periods,
-          select_score = select_score,
-          select_maximize = select_maximize,
-          ...
-        )
-      )
-    },
-
     #' @description Runs a path-dependent Monte Carlo simulation using Dinamica
     #' EGO, see [alloc_dinamica()]
     #' @param id_periods Integer vector of period IDs to include in the simulation.
