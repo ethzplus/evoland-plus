@@ -50,7 +50,7 @@ sample_lognorm_area_cpp <- function(area_mean, area_var) {
 #' @param pivot 1-based pivot cell index.
 #' @param target_area Target patch size (cells).
 #' @param from_class,to_class Source/target LULC classes.
-#' @param eccentricity Target elongation in [0, 1] (0 = isometric).
+#' @param eccentricity Target elongation in \[0, 1\] (0 = isometric).
 #' @param ncol Raster column count.
 #' @return 1-based integer vector of allocated cell indices (incl. pivot), or
 #'   empty if the pivot is not an available `from_class` cell.

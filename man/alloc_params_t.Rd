@@ -58,8 +58,11 @@ A data.table of class "alloc_params_t" with columns:
 \item \code{id_run}: Foreign key to runs_t
 \item \code{id_trans}: Foreign key to trans_meta_t
 \item \code{mean_patch_size}: Mean area of new patches (in cell units)
-\item \code{patch_size_variance}: Standard deviation of patch area
-\item \code{patch_isometry}: Measure of patch shape regularity
+\item \code{patch_size_variance}: Variance of patch area (in cell units)
+\item \code{patch_elongation}: Mean patch elongation (\eqn{e = 1 - \sqrt{\lambda_2 / \lambda_1}},
+range 0–1); the raw shape summary from \code{\link[=calculate_class_stats_cpp]{calculate_class_stats_cpp()}}
+\item \code{patch_isometry}: Dinamica-specific isometry parameter derived from \code{patch_elongation}
+via \code{\link[=isometry_from_elongation]{isometry_from_elongation()}}
 \item \code{frac_expander}: Fraction of transition cells adjacent to existing patches
 \item \code{frac_patcher}: Fraction of transition cells forming new patches
 \item \code{similarity}: Similarity metric for allocation parameters, see
@@ -68,9 +71,10 @@ A data.table of class "alloc_params_t" with columns:
 
 A named list with allocation parameters:
 \itemize{
-\item mean_patch_size: Mean area of patches (hectares)
-\item patch_size_variance: Standard deviation of patch area (hectares)
-\item patch_isometry: Measure of patch shape regularity (0-1)
+\item mean_patch_size: Mean area of patches (cell units)
+\item patch_size_variance: Variance of patch area (cell units)
+\item patch_elongation: Mean patch elongation (raw, range 0–1)
+\item patch_isometry: Dinamica isometry derived from elongation
 \item frac_expander: Fraction of transition cells adjacent to old patches in [0, 1]
 \item frac_patcher: Fraction of transition cells forming new patches in [0, 1]
 }
