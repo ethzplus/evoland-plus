@@ -36,14 +36,12 @@ expect_message(
   "Fitting full models for"
 )
 
+# Test Dinamica backend
 # switching run to no 1, which is the base estimate for allocation parameters
 db$id_run <- 1L
 # no data for period 4 yet
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 
-# --------------------------------------------------------------------------
-# Test Dinamica backend via generic alloc() entry point
-# --------------------------------------------------------------------------
 if (Sys.which("DinamicaConsole") == "") {
   expect_warning(
     db$alloc_dinamica(
@@ -79,6 +77,7 @@ adj_pots <- db$adjusted_trans_pot_v(4L)
 expect_equal(nrow(adj_pots), 900L)
 expect_true(all(adj_pots$value >= 0 & adj_pots$value <= 1))
 
+# Test CLUMPY with uSAM
 # alloc_params_clumpy_v should return CLUMPY-format params
 clumpy_params <- db$alloc_params_clumpy_v()
 expect_true(nrow(clumpy_params) > 0L)
@@ -87,10 +86,6 @@ expect_equal(
   names(clumpy_params)
 )
 
-# --------------------------------------------------------------------------
-# Test CLUMPY backend via generic alloc() entry point
-# --------------------------------------------------------------------------
-# Reset lulc_data_t for period 5 (not yet allocated)
 db$id_run <- 2L
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 
@@ -104,7 +99,25 @@ expect_message(
   "CLUMPY allocation"
 )
 
-# Period 5 should now be populated
+# Period 4 should now be populated
+expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
+
+# Test CLUMPY with uPAM
+db$id_run <- 3L
+expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
+
+expect_message(
+  db$alloc_clumpy(
+    id_periods = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    method = "upam",
+    seed = 42L
+  ),
+  "CLUMPY allocation"
+)
+
+# Period 4 should now be populated
 expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
 
 # --------------------------------------------------------------------------
