@@ -16,3 +16,4 @@ air.toml
 ^data-raw$
 .clangd
 .sql-formatter.json
+^dev$
