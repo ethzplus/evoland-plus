@@ -4,30 +4,30 @@ library(tinytest)
 # Unit tests for the CLUMPY allocation backend (all in C++)
 # --------------------------------------------------------------------------
 
-# --- evoland:::gart_cpp() ---------------------------------------------------
+# --- evoland:::must_cpp() (Multinomial Sampling Test) ---------------------------------------------------
 
 # Simple case: 2 states, equal probability
 set.seed(42L)
 P <- matrix(c(0.5, 0.5), nrow = 1L, ncol = 2L)
-result <- evoland:::gart_cpp(P, c(1L, 2L))
+result <- evoland:::must_cpp(P, c(1L, 2L))
 expect_true(result %in% c(1L, 2L))
 
 # With 100 cells, each gets exactly one state
 set.seed(1L)
 P100 <- matrix(rep(c(0.3, 0.7), each = 100L), nrow = 100L, ncol = 2L)
-gart_results_many <- evoland:::gart_cpp(P100, c(10L, 20L))
-expect_equal(length(gart_results_many), 100L)
-expect_true(all(gart_results_many %in% c(10L, 20L)))
+must_results_many <- evoland:::must_cpp(P100, c(10L, 20L))
+expect_equal(length(must_results_many), 100L)
+expect_true(all(must_results_many %in% c(10L, 20L)))
 
 # "Stay" column: assign from_class when u > cumsum of all change probs
 set.seed(7L)
 P_stay <- matrix(c(0.0, 0.0, 1.0), nrow = 1L, ncol = 3L) # all stay
-res_stay <- evoland:::gart_cpp(P_stay, c(1L, 2L, 3L))
+res_stay <- evoland:::must_cpp(P_stay, c(1L, 2L, 3L))
 expect_equal(res_stay, 3L)
 
 # Negative / NaN probabilities are clamped to 0 (matches reference clumpy)
 P_neg <- matrix(c(-1.0, 1.0), nrow = 1L, ncol = 2L)
-expect_equal(evoland:::gart_cpp(P_neg, c(1L, 2L)), 2L)
+expect_equal(evoland:::must_cpp(P_neg, c(1L, 2L)), 2L)
 
 # --- area samplers ----------------------------------------------------------
 
@@ -166,7 +166,7 @@ expect_true(all(res_upam %in% c(1L, 2L)))
 expect_true(sum(res_upam == 2L) <= ncell)
 
 # Deterministic forcing: potential 1 + uSAM => every source cell transitions,
-# regardless of the RNG draw (the GART rejection test is bypassed).
+# regardless of the RNG draw (the MuST rejection step is bypassed).
 probs_forced <- matrix(1.0, nrow = ncell, ncol = 1L)
 set.seed(123L)
 res_forced <- evoland:::allocate_clumpy_cpp(

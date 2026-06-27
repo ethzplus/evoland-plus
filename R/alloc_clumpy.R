@@ -12,12 +12,13 @@
 #'    C++ ([allocate_clumpy_cpp()]).  The method is chosen automatically from the
 #'    patch parameters:
 #'    * **uSAM** (Unbiased Simple Allocation Method, Mazy sec. 3.4.1) when every
-#'      transition is mono-pixel (`area_mean == 1` and `area_var == 0`): one GART
-#'      (Generalized Allocation Rejection Test) pass per anterior class, each
-#'      selected pivot allocated as a single cell.  Quantity of change is
-#'      enforced in expectation.
+#'      transition is mono-pixel (`area_mean == 1` and `area_var == 0`): one MuST
+#'      (Multinomial Sampling Test, Mazy App. 3.B; the same test the reference
+#'      `clumpy` calls "GART") pass per anterior class, each selected pivot
+#'      allocated as a single cell.  Quantity of change is enforced in
+#'      expectation.
 #'    * **uPAM** (Unbiased Patch Allocation Method, Mazy sec. 3.4.2, Fig. 3.2)
-#'      otherwise: iterative GART with a per-transition pixel quota and sampling
+#'      otherwise: iterative MuST with a per-transition pixel quota and sampling
 #'      without replacement.  Affordable here because evoland's potentials come
 #'      from a fixed fitted model, so the marginal density does not need to be
 #'      re-estimated between patches.
@@ -62,7 +63,7 @@ NULL
 #' @param avoid_aggregation Logical; if `TRUE` (default) uPAM patches that would
 #'   merge with an existing patch fail and allocate nothing (clumpy
 #'   `GaussianPatcher` semantics).  Ignored for the mono-pixel uSAM path.
-#' @param batch_size Integer; uPAM pivots attempted per GART re-draw
+#' @param batch_size Integer; uPAM pivots attempted per MuST re-draw
 #'   (1 = strict uPAM; `<= 0` = all candidates per pass).
 #' @return An [lulc_data_t] with the simulated posterior LULC.
 #' @keywords internal
@@ -207,7 +208,7 @@ alloc_clumpy_one_period <- function(
 #' @param area_dist Character; patch-area distribution, `"lognormal"` (default)
 #'   or `"normal"`.
 #' @param avoid_aggregation Logical; uPAM merge avoidance (default `TRUE`).
-#' @param batch_size Integer; uPAM pivots attempted per GART re-draw.
+#' @param batch_size Integer; uPAM pivots attempted per MuST re-draw.
 #' @param seed Optional integer random seed for reproducibility.
 alloc_clumpy <- function(
   self,

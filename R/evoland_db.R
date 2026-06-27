@@ -176,7 +176,7 @@ evoland_db <- R6::R6Class(
     #' (default) or `"normal"`. See [alloc_clumpy()].
     #' @param avoid_aggregation Logical; if `TRUE` (default) uPAM patches that
     #' would merge fail and allocate nothing. Ignored for uSAM.
-    #' @param batch_size Integer; uPAM pivots attempted per GART re-draw
+    #' @param batch_size Integer; uPAM pivots attempted per MuST re-draw
     #' (`1` = strict uPAM; `<= 0` = all candidates per pass). Ignored for uSAM.
     #' @param seed Optional integer random seed for reproducibility.
     alloc_clumpy = function(

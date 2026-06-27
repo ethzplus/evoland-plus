@@ -9,7 +9,7 @@
 // Two allocation methods are provided, selected by `method`:
 //
 //   method = 0  (uSAM, Unbiased Simple Allocation Method, thesis sec. 3.4.1):
-//                a single GART pass per anterior class; every pixel that draws a
+//                a single MuST pass per anterior class; every pixel that draws a
 //                change is allocated as a *mono-pixel* patch.  This is the
 //                bias-free simple method and is only meaningful for mono-pixel
 //                patches (patch area == 1); quantity of change is enforced in
@@ -17,7 +17,7 @@
 //                avoid_aggregation) are ignored.
 //
 //   method = 1  (uPAM, Unbiased Patch Allocation Method, thesis sec. 3.4.2,
-//                Fig. 3.2):  iterative.  GART is run over the remaining pool, a
+//                Fig. 3.2):  iterative.  MuST is run over the remaining pool, a
 //                batch of pivots is drawn and grown into patches, allocated (or
 //                failed) pixels are removed from the pool (sampling without
 //                replacement) and the per-transition quota is decremented; the
@@ -29,7 +29,7 @@
 // => uSAM, otherwise uPAM); the explicit `method` flag here is kept so the
 // backend can be exercised directly (unit tests / cross-tool comparison).
 //
-// Pivot rarefaction (`rarefy`): the per-cell pivot probability fed to GART is
+// Pivot rarefaction (`rarefy`): the per-cell pivot probability fed to MuST is
 // P(v|u,z) / E(sigma) (thesis Fig. 3.2, factor 1/E(sigma)), because each pivot
 // grows into a patch of mean area E(sigma).  Without it the allocated quantity
 // of change is inflated by ~mean patch size.
@@ -263,10 +263,11 @@ static int grow_one_patch(std::vector<int> &land, const std::vector<int> &ant,
   return (int)patch.size();
 }
 
-// Inverse-CDF (MuST / GART) draw for one cell over the active transitions.
-// `cum_prob(q)` yields the (non-negative) probability of the q-th active
-// transition.  Returns the selected active-transition index, or -1 for "stay".
-template <typename F> static int gart_draw_one(int k, F cum_prob) {
+// Inverse-CDF Multinomial Sampling Test (MuST) draw for one cell over the active
+// transitions.  `cum_prob(q)` yields the (non-negative) probability of the q-th
+// active transition.  Returns the selected active-transition index, or -1 for
+// "stay".
+template <typename F> static int must_draw_one(int k, F cum_prob) {
   const double u = R::unif_rand();
   double cs = 0.0;
   for (int q = 0; q < k; ++q) {
@@ -302,9 +303,12 @@ List raster_neighbors_cpp(int nrow, int ncol) {
                       _["right"] = rgt);
 }
 
-//' Generalized Allocation Rejection Test (GART / MuST) in C++
+//' Multinomial Sampling Test (MuST) in C++
 //'
-//' Inverse-CDF multinomial draw of a final state per cell.  NaN and negative
+//' Inverse-CDF multinomial draw of a final state per cell (Mazy 2022,
+//' Appendix 3.B).  This is the same test the reference `clumpy` implementation
+//' calls the "generalized allocation rejection test" (GART); the thesis itself
+//' only uses the MuST name, so we follow that here.  NaN and negative
 //' probabilities are clamped to 0 (matching the reference `clumpy` Python).
 //'
 //' @param P Numeric matrix (n_cells x n_states); each row should sum to ~1
@@ -314,7 +318,7 @@ List raster_neighbors_cpp(int nrow, int ncol) {
 //' @return Integer vector of length `nrow(P)` with the sampled state per cell.
 //' @keywords internal
 // [[Rcpp::export]]
-IntegerVector gart_cpp(NumericMatrix P, IntegerVector states) {
+IntegerVector must_cpp(NumericMatrix P, IntegerVector states) {
   const int n = P.nrow();
   const int k = P.ncol();
   if ((int)states.size() != k) {
@@ -322,7 +326,7 @@ IntegerVector gart_cpp(NumericMatrix P, IntegerVector states) {
   }
   IntegerVector y(n);
   for (int i = 0; i < n; ++i) {
-    int sel = gart_draw_one(k, [&](int q) {
+    int sel = must_draw_one(k, [&](int q) {
       double p = P(i, q);
       if (ISNAN(p) || p < 0.0) p = 0.0;
       return p;
@@ -443,7 +447,7 @@ IntegerVector grow_patch_cpp(IntegerVector landscape,
 //'   P(v|u) per transition (fraction of source pixels that change).  Used only
 //'   by uPAM to set the per-transition pixel quota.
 //' @param method 0 = uSAM (mono-pixel single pass), 1 = uPAM (iterative, quota).
-//' @param batch_size uPAM only: pivots attempted per GART re-draw (1 = strict
+//' @param batch_size uPAM only: pivots attempted per MuST re-draw (1 = strict
 //'   uPAM, <= 0 = all candidates).
 //' @param rarefy If TRUE, divide pivot probabilities by `area_mean` (the
 //'   1/E(sigma) factor) so the allocated quantity of change matches the target.
@@ -499,13 +503,13 @@ IntegerVector allocate_clumpy_cpp(
     if (pool.empty()) continue;
 
     if (method == 0) {
-      // ---- uSAM: single GART pass, mono-pixel allocation ----------------
+      // ---- uSAM: single MuST pass, mono-pixel allocation ----------------
       const int m = (int)pool.size();
       std::vector<int> sampled(m);
       for (int i = 0; i < m; ++i) {
         const int cell = pool[i];
         const int sel =
-            gart_draw_one(k, [&](int q) { return pivot_prob(cell, at[q]); });
+            must_draw_one(k, [&](int q) { return pivot_prob(cell, at[q]); });
         sampled[i] = (sel < 0) ? -1 : at[sel];
       }
       for (int i = 0; i < m; ++i) {
@@ -514,7 +518,7 @@ IntegerVector allocate_clumpy_cpp(
         if (land[pv] == fc && ant[pv] == fc) land[pv] = trans_to[sampled[i]];
       }
     } else {
-      // ---- uPAM: iterative GART + quota + without-replacement ------------
+      // ---- uPAM: iterative MuST + quota + without-replacement ------------
       std::vector<double> remaining(k);
       const double m0 = (double)pool.size();
       for (int q = 0; q < k; ++q) {
@@ -546,10 +550,10 @@ IntegerVector allocate_clumpy_cpp(
                    pool.end());
         if (pool.empty()) break;
 
-        // GART over the current pool, restricted to in-quota transitions.
+        // MuST over the current pool, restricted to in-quota transitions.
         std::vector<int> cand_cell, cand_q;
         for (int idx : pool) {
-          const int sel = gart_draw_one(k, [&](int q) {
+          const int sel = must_draw_one(k, [&](int q) {
             return remaining[q] > 0.0 ? pivot_prob(idx, at[q]) : 0.0;
           });
           if (sel >= 0) {
