@@ -1,0 +1,570 @@
+---
+title: "Stochastic allocation sensitivity with `runs_t`"
+author: Jan Hartman
+date: last-modified
+vignette: >
+  %\VignetteIndexEntry{stochastic-allocation-sensitivity}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+number-sections: true
+---
+
+```{r}
+#| label: cleanup
+#| include: false
+unlink("stochastic-sensitivity.evolanddb", recursive = TRUE)
+set.seed(666)
+knitr::knit_hooks$set(seed = function(before, options, envir) {
+  if (before && !is.null(options$seed)) {
+    set.seed(options$seed)
+  }
+})
+local({
+  chunk_messages <- character()
+  knitr::knit_hooks$set(message = function(x, options) {
+    chunk_messages <<- c(chunk_messages, x)
+    return(character(0))
+  })
+  default_chunk_hook <- knitr::knit_hooks$get("chunk")
+  knitr::knit_hooks$set(chunk = function(x, options) {
+    out <- default_chunk_hook(x, options)
+    if (length(chunk_messages) > 0) {
+      msg_text <- paste(chunk_messages, collapse = "")
+      callout <- paste0(
+        "\n\n::: {.callout-note collapse='true'}\n## Messages\n",
+        msg_text,
+        "\n:::\n"
+      )
+      chunk_messages <<- character()
+      out <- paste0(out, callout)
+    }
+    return(out)
+  })
+})
+```
+
+*Note: this tutorial assumes that you already know the basic `evoland-plus` workflow and the concepts of transition potentials, constrained demand, and patch-based allocation. The preceding tutorial introduced those ideas; here we focus on what changes when we treat stochastic allocation itself as an object of analysis.*
+
+## Why another tutorial?
+
+The default tutorial walks through a single calibration-and-allocation workflow, ending with one extrapolated realization. That is a good first contact, but it hides an important property of patch-based allocators: **once transition demand and transition potentials are fixed, the final pattern can still vary from run to run because allocation is stochastic**.
+
+For sensitivity analysis, a single map is therefore not enough. In this vignette we will:
+
+1. fit the same simple synthetic model as in the introductory tutorial,
+2. register 30 allocation realizations in `runs_t`,
+3. allocate exactly one extrapolated period 30 times,
+4. compare each extrapolated realization to the last observed map, and
+5. summarize the results as a **change-frequency heatmap** showing where change happens consistently and where it is contingent on the stochastic path.
+
+This is useful whenever you want to distinguish:
+
+- **structurally robust change**: cells that nearly always switch class, and
+- **allocation uncertainty**: cells that only sometimes switch because multiple cells compete for similar transition potential.
+
+## Setup
+
+```{r}
+#| label: setup
+#| output: false
+library(evoland)
+library(data.table)
+library(terra)
+library(lubridate)
+```
+
+We create a fresh on-disk database.
+
+```{r}
+#| label: create-db
+db <- evoland_db$new(path = "stochastic-sensitivity.evolanddb")
+db
+```
+
+## Model framework
+
+We keep the same compact synthetic setup as in the introductory tutorial so that the sensitivity analysis stays self-contained.
+
+### LULC categories
+
+```{r}
+#| label: define-lulc-meta
+db$lulc_meta_t <- create_lulc_meta_t(
+  list(
+    forest = list(
+      pretty_name = "Forest",
+      description = "Areas with lots of trees",
+      src_classes = 1:3
+    ),
+    arable = list(
+      pretty_name = "Arable Land",
+      src_classes = c(4, 8)
+    ),
+    urban = list(
+      pretty_name = "Urban Areas",
+      description = "Where nature goes to die",
+      src_classes = 5:7
+    ),
+    static = list(
+      pretty_name = "Immutable",
+      description = "Areas where we cannot conceptualize change",
+      src_classes = 9:10
+    )
+  )
+)
+```
+
+### Spatial domain
+
+```{r}
+#| label: define-spatial-domain
+template_rast <- terra::rast(
+  crs = "EPSG:2056",
+  extent = terra::ext(c(
+    xmin = 2697000,
+    xmax = 2700000,
+    ymin = 1252000,
+    ymax = 1255000
+  )),
+  resolution = 100
+)
+
+db$coords_t <- create_coords_t_square(
+  epsg = terra::crs(template_rast, describe = TRUE)$code |> as.integer(),
+  extent = terra::ext(template_rast),
+  resolution = terra::res(template_rast)[1]
+)
+```
+
+### Temporal domain
+
+We retain one extrapolated period only, because repeated allocation is easiest to interpret when all runs start from the same last observed map.
+
+```{r}
+#| label: define-periods
+db$periods_t <- create_periods_t(
+  period_length_str = "P10Y",
+  start_observed = "1995-01-01",
+  end_observed = "2020-01-01",
+  end_extrapolated = "2030-01-01"
+)
+
+db$periods_t
+```
+
+## Synthetic observed data
+
+As in the introductory vignette, we create a small autoregressive synthetic landscape with three observed raster layers.
+
+```{r}
+#| seed: 123
+#| label: synthesize-lulc
+#| fig-asp: 0.3
+n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
+noise1 <- runif(n_cells, min = 0, max = 10)
+noise2 <- noise1 + stats::rpois(n_cells, 0.2) - stats::rpois(n_cells, 0.2)
+noise3 <- noise2 + stats::rpois(n_cells, 0.2) - stats::rpois(n_cells, 0.2)
+
+synthetic_lulc <- rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
+  focal(w = 3, fun = mean, na.rm = TRUE) |>
+  clamp(lower = 0, upper = 10) |>
+  classify(
+    rcl = data.frame(
+      from = 0:9,
+      to = 1:10,
+      becomes = c(3, 7, 1, 10, 5, 8, 2, 9, 4, 6)
+    )
+  )
+
+plot(synthetic_lulc, nc = 3)
+```
+
+We now transform the raster stack into `lulc_data_t` records and attach `id_run = 0L`, which is the reserved base run for observed data.
+
+```{r}
+#| label: ingest-lulc
+synthetic_at_coords <- extract_using_coords_t(synthetic_lulc, db$coords_t)
+
+synthetic_joint_meta <- synthetic_at_coords[
+  , .(
+    id_coord,
+    id_period = substr(layer, 4, 4) |> as.integer(),
+    src_class = value
+  )
+][
+  db$lulc_meta_long_v,
+  on = .(src_class),
+  nomatch = NULL
+]
+
+db$lulc_data_t <- as_lulc_data_t(
+  synthetic_joint_meta[, .(
+    id_run = 0L,
+    id_period,
+    id_lulc,
+    id_coord
+  )]
+)
+```
+
+## Predictors and neighborhoods
+
+We again use the package's built-in test predictors and derive neighborhood predictors.
+
+```{r}
+#| label: predictors
+db$pred_meta_t <- evoland:::test_pred_meta_t
+db$pred_data_t <- evoland:::test_pred_data_t
+
+db$set_neighbors(
+  max_distance = 1000,
+  distance_breaks = c(0, 100, 500, 1000),
+  quiet = TRUE
+)
+db$generate_neighbor_predictors()
+```
+
+## Calibration
+
+### Eligible transitions and predictor pruning
+
+```{r}
+#| label: transitions-and-predictors
+#| seed: 666
+db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 20)
+
+db$set_full_trans_preds()
+
+trans_pred_scored <- db$get_pred_filter_score(
+  filter = mlr3filters::FilterImportance$new(
+    learner = mlr3::lrn("classif.rpart")
+  )
+)
+
+db$trans_preds_t <- trans_pred_scored[
+  importance > 5 | is.na(importance)
+]
+```
+
+### Transition models
+
+```{r}
+#| label: fit-models
+#| seed: 666
+db$trans_models_t <- db$fit_partial_models(
+  learner = mlr3::lrn("classif.featureless"),
+  measures = c("classif.auc", "classif.acc"),
+  sample_frac = 0.7,
+  seed = 666
+)
+
+db$trans_models_t <- db$fit_partial_models(
+  learner = mlr3::lrn("classif.rpart"),
+  measures = c("classif.auc", "classif.acc"),
+  sample_frac = 0.7,
+  seed = 666
+)
+
+db$trans_models_t <- db$fit_full_models(
+  select_score = "classif.auc",
+  select_maximize = TRUE
+)
+```
+
+### Transition rates and baseline allocation parameters
+
+```{r}
+#| label: transition-rates
+#| seed: 666
+db$trans_rates_t <- db$get_obs_trans_rates() |>
+  extrapolate_trans_rates(
+    periods = db$periods_t,
+    coord_count = n_cells
+  )
+
+alloc_base <- db$create_alloc_params_t(n_perturbations = 0)
+alloc_base[, id_run := 0L]
+```
+
+## Registering stochastic realizations in `runs_t`
+
+The central idea of this tutorial is that **each stochastic allocation is a separate run**. We therefore create 30 run records and propagate the same baseline allocation parameters to each run.
+
+Because the exact metadata fields of `runs_t` may evolve over time, the helper below only assumes that `id_run` exists and fills other common metadata columns when present.
+
+```{r}
+#| label: register-runs
+register_allocation_runs <- function(db, n_realizations = 30L, seed_start = 1000L) {
+  runs_existing <- data.table::copy(db$runs_t)
+  stopifnot("id_run" %in% names(runs_existing))
+
+  run_ids <- seq_len(n_realizations)
+  seeds <- seed_start + run_ids - 1L
+
+  runs_new <- data.table(id_run = run_ids)
+
+  if ("label" %in% names(runs_existing)) {
+    runs_new[, label := sprintf("allocation_%02d", id_run)]
+  }
+  if ("run_name" %in% names(runs_existing)) {
+    runs_new[, run_name := sprintf("allocation_%02d", id_run)]
+  }
+  if ("description" %in% names(runs_existing)) {
+    runs_new[, description := "Stochastic CLUMPY realization for sensitivity analysis"]
+  }
+  if ("kind" %in% names(runs_existing)) {
+    runs_new[, kind := "allocation_sensitivity"]
+  }
+  if ("seed" %in% names(runs_existing)) {
+    runs_new[, seed := seeds]
+  }
+
+  for (nm in setdiff(names(runs_existing), names(runs_new))) {
+    runs_new[, (nm) := NA]
+  }
+  data.table::setcolorder(runs_new, names(runs_existing))
+
+  db$runs_t <- unique(rbind(runs_existing, runs_new, fill = TRUE), by = "id_run")
+
+  list(run_ids = run_ids, seeds = seeds)
+}
+
+run_plan <- register_allocation_runs(db, n_realizations = 30L, seed_start = 2001L)
+run_ids <- run_plan$run_ids
+run_seeds <- run_plan$seeds
+
+db$runs_t[id_run %in% run_ids]
+```
+
+We now duplicate the baseline allocation parameters for every stochastic run. This ensures that **all differences among runs arise from the allocator's stochasticity, not from parameter perturbations**.
+
+```{r}
+#| label: copy-alloc-params-to-runs
+alloc_params_runs <- rbindlist(lapply(run_ids, function(i) {
+  copy(alloc_base)[, id_run := i]
+}))
+
+db$alloc_params_t <- alloc_params_runs
+```
+
+## Running one extrapolated period 30 times
+
+We only allocate the first extrapolated period. This keeps the comparison clean: every realization starts from the same observed state.
+
+```{r}
+#| label: identify-periods
+last_observed_id <- db$periods_t[
+  id_period != 0 & is_extrapolated == FALSE,
+  max(id_period)
+]
+
+first_extrapolated_id <- db$periods_t[
+  is_extrapolated == TRUE,
+  min(id_period)
+]
+
+last_observed_id
+first_extrapolated_id
+```
+
+The wrapper below is intentionally defensive. Some versions of the API may expose `id_run` directly in `alloc_clumpy()`, while others may infer runs from the database state. If the method has an `id_run` argument, we pass it; otherwise we fall back to the method's default signature.
+
+```{r}
+#| label: allocation-wrapper
+alloc_one_run <- function(db, id_run, id_period, seed) {
+  alloc_formals <- names(formals(db$alloc_clumpy))
+  alloc_args <- list(
+    id_period = id_period,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    seed = seed
+  )
+  if ("id_run" %in% alloc_formals) {
+    alloc_args$id_run <- id_run
+  }
+  do.call(db$alloc_clumpy, alloc_args)
+}
+```
+
+```{r}
+#| label: run-30-realizations
+#| results: false
+invisible(lapply(seq_along(run_ids), function(i) {
+  alloc_one_run(
+    db = db,
+    id_run = run_ids[i],
+    id_period = first_extrapolated_id,
+    seed = run_seeds[i]
+  )
+}))
+```
+
+## Summarizing stochastic sensitivity
+
+A convenient first summary is binary: for each cell we ask whether its simulated class differs from the last observed class. Averaging that binary indicator over 30 realizations gives a **change frequency** between 0 and 1.
+
+- `0` means the cell never changes.
+- `1` means the cell always changes.
+- intermediate values indicate uncertainty induced by the allocator.
+
+```{r}
+#| label: summarize-change-frequency
+observed_last <- db$lulc_data_t[
+  id_run == 0L & id_period == last_observed_id,
+  .(id_coord, id_lulc_observed = id_lulc)
+]
+
+simulated_extrap <- db$lulc_data_t[
+  id_run %in% run_ids & id_period == first_extrapolated_id,
+  .(id_run, id_coord, id_lulc_simulated = id_lulc)
+]
+
+change_frequency <- simulated_extrap[
+  observed_last,
+  on = .(id_coord)
+][
+  , .(
+    n_changed = sum(id_lulc_simulated != id_lulc_observed),
+    p_changed = mean(id_lulc_simulated != id_lulc_observed)
+  ),
+  by = .(id_coord)
+]
+
+change_frequency
+```
+
+To visualize the result, we join coordinates back in and rasterize the per-cell change frequency.
+
+```{r}
+#| label: helper-rasterize
+as_coord_raster <- function(values_dt, value_col, template = template_rast) {
+  raster_values <- db$coords_t[
+    values_dt,
+    on = .(id_coord)
+  ]
+  vect_obj <- terra::vect(
+    raster_values[, .(lon, lat, value = get(value_col))],
+    geom = c("lon", "lat"),
+    crs = terra::crs(template)
+  )
+  terra::rasterize(vect_obj, template, field = "value")
+}
+
+change_frequency_rast <- as_coord_raster(change_frequency, "p_changed")
+```
+
+## Heatmap of stochastic change consistency
+
+```{r}
+#| label: plot-change-frequency
+#| fig-width: 7
+#| fig-height: 6
+plot(
+  change_frequency_rast,
+  main = "Share of runs in which a cell changes class",
+  col = hcl.colors(20, palette = "YlOrRd", rev = FALSE),
+  range = c(0, 1)
+)
+```
+
+The interpretation is straightforward:
+
+- **cooler / lighter cells** are stable under repeated allocation,
+- **warmer / darker cells** change consistently and may reflect strong transition potential and/or limited competition, and
+- **mid-range cells** reveal locations where several cells compete for a limited transition demand and small stochastic differences decide which ones actually convert.
+
+In other words, this map is not a transition-potential surface. It is a **realization-frequency surface**.
+
+## Inspecting a few individual realizations
+
+The aggregate heatmap is informative, but it helps to also inspect a few single runs side by side.
+
+```{r}
+#| label: helper-sample-realizations
+sample_runs <- run_ids[c(1, 2, 3, 4)]
+
+make_lulc_raster_for_run <- function(id_run_value, id_period_value) {
+  values_dt <- db$lulc_data_t[
+    id_run == id_run_value & id_period == id_period_value,
+    .(id_coord, value = id_lulc)
+  ]
+  values_joined <- db$coords_t[values_dt, on = .(id_coord)]
+  vect_obj <- terra::vect(
+    values_joined[, .(lon, lat, value)],
+    geom = c("lon", "lat"),
+    crs = terra::crs(template_rast)
+  )
+  terra::rasterize(vect_obj, template_rast, field = "value")
+}
+
+sample_rasters <- rast(lapply(sample_runs, function(i) {
+  make_lulc_raster_for_run(i, first_extrapolated_id)
+}))
+
+sample_rasters <- categories(
+  sample_rasters,
+  layer = 0,
+  value = data.frame(
+    id = db$lulc_meta_t$id_lulc,
+    name = db$lulc_meta_t$pretty_name
+  )
+)
+
+names(sample_rasters) <- sprintf("run %02d", sample_runs)
+```
+
+```{r}
+#| label: plot-sample-realizations
+#| fig-asp: 0.8
+plot(sample_rasters)
+```
+
+Even with identical calibration, transition rates, and allocation parameters, local differences appear across runs. The heatmap above compresses those differences into a robust summary.
+
+## Optional: class-specific consistency maps
+
+The previous heatmap asked only whether a cell changes at all. You can build more targeted summaries in the same way. For example, the next chunk computes the frequency with which a cell becomes `urban`.
+
+```{r}
+#| label: urban-frequency
+urban_id <- db$lulc_meta_t[pretty_name == "Urban Areas", id_lulc]
+
+urban_frequency <- simulated_extrap[
+  , .(
+    p_urban = mean(id_lulc_simulated == urban_id)
+  ),
+  by = .(id_coord)
+]
+
+urban_frequency_rast <- as_coord_raster(urban_frequency, "p_urban")
+
+plot(
+  urban_frequency_rast,
+  main = "Share of runs in which a cell ends up urban",
+  col = hcl.colors(20, palette = "Reds", rev = FALSE),
+  range = c(0, 1)
+)
+```
+
+This is often the more policy-relevant view if stakeholders care about a specific target class rather than generic change.
+
+## What `runs_t` buys you
+
+In a small tutorial like this, we could have stored realizations in ad hoc objects. Using `runs_t` is better because it scales to more serious experiments:
+
+- each realization is explicitly registered,
+- run-level metadata such as seeds, scenario labels, or parameter sets can be stored alongside the simulation,
+- downstream summaries can be grouped by run families, and
+- the same database structure can later support sensitivity analysis, parameter sweeps, or scenario ensembles.
+
+A natural next step would be to combine **between-run stochasticity** (shown here) with **between-parameter variability** by creating multiple allocation parameter sets per scenario and multiple stochastic replicates per parameter set.
+
+## Take-away
+
+Repeated allocation changes the interpretation of the model output:
+
+- one extrapolated map is a **draw**,
+- the stack of 30 realizations is an **ensemble**, and
+- the heatmap of change frequency is a compact way to communicate **where the ensemble is robust and where it is uncertain**.
+
+That makes `runs_t` more than bookkeeping: it becomes the backbone for uncertainty-aware land use change analysis.
