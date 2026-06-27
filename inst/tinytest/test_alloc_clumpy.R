@@ -134,17 +134,23 @@ expect_equal(sort(patch_noagg), c(1L, 2L))
 
 # --- evoland:::allocate_clumpy_cpp() ----------------------------------------
 
+# Sparse potentials are passed as per-transition lists. Helper: one transition
+# over all `ncell` cells with constant potential `p`.
+sparse_const <- function(ncell, p) {
+  list(cell = list(seq_len(ncell)), value = list(rep(p, ncell)))
+}
+
 nr <- 5L
 nc <- 5L
 ncell <- nr * nc
 ant <- as.integer(rep(1L, ncell)) # all class 1
-probs1col <- matrix(0.5, nrow = ncell, ncol = 1L) # one transition 1 -> 2
+sp <- sparse_const(ncell, 0.5) # one transition 1 -> 2, potential 0.5
 
 # uSAM (method 0): mono-pixel single pass
 set.seed(1L)
 res_usam <- evoland:::allocate_clumpy_cpp(
   landscape = ant, nrow = nr, ncol = nc,
-  trans_from = 1L, trans_to = 2L, probs = probs1col,
+  trans_from = 1L, trans_to = 2L, prob_cell = sp$cell, prob_value = sp$value,
   area_mean = 1.0, area_var = 0.0, elongation = 0.0, target_rate = 0.3,
   method = 0L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
   avoid_aggregation = FALSE, area_dist = 0L
@@ -156,7 +162,7 @@ expect_true(all(res_usam %in% c(1L, 2L)))
 set.seed(1L)
 res_upam <- evoland:::allocate_clumpy_cpp(
   landscape = ant, nrow = nr, ncol = nc,
-  trans_from = 1L, trans_to = 2L, probs = probs1col,
+  trans_from = 1L, trans_to = 2L, prob_cell = sp$cell, prob_value = sp$value,
   area_mean = 2.0, area_var = 1.0, elongation = 0.0, target_rate = 0.3,
   method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
   avoid_aggregation = TRUE, area_dist = 0L
@@ -167,23 +173,23 @@ expect_true(sum(res_upam == 2L) <= ncell)
 
 # Deterministic forcing: potential 1 + uSAM => every source cell transitions,
 # regardless of the RNG draw (the MuST rejection step is bypassed).
-probs_forced <- matrix(1.0, nrow = ncell, ncol = 1L)
+sp1 <- sparse_const(ncell, 1.0)
 set.seed(123L)
 res_forced <- evoland:::allocate_clumpy_cpp(
   landscape = ant, nrow = nr, ncol = nc,
-  trans_from = 1L, trans_to = 2L, probs = probs_forced,
+  trans_from = 1L, trans_to = 2L, prob_cell = sp1$cell, prob_value = sp1$value,
   area_mean = 1.0, area_var = 0.0, elongation = 0.0, target_rate = 1.0,
   method = 0L, batch_size = 1L, rarefy = FALSE, shuffle = TRUE,
   avoid_aggregation = FALSE, area_dist = 0L
 )
 expect_true(all(res_forced == 2L))
 
-# Zero potential => nothing changes
-probs_zero <- matrix(0.0, nrow = ncell, ncol = 1L)
+# Empty sparse potentials (no entries) => nothing changes
 set.seed(123L)
 res_zero <- evoland:::allocate_clumpy_cpp(
   landscape = ant, nrow = nr, ncol = nc,
-  trans_from = 1L, trans_to = 2L, probs = probs_zero,
+  trans_from = 1L, trans_to = 2L,
+  prob_cell = list(integer(0)), prob_value = list(numeric(0)),
   area_mean = 2.0, area_var = 1.0, elongation = 0.0, target_rate = 0.3,
   method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
   avoid_aggregation = TRUE, area_dist = 0L
@@ -194,11 +200,11 @@ expect_true(all(res_zero == 1L))
 # because merging patches are rejected.
 big <- 30L
 antb <- as.integer(rep(1L, big * big))
-probb <- matrix(0.4, nrow = big * big, ncol = 1L)
+spb <- sparse_const(big * big, 0.4)
 set.seed(5L)
 res_noagg <- evoland:::allocate_clumpy_cpp(
   landscape = antb, nrow = big, ncol = big,
-  trans_from = 1L, trans_to = 2L, probs = probb,
+  trans_from = 1L, trans_to = 2L, prob_cell = spb$cell, prob_value = spb$value,
   area_mean = 4.0, area_var = 2.0, elongation = 0.0, target_rate = 0.3,
   method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
   avoid_aggregation = FALSE, area_dist = 0L
@@ -206,9 +212,23 @@ res_noagg <- evoland:::allocate_clumpy_cpp(
 set.seed(5L)
 res_agg <- evoland:::allocate_clumpy_cpp(
   landscape = antb, nrow = big, ncol = big,
-  trans_from = 1L, trans_to = 2L, probs = probb,
+  trans_from = 1L, trans_to = 2L, prob_cell = spb$cell, prob_value = spb$value,
   area_mean = 4.0, area_var = 2.0, elongation = 0.0, target_rate = 0.3,
   method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
   avoid_aggregation = TRUE, area_dist = 0L
 )
 expect_true(sum(res_agg == 2L) <= sum(res_noagg == 2L))
+
+# A sparse subset: only some cells carry a potential; only those can change.
+set.seed(9L)
+some_cells <- c(1L, 7L, 13L, 19L, 25L)
+res_subset <- evoland:::allocate_clumpy_cpp(
+  landscape = ant, nrow = nr, ncol = nc,
+  trans_from = 1L, trans_to = 2L,
+  prob_cell = list(some_cells), prob_value = list(rep(1.0, length(some_cells))),
+  area_mean = 1.0, area_var = 0.0, elongation = 0.0, target_rate = 1.0,
+  method = 0L, batch_size = 1L, rarefy = FALSE, shuffle = TRUE,
+  avoid_aggregation = FALSE, area_dist = 0L
+)
+# forced potential 1 on exactly those cells (mono-pixel) => exactly they change
+expect_equal(which(res_subset == 2L), some_cells)

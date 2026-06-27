@@ -115,17 +115,25 @@ alloc_clumpy_one_period <- function(
   cell_idx <- terra::cellFromXY(anterior_rast, xy_mat)
   coord_to_cell <- stats::setNames(cell_idx, coords_minimal$id_coord)
 
-  # 6. Per-transition probability columns (n_cells x n_trans), 0 where absent
-  probs_mat <- matrix(0.0, nrow = n_cells, ncol = n_trans)
+  # 6. Sparse per-transition potential columns: for each transition, the cells
+  #    (1-based raster index) carrying a nonzero adjusted potential and the
+  #    matching values. The adjusted-potential table is already sparse, so we
+  #    pass it as per-transition lists and avoid materialising a dense
+  #    n_cells x n_trans matrix (prohibitive at >1e7 cells).
+  prob_cell <- vector("list", n_trans)
+  prob_value <- vector("list", n_trans)
   for (t in seq_len(n_trans)) {
     id_trans_t <- viable_trans$id_trans[t]
     pots_t <- adj_pots[id_trans == id_trans_t, .(id_coord, value)]
     if (nrow(pots_t) == 0L) {
+      prob_cell[[t]] <- integer(0)
+      prob_value[[t]] <- numeric(0)
       next
     }
     cells_t <- as.integer(coord_to_cell[as.character(pots_t$id_coord)])
     ok <- !is.na(cells_t) & cells_t >= 1L & cells_t <= n_cells
-    probs_mat[cbind(cells_t[ok], t)] <- pots_t$value[ok]
+    prob_cell[[t]] <- cells_t[ok]
+    prob_value[[t]] <- as.numeric(pots_t$value[ok])
   }
 
   # 7. Align patch params / rates to the viable-transition order
@@ -159,7 +167,8 @@ alloc_clumpy_one_period <- function(
     ncol = ncol_r,
     trans_from = as.integer(viable_trans$id_lulc_anterior),
     trans_to = as.integer(viable_trans$id_lulc_posterior),
-    probs = probs_mat,
+    prob_cell = prob_cell,
+    prob_value = prob_value,
     area_mean = area_mean,
     area_var = area_var,
     elongation = elongation,

@@ -21,8 +21,8 @@ grow_patch_cpp <- function(landscape, ant_landscape, probs, nbr_above, nbr_below
     .Call(`_evoland_grow_patch_cpp`, landscape, ant_landscape, probs, nbr_above, nbr_below, nbr_left, nbr_right, pivot, target_area, from_class, to_class, elongation, ncol, avoid_aggregation)
 }
 
-allocate_clumpy_cpp <- function(landscape, nrow, ncol, trans_from, trans_to, probs, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist) {
-    .Call(`_evoland_allocate_clumpy_cpp`, landscape, nrow, ncol, trans_from, trans_to, probs, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist)
+allocate_clumpy_cpp <- function(landscape, nrow, ncol, trans_from, trans_to, prob_cell, prob_value, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist) {
+    .Call(`_evoland_allocate_clumpy_cpp`, landscape, nrow, ncol, trans_from, trans_to, prob_cell, prob_value, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist)
 }
 
 calculate_class_stats_cpp <- function(mat, cellsize) {

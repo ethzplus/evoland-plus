@@ -57,13 +57,63 @@
 #include <cmath>
 #include <set>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 using namespace Rcpp;
 
+// NOTE: cell indices are held as `int` for compatibility with R's 32-bit
+// integers (terra cell numbers, IntegerVector). This caps the raster at
+// INT_MAX (~2.1e9) cells; larger rasters would need a 64-bit index type here
+// and on the R side.
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+// Sparse per-transition probability column: the adjusted transition potentials
+// are naturally sparse (only the transition's source cells carry a value), so
+// instead of a dense n x T matrix we keep, per transition, the nonzero cells and
+// their values sorted by cell, with an O(log nnz) lookup.  Built once from the
+// R-side per-transition lists; missing cells read as 0.
+struct SparseColumn {
+  std::vector<int> idx; // 0-based cell indices, sorted ascending
+  std::vector<double> val;
+
+  double value_at(int cell) const {
+    auto it = std::lower_bound(idx.begin(), idx.end(), cell);
+    if (it != idx.end() && *it == cell) {
+      return val[(size_t)(it - idx.begin())];
+    }
+    return 0.0;
+  }
+};
+
+// Build a SparseColumn from R vectors of 1-based cell indices and values.
+// Out-of-range cells are dropped; entries are sorted by cell.
+static SparseColumn build_sparse_column(const IntegerVector &cells_1based,
+                                        const NumericVector &values, int n) {
+  const int m = cells_1based.size();
+  std::vector<std::pair<int, double>> tmp;
+  tmp.reserve(m);
+  for (int i = 0; i < m; ++i) {
+    const int c = cells_1based[i] - 1; // -> 0-based
+    if (c < 0 || c >= n) continue;
+    tmp.emplace_back(c, values[i]);
+  }
+  std::sort(tmp.begin(), tmp.end(),
+            [](const std::pair<int, double> &a, const std::pair<int, double> &b) {
+              return a.first < b.first;
+            });
+  SparseColumn col;
+  col.idx.reserve(tmp.size());
+  col.val.reserve(tmp.size());
+  for (const auto &p : tmp) {
+    col.idx.push_back(p.first);
+    col.val.push_back(p.second);
+  }
+  return col;
+}
 
 // Rook-adjacency neighbour indices (0-based, -1 == no neighbour / edge) for a
 // row-major (nrow x ncol) raster.
@@ -115,16 +165,8 @@ static int draw_area(double area_mean, double area_var, int area_dist) {
                         : draw_lognorm_area(area_mean, area_var);
 }
 
-// In-place Fisher-Yates shuffle of `v` using R's RNG (so set.seed() applies).
-static void shuffle_in_place(std::vector<int> &v) {
-  for (int i = (int)v.size() - 1; i > 0; --i) {
-    int j = (int)std::floor(R::unif_rand() * (i + 1));
-    if (j > i) j = i; // guard against unif_rand() == 1.0 edge
-    std::swap(v[i], v[j]);
-  }
-}
-
-// Shuffle two parallel vectors with the same permutation.
+// Shuffle two parallel vectors with the same permutation, using R's RNG (so
+// set.seed() applies).
 static void shuffle_pair(std::vector<int> &a, std::vector<int> &b) {
   for (int i = (int)a.size() - 1; i > 0; --i) {
     int j = (int)std::floor(R::unif_rand() * (i + 1));
@@ -153,8 +195,9 @@ static void shuffle_pair(std::vector<int> &a, std::vector<int> &b) {
 // Returns the number of cells committed (>= 1 on success; 0 on failure / invalid
 // pivot).  `out_cells` always receives the cells that were *attempted* (0-based),
 // so the caller can remove them from the pool on failure (without replacement).
+template <typename ProbFn>
 static int grow_one_patch(std::vector<int> &land, const std::vector<int> &ant,
-                          const double *probs, const std::vector<int> &up,
+                          ProbFn prob_at, const std::vector<int> &up,
                           const std::vector<int> &down,
                           const std::vector<int> &left,
                           const std::vector<int> &right, int pivot0,
@@ -221,7 +264,7 @@ static int grow_one_patch(std::vector<int> &land, const std::vector<int> &ant,
     double best_score = -1.0;
     for (int b : border) {
       if (ant[b] != from_class || land[b] != from_class) continue; // not available
-      double prob = probs ? probs[b] : 0.0;
+      double prob = prob_at(b);
       if (ISNAN(prob) || prob < 0.0) prob = 0.0;
       const double r = b / ncol;
       const double c = b % ncol;
@@ -404,9 +447,12 @@ IntegerVector grow_patch_cpp(IntegerVector landscape,
     right[i] = nbr_right[i] - 1;
   }
   std::vector<double> pr(probs.begin(), probs.end());
+  auto prob_at = [&](int c) {
+    return (c >= 0 && c < (int)pr.size()) ? pr[c] : 0.0;
+  };
 
   std::vector<int> out;
-  int s = grow_one_patch(land, ant, pr.data(), up, down, left, right, pivot - 1,
+  int s = grow_one_patch(land, ant, prob_at, up, down, left, right, pivot - 1,
                          target_area, from_class, to_class, elongation, ncol,
                          avoid_aggregation, out);
 
@@ -437,10 +483,12 @@ IntegerVector grow_patch_cpp(IntegerVector landscape,
 //'   returned with the allocated changes applied.
 //' @param nrow,ncol Raster dimensions.
 //' @param trans_from,trans_to IntegerVectors (length T) of the source/target
-//'   class for each transition column of `probs`.  The set of anterior classes
-//'   is derived from `trans_from`.
-//' @param probs NumericMatrix (n_cells x T) of per-cell transition potentials,
-//'   already adjusted/closed; column t corresponds to transition t.
+//'   class for each transition.  The set of anterior classes is derived from
+//'   `trans_from`.
+//' @param prob_cell,prob_value Lists of length T (one element per transition)
+//'   giving the SPARSE adjusted potentials: `prob_cell[[t]]` is an integer
+//'   vector of 1-based cell indices and `prob_value[[t]]` the matching numeric
+//'   potentials for transition t.  Cells absent from a transition read as 0.
 //' @param area_mean,area_var,elongation NumericVectors (length T) of patch
 //'   parameters per transition.
 //' @param target_rate NumericVector (length T) of the target transition rate
@@ -460,10 +508,10 @@ IntegerVector grow_patch_cpp(IntegerVector landscape,
 // [[Rcpp::export]]
 IntegerVector allocate_clumpy_cpp(
     IntegerVector landscape, int nrow, int ncol, IntegerVector trans_from,
-    IntegerVector trans_to, NumericMatrix probs, NumericVector area_mean,
-    NumericVector area_var, NumericVector elongation, NumericVector target_rate,
-    int method, int batch_size, bool rarefy, bool shuffle,
-    bool avoid_aggregation, int area_dist) {
+    IntegerVector trans_to, List prob_cell, List prob_value,
+    NumericVector area_mean, NumericVector area_var, NumericVector elongation,
+    NumericVector target_rate, int method, int batch_size, bool rarefy,
+    bool shuffle, bool avoid_aggregation, int area_dist) {
   const int n = landscape.size();
   const int T = trans_from.size();
 
@@ -473,12 +521,23 @@ IntegerVector allocate_clumpy_cpp(
   std::vector<int> up, down, left, right;
   build_neighbors(nrow, ncol, up, down, left, right);
 
+  // Build the sparse per-transition potential columns from the R lists.
+  if (prob_cell.size() != T || prob_value.size() != T) {
+    stop("prob_cell and prob_value must each have length(trans_from) elements");
+  }
+  std::vector<SparseColumn> cols;
+  cols.reserve(T);
+  for (int t = 0; t < T; ++t) {
+    cols.push_back(build_sparse_column(as<IntegerVector>(prob_cell[t]),
+                                       as<NumericVector>(prob_value[t]), n));
+  }
+
   // Anterior classes to process, derived from trans_from.
   std::set<int> from_set(trans_from.begin(), trans_from.end());
 
   // Effective (clamped, optionally rarefied) pivot-selection probability.
   auto pivot_prob = [&](int cell, int t) -> double {
-    double p = probs(cell, t);
+    double p = cols[t].value_at(cell);
     if (ISNAN(p) || p < 0.0) p = 0.0;
     if (rarefy) {
       const double am = area_mean[t];
@@ -574,10 +633,11 @@ IntegerVector allocate_clumpy_cpp(
           const int t = at[q];
           const int to = trans_to[t];
           const int area = draw_area(area_mean[t], area_var[t], area_dist);
-          const double *col = &probs(0, t);
-          const int s =
-              grow_one_patch(land, ant, col, up, down, left, right, pv, area, fc,
-                             to, elongation[t], ncol, avoid_aggregation, out);
+          const SparseColumn &col = cols[t];
+          const int s = grow_one_patch(
+              land, ant, [&](int c) { return col.value_at(c); }, up, down, left,
+              right, pv, area, fc, to, elongation[t], ncol, avoid_aggregation,
+              out);
           ++processed; // every attempt counts toward the batch
           if (s > 0) {
             remaining[q] -= (double)s;

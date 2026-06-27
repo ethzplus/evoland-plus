@@ -83,8 +83,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // allocate_clumpy_cpp
-IntegerVector allocate_clumpy_cpp(IntegerVector landscape, int nrow, int ncol, IntegerVector trans_from, IntegerVector trans_to, NumericMatrix probs, NumericVector area_mean, NumericVector area_var, NumericVector elongation, NumericVector target_rate, int method, int batch_size, bool rarefy, bool shuffle, bool avoid_aggregation, int area_dist);
-RcppExport SEXP _evoland_allocate_clumpy_cpp(SEXP landscapeSEXP, SEXP nrowSEXP, SEXP ncolSEXP, SEXP trans_fromSEXP, SEXP trans_toSEXP, SEXP probsSEXP, SEXP area_meanSEXP, SEXP area_varSEXP, SEXP elongationSEXP, SEXP target_rateSEXP, SEXP methodSEXP, SEXP batch_sizeSEXP, SEXP rarefySEXP, SEXP shuffleSEXP, SEXP avoid_aggregationSEXP, SEXP area_distSEXP) {
+IntegerVector allocate_clumpy_cpp(IntegerVector landscape, int nrow, int ncol, IntegerVector trans_from, IntegerVector trans_to, List prob_cell, List prob_value, NumericVector area_mean, NumericVector area_var, NumericVector elongation, NumericVector target_rate, int method, int batch_size, bool rarefy, bool shuffle, bool avoid_aggregation, int area_dist);
+RcppExport SEXP _evoland_allocate_clumpy_cpp(SEXP landscapeSEXP, SEXP nrowSEXP, SEXP ncolSEXP, SEXP trans_fromSEXP, SEXP trans_toSEXP, SEXP prob_cellSEXP, SEXP prob_valueSEXP, SEXP area_meanSEXP, SEXP area_varSEXP, SEXP elongationSEXP, SEXP target_rateSEXP, SEXP methodSEXP, SEXP batch_sizeSEXP, SEXP rarefySEXP, SEXP shuffleSEXP, SEXP avoid_aggregationSEXP, SEXP area_distSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -93,7 +93,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type ncol(ncolSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type trans_from(trans_fromSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type trans_to(trans_toSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type probs(probsSEXP);
+    Rcpp::traits::input_parameter< List >::type prob_cell(prob_cellSEXP);
+    Rcpp::traits::input_parameter< List >::type prob_value(prob_valueSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type area_mean(area_meanSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type area_var(area_varSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type elongation(elongationSEXP);
@@ -104,7 +105,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type shuffle(shuffleSEXP);
     Rcpp::traits::input_parameter< bool >::type avoid_aggregation(avoid_aggregationSEXP);
     Rcpp::traits::input_parameter< int >::type area_dist(area_distSEXP);
-    rcpp_result_gen = Rcpp::wrap(allocate_clumpy_cpp(landscape, nrow, ncol, trans_from, trans_to, probs, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist));
+    rcpp_result_gen = Rcpp::wrap(allocate_clumpy_cpp(landscape, nrow, ncol, trans_from, trans_to, prob_cell, prob_value, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -140,7 +141,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_evoland_sample_lognorm_area_cpp", (DL_FUNC) &_evoland_sample_lognorm_area_cpp, 2},
     {"_evoland_sample_normal_area_cpp", (DL_FUNC) &_evoland_sample_normal_area_cpp, 2},
     {"_evoland_grow_patch_cpp", (DL_FUNC) &_evoland_grow_patch_cpp, 14},
-    {"_evoland_allocate_clumpy_cpp", (DL_FUNC) &_evoland_allocate_clumpy_cpp, 16},
+    {"_evoland_allocate_clumpy_cpp", (DL_FUNC) &_evoland_allocate_clumpy_cpp, 17},
     {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
     {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 3},
     {NULL, NULL, 0}
