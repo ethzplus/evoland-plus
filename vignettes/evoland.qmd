@@ -475,7 +475,7 @@ Allocation backends (Dinamica EGO, CLUMPY) consume the adjusted values, not the 
 
 ## Running the allocation
 
-For this tutorial, we will use the CLUMPY backend for a self-contained stochastic allocation that 
+For this tutorial, we will use the CLUMPY backend for a self-contained stochastic allocation that
 does not require the presence of DinamicaEGO as an external solver.
 
 ```{r}
@@ -484,7 +484,6 @@ db$alloc_clumpy(
   id_period = db$periods_t[is_extrapolated == TRUE, id_period], # select all extrapolation periods
   select_score = "classif.auc",
   select_maximize = TRUE,
-  method = "upam",
   seed = 42L # optional: reproducibility
 )
 ```
