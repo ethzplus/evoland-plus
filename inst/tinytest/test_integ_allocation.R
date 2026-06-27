@@ -82,10 +82,13 @@ expect_true(all(adj_pots$value >= 0 & adj_pots$value <= 1))
 clumpy_params <- db$alloc_params_clumpy_v()
 expect_true(nrow(clumpy_params) > 0L)
 expect_equal(
-  c("id_run", "id_trans", "area_mean", "area_var", "eccentricity"),
+  c("id_run", "id_trans", "area_mean", "area_var", "elongation"),
   names(clumpy_params)
 )
 
+# CLUMPY: the method (uSAM vs uPAM) is auto-selected from the patch params.
+# The test DB has multi-pixel patches, so both runs exercise uPAM; the
+# mono-pixel uSAM path is covered by the unit tests in test_alloc_clumpy.R.
 db$id_run <- 2L
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 
@@ -102,7 +105,7 @@ expect_message(
 # Period 4 should now be populated
 expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
 
-# Test CLUMPY with uPAM
+# CLUMPY again, this time with aggregation avoidance disabled.
 db$id_run <- 3L
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 
@@ -111,7 +114,7 @@ expect_message(
     id_periods = 4L,
     select_score = "classif.auc",
     select_maximize = TRUE,
-    method = "upam",
+    avoid_aggregation = FALSE,
     seed = 42L
   ),
   "CLUMPY allocation"

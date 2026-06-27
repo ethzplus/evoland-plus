@@ -164,21 +164,27 @@ evoland_db <- R6::R6Class(
       create_method_binding(alloc_dinamica)
     },
 
-    #' @description Runs CLUMPY-style LULC allocation, see [alloc_clumpy()]
+    #' @description Runs CLUMPY-style LULC allocation, see [alloc_clumpy()].
+    #' The method (uSAM vs uPAM) is selected automatically from the patch
+    #' parameters: mono-pixel patches (`area_mean == 1`, `area_var == 0`) use
+    #' uSAM, otherwise uPAM.
     #' @param id_periods Integer vector of period IDs to include in the simulation.
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation.
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param method Character; allocation method, `"usam"` (single-pass) or
-    #' `"upam"` (iterative with per-transition quota). See [alloc_clumpy()].
-    #' @param batch_size Integer; uPAM pivots processed per GART re-draw
+    #' @param area_dist Character; patch-area distribution, `"lognormal"`
+    #' (default) or `"normal"`. See [alloc_clumpy()].
+    #' @param avoid_aggregation Logical; if `TRUE` (default) uPAM patches that
+    #' would merge fail and allocate nothing. Ignored for uSAM.
+    #' @param batch_size Integer; uPAM pivots attempted per GART re-draw
     #' (`1` = strict uPAM; `<= 0` = all candidates per pass). Ignored for uSAM.
     #' @param seed Optional integer random seed for reproducibility.
     alloc_clumpy = function(
       id_periods,
       select_score,
       select_maximize,
-      method = "usam",
+      area_dist = "lognormal",
+      avoid_aggregation = TRUE,
       batch_size = 1L,
       seed = NULL
     ) {
@@ -324,7 +330,7 @@ evoland_db <- R6::R6Class(
 
     #' @description
     #' Return allocation parameters in CLUMPY-compatible format (area_mean,
-    #' area_var, eccentricity per transition).  See [evoland_db_views].
+    #' area_var, elongation per transition).  See [evoland_db_views].
     alloc_params_clumpy_v = function() {
       stop("implemented by evoland_db_views.R via $set()")
     }

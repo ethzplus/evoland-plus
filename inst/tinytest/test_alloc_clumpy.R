@@ -4,7 +4,7 @@ library(tinytest)
 # Unit tests for the CLUMPY allocation backend (all in C++)
 # --------------------------------------------------------------------------
 
-# --- evoland:::gart_cpp() -------------------------------------------------------------
+# --- evoland:::gart_cpp() ---------------------------------------------------
 
 # Simple case: 2 states, equal probability
 set.seed(42L)
@@ -29,31 +29,34 @@ expect_equal(res_stay, 3L)
 P_neg <- matrix(c(-1.0, 1.0), nrow = 1L, ncol = 2L)
 expect_equal(evoland:::gart_cpp(P_neg, c(1L, 2L)), 2L)
 
-# --- evoland:::sample_lognorm_area_cpp() ----------------------------------------------
+# --- area samplers ----------------------------------------------------------
 
 set.seed(1L)
 a <- evoland:::sample_lognorm_area_cpp(area_mean = 4, area_var = 2)
 expect_true(a >= 1L)
 expect_true(is.integer(a))
-
-# With zero or NA mean, should return 1
 expect_equal(evoland:::sample_lognorm_area_cpp(0, 1), 1L)
 expect_equal(evoland:::sample_lognorm_area_cpp(NA_real_, 1), 1L)
 
-# --- evoland:::raster_neighbors_cpp() -------------------------------------------------
+set.seed(1L)
+an <- evoland:::sample_normal_area_cpp(area_mean = 4, area_var = 2)
+expect_true(an >= 1L)
+expect_true(is.integer(an))
+expect_equal(evoland:::sample_normal_area_cpp(0, 1), 1L)
+# Normal with zero variance returns the (rounded) mean
+expect_equal(evoland:::sample_normal_area_cpp(5, 0), 5L)
+
+# --- evoland:::raster_neighbors_cpp() ---------------------------------------
 
 nbrs <- evoland:::raster_neighbors_cpp(3L, 4L) # 3-row, 4-col raster (12 cells)
-# Cell 1 is top-left: no above, no left
 expect_equal(nbrs$above[1L], 0L)
 expect_equal(nbrs$left[1L], 0L)
-expect_equal(nbrs$below[1L], 5L) # cell 5 is directly below in a 4-col grid
+expect_equal(nbrs$below[1L], 5L)
 expect_equal(nbrs$right[1L], 2L)
-
-# Cell 12 is bottom-right: no below, no right
 expect_equal(nbrs$below[12L], 0L)
 expect_equal(nbrs$right[12L], 0L)
 
-# --- evoland:::grow_patch_cpp() -------------------------------------------------------
+# --- evoland:::grow_patch_cpp() ---------------------------------------------
 
 # 4x4 raster, all class 1, no obstacles
 n <- 16L
@@ -62,7 +65,6 @@ ant_land <- as.integer(rep(1L, n))
 probs <- rep(0.8, n)
 nbrs <- evoland:::raster_neighbors_cpp(4L, 4L)
 
-# Grow from pivot 1, target area 4
 patch <- evoland:::grow_patch_cpp(
   landscape = landscape,
   ant_landscape = ant_land,
@@ -75,7 +77,7 @@ patch <- evoland:::grow_patch_cpp(
   target_area = 4L,
   from_class = 1L,
   to_class = 2L,
-  eccentricity = 0.5,
+  elongation = 0.5,
   ncol = 4L
 )
 expect_true(length(patch) <= 4L)
@@ -96,12 +98,41 @@ patch_empty <- evoland:::grow_patch_cpp(
   target_area = 4L,
   from_class = 1L,
   to_class = 2L,
-  eccentricity = 0.5,
+  elongation = 0.5,
   ncol = 4L
 )
 expect_equal(length(patch_empty), 0L)
 
-# --- evoland:::allocate_clumpy_cpp() --------------------------------------------------
+# avoid_aggregation: a patch that would touch an existing patch fails entirely.
+# 1x4 row [1,1,2,1] (cell 3 is an existing class-2 patch, originally class 1).
+nbr14 <- evoland:::raster_neighbors_cpp(1L, 4L)
+land_adj <- as.integer(c(1L, 1L, 2L, 1L))
+ant_adj <- as.integer(c(1L, 1L, 1L, 1L))
+probs_adj <- rep(1.0, 4L)
+
+# With avoid_aggregation = TRUE, growing from cell 1 toward area 3 hits cell 3
+# (a foreign patch) and fails -> nothing allocated.
+patch_agg <- evoland:::grow_patch_cpp(
+  landscape = land_adj, ant_landscape = ant_adj, probs = probs_adj,
+  nbr_above = nbr14$above, nbr_below = nbr14$below,
+  nbr_left = nbr14$left, nbr_right = nbr14$right,
+  pivot = 1L, target_area = 3L, from_class = 1L, to_class = 2L,
+  elongation = 0.0, ncol = 4L, avoid_aggregation = TRUE
+)
+expect_equal(length(patch_agg), 0L)
+
+# With avoid_aggregation = FALSE, it grows as far as it can (cells 1 and 2).
+land_adj2 <- as.integer(c(1L, 1L, 2L, 1L))
+patch_noagg <- evoland:::grow_patch_cpp(
+  landscape = land_adj2, ant_landscape = ant_adj, probs = probs_adj,
+  nbr_above = nbr14$above, nbr_below = nbr14$below,
+  nbr_left = nbr14$left, nbr_right = nbr14$right,
+  pivot = 1L, target_area = 3L, from_class = 1L, to_class = 2L,
+  elongation = 0.0, ncol = 4L, avoid_aggregation = FALSE
+)
+expect_equal(sort(patch_noagg), c(1L, 2L))
+
+# --- evoland:::allocate_clumpy_cpp() ----------------------------------------
 
 nr <- 5L
 nc <- 5L
@@ -109,74 +140,41 @@ ncell <- nr * nc
 ant <- as.integer(rep(1L, ncell)) # all class 1
 probs1col <- matrix(0.5, nrow = ncell, ncol = 1L) # one transition 1 -> 2
 
-# uSAM: runs, returns full-length valid vector
+# uSAM (method 0): mono-pixel single pass
 set.seed(1L)
 res_usam <- evoland:::allocate_clumpy_cpp(
-  landscape = ant,
-  ant_landscape = ant,
-  nrow = nr,
-  ncol = nc,
-  from_classes = 1L,
-  trans_from = 1L,
-  trans_to = 2L,
-  probs = probs1col,
-  area_mean = 2.0,
-  area_var = 1.0,
-  elongation = 0.0,
-  target_rate = 0.3,
-  method = 0L,
-  batch_size = 1L,
-  rarefy = TRUE,
-  shuffle = TRUE
+  landscape = ant, nrow = nr, ncol = nc,
+  trans_from = 1L, trans_to = 2L, probs = probs1col,
+  area_mean = 1.0, area_var = 0.0, elongation = 0.0, target_rate = 0.3,
+  method = 0L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
+  avoid_aggregation = FALSE, area_dist = 0L
 )
 expect_equal(length(res_usam), ncell)
 expect_true(all(res_usam %in% c(1L, 2L)))
 
-# uPAM: runs, returns full-length valid vector, respects a sane quota bound
+# uPAM (method 1): iterative, multi-pixel, quota
 set.seed(1L)
 res_upam <- evoland:::allocate_clumpy_cpp(
-  landscape = ant,
-  ant_landscape = ant,
-  nrow = nr,
-  ncol = nc,
-  from_classes = 1L,
-  trans_from = 1L,
-  trans_to = 2L,
-  probs = probs1col,
-  area_mean = 2.0,
-  area_var = 1.0,
-  elongation = 0.0,
-  target_rate = 0.3,
-  method = 1L,
-  batch_size = 1L,
-  rarefy = TRUE,
-  shuffle = TRUE
+  landscape = ant, nrow = nr, ncol = nc,
+  trans_from = 1L, trans_to = 2L, probs = probs1col,
+  area_mean = 2.0, area_var = 1.0, elongation = 0.0, target_rate = 0.3,
+  method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
+  avoid_aggregation = TRUE, area_dist = 0L
 )
 expect_equal(length(res_upam), ncell)
 expect_true(all(res_upam %in% c(1L, 2L)))
 expect_true(sum(res_upam == 2L) <= ncell)
 
-# Deterministic forcing: potential 1 + mono-pixel patches => every source cell
-# transitions, regardless of the RNG draw (the GART rejection test is bypassed).
+# Deterministic forcing: potential 1 + uSAM => every source cell transitions,
+# regardless of the RNG draw (the GART rejection test is bypassed).
 probs_forced <- matrix(1.0, nrow = ncell, ncol = 1L)
 set.seed(123L)
 res_forced <- evoland:::allocate_clumpy_cpp(
-  landscape = ant,
-  ant_landscape = ant,
-  nrow = nr,
-  ncol = nc,
-  from_classes = 1L,
-  trans_from = 1L,
-  trans_to = 2L,
-  probs = probs_forced,
-  area_mean = 0.0,
-  area_var = 0.0,
-  elongation = 0.0,
-  target_rate = 1.0,
-  method = 0L,
-  batch_size = 1L,
-  rarefy = FALSE,
-  shuffle = TRUE
+  landscape = ant, nrow = nr, ncol = nc,
+  trans_from = 1L, trans_to = 2L, probs = probs_forced,
+  area_mean = 1.0, area_var = 0.0, elongation = 0.0, target_rate = 1.0,
+  method = 0L, batch_size = 1L, rarefy = FALSE, shuffle = TRUE,
+  avoid_aggregation = FALSE, area_dist = 0L
 )
 expect_true(all(res_forced == 2L))
 
@@ -184,21 +182,33 @@ expect_true(all(res_forced == 2L))
 probs_zero <- matrix(0.0, nrow = ncell, ncol = 1L)
 set.seed(123L)
 res_zero <- evoland:::allocate_clumpy_cpp(
-  landscape = ant,
-  ant_landscape = ant,
-  nrow = nr,
-  ncol = nc,
-  from_classes = 1L,
-  trans_from = 1L,
-  trans_to = 2L,
-  probs = probs_zero,
-  area_mean = 2.0,
-  area_var = 1.0,
-  elongation = 0.0,
-  target_rate = 0.3,
-  method = 0L,
-  batch_size = 1L,
-  rarefy = TRUE,
-  shuffle = TRUE
+  landscape = ant, nrow = nr, ncol = nc,
+  trans_from = 1L, trans_to = 2L, probs = probs_zero,
+  area_mean = 2.0, area_var = 1.0, elongation = 0.0, target_rate = 0.3,
+  method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
+  avoid_aggregation = TRUE, area_dist = 0L
 )
 expect_true(all(res_zero == 1L))
+
+# avoid_aggregation reduces (or equals) the number of allocated cells vs not,
+# because merging patches are rejected.
+big <- 30L
+antb <- as.integer(rep(1L, big * big))
+probb <- matrix(0.4, nrow = big * big, ncol = 1L)
+set.seed(5L)
+res_noagg <- evoland:::allocate_clumpy_cpp(
+  landscape = antb, nrow = big, ncol = big,
+  trans_from = 1L, trans_to = 2L, probs = probb,
+  area_mean = 4.0, area_var = 2.0, elongation = 0.0, target_rate = 0.3,
+  method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
+  avoid_aggregation = FALSE, area_dist = 0L
+)
+set.seed(5L)
+res_agg <- evoland:::allocate_clumpy_cpp(
+  landscape = antb, nrow = big, ncol = big,
+  trans_from = 1L, trans_to = 2L, probs = probb,
+  area_mean = 4.0, area_var = 2.0, elongation = 0.0, target_rate = 0.3,
+  method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
+  avoid_aggregation = TRUE, area_dist = 0L
+)
+expect_true(sum(res_agg == 2L) <= sum(res_noagg == 2L))

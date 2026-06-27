@@ -9,22 +9,27 @@
 #' 2. **Adjustment** – the adjusted view [adjusted_trans_pot_v()] rescales
 #'    potentials to match target rates and closes rows to \[0, 1\].
 #' 3. **Allocation** – the whole pivot-selection + patch-growth routine runs in
-#'    C++ ([allocate_clumpy_cpp()]).  Two methods are available (see `method`):
-#'    * **uSAM** (Unbiased Simple Allocation Method, Mazy sec. 3.4.1): one GART
-#'      (Generalized Allocation Rejection Test) pass per anterior class; every
-#'      cell that draws a change becomes a patch pivot.  Quantity of change is
-#'      enforced only in expectation.  Cheapest.
-#'    * **uPAM** (Unbiased Patch Allocation Method, Mazy sec. 3.4.2, Fig. 3.2):
-#'      iterative GART with a per-transition pixel quota and sampling without
-#'      replacement.  `batch_size` trades speed for fidelity (1 = strict uPAM,
-#'      one pivot per GART draw).  Affordable here because evoland's potentials
-#'      come from a fixed fitted model, so the marginal density does not need to
-#'      be re-estimated between patches.
+#'    C++ ([allocate_clumpy_cpp()]).  The method is chosen automatically from the
+#'    patch parameters:
+#'    * **uSAM** (Unbiased Simple Allocation Method, Mazy sec. 3.4.1) when every
+#'      transition is mono-pixel (`area_mean == 1` and `area_var == 0`): one GART
+#'      (Generalized Allocation Rejection Test) pass per anterior class, each
+#'      selected pivot allocated as a single cell.  Quantity of change is
+#'      enforced in expectation.
+#'    * **uPAM** (Unbiased Patch Allocation Method, Mazy sec. 3.4.2, Fig. 3.2)
+#'      otherwise: iterative GART with a per-transition pixel quota and sampling
+#'      without replacement.  Affordable here because evoland's potentials come
+#'      from a fixed fitted model, so the marginal density does not need to be
+#'      re-estimated between patches.
 #'
-#'    In both methods the per-cell pivot probability is divided by the mean patch
-#'    area (the 1/E(sigma) factor, Mazy Fig. 3.2) so the allocated quantity of
-#'    change matches the target transition rate; without it allocation
-#'    over-shoots by roughly the mean patch size.
+#'    (Multi-pixel patches require uPAM; "uSAM with patches larger than one
+#'    pixel" is not a valid method, hence the automatic selection rather than a
+#'    user switch.)
+#'
+#'    The per-cell pivot probability is divided by the mean patch area (the
+#'    1/E(sigma) factor, Mazy Fig. 3.2) so the allocated quantity of change
+#'    matches the target transition rate; without it allocation over-shoots by
+#'    roughly the mean patch size.
 #'
 #' @references Mazy, 2022 (\url{https://theses.hal.science/tel-04382012v1}), Ch. 3.
 #'
@@ -32,10 +37,11 @@
 #' @include trans_models_t.R alloc_params_t.R alloc_dinamica.R
 NULL
 
-# Map a user-facing method name to the integer code used by allocate_clumpy_cpp.
-.clumpy_method_code <- function(method) {
-  method <- match.arg(method, c("usam", "upam"))
-  if (method == "usam") 0L else 1L
+# Map the patch-area distribution name to the integer code used by
+# allocate_clumpy_cpp (0 = log-normal, 1 = normal).
+.clumpy_area_dist_code <- function(area_dist) {
+  area_dist <- match.arg(area_dist, c("lognormal", "normal"))
+  if (area_dist == "lognormal") 0L else 1L
 }
 
 # ---------------------------------------------------------------------------
@@ -51,8 +57,12 @@ NULL
 #' @param anterior_rast [terra::SpatRaster] of the anterior LULC state.
 #' @param select_score Character; mlr3 measure ID for model selection.
 #' @param select_maximize Logical; whether to maximise `select_score`.
-#' @param method Character; `"usam"` (single pass) or `"upam"` (iterative).
-#' @param batch_size Integer; uPAM pivots processed per GART re-draw
+#' @param area_dist Character; patch-area distribution, `"lognormal"` (default)
+#'   or `"normal"` (Gaussian with sd = `sqrt(area_var)`, clamped to >= 1).
+#' @param avoid_aggregation Logical; if `TRUE` (default) uPAM patches that would
+#'   merge with an existing patch fail and allocate nothing (clumpy
+#'   `GaussianPatcher` semantics).  Ignored for the mono-pixel uSAM path.
+#' @param batch_size Integer; uPAM pivots attempted per GART re-draw
 #'   (1 = strict uPAM; `<= 0` = all candidates per pass).
 #' @return An [lulc_data_t] with the simulated posterior LULC.
 #' @keywords internal
@@ -63,15 +73,11 @@ alloc_clumpy_one_period <- function(
   anterior_rast,
   select_score,
   select_maximize,
-  method = "usam",
+  area_dist = "lognormal",
+  avoid_aggregation = TRUE,
   batch_size = 1L
 ) {
-  method_code <- .clumpy_method_code(method)
-
-  message(glue::glue(
-    "Running CLUMPY allocation ({method}): ",
-    "period {id_period_ant} -> {id_period_post}"
-  ))
+  area_dist_code <- .clumpy_area_dist_code(area_dist)
 
   # 1. Predict and store raw transition potentials
   self$predict_trans_pot(
@@ -128,20 +134,28 @@ alloc_clumpy_one_period <- function(
 
   area_mean <- as.numeric(params_aligned$area_mean)
   area_var <- as.numeric(params_aligned$area_var)
-  elongation <- as.numeric(params_aligned$eccentricity) # patch_elongation alias
+  elongation <- as.numeric(params_aligned$elongation)
   elongation[is.na(elongation)] <- 0.5
   target_rate <- as.numeric(rates_aligned$rate)
   target_rate[is.na(target_rate)] <- 0.0
 
-  from_classes <- sort(unique(as.integer(viable_trans$id_lulc_anterior)))
+  # 8. Select the method from the patch parameters: every transition mono-pixel
+  #    (area_mean == 1 & area_var == 0) -> uSAM, otherwise uPAM.
+  is_mono <- all(!is.na(area_mean) & area_mean == 1 &
+    (is.na(area_var) | area_var == 0))
+  method_code <- if (is_mono) 0L else 1L
+  method_name <- if (is_mono) "uSAM" else "uPAM"
 
-  # 8. Run the full allocation routine in C++
+  message(glue::glue(
+    "Running CLUMPY allocation ({method_name}): ",
+    "period {id_period_ant} -> {id_period_post}"
+  ))
+
+  # 9. Run the full allocation routine in C++
   post_vec <- allocate_clumpy_cpp(
     landscape = ant_vec,
-    ant_landscape = ant_vec,
     nrow = nrow_r,
     ncol = ncol_r,
-    from_classes = from_classes,
     trans_from = as.integer(viable_trans$id_lulc_anterior),
     trans_to = as.integer(viable_trans$id_lulc_posterior),
     probs = probs_mat,
@@ -152,10 +166,12 @@ alloc_clumpy_one_period <- function(
     method = method_code,
     batch_size = as.integer(batch_size),
     rarefy = TRUE,
-    shuffle = TRUE
+    shuffle = TRUE,
+    avoid_aggregation = avoid_aggregation,
+    area_dist = area_dist_code
   )
 
-  # 9. Convert result vector back to lulc_data_t
+  # 10. Convert result vector back to lulc_data_t
   message("  Converting posterior vector to lulc_data_t...")
   coord_ids <- as.integer(names(coord_to_cell))
   cell_ids <- as.integer(coord_to_cell)
@@ -188,15 +204,18 @@ alloc_clumpy_one_period <- function(
 #' @param id_periods Integer vector of posterior period IDs to simulate.
 #' @param select_score Character; mlr3 measure ID for model selection.
 #' @param select_maximize Logical; whether to maximise `select_score`.
-#' @param method Character; `"usam"` (single pass) or `"upam"` (iterative).
-#' @param batch_size Integer; uPAM pivots processed per GART re-draw.
+#' @param area_dist Character; patch-area distribution, `"lognormal"` (default)
+#'   or `"normal"`.
+#' @param avoid_aggregation Logical; uPAM merge avoidance (default `TRUE`).
+#' @param batch_size Integer; uPAM pivots attempted per GART re-draw.
 #' @param seed Optional integer random seed for reproducibility.
 alloc_clumpy <- function(
   self,
   id_periods,
   select_score,
   select_maximize,
-  method = "usam",
+  area_dist = "lognormal",
+  avoid_aggregation = TRUE,
   batch_size = 1L,
   seed = NULL
 ) {
@@ -205,7 +224,7 @@ alloc_clumpy <- function(
     "id_periods must be contiguous" = all(diff(id_periods) == 1L),
     "id_run must be set" = !is.null(self$id_run)
   )
-  method <- match.arg(method, c("usam", "upam"))
+  area_dist <- match.arg(area_dist, c("lognormal", "normal"))
 
   available_periods <- self$periods_t$id_period
   missing_periods <- setdiff(id_periods, available_periods)
@@ -221,7 +240,6 @@ alloc_clumpy <- function(
 
   message(glue::glue(
     "Starting CLUMPY allocation simulation\n",
-    "  Method: {method} (batch_size = {batch_size})\n",
     "  Periods: {paste(id_periods, collapse = ' -> ')}\n",
     "  Run: {self$id_run}"
   ))
@@ -241,7 +259,8 @@ alloc_clumpy <- function(
       anterior_rast = current_rast,
       select_score = select_score,
       select_maximize = select_maximize,
-      method = method,
+      area_dist = area_dist,
+      avoid_aggregation = avoid_aggregation,
       batch_size = batch_size
     )
 

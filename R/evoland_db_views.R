@@ -22,7 +22,7 @@
 #'   column-scaled to match target transition rates, then row-closed so per-cell change
 #'   probabilities sum to at most 1.
 #' - `alloc_params_clumpy_v()` - Returns allocation parameters in CLUMPY format
-#'   (area_mean, area_var, eccentricity per transition).
+#'   (area_mean, area_var, elongation per transition).
 #'
 #' @name evoland_db_views
 #' @aliases lulc_meta_long_v pred_sources_v trans_v coords_minimal trans_rates_dinamica_v adjusted_trans_pot_v alloc_params_clumpy_v
@@ -225,10 +225,10 @@ evoland_db$set(
 # Return allocation parameters in CLUMPY-compatible format.
 #
 # Maps the raw patch statistics stored in alloc_params_t to the three
-# parameters consumed by the CLUMPY LogNormPatcher:
+# parameters consumed by the CLUMPY patcher:
 #   - area_mean      <- mean_patch_size   (mean cells per patch)
 #   - area_var       <- patch_size_variance (variance, cell^2)
-#   - eccentricity   <- patch_elongation  (1 - sqrt(lambda2/lambda1))
+#   - elongation     <- patch_elongation  (1 - sqrt(lambda_min/lambda_max))
 #
 # Uses the active id_run / run lineage via get_read_expr.
 evoland_db$set(
@@ -245,7 +245,7 @@ evoland_db$set(
         id_trans,
         mean_patch_size     as area_mean,
         patch_size_variance as area_var,
-        patch_elongation    as eccentricity
+        patch_elongation    as elongation
       from {params_read_expr}
       }"
     ))

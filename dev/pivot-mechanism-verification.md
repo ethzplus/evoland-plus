@@ -177,3 +177,27 @@ The allocation backend was subsequently reworked in C++:
   (src/clumpy_geometry.h), used by both the patch grower and
   `calculate_class_stats_cpp` (replacing the duplicate `patch_eccentricity` /
   `calculate_elongation`).
+
+### Interface revision (follow-up)
+
+- **Aggregation avoidance** (`avoid_aggregation`, default TRUE for uPAM): patch
+  growth is now deferred-write / all-or-nothing — a patch that would touch
+  another patch of the same transition, or cannot reach its sampled area, fails
+  and allocates nothing; its attempted cells are removed from the pool (sampling
+  without replacement). Replicates clumpy's `GaussianPatcher`.
+- **Method auto-selected** from the patch parameters instead of a user switch:
+  all mono-pixel transitions (`area_mean == 1` & `area_var == 0`) → uSAM,
+  otherwise → uPAM. (uSAM is mono-pixel by definition; "uSAM with area > 1" is
+  not a valid method.) The C++ keeps an explicit `method` flag for tests /
+  comparison.
+- **Patch-area distribution exposed** via `area_dist` (`"lognormal"` default,
+  `"normal"`); `area_var` is a variance (normal uses sd = `sqrt(area_var)`,
+  matching `GaussianPatcher`, whose `area_cov` was the SD).
+- **Interface cleanups:** `allocate_clumpy_cpp` drops `ant_landscape` (the
+  anterior reference is snapshotted internally from `landscape`) and
+  `from_classes` (derived from `trans_from`); the shape parameter is renamed
+  `eccentricity` → `elongation` everywhere (incl. the `alloc_params_clumpy_v`
+  column), matching the thesis.
+- A Python-vs-evoland comparison (`clumpy/scripts/comparison/`) confirms the
+  pivot mechanism matches the reference and that uPAM `normal +agg` tracks the
+  Python `GaussianPatcher` in quantity and patch structure.

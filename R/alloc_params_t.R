@@ -233,7 +233,7 @@ compute_alloc_params_single <- function(
     # cellsize = 1 because we want the patch characteristics in cell edge units
     calculate_class_stats_cpp(cellsize = 1)
 
-  # Raw elongation from patch_stats.cpp; used as-is for CLUMPY (eccentricity)
+  # Raw elongation from patch_stats.cpp; used as-is for CLUMPY (elongation)
   # and converted to Dinamica isometry via isometry_from_elongation().
   raw_elongation <- trans_patch_stats$patch_elongation_mean[1]
 
