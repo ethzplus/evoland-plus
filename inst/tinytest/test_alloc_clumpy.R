@@ -196,28 +196,31 @@ res_zero <- evoland:::allocate_clumpy_cpp(
 )
 expect_true(all(res_zero == 1L))
 
-# avoid_aggregation reduces (or equals) the number of allocated cells vs not,
-# because merging patches are rejected.
-big <- 30L
-antb <- as.integer(rep(1L, big * big))
-spb <- sparse_const(big * big, 0.4)
-set.seed(5L)
-res_noagg <- evoland:::allocate_clumpy_cpp(
-  landscape = antb, nrow = big, ncol = big,
-  trans_from = 1L, trans_to = 2L, prob_cell = spb$cell, prob_value = spb$value,
-  area_mean = 4.0, area_var = 2.0, elongation = 0.0, target_rate = 0.3,
-  method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
-  avoid_aggregation = FALSE, area_dist = 0L
-)
-set.seed(5L)
-res_agg <- evoland:::allocate_clumpy_cpp(
-  landscape = antb, nrow = big, ncol = big,
-  trans_from = 1L, trans_to = 2L, prob_cell = spb$cell, prob_value = spb$value,
-  area_mean = 4.0, area_var = 2.0, elongation = 0.0, target_rate = 0.3,
-  method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
-  avoid_aggregation = TRUE, area_dist = 0L
-)
-expect_true(sum(res_agg == 2L) <= sum(res_noagg == 2L))
+# avoid_aggregation: rejecting merging patches leaves fewer cells allocated.
+# Deterministic setup so the comparison is a true invariant (not RNG/quota/FP
+# dependent): a 1x5 row, forced potential 1 (deterministic MuST), area exactly 2
+# (normal with variance 0), no shuffle, quota = everything (target_rate 1).
+#   - without avoidance, patches tile the row -> all 5 cells change;
+#   - with avoidance, the middle patch (cell 3) would touch cell 2's patch, so it
+#     is rejected and cell 3 stays -> 4 cells change.
+ant_row <- as.integer(rep(1L, 5L))
+row_cell <- list(1:5L)
+row_val <- list(rep(1.0, 5L))
+run_row <- function(agg) {
+  set.seed(1L)
+  evoland:::allocate_clumpy_cpp(
+    landscape = ant_row, nrow = 1L, ncol = 5L,
+    trans_from = 1L, trans_to = 2L, prob_cell = row_cell, prob_value = row_val,
+    area_mean = 2.0, area_var = 0.0, elongation = 0.0, target_rate = 1.0,
+    method = 1L, batch_size = 0L, rarefy = FALSE, shuffle = FALSE,
+    avoid_aggregation = agg, area_dist = 1L
+  )
+}
+res_noagg <- run_row(FALSE)
+res_agg <- run_row(TRUE)
+expect_equal(sum(res_noagg == 2L), 5L)
+expect_equal(sum(res_agg == 2L), 4L)
+expect_true(sum(res_agg == 2L) < sum(res_noagg == 2L))
 
 # A sparse subset: only some cells carry a potential; only those can change.
 set.seed(9L)
