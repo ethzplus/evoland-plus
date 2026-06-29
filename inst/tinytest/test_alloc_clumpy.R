@@ -212,7 +212,7 @@ run_row <- function(agg) {
     landscape = ant_row, nrow = 1L, ncol = 5L,
     trans_from = 1L, trans_to = 2L, prob_cell = row_cell, prob_value = row_val,
     area_mean = 2.0, area_var = 0.0, elongation = 0.0, target_rate = 1.0,
-    method = 1L, batch_size = 0L, rarefy = FALSE, shuffle = FALSE,
+    method = 1L, batch_size = 1L, rarefy = FALSE, shuffle = FALSE,
     avoid_aggregation = agg, area_dist = 1L
   )
 }
@@ -235,3 +235,20 @@ res_subset <- evoland:::allocate_clumpy_cpp(
 )
 # forced potential 1 on exactly those cells (mono-pixel) => exactly they change
 expect_equal(which(res_subset == 2L), some_cells)
+
+# Auto batch (batch_size = 0): scales with the pool, runs and stays valid.
+big2 <- 40L
+antc <- as.integer(rep(1L, big2 * big2))
+spc <- sparse_const(big2 * big2, 0.4)
+set.seed(11L)
+res_auto <- evoland:::allocate_clumpy_cpp(
+  landscape = antc, nrow = big2, ncol = big2,
+  trans_from = 1L, trans_to = 2L, prob_cell = spc$cell, prob_value = spc$value,
+  area_mean = 4.0, area_var = 2.0, elongation = 0.0, target_rate = 0.3,
+  method = 1L, batch_size = 0L, rarefy = TRUE, shuffle = TRUE,
+  avoid_aggregation = TRUE, area_dist = 0L
+)
+expect_equal(length(res_auto), big2 * big2)
+expect_true(all(res_auto %in% c(1L, 2L)))
+# quota-bounded: changed count should be near rate * pool, not wildly over
+expect_true(sum(res_auto == 2L) <= ceiling(0.3 * big2 * big2) + 10L)

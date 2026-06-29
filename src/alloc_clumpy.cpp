@@ -495,8 +495,10 @@ IntegerVector grow_patch_cpp(IntegerVector landscape,
 //'   P(v|u) per transition (fraction of source pixels that change).  Used only
 //'   by uPAM to set the per-transition pixel quota.
 //' @param method 0 = uSAM (mono-pixel single pass), 1 = uPAM (iterative, quota).
-//' @param batch_size uPAM only: pivots attempted per MuST re-draw (1 = strict
-//'   uPAM, <= 0 = all candidates).
+//' @param batch_size uPAM only: pivots attempted per MuST re-draw. `> 0` is an
+//'   explicit cap (1 = strict uPAM); `< 0` processes all candidates in one pass;
+//'   `0` auto-scales to ~1% of each class's pool (bounds MuST passes so large
+//'   rasters avoid the O(#patches x pool) cost of strict batch=1).
 //' @param rarefy If TRUE, divide pivot probabilities by `area_mean` (the
 //'   1/E(sigma) factor) so the allocated quantity of change matches the target.
 //' @param shuffle If TRUE, randomise pivot processing order.
@@ -586,7 +588,20 @@ IntegerVector allocate_clumpy_cpp(
         remaining[q] = rt * m0;
       }
       std::vector<char> blocked(n, 0); // attempted-but-failed cells (removed)
-      const int bs = (batch_size <= 0) ? INT_MAX : batch_size;
+      // batch_size controls how many pivots are grown per MuST re-draw:
+      //   > 0  explicit cap;
+      //   < 0  all candidates in a single pass;
+      //    0   AUTO: ~1% of this class's pool, so the number of MuST passes is
+      //        bounded (~100) and the per-pass pool re-scan does not blow up to
+      //        the O(#patches x pool) cost of strict batch=1 on large rasters.
+      int bs;
+      if (batch_size > 0) {
+        bs = batch_size;
+      } else if (batch_size < 0) {
+        bs = INT_MAX;
+      } else {
+        bs = std::max(1, (int)(pool.size() / 100));
+      }
 
       int guard = 0;
       const int guard_max = n + 16;

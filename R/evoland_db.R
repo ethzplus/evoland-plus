@@ -176,8 +176,9 @@ evoland_db <- R6::R6Class(
     #' (default) or `"normal"`. See [alloc_clumpy()].
     #' @param avoid_aggregation Logical; if `TRUE` (default) uPAM patches that
     #' would merge fail and allocate nothing. Ignored for uSAM.
-    #' @param batch_size Integer; uPAM pivots attempted per MuST re-draw
-    #' (`1` = strict uPAM; `<= 0` = all candidates per pass). Ignored for uSAM.
+    #' @param batch_size Integer; uPAM pivots attempted per MuST re-draw. `0`
+    #' (default) auto-scales with the source pool; `> 0` is an explicit cap
+    #' (`1` = strict uPAM); `< 0` = all candidates in one pass. Ignored for uSAM.
     #' @param seed Optional integer random seed for reproducibility.
     alloc_clumpy = function(
       id_periods,
@@ -185,7 +186,7 @@ evoland_db <- R6::R6Class(
       select_maximize,
       area_dist = "lognormal",
       avoid_aggregation = TRUE,
-      batch_size = 1L,
+      batch_size = 0L,
       seed = NULL
     ) {
       create_method_binding(alloc_clumpy)

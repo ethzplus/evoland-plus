@@ -63,8 +63,10 @@ NULL
 #' @param avoid_aggregation Logical; if `TRUE` (default) uPAM patches that would
 #'   merge with an existing patch fail and allocate nothing (clumpy
 #'   `GaussianPatcher` semantics).  Ignored for the mono-pixel uSAM path.
-#' @param batch_size Integer; uPAM pivots attempted per MuST re-draw
-#'   (1 = strict uPAM; `<= 0` = all candidates per pass).
+#' @param batch_size Integer; uPAM pivots attempted per MuST re-draw. `0`
+#'   (default) auto-scales to ~1% of each class's source pool, bounding the
+#'   number of MuST passes so large rasters stay tractable; `> 0` is an explicit
+#'   cap (1 = strict uPAM); `< 0` processes all candidates in a single pass.
 #' @return An [lulc_data_t] with the simulated posterior LULC.
 #' @keywords internal
 alloc_clumpy_one_period <- function(
@@ -76,7 +78,7 @@ alloc_clumpy_one_period <- function(
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 1L
+  batch_size = 0L
 ) {
   area_dist_code <- .clumpy_area_dist_code(area_dist)
 
@@ -217,7 +219,8 @@ alloc_clumpy_one_period <- function(
 #' @param area_dist Character; patch-area distribution, `"lognormal"` (default)
 #'   or `"normal"`.
 #' @param avoid_aggregation Logical; uPAM merge avoidance (default `TRUE`).
-#' @param batch_size Integer; uPAM pivots attempted per MuST re-draw.
+#' @param batch_size Integer; uPAM pivots attempted per MuST re-draw. `0`
+#'   (default) auto-scales with the source pool; see [alloc_clumpy_one_period()].
 #' @param seed Optional integer random seed for reproducibility.
 alloc_clumpy <- function(
   self,
@@ -226,7 +229,7 @@ alloc_clumpy <- function(
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 1L,
+  batch_size = 0L,
   seed = NULL
 ) {
   stopifnot(
