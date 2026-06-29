@@ -5,8 +5,8 @@ raster_neighbors_cpp <- function(nrow, ncol) {
     .Call(`_evoland_raster_neighbors_cpp`, nrow, ncol)
 }
 
-must_cpp <- function(P, states) {
-    .Call(`_evoland_must_cpp`, P, states)
+must_cpp <- function(P, states, u = NULL) {
+    .Call(`_evoland_must_cpp`, P, states, u)
 }
 
 sample_lognorm_area_cpp <- function(area_mean, area_var) {

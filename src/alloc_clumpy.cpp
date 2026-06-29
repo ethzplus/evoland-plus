@@ -176,14 +176,24 @@ static void shuffle_pair(std::vector<int> &a, std::vector<int> &b) {
   }
 }
 
-// Grow a single patch from `pivot0` (0-based).  Patch cells are accumulated in a
-// local list and only committed to `land` (set to `to_class`) on success, so a
-// failed patch leaves the landscape untouched (deferred-write rollback, like
-// clumpy's GaussianPatcher).  Greedy growth: at each step pick the eligible
-// border cell maximising prob / (|elongation_if_added - target| + eps), using
-// running moments and the shared clumpy::elongation_from_raw_moments.
+// Grow a single patch from `pivot0` (0-based).  This is the patch-construction
+// step of Mazy (2022) Appendix 3.I: starting from the pivot, neighbours are
+// added one at a time until the sampled area sigma is reached, steering the
+// shape towards a target elongation.
 //
-// `avoid_aggregation`:
+// Patch cells are accumulated in a local list and only committed to `land` (set
+// to `to_class`) on success, so a failed patch leaves the landscape untouched
+// (deferred-write rollback, like clumpy's GaussianPatcher).  Greedy growth: at
+// each step pick the eligible border cell maximising
+//   prob / (|elongation_if_added - target| + eps)
+// i.e. weight by the transition potential P(v|u,z) of the candidate while
+// pulling the patch's elongation (Appendix 3.I, eq. 3.I.12; computed via the
+// shared clumpy::elongation_from_raw_moments) towards the target.  Running
+// spatial moments make each candidate's elongation an O(1) update.
+//
+// `avoid_aggregation` enforces the no-patch-merging requirement (Mazy sec. 3.2.4
+// "patch merging" / sec. 3.4.2), which is necessary for the post-allocation
+// patch-size distribution to stay unbiased:
 //   * if a border cell already belongs to another patch of this transition
 //     (ant == from_class && land == to_class), the patch FAILS (returns 0);
 //   * if no eligible cell remains before reaching the target area, the patch
@@ -310,14 +320,26 @@ static int grow_one_patch(std::vector<int> &land, const std::vector<int> &ant,
 // transitions.  `cum_prob(q)` yields the (non-negative) probability of the q-th
 // active transition.  Returns the selected active-transition index, or -1 for
 // "stay".
-template <typename F> static int must_draw_one(int k, F cum_prob) {
-  const double u = R::unif_rand();
+//
+// Mazy (2022) Appendix 3.B.1: with the cumulative sum eta_w = sum_{v<=w} P(v|u,z)
+// and a single uniform draw xi in [0,1), the final state is the w with
+// eta_{w-1} <= xi < eta_w (one draw tests all final states at once).  Here the
+// "stay" mass is the remainder 1 - sum_q cum_prob(q), so xi falling past the last
+// cumulative bound returns -1 (no change).
+//
+// `must_pick` takes the uniform explicitly (so an externally supplied stream can
+// be replayed for deterministic cross-tool comparison); `must_draw_one` draws it
+// from R's RNG.
+template <typename F> static int must_pick(int k, double u, F cum_prob) {
   double cs = 0.0;
   for (int q = 0; q < k; ++q) {
     cs += cum_prob(q);
-    if (u < cs) return q;
+    if (u < cs) return q; // first q with u < eta_q  (eta_{q-1} <= u < eta_q)
   }
   return -1; // stay
+}
+template <typename F> static int must_draw_one(int k, F cum_prob) {
+  return must_pick(k, R::unif_rand(), cum_prob);
 }
 
 // ---------------------------------------------------------------------------
@@ -358,22 +380,37 @@ List raster_neighbors_cpp(int nrow, int ncol) {
 //'   (include the "stay" column).
 //' @param states Integer vector of length `ncol(P)` giving the state id of each
 //'   column.
+//' @param u Optional NumericVector of length `nrow(P)` of uniform draws in
+//'   [0, 1) to replay instead of drawing from R's RNG.  Lets an external uniform
+//'   stream (e.g. numpy's, from the reference `clumpy`) be replayed for an exact
+//'   cross-tool comparison of the pivot test.
 //' @return Integer vector of length `nrow(P)` with the sampled state per cell.
 //' @keywords internal
 // [[Rcpp::export]]
-IntegerVector must_cpp(NumericMatrix P, IntegerVector states) {
+IntegerVector must_cpp(NumericMatrix P, IntegerVector states,
+                       Nullable<NumericVector> u = R_NilValue) {
   const int n = P.nrow();
   const int k = P.ncol();
   if ((int)states.size() != k) {
     stop("length(states) must equal ncol(P)");
   }
+  const bool have_u = u.isNotNull();
+  NumericVector uu;
+  if (have_u) {
+    uu = u.get();
+    if ((int)uu.size() != n) stop("length(u) must equal nrow(P)");
+  }
   IntegerVector y(n);
-  for (int i = 0; i < n; ++i) {
-    int sel = must_draw_one(k, [&](int q) {
+  auto cum = [&](int i) {
+    return [&, i](int q) {
       double p = P(i, q);
       if (ISNAN(p) || p < 0.0) p = 0.0;
       return p;
-    });
+    };
+  };
+  for (int i = 0; i < n; ++i) {
+    const int sel =
+        have_u ? must_pick(k, uu[i], cum(i)) : must_draw_one(k, cum(i));
     y[i] = states[sel < 0 ? k - 1 : sel]; // sel<0 only if row sums < u
   }
   return y;
@@ -538,12 +575,17 @@ IntegerVector allocate_clumpy_cpp(
   std::set<int> from_set(trans_from.begin(), trans_from.end());
 
   // Effective (clamped, optionally rarefied) pivot-selection probability.
+  // Mazy Fig. 3.2: the pivot-cell probability fed to MuST is the per-pixel
+  // transition probability divided by the mean patch area E(sigma).  Each pivot
+  // grows into a patch of mean size E(sigma), so to allocate the target quantity
+  // of change P(v|u)#J (eq. 3.11: E(#Jv^c) E(sigma) = P(v|u)#J) the pivots must
+  // be rarefied by 1/E(sigma); otherwise allocation overshoots by ~E(sigma).
   auto pivot_prob = [&](int cell, int t) -> double {
     double p = cols[t].value_at(cell);
     if (ISNAN(p) || p < 0.0) p = 0.0;
     if (rarefy) {
       const double am = area_mean[t];
-      if (!ISNAN(am) && am > 1.0) p /= am; // 1/E(sigma); skip mono-pixel patches
+      if (!ISNAN(am) && am > 1.0) p /= am; // 1/E(sigma); mono-pixel needs none
     }
     return p;
   };
@@ -580,12 +622,18 @@ IntegerVector allocate_clumpy_cpp(
       }
     } else {
       // ---- uPAM: iterative MuST + quota + without-replacement ------------
+      // Mazy sec. 3.4.2 (Fig. 3.2): per-transition quantity-of-change quota in
+      // pixels, N_{u->v} = P(v|u) #J (App. 3.E.2 Algorithm 3, line 3; eq. 3.11);
+      // decremented by each successful patch's size sigma until exhausted. The
+      // pool is sampled without replacement (allocated and failed-attempt cells
+      // are removed), which is what keeps the post-allocation distributions
+      // unbiased.
       std::vector<double> remaining(k);
       const double m0 = (double)pool.size();
       for (int q = 0; q < k; ++q) {
         double rt = target_rate[at[q]];
         if (ISNAN(rt) || rt < 0.0) rt = 0.0;
-        remaining[q] = rt * m0;
+        remaining[q] = rt * m0; // N_{u->v} = P(v|u) * #J
       }
       std::vector<char> blocked(n, 0); // attempted-but-failed cells (removed)
       // batch_size controls how many pivots are grown per MuST re-draw:

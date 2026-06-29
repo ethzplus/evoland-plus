@@ -23,14 +23,15 @@ BEGIN_RCPP
 END_RCPP
 }
 // must_cpp
-IntegerVector must_cpp(NumericMatrix P, IntegerVector states);
-RcppExport SEXP _evoland_must_cpp(SEXP PSEXP, SEXP statesSEXP) {
+IntegerVector must_cpp(NumericMatrix P, IntegerVector states, Nullable<NumericVector> u);
+RcppExport SEXP _evoland_must_cpp(SEXP PSEXP, SEXP statesSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< NumericMatrix >::type P(PSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type states(statesSEXP);
-    rcpp_result_gen = Rcpp::wrap(must_cpp(P, states));
+    Rcpp::traits::input_parameter< Nullable<NumericVector> >::type u(uSEXP);
+    rcpp_result_gen = Rcpp::wrap(must_cpp(P, states, u));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -137,7 +138,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_evoland_raster_neighbors_cpp", (DL_FUNC) &_evoland_raster_neighbors_cpp, 2},
-    {"_evoland_must_cpp", (DL_FUNC) &_evoland_must_cpp, 2},
+    {"_evoland_must_cpp", (DL_FUNC) &_evoland_must_cpp, 3},
     {"_evoland_sample_lognorm_area_cpp", (DL_FUNC) &_evoland_sample_lognorm_area_cpp, 2},
     {"_evoland_sample_normal_area_cpp", (DL_FUNC) &_evoland_sample_normal_area_cpp, 2},
     {"_evoland_grow_patch_cpp", (DL_FUNC) &_evoland_grow_patch_cpp, 14},
