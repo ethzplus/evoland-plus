@@ -60,7 +60,7 @@ A data.table of class "alloc_params_t" with columns:
 \item \code{mean_patch_size}: Mean area of new patches (in cell units)
 \item \code{patch_size_variance}: Variance of patch area (in cell units)
 \item \code{patch_elongation}: Mean patch elongation (\eqn{e = 1 - \sqrt{\lambda_2 / \lambda_1}},
-range 0–1); the raw shape summary from \code{\link[=calculate_class_stats_cpp]{calculate_class_stats_cpp()}}
+range 0–1); the raw shape summary from \code{calculate_class_stats_cpp()}
 \item \code{patch_isometry}: Dinamica-specific isometry parameter derived from \code{patch_elongation}
 via \code{\link[=isometry_from_elongation]{isometry_from_elongation()}}
 \item \code{frac_expander}: Fraction of transition cells adjacent to existing patches

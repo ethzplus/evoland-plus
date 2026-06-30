@@ -373,6 +373,25 @@ db$commit(
 )
 ```
 
+One subtlety is worth calling out, because it is easy to trip over in a stochastic
+setting. The importance filter can return *no* usable score for a transition whose
+`classif.rpart` tree happens to have no splits -- this is most likely for rare
+transitions, and whether it occurs depends on the random draw of the synthetic data.
+Such a transition would silently drop out of `trans_preds_t` while remaining
+`is_viable == TRUE`, so it would never get a model yet would still be requested during
+prediction. We keep the viable set and the fitted models in lockstep by demoting any
+transition that did not retain at least one predictor:
+
+```{r}
+#| label: reconcile-viable-transitions
+#| seed: 666
+modeled_trans <- unique(db$trans_preds_t$id_trans)
+
+trans_meta_reconciled <- db$trans_meta_t
+trans_meta_reconciled[, is_viable := is_viable & id_trans %in% modeled_trans]
+db$trans_meta_t <- trans_meta_reconciled
+```
+
 ### Transition models
 
 Here, we train one single model per transition; see the main tutorial for an illustration on how to train multiple partials on split samples to assess their goodness of fit.
@@ -454,7 +473,7 @@ We loop over the run records: for each run we set the active `db$id_run` -- whic
 for (i in seq_len(nrow(runs_out))) {
   db$id_run <- runs_out$id_run[i]
   db$alloc_clumpy(
-    id_period = 4, # first extrapolated period
+    id_periods = 4, # first extrapolated period
     select_score = "classif.auc",
     select_maximize = TRUE,
     seed = runs_out$seed[i]

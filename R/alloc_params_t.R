@@ -14,7 +14,7 @@
 #'   - `mean_patch_size`: Mean area of new patches (in cell units)
 #'   - `patch_size_variance`: Variance of patch area (in cell units)
 #'   - `patch_elongation`: Mean patch elongation (\eqn{e = 1 - \sqrt{\lambda_2 / \lambda_1}},
-#'     range 0–1); the raw shape summary from [calculate_class_stats_cpp()]
+#'     range 0–1); the raw shape summary from `calculate_class_stats_cpp()`
 #'   - `patch_isometry`: Dinamica-specific isometry parameter derived from `patch_elongation`
 #'     via [isometry_from_elongation()]
 #'   - `frac_expander`: Fraction of transition cells adjacent to existing patches

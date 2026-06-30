@@ -104,6 +104,14 @@ predict_trans_pot <- function(
   select_maximize
 ) {
   # TODO parallelize
+  # TODO: this assumes every viable transition has a fitted model, but
+  # fit_partial_models()/fit_full_models() inner-join viable transitions against
+  # trans_preds_t and silently skip any viable transition that retained no
+  # predictors (e.g. a split-less rpart importance tree). That leaves a viable
+  # transition without a model and makes the "No model found" stop() below fire
+  # for an otherwise valid pipeline. The viable set and the modelled set should be
+  # reconciled in one place (either fitting should warn+demote, or prediction
+  # should skip unmodelled viable transitions) rather than relying on callers.
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
   gather <- list()
