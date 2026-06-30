@@ -379,27 +379,26 @@ Here, we train one single model per transition; see the main tutorial for an ill
 
 ```{r}
 #| label: fit-models
-db$trans_models_t <- db$fit_full_models(learner = mlr3::lrn("classif.rpart"))
+trans_models <- db$fit_full_models(learner = mlr3::lrn("classif.rpart"))
+db$trans_models_t <- trans_models
 ```
 
 One subtlety is worth calling out, because it is easy to trip over in a stochastic
 setting. Model fitting does not necessarily produce a usable model for *every* viable
 transition: a rare transition can fail to train -- for example a `classif.rpart` tree
 that never splits, or too few positive cases in the random draw of the synthetic data --
-in which case its `learner_full` is left empty. Such a transition would stay
+in which case its `learner_full` is left empty (`NULL`). Such a transition would stay
 `is_viable == TRUE` yet have no model, and allocation (which predicts a potential for
 every viable transition) would then abort with `No fitted model for viable
 transition(s): ...`. We keep the viable set and the fitted models in lockstep by
-demoting any transition that did not end up with a model:
+demoting any transition whose full model did not train, reading the result returned by
+`fit_full_models()` directly:
 
 ```{r}
 #| label: reconcile-viable-transitions
+# transitions whose full model actually trained (non-null learner_full)
 modeled_trans <- unique(
-  db$fetch(
-    "trans_models_t",
-    cols = "id_trans",
-    where = "learner_full is not null"
-  )$id_trans
+  trans_models$id_trans[!vapply(trans_models$learner_full, is.null, logical(1L))]
 )
 
 trans_meta_reconciled <- db$trans_meta_t

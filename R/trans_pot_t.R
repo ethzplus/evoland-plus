@@ -128,10 +128,9 @@ predict_trans_pot <- function(
       "trans_models_t, but model fitting produced none for these (most likely no ",
       "predictors were retained in trans_preds_t, or the learner failed to train on ",
       "too few positive cases -- check warnings from fit_full_models()). Refit those ",
-      "transitions, or demote them before allocating, e.g.\n",
-      "  modeled <- db$fetch('trans_models_t', cols = 'id_trans', ",
-      "where = 'learner_full is not null')$id_trans\n",
-      "  db$trans_meta_t <- db$trans_meta_t[, is_viable := is_viable & id_trans %in% modeled]"
+      "transitions, or drop them from the viable set before allocating by setting ",
+      "is_viable = FALSE for any transition whose fit_full_models() result has a NULL ",
+      "learner_full."
     ))
   }
 
