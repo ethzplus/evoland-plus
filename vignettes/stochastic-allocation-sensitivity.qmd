@@ -402,20 +402,22 @@ Because the exact metadata fields of `runs_t` may evolve over time, the helper b
 
 ```{r}
 #| label: register-runs
-n_realizations <- 30L
-seed_start <- 1000L
-runs_new <- data.table(
-  id_run = seq_len(n_realizations + 1) - 1L,
-  parent_id_run = NA_integer_,
-  description = "base",
-  kind = "synthetic 'historical' case",
-  seed = 666L
-)
-runs_new[id_run > 0, id_run := seq_len(n_realizations)]
-runs_new[id_run > 0, parent_id_run := 0L]
-runs_new[id_run > 0, description := paste("stochastic allocation", id_run)]
-runs_new[id_run > 0, kind := "allocation_sensitivity"]
-runs_new[id_run > 0, seed := id_run + seed_start]
+runs_new <-
+  data.table(
+    id_run = 0:30, # base run 0 & 1:30
+    parent_id_run = NA_integer_, # NA for the scenario root
+    description = "base",
+    kind = "synthetic 'historical' case",
+    seed = 666L
+  )[
+    id_run > 0,
+    `:=`(
+      parent_id_run = 0L,
+      description = paste("stochastic allocation", id_run),
+      kind = "allocation sensitivity",
+      seed = id_run + 100L
+    )
+  ]
 
 db$commit(as_runs_t(runs_new), "runs_t", method = "overwrite")
 
