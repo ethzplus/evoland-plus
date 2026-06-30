@@ -380,7 +380,14 @@ Here, we train one single model per transition; see the main tutorial for an ill
 ```{r}
 #| label: fit-models
 #| seed: 666
-trans_models <- db$fit_full_models(learner = mlr3::lrn("classif.rpart"))
+fit_warnings <- character()
+trans_models <- withCallingHandlers(
+  db$fit_full_models(learner = mlr3::lrn("classif.rpart")),
+  warning = function(w) {
+    fit_warnings <<- c(fit_warnings, conditionMessage(w))
+    invokeRestart("muffleWarning")
+  }
+)
 
 # which transitions produced a usable model (non-null learner_full)? read this
 # from the freshly returned object, before committing it to the DB
@@ -412,14 +419,14 @@ if (length(modeled_trans) == 0L) {
       "No transition models trained. ",
       "trans_models rows = %d, trained = %d, ",
       "viable before reconcile = %d, trans_preds rows = %d, ",
-      "viable id_trans = {%s}, modelled id_trans = {%s}."
+      "viable id_trans = {%s}. Fit warnings: %s"
     ),
     nrow(trans_models),
     sum(trained),
     nrow(db$trans_meta_t[is_viable == TRUE]),
     nrow(db$trans_preds_t),
     toString(db$trans_meta_t[is_viable == TRUE, id_trans]),
-    toString(trans_models$id_trans[trained])
+    paste(unique(fit_warnings), collapse = " || ")
   ))
 }
 
