@@ -333,16 +333,6 @@ db$trans_meta_t <- create_trans_meta_t(
   min_cardinality_abs = 20,
   exclude_anterior = 4 # exclude immutable class
 )
-# db$trans_meta_t <-
-# data.table::rowwiseDT(
-#   id_trans=, id_lulc_anterior=, id_lulc_posterior=, cardinality=, frequency_rel=, frequency_abs=, is_viable=,
-#  4,                1,                 2,          13,   0.061032864,  0.0072222222,     FALSE,
-#  3,                1,                 3,          81,   0.380281690,  0.0450000000,      TRUE,
-#  1,                2,                 1,          23,   0.107981221,  0.0127777778,      TRUE,
-#  2,                3,                 1,          75,   0.352112676,  0.0416666667,      TRUE,
-#  5,                3,                 4,          20,   0.093896714,  0.0111111111,      TRUE,
-#  6,                4,                 3,           1,   0.004694836,  0.0005555556,     FALSE
-# ) |> as_trans_meta_t()
 
 db$set_full_trans_preds()
 
@@ -437,34 +427,18 @@ Note that we do **not** copy the allocation parameters into each run. Every stoc
 
 ## Running one extrapolated period 30 times
 
-We only allocate the first extrapolated period. This keeps the comparison clean: every realization starts from the same observed state.
-
-```{r}
-#| label: identify-periods
-last_observed_id <- db$periods_t[
-  id_period != 0 & is_extrapolated == FALSE,
-  max(id_period)
-]
-
-first_extrapolated_id <- db$periods_t[
-  is_extrapolated == TRUE,
-  min(id_period)
-]
-
-last_observed_id
-first_extrapolated_id
-```
-
-We now loop over the run records with `.mapply()`. For each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- and then allocate the single extrapolated period (`id_period = 4`) using that run's `seed`. Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
+We only allocate the first extrapolated period. This makes the comparison easier to interpret: every realization starts from the same observed state.
+We loop over the run records with `.mapply()`. For each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- and then allocate the single extrapolated period (`id_period = 4`) using that run's `seed`. Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
 
 ```{r}
 #| label: allocate-realizations
+#| output: false
 .mapply(
   dots = runs_out,
   FUN = function(id_run, seed, ...) {
     db$id_run <- id_run
     db$alloc_clumpy(
-      id_period = 4, # single extrapolated period
+      id_period = 4, # first extrapolated period
       select_score = "classif.auc",
       select_maximize = TRUE,
       seed = seed
