@@ -120,10 +120,12 @@ db$periods_t <- create_periods_t(
 ## Synthetic observed data
 
 As in the introductory vignette, we create a small autoregressive synthetic landscape with three observed raster layers.
+We then transform the synthetic raster stack into `lulc_data_t` records and attach `id_run = 0L`, which is the reserved base run for observed data.
 
 ```{r}
 #| seed: 123
 #| label: synthesize-lulc
+#| code-fold: true
 #| fig-asp: 0.3
 n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
 noise1 <- runif(n_cells, min = -0.5, max = 4.2)
@@ -148,21 +150,15 @@ plot(
     color = c("#91B690", "#EB9486", "#F3DE8A", "#CBC6D2")
   )
 )
-```
 
-We now transform the raster stack into `lulc_data_t` records and attach `id_run = 0L`, which is the reserved base run for observed data.
-
-```{r}
-#| label: ingest-lulc
 db$lulc_data_t <-
   extract_using_coords_t(synthetic_lulc, db$coords_t)[,
     .(
+      id_run = 0L,
       id_coord,
       id_period = substr(layer, 26, 26) |> as.integer(),
       id_lulc = value
     )
-  ][,
-    .(id_run = 0L, id_period, id_lulc, id_coord)
   ] |>
   as_lulc_data_t()
 ```
@@ -170,12 +166,12 @@ db$lulc_data_t <-
 ## Predictors and neighborhoods
 
 Here, we confabulate some predictors based on gradient based "latent" influences then used to construct an "accessibility" and "site quality" quantifier.
-These are then used to influence some variables that are somewhat correlated with the synthetic land use map we constructed earlier.
 
 ```{r}
 #| label: predictors
-#| collapse: true
+#| code-fold: true
 #| seed: 321
+#| fig-asp: 0.3
 # helper: scale raster to [0, 1]
 scale01 <- function(x) {
   rng <- terra::global(x, c("min", "max"), na.rm = TRUE)
@@ -200,8 +196,18 @@ latent2 <- smooth_field(template_rast, sd = 1, w = 5)
 accessibility <- scale01(0.55 * (1 - x_grad) + 0.25 * (1 - y_grad) + 0.20 * latent1)
 site_quality <- scale01(0.50 * y_grad + 0.35 * latent2 + 0.15 * x_grad)
 
-plot(c(accessibility, site_quality))
+c(accessibility, site_quality) |>
+  setNames(c("accessibility", "site_quality")) |>
+  plot()
+```
 
+These "drivers" are used to construct predictor variables that are somewhat correlated with the synthetic land use map we constructed earlier - we combine the drivers, noise, and land class occurrence density and normalize to $[0,1]$.
+
+```{r}
+#| label: predictors2
+#| code-fold: true
+#| seed: 321
+#| fig-asp: 1
 as_indicator <- function(x, class) {
   terra::app(x, fun = function(v) as.numeric(v %in% class))
 }
@@ -265,14 +271,21 @@ arable_yield <-
   ) |>
   setNames("arable_yield id_period=0")
 
-
 # optional nuisance predictor that should usually score poorly
 random_nuisance <-
   smooth_field(template_rast, sd = 1, w = 3) |>
   setNames("random_nuisance id_period=0")
 
 plot(c(urban_pressure, forest_suitability, arable_yield, random_nuisance))
+```
 
+Now we can declare minimal predictor metadata and transform it into tabular form.
+
+```{r}
+#| label: predictors3
+#| code-fold: true
+#| seed: 321
+#| fig-asp: 0.3
 db$pred_meta_t <-
   create_pred_meta_t(list(
     urban_pressure = list(
@@ -312,7 +325,13 @@ db$pred_data_t <-
     )
   ] |>
   as_pred_data_t()
+```
 
+Now we add a simple set of neighbor relations as predictors.
+
+```{r}
+#| label: predictors4
+#| code-fold: true
 db$set_neighbors(
   max_distance = 1000,
   distance_breaks = c(0, 300, 1000),
@@ -324,6 +343,11 @@ db$generate_neighbor_predictors()
 ## Calibration
 
 ### Eligible transitions and predictor pruning
+
+Here we subset the number of eligible transitions according to number of observed transitions.
+Then we construct a full set of transition/predictor permutations and use it to estimate each predictor's utility for each transition.
+We then retain the best 3 predictors per transition.
+These will then be used to train models.
 
 ```{r}
 #| label: transitions-and-predictors
@@ -351,24 +375,16 @@ db$commit(
 
 ### Transition models
 
+Here, we train one single model per transition; see the main tutorial for an illustration on how to train multiple partials on split samples to assess their goodness of fit.
+
 ```{r}
 #| label: fit-models
-#| collapse: true
-#| seed: 666
-db$trans_models_t <- db$fit_partial_models(
-  learner = mlr3::lrn("classif.rpart"),
-  measures = c("classif.auc", "classif.acc"),
-  sample_frac = 0.7,
-  seed = 666
-)
-
-db$trans_models_t <- db$fit_full_models(
-  select_score = "classif.auc",
-  select_maximize = TRUE
-)
+db$trans_models_t <- db$fit_full_models(learner = mlr3::lrn("classif.rpart"))
 ```
 
 ### Transition rates and baseline allocation parameters
+
+We prescribe a set of transition rates (i.e. share of cells to transition from one land use to another) that are to be used in period 4.
 
 ```{r}
 #| label: transition-rates
@@ -398,13 +414,13 @@ db$alloc_params_t <-
 
 The central idea of this tutorial is that **each stochastic allocation is a separate run**. We therefore create 30 run records and propagate the same baseline allocation parameters to each run.
 
-Because the exact metadata fields of `runs_t` may evolve over time, the helper below only assumes that `id_run` exists and fills other common metadata columns when present.
+As with all evoland tables, `runs_t` only ensures a minimum set of columns, so we can add the `kind` and `seed` columns when overwriting.
 
 ```{r}
 #| label: register-runs
 runs_new <-
   data.table(
-    id_run = 0:30, # base run 0 & 1:30
+    id_run = 0:30, # base run 0 & stochastic runs 1:30
     parent_id_run = NA_integer_, # NA for the scenario root
     description = "base",
     kind = "synthetic 'historical' case",
@@ -430,24 +446,20 @@ Note that we do **not** copy the allocation parameters into each run. Every stoc
 ## Running one extrapolated period 30 times
 
 We only allocate the first extrapolated period. This makes the comparison easier to interpret: every realization starts from the same observed state.
-We loop over the run records with `.mapply()`. For each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- and then allocate the single extrapolated period (`id_period = 4`) using that run's `seed`. Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
+We loop over the run records: for each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- and then allocate the single extrapolated period (`id_period = 4`) using that run's `seed`. Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
 
 ```{r}
 #| label: allocate-realizations
 #| output: false
-.mapply(
-  dots = runs_out,
-  FUN = function(id_run, seed, ...) {
-    db$id_run <- id_run
-    db$alloc_clumpy(
-      id_period = 4, # first extrapolated period
-      select_score = "classif.auc",
-      select_maximize = TRUE,
-      seed = seed
-    )
-  },
-  MoreArgs = NULL
-)
+for (i in seq_len(nrow(runs_out))) {
+  db$id_run <- runs_out$id_run[i]
+  db$alloc_clumpy(
+    id_period = 4, # first extrapolated period
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    seed = runs_out$seed[i]
+  )
+}
 ```
 
 ## Summarizing stochastic sensitivity
@@ -460,7 +472,7 @@ A convenient first summary is binary: for each cell we ask whether its simulated
 
 ```{r}
 #| label: summarize-change-frequency
-db$id_run <- NULL
+db$id_run <- NULL # setting to NULL to access all records
 
 # 900 locations x 1 observation = 900 rows
 observed_last <- db$fetch("lulc_data_t", where = "id_run = 0 and id_period = 3")[,
@@ -491,13 +503,12 @@ change_maps <-
 
 The chunk above melts these four per-cell summaries into long form and rasterizes them with `tabular_to_raster()`, producing one map layer per statistic. Below we plot the change-frequency layer as a heatmap.
 
-
 ## Heatmap of stochastic change consistency
 
 ```{r}
 #| label: plot-change-frequency
-#| fig-width: 7
-#| fig-height: 6
+#| fig-width: 4
+#| fig-height: 4
 plot(
   change_maps$variable_p_variable_changed,
   main = "Share of runs in which a cell changes class"
@@ -515,18 +526,14 @@ In other words, this map is not a transition-potential surface. It is a **realiz
 ## Inspecting individual realizations
 
 The aggregate heatmap compresses 30 runs into a single surface. It is also worth looking at the individual realizations to get an intuition for how much the allocator actually moves things around from one run to the next.
-
-Rather than printing 30 static panels, we stitch the realizations into a short looping animation -- one frame per run. The trick for getting this to *animate in the rendered HTML* is to not use `terra::animate()`: that function plays the layers back interactively in a graphics device and leaves nothing behind in a static document. Instead we let **knitr** assemble the per-frame plots into an animated GIF using the [`gifski`](https://cran.r-project.org/package=gifski) hook. We just plot each layer in turn and set two chunk options:
-
-- `animation.hook: gifski` tells knitr to collect every plot produced by the chunk and encode them as a single, browser-looping GIF (this works for any HTML rendering target);
-- `interval` sets the delay between frames, in seconds.
+Rather than printing 30 static panels, we stitch the realizations into a short looping animation -- one frame per run.
 
 ```{r}
 #| label: animate-realisations
 #| animation.hook: gifski
 #| interval: 0.4
-#| fig-width: 5
-#| fig-height: 5
+#| fig-width: 3
+#| fig-height: 3
 #| fig-cap: "Each frame is one stochastic allocation of the single extrapolated period."
 realisation_rasters <-
   simulated_extrap |>
@@ -585,8 +592,6 @@ In a small tutorial like this, we could have stored realizations in ad hoc objec
 - the same database structure can later support sensitivity analysis, parameter sweeps, or scenario ensembles.
 
 A natural next step would be to combine **between-run stochasticity** (shown here) with **between-parameter variability** by creating multiple allocation parameter sets per scenario and multiple stochastic replicates per parameter set.
-
-## Take-away
 
 Repeated allocation changes the interpretation of the model output:
 
