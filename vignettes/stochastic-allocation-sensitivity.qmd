@@ -379,7 +379,14 @@ Here, we train one single model per transition; see the main tutorial for an ill
 
 ```{r}
 #| label: fit-models
+#| seed: 666
 trans_models <- db$fit_full_models(learner = mlr3::lrn("classif.rpart"))
+
+# which transitions produced a usable model (non-null learner_full)? read this
+# from the freshly returned object, before committing it to the DB
+trained <- !vapply(trans_models$learner_full, is.null, logical(1L))
+modeled_trans <- unique(trans_models$id_trans[trained])
+
 db$trans_models_t <- trans_models
 ```
 
@@ -396,10 +403,25 @@ demoting any transition whose full model did not train, reading the result retur
 
 ```{r}
 #| label: reconcile-viable-transitions
-# transitions whose full model actually trained (non-null learner_full)
-modeled_trans <- unique(
-  trans_models$id_trans[!vapply(trans_models$learner_full, is.null, logical(1L))]
-)
+# Defensive diagnostic: if *nothing* trained the calibration is degenerate and
+# the downstream "No viable transitions" error would be opaque. Surface the
+# actual counts instead.
+if (length(modeled_trans) == 0L) {
+  stop(sprintf(
+    paste0(
+      "No transition models trained. ",
+      "trans_models rows = %d, trained = %d, ",
+      "viable before reconcile = %d, trans_preds rows = %d, ",
+      "viable id_trans = {%s}, modelled id_trans = {%s}."
+    ),
+    nrow(trans_models),
+    sum(trained),
+    nrow(db$trans_meta_t[is_viable == TRUE]),
+    nrow(db$trans_preds_t),
+    toString(db$trans_meta_t[is_viable == TRUE, id_trans]),
+    toString(trans_models$id_trans[trained])
+  ))
+}
 
 trans_meta_reconciled <- db$trans_meta_t
 trans_meta_reconciled[, is_viable := is_viable & id_trans %in% modeled_trans]
