@@ -152,8 +152,7 @@ alloc_clumpy_one_period <- function(
 
   # 8. Select the method from the patch parameters: every transition mono-pixel
   #    (area_mean == 1 & area_var == 0) -> uSAM, otherwise uPAM.
-  is_mono <- all(!is.na(area_mean) & area_mean == 1 &
-    (is.na(area_var) | area_var == 0))
+  is_mono <- all(!is.na(area_mean) & area_mean == 1 & (is.na(area_var) | area_var == 0))
   method_code <- if (is_mono) 0L else 1L
   method_name <- if (is_mono) "uSAM" else "uPAM"
 

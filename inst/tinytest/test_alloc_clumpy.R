@@ -113,22 +113,40 @@ probs_adj <- rep(1.0, 4L)
 # With avoid_aggregation = TRUE, growing from cell 1 toward area 3 hits cell 3
 # (a foreign patch) and fails -> nothing allocated.
 patch_agg <- evoland:::grow_patch_cpp(
-  landscape = land_adj, ant_landscape = ant_adj, probs = probs_adj,
-  nbr_above = nbr14$above, nbr_below = nbr14$below,
-  nbr_left = nbr14$left, nbr_right = nbr14$right,
-  pivot = 1L, target_area = 3L, from_class = 1L, to_class = 2L,
-  elongation = 0.0, ncol = 4L, avoid_aggregation = TRUE
+  landscape = land_adj,
+  ant_landscape = ant_adj,
+  probs = probs_adj,
+  nbr_above = nbr14$above,
+  nbr_below = nbr14$below,
+  nbr_left = nbr14$left,
+  nbr_right = nbr14$right,
+  pivot = 1L,
+  target_area = 3L,
+  from_class = 1L,
+  to_class = 2L,
+  elongation = 0.0,
+  ncol = 4L,
+  avoid_aggregation = TRUE
 )
 expect_equal(length(patch_agg), 0L)
 
 # With avoid_aggregation = FALSE, it grows as far as it can (cells 1 and 2).
 land_adj2 <- as.integer(c(1L, 1L, 2L, 1L))
 patch_noagg <- evoland:::grow_patch_cpp(
-  landscape = land_adj2, ant_landscape = ant_adj, probs = probs_adj,
-  nbr_above = nbr14$above, nbr_below = nbr14$below,
-  nbr_left = nbr14$left, nbr_right = nbr14$right,
-  pivot = 1L, target_area = 3L, from_class = 1L, to_class = 2L,
-  elongation = 0.0, ncol = 4L, avoid_aggregation = FALSE
+  landscape = land_adj2,
+  ant_landscape = ant_adj,
+  probs = probs_adj,
+  nbr_above = nbr14$above,
+  nbr_below = nbr14$below,
+  nbr_left = nbr14$left,
+  nbr_right = nbr14$right,
+  pivot = 1L,
+  target_area = 3L,
+  from_class = 1L,
+  to_class = 2L,
+  elongation = 0.0,
+  ncol = 4L,
+  avoid_aggregation = FALSE
 )
 expect_equal(sort(patch_noagg), c(1L, 2L))
 
@@ -149,11 +167,23 @@ sp <- sparse_const(ncell, 0.5) # one transition 1 -> 2, potential 0.5
 # uSAM (method 0): mono-pixel single pass
 set.seed(1L)
 res_usam <- evoland:::allocate_clumpy_cpp(
-  landscape = ant, nrow = nr, ncol = nc,
-  trans_from = 1L, trans_to = 2L, prob_cell = sp$cell, prob_value = sp$value,
-  area_mean = 1.0, area_var = 0.0, elongation = 0.0, target_rate = 0.3,
-  method = 0L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
-  avoid_aggregation = FALSE, area_dist = 0L
+  landscape = ant,
+  nrow = nr,
+  ncol = nc,
+  trans_from = 1L,
+  trans_to = 2L,
+  prob_cell = sp$cell,
+  prob_value = sp$value,
+  area_mean = 1.0,
+  area_var = 0.0,
+  elongation = 0.0,
+  target_rate = 0.3,
+  method = 0L,
+  batch_size = 1L,
+  rarefy = TRUE,
+  shuffle = TRUE,
+  avoid_aggregation = FALSE,
+  area_dist = 0L
 )
 expect_equal(length(res_usam), ncell)
 expect_true(all(res_usam %in% c(1L, 2L)))
@@ -161,11 +191,23 @@ expect_true(all(res_usam %in% c(1L, 2L)))
 # uPAM (method 1): iterative, multi-pixel, quota
 set.seed(1L)
 res_upam <- evoland:::allocate_clumpy_cpp(
-  landscape = ant, nrow = nr, ncol = nc,
-  trans_from = 1L, trans_to = 2L, prob_cell = sp$cell, prob_value = sp$value,
-  area_mean = 2.0, area_var = 1.0, elongation = 0.0, target_rate = 0.3,
-  method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
-  avoid_aggregation = TRUE, area_dist = 0L
+  landscape = ant,
+  nrow = nr,
+  ncol = nc,
+  trans_from = 1L,
+  trans_to = 2L,
+  prob_cell = sp$cell,
+  prob_value = sp$value,
+  area_mean = 2.0,
+  area_var = 1.0,
+  elongation = 0.0,
+  target_rate = 0.3,
+  method = 1L,
+  batch_size = 1L,
+  rarefy = TRUE,
+  shuffle = TRUE,
+  avoid_aggregation = TRUE,
+  area_dist = 0L
 )
 expect_equal(length(res_upam), ncell)
 expect_true(all(res_upam %in% c(1L, 2L)))
@@ -176,23 +218,46 @@ expect_true(sum(res_upam == 2L) <= ncell)
 sp1 <- sparse_const(ncell, 1.0)
 set.seed(123L)
 res_forced <- evoland:::allocate_clumpy_cpp(
-  landscape = ant, nrow = nr, ncol = nc,
-  trans_from = 1L, trans_to = 2L, prob_cell = sp1$cell, prob_value = sp1$value,
-  area_mean = 1.0, area_var = 0.0, elongation = 0.0, target_rate = 1.0,
-  method = 0L, batch_size = 1L, rarefy = FALSE, shuffle = TRUE,
-  avoid_aggregation = FALSE, area_dist = 0L
+  landscape = ant,
+  nrow = nr,
+  ncol = nc,
+  trans_from = 1L,
+  trans_to = 2L,
+  prob_cell = sp1$cell,
+  prob_value = sp1$value,
+  area_mean = 1.0,
+  area_var = 0.0,
+  elongation = 0.0,
+  target_rate = 1.0,
+  method = 0L,
+  batch_size = 1L,
+  rarefy = FALSE,
+  shuffle = TRUE,
+  avoid_aggregation = FALSE,
+  area_dist = 0L
 )
 expect_true(all(res_forced == 2L))
 
 # Empty sparse potentials (no entries) => nothing changes
 set.seed(123L)
 res_zero <- evoland:::allocate_clumpy_cpp(
-  landscape = ant, nrow = nr, ncol = nc,
-  trans_from = 1L, trans_to = 2L,
-  prob_cell = list(integer(0)), prob_value = list(numeric(0)),
-  area_mean = 2.0, area_var = 1.0, elongation = 0.0, target_rate = 0.3,
-  method = 1L, batch_size = 1L, rarefy = TRUE, shuffle = TRUE,
-  avoid_aggregation = TRUE, area_dist = 0L
+  landscape = ant,
+  nrow = nr,
+  ncol = nc,
+  trans_from = 1L,
+  trans_to = 2L,
+  prob_cell = list(integer(0)),
+  prob_value = list(numeric(0)),
+  area_mean = 2.0,
+  area_var = 1.0,
+  elongation = 0.0,
+  target_rate = 0.3,
+  method = 1L,
+  batch_size = 1L,
+  rarefy = TRUE,
+  shuffle = TRUE,
+  avoid_aggregation = TRUE,
+  area_dist = 0L
 )
 expect_true(all(res_zero == 1L))
 
@@ -209,11 +274,23 @@ row_val <- list(rep(1.0, 5L))
 run_row <- function(agg) {
   set.seed(1L)
   evoland:::allocate_clumpy_cpp(
-    landscape = ant_row, nrow = 1L, ncol = 5L,
-    trans_from = 1L, trans_to = 2L, prob_cell = row_cell, prob_value = row_val,
-    area_mean = 2.0, area_var = 0.0, elongation = 0.0, target_rate = 1.0,
-    method = 1L, batch_size = 1L, rarefy = FALSE, shuffle = FALSE,
-    avoid_aggregation = agg, area_dist = 1L
+    landscape = ant_row,
+    nrow = 1L,
+    ncol = 5L,
+    trans_from = 1L,
+    trans_to = 2L,
+    prob_cell = row_cell,
+    prob_value = row_val,
+    area_mean = 2.0,
+    area_var = 0.0,
+    elongation = 0.0,
+    target_rate = 1.0,
+    method = 1L,
+    batch_size = 1L,
+    rarefy = FALSE,
+    shuffle = FALSE,
+    avoid_aggregation = agg,
+    area_dist = 1L
   )
 }
 res_noagg <- run_row(FALSE)
@@ -226,12 +303,23 @@ expect_true(sum(res_agg == 2L) < sum(res_noagg == 2L))
 set.seed(9L)
 some_cells <- c(1L, 7L, 13L, 19L, 25L)
 res_subset <- evoland:::allocate_clumpy_cpp(
-  landscape = ant, nrow = nr, ncol = nc,
-  trans_from = 1L, trans_to = 2L,
-  prob_cell = list(some_cells), prob_value = list(rep(1.0, length(some_cells))),
-  area_mean = 1.0, area_var = 0.0, elongation = 0.0, target_rate = 1.0,
-  method = 0L, batch_size = 1L, rarefy = FALSE, shuffle = TRUE,
-  avoid_aggregation = FALSE, area_dist = 0L
+  landscape = ant,
+  nrow = nr,
+  ncol = nc,
+  trans_from = 1L,
+  trans_to = 2L,
+  prob_cell = list(some_cells),
+  prob_value = list(rep(1.0, length(some_cells))),
+  area_mean = 1.0,
+  area_var = 0.0,
+  elongation = 0.0,
+  target_rate = 1.0,
+  method = 0L,
+  batch_size = 1L,
+  rarefy = FALSE,
+  shuffle = TRUE,
+  avoid_aggregation = FALSE,
+  area_dist = 0L
 )
 # forced potential 1 on exactly those cells (mono-pixel) => exactly they change
 expect_equal(which(res_subset == 2L), some_cells)
@@ -242,11 +330,23 @@ antc <- as.integer(rep(1L, big2 * big2))
 spc <- sparse_const(big2 * big2, 0.4)
 set.seed(11L)
 res_auto <- evoland:::allocate_clumpy_cpp(
-  landscape = antc, nrow = big2, ncol = big2,
-  trans_from = 1L, trans_to = 2L, prob_cell = spc$cell, prob_value = spc$value,
-  area_mean = 4.0, area_var = 2.0, elongation = 0.0, target_rate = 0.3,
-  method = 1L, batch_size = 0L, rarefy = TRUE, shuffle = TRUE,
-  avoid_aggregation = TRUE, area_dist = 0L
+  landscape = antc,
+  nrow = big2,
+  ncol = big2,
+  trans_from = 1L,
+  trans_to = 2L,
+  prob_cell = spc$cell,
+  prob_value = spc$value,
+  area_mean = 4.0,
+  area_var = 2.0,
+  elongation = 0.0,
+  target_rate = 0.3,
+  method = 1L,
+  batch_size = 0L,
+  rarefy = TRUE,
+  shuffle = TRUE,
+  avoid_aggregation = TRUE,
+  area_dist = 0L
 )
 expect_equal(length(res_auto), big2 * big2)
 expect_true(all(res_auto %in% c(1L, 2L)))
