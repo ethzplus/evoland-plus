@@ -110,18 +110,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// calculate_class_stats_cpp
-DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize);
-RcppExport SEXP _evoland_calculate_class_stats_cpp(SEXP matSEXP, SEXP cellsizeSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerMatrix >::type mat(matSEXP);
-    Rcpp::traits::input_parameter< double >::type cellsize(cellsizeSEXP);
-    rcpp_result_gen = Rcpp::wrap(calculate_class_stats_cpp(mat, cellsize));
-    return rcpp_result_gen;
-END_RCPP
-}
 // distance_neighbors_cpp
 List distance_neighbors_cpp(DataFrame coords_t, double max_distance, bool quiet);
 RcppExport SEXP _evoland_distance_neighbors_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP quietSEXP) {
@@ -135,6 +123,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// calculate_class_stats_cpp
+DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize);
+RcppExport SEXP _evoland_calculate_class_stats_cpp(SEXP matSEXP, SEXP cellsizeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerMatrix >::type mat(matSEXP);
+    Rcpp::traits::input_parameter< double >::type cellsize(cellsizeSEXP);
+    rcpp_result_gen = Rcpp::wrap(calculate_class_stats_cpp(mat, cellsize));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_evoland_raster_neighbors_cpp", (DL_FUNC) &_evoland_raster_neighbors_cpp, 2},
@@ -143,8 +143,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_evoland_sample_normal_area_cpp", (DL_FUNC) &_evoland_sample_normal_area_cpp, 2},
     {"_evoland_grow_patch_cpp", (DL_FUNC) &_evoland_grow_patch_cpp, 14},
     {"_evoland_allocate_clumpy_cpp", (DL_FUNC) &_evoland_allocate_clumpy_cpp, 17},
-    {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
     {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 3},
+    {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
     {NULL, NULL, 0}
 };
 

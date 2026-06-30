@@ -6,13 +6,12 @@
 \usage{
 allocate_clumpy_cpp(
   landscape,
-  ant_landscape,
   nrow,
   ncol,
-  from_classes,
   trans_from,
   trans_to,
-  probs,
+  prob_cell,
+  prob_value,
   area_mean,
   area_var,
   elongation,
@@ -20,7 +19,9 @@ allocate_clumpy_cpp(
   method,
   batch_size,
   rarefy,
-  shuffle
+  shuffle,
+  avoid_aggregation,
+  area_dist
 )
 }
 \arguments{
@@ -28,19 +29,16 @@ allocate_clumpy_cpp(
 1-based class ids, NA_INTEGER for no-data).  Not modified; a copy is
 returned with the allocated changes applied.}
 
-\item{ant_landscape}{IntegerVector of the anterior state (immutable
-reference; a cell is only eligible as a pivot while both \code{landscape} and
-\code{ant_landscape} still equal its source class).}
-
 \item{nrow, ncol}{Raster dimensions.}
 
-\item{from_classes}{IntegerVector of anterior classes to process.}
-
 \item{trans_from, trans_to}{IntegerVectors (length T) of the source/target
-class for each transition column of \code{probs}.}
+class for each transition.  The set of anterior classes is derived from
+\code{trans_from}.}
 
-\item{probs}{NumericMatrix (n_cells x T) of per-cell transition potentials,
-already adjusted/closed; column t corresponds to transition t.}
+\item{prob_cell, prob_value}{Lists of length T (one element per transition)
+giving the SPARSE adjusted potentials: \code{prob_cell[[t]]} is an integer
+vector of 1-based cell indices and \code{prob_value[[t]]} the matching numeric
+potentials for transition t.  Cells absent from a transition read as 0.}
 
 \item{area_mean, area_var, elongation}{NumericVectors (length T) of patch
 parameters per transition.}
@@ -49,21 +47,31 @@ parameters per transition.}
 P(v|u) per transition (fraction of source pixels that change).  Used only
 by uPAM to set the per-transition pixel quota.}
 
-\item{method}{0 = uSAM (single pass), 1 = uPAM (iterative with quota).}
+\item{method}{0 = uSAM (mono-pixel single pass), 1 = uPAM (iterative, quota).}
 
-\item{batch_size}{uPAM only: pivots processed per GART re-draw (1 = strict
-uPAM, <= 0 = all candidates).}
+\item{batch_size}{uPAM only: pivots attempted per MuST re-draw. \verb{> 0} is an
+explicit cap (1 = strict uPAM); \verb{< 0} processes all candidates in one pass;
+\code{0} auto-scales to ~1\% of each class's pool (bounds MuST passes so large
+rasters avoid the O(#patches x pool) cost of strict batch=1).}
 
 \item{rarefy}{If TRUE, divide pivot probabilities by \code{area_mean} (the
 1/E(sigma) factor) so the allocated quantity of change matches the target.}
 
 \item{shuffle}{If TRUE, randomise pivot processing order.}
+
+\item{avoid_aggregation}{uPAM only: if TRUE, patches that would merge fail
+and allocate nothing (clumpy GaussianPatcher semantics).}
+
+\item{area_dist}{Patch-area distribution: 0 = log-normal, 1 = normal.}
 }
 \value{
 IntegerVector (length n_cells) of the posterior LULC state.
 }
 \description{
 Allocates LULC change for a single period.  See the file header for the
-uSAM vs uPAM methods and the meaning of \code{batch_size} / \code{rarefy}.
+uSAM vs uPAM methods and the meaning of \code{rarefy} / \code{avoid_aggregation} /
+\code{area_dist}.  The anterior reference is snapshotted internally from
+\code{landscape}, so a cell is eligible as a pivot only while it still equals its
+original source class (prevents a cell changing twice in one time step).
 }
 \keyword{internal}

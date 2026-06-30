@@ -16,8 +16,9 @@ grow_patch_cpp(
   target_area,
   from_class,
   to_class,
-  eccentricity,
-  ncol
+  elongation,
+  ncol,
+  avoid_aggregation = FALSE
 )
 }
 \arguments{
@@ -35,18 +36,23 @@ grow_patch_cpp(
 
 \item{from_class, to_class}{Source/target LULC classes.}
 
-\item{eccentricity}{Target elongation in [0, 1] (0 = isometric).}
+\item{elongation}{Target elongation in [0, 1] (0 = isometric).}
 
 \item{ncol}{Raster column count.}
+
+\item{avoid_aggregation}{If TRUE, the patch is all-or-nothing and fails if it
+would merge with another patch or cannot reach \code{target_area}.}
 }
 \value{
 1-based integer vector of allocated cell indices (incl. pivot), or
-empty if the pivot is not an available \code{from_class} cell.
+empty if the patch failed / the pivot is not an available \code{from_class} cell.
 }
 \description{
-Thin wrapper around the internal patch grower, kept for direct use / unit
-testing.  \code{landscape} is modified in place (allocated cells set to
-\code{to_class}).  Neighbour vectors are 1-based with 0 == no neighbour, as
-produced by \code{\link[=raster_neighbors_cpp]{raster_neighbors_cpp()}}.
+Low-level patch grower (the building block where the mutable working layer
+and the immutable anterior reference are distinct), kept for direct use /
+unit testing.  On success the allocated cells are written back into
+\code{landscape} (set to \code{to_class}); on failure nothing is committed.  Neighbour
+vectors are 1-based with 0 == no neighbour, as produced by
+\code{\link[=raster_neighbors_cpp]{raster_neighbors_cpp()}}.
 }
 \keyword{internal}

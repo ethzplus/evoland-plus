@@ -410,15 +410,19 @@ to select model for extrapolation}
 \if{html}{\out{<a id="method-evoland_db-alloc_clumpy"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-alloc_clumpy}{}}}
 \subsection{\code{evoland_db$alloc_clumpy()}}{
-  Runs CLUMPY-style LULC allocation, see \code{\link[=alloc_clumpy]{alloc_clumpy()}}
+  Runs CLUMPY-style LULC allocation, see \code{\link[=alloc_clumpy]{alloc_clumpy()}}.
+The method (uSAM vs uPAM) is selected automatically from the patch
+parameters: mono-pixel patches (\code{area_mean == 1}, \code{area_var == 0}) use
+uSAM, otherwise uPAM.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$alloc_clumpy(
   id_periods,
   select_score,
   select_maximize,
-  method = "usam",
-  batch_size = 1L,
+  area_dist = "lognormal",
+  avoid_aggregation = TRUE,
+  batch_size = 0L,
   seed = NULL
 )}
     \if{html}{\out{</div>}}
@@ -430,10 +434,13 @@ to select model for extrapolation}
       \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
 to select model for extrapolation.}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{method}}{Character; allocation method, \code{"usam"} (single-pass) or
-\code{"upam"} (iterative with per-transition quota). See \code{\link[=alloc_clumpy]{alloc_clumpy()}}.}
-      \item{\code{batch_size}}{Integer; uPAM pivots processed per GART re-draw
-(\code{1} = strict uPAM; \verb{<= 0} = all candidates per pass). Ignored for uSAM.}
+      \item{\code{area_dist}}{Character; patch-area distribution, \code{"lognormal"}
+(default) or \code{"normal"}. See \code{\link[=alloc_clumpy]{alloc_clumpy()}}.}
+      \item{\code{avoid_aggregation}}{Logical; if \code{TRUE} (default) uPAM patches that
+would merge fail and allocate nothing. Ignored for uSAM.}
+      \item{\code{batch_size}}{Integer; uPAM pivots attempted per MuST re-draw. \code{0}
+(default) auto-scales with the source pool; \verb{> 0} is an explicit cap
+(\code{1} = strict uPAM); \verb{< 0} = all candidates in one pass. Ignored for uSAM.}
       \item{\code{seed}}{Optional integer random seed for reproducibility.}
     }
     \if{html}{\out{</div>}}

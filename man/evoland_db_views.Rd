@@ -36,7 +36,7 @@ for a specific period.
 column-scaled to match target transition rates, then row-closed so per-cell change
 probabilities sum to at most 1.
 \item \code{alloc_params_clumpy_v()} - Returns allocation parameters in CLUMPY format
-(area_mean, area_var, eccentricity per transition).
+(area_mean, area_var, elongation per transition).
 }
 }
 

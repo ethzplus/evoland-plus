@@ -12,8 +12,9 @@ alloc_clumpy_one_period(
   anterior_rast,
   select_score,
   select_maximize,
-  method = "usam",
-  batch_size = 1L
+  area_dist = "lognormal",
+  avoid_aggregation = TRUE,
+  batch_size = 0L
 )
 
 alloc_clumpy(
@@ -21,8 +22,9 @@ alloc_clumpy(
   id_periods,
   select_score,
   select_maximize,
-  method = "usam",
-  batch_size = 1L,
+  area_dist = "lognormal",
+  avoid_aggregation = TRUE,
+  batch_size = 0L,
   seed = NULL
 )
 }
@@ -39,9 +41,13 @@ alloc_clumpy(
 
 \item{select_maximize}{Logical; whether to maximise \code{select_score}.}
 
-\item{method}{Character; \code{"usam"} (single pass) or \code{"upam"} (iterative).}
+\item{area_dist}{Character; patch-area distribution, \code{"lognormal"} (default)
+or \code{"normal"}.}
 
-\item{batch_size}{Integer; uPAM pivots processed per GART re-draw.}
+\item{avoid_aggregation}{Logical; uPAM merge avoidance (default \code{TRUE}).}
+
+\item{batch_size}{Integer; uPAM pivots attempted per MuST re-draw. \code{0}
+(default) auto-scales with the source pool; see \code{\link[=alloc_clumpy_one_period]{alloc_clumpy_one_period()}}.}
 
 \item{id_periods}{Integer vector of posterior period IDs to simulate.}
 
@@ -59,24 +65,30 @@ three stages per period:
 \item \strong{Adjustment} – the adjusted view \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} rescales
 potentials to match target rates and closes rows to [0, 1].
 \item \strong{Allocation} – the whole pivot-selection + patch-growth routine runs in
-C++ (\code{\link[=allocate_clumpy_cpp]{allocate_clumpy_cpp()}}).  Two methods are available (see \code{method}):
+C++ (\code{\link[=allocate_clumpy_cpp]{allocate_clumpy_cpp()}}).  The method is chosen automatically from the
+patch parameters:
 \itemize{
-\item \strong{uSAM} (Unbiased Simple Allocation Method, Mazy sec. 3.4.1): one GART
-(Generalized Allocation Rejection Test) pass per anterior class; every
-cell that draws a change becomes a patch pivot.  Quantity of change is
-enforced only in expectation.  Cheapest.
-\item \strong{uPAM} (Unbiased Patch Allocation Method, Mazy sec. 3.4.2, Fig. 3.2):
-iterative GART with a per-transition pixel quota and sampling without
-replacement.  \code{batch_size} trades speed for fidelity (1 = strict uPAM,
-one pivot per GART draw).  Affordable here because evoland's potentials
-come from a fixed fitted model, so the marginal density does not need to
-be re-estimated between patches.
+\item \strong{uSAM} (Unbiased Simple Allocation Method, Mazy sec. 3.4.1) when every
+transition is mono-pixel (\code{area_mean == 1} and \code{area_var == 0}): one MuST
+(Multinomial Sampling Test, Mazy App. 3.B; the same test the reference
+\code{clumpy} calls "GART") pass per anterior class, each selected pivot
+allocated as a single cell.  Quantity of change is enforced in
+expectation.
+\item \strong{uPAM} (Unbiased Patch Allocation Method, Mazy sec. 3.4.2, Fig. 3.2)
+otherwise: iterative MuST with a per-transition pixel quota and sampling
+without replacement.  Affordable here because evoland's potentials come
+from a fixed fitted model, so the marginal density does not need to be
+re-estimated between patches.
 }
 
-In both methods the per-cell pivot probability is divided by the mean patch
-area (the 1/E(sigma) factor, Mazy Fig. 3.2) so the allocated quantity of
-change matches the target transition rate; without it allocation
-over-shoots by roughly the mean patch size.
+(Multi-pixel patches require uPAM; "uSAM with patches larger than one
+pixel" is not a valid method, hence the automatic selection rather than a
+user switch.)
+
+The per-cell pivot probability is divided by the mean patch area (the
+1/E(sigma) factor, Mazy Fig. 3.2) so the allocated quantity of change
+matches the target transition rate; without it allocation over-shoots by
+roughly the mean patch size.
 }
 }
 \section{Functions}{
