@@ -311,6 +311,9 @@ evoland_db <- R6::R6Class(
       create_method_binding(get_obs_trans_rates)
     },
 
+    # TODO the following pattern is different from the create_method_binding used elsewhere.
+    # should be fixed together with the other evoland_db$set calls in evoland_db_views.R
+
     #' @description
     #' Return transition rates formatted for Dinamica export for a specific period,
     #' see [evoland_db_views].
