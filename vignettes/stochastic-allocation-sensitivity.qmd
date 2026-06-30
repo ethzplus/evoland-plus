@@ -373,25 +373,6 @@ db$commit(
 )
 ```
 
-One subtlety is worth calling out, because it is easy to trip over in a stochastic
-setting. The importance filter can return *no* usable score for a transition whose
-`classif.rpart` tree happens to have no splits -- this is most likely for rare
-transitions, and whether it occurs depends on the random draw of the synthetic data.
-Such a transition would silently drop out of `trans_preds_t` while remaining
-`is_viable == TRUE`, so it would never get a model yet would still be requested during
-prediction. We keep the viable set and the fitted models in lockstep by demoting any
-transition that did not retain at least one predictor:
-
-```{r}
-#| label: reconcile-viable-transitions
-#| seed: 666
-modeled_trans <- unique(db$trans_preds_t$id_trans)
-
-trans_meta_reconciled <- db$trans_meta_t
-trans_meta_reconciled[, is_viable := is_viable & id_trans %in% modeled_trans]
-db$trans_meta_t <- trans_meta_reconciled
-```
-
 ### Transition models
 
 Here, we train one single model per transition; see the main tutorial for an illustration on how to train multiple partials on split samples to assess their goodness of fit.
@@ -399,6 +380,31 @@ Here, we train one single model per transition; see the main tutorial for an ill
 ```{r}
 #| label: fit-models
 db$trans_models_t <- db$fit_full_models(learner = mlr3::lrn("classif.rpart"))
+```
+
+One subtlety is worth calling out, because it is easy to trip over in a stochastic
+setting. Model fitting does not necessarily produce a usable model for *every* viable
+transition: a rare transition can fail to train -- for example a `classif.rpart` tree
+that never splits, or too few positive cases in the random draw of the synthetic data --
+in which case its `learner_full` is left empty. Such a transition would stay
+`is_viable == TRUE` yet have no model, and allocation (which predicts a potential for
+every viable transition) would then abort with `No fitted model for viable
+transition(s): ...`. We keep the viable set and the fitted models in lockstep by
+demoting any transition that did not end up with a model:
+
+```{r}
+#| label: reconcile-viable-transitions
+modeled_trans <- unique(
+  db$fetch(
+    "trans_models_t",
+    cols = "id_trans",
+    where = "learner_full is not null"
+  )$id_trans
+)
+
+trans_meta_reconciled <- db$trans_meta_t
+trans_meta_reconciled[, is_viable := is_viable & id_trans %in% modeled_trans]
+db$trans_meta_t <- trans_meta_reconciled
 ```
 
 ### Transition rates and baseline allocation parameters

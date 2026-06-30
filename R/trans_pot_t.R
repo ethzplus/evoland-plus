@@ -104,15 +104,36 @@ predict_trans_pot <- function(
   select_maximize
 ) {
   # TODO parallelize
-  # TODO: this assumes every viable transition has a fitted model, but
-  # fit_partial_models()/fit_full_models() inner-join viable transitions against
-  # trans_preds_t and silently skip any viable transition that retained no
-  # predictors (e.g. a split-less rpart importance tree). That leaves a viable
-  # transition without a model and makes the "No model found" stop() below fire
-  # for an otherwise valid pipeline. The viable set and the modelled set should be
-  # reconciled in one place (either fitting should warn+demote, or prediction
-  # should skip unmodelled viable transitions) rather than relying on callers.
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
+
+  # Every viable transition must have a usable (non-null) full model. Model
+  # fitting can leave a viable transition unmodelled -- e.g. no predictors were
+  # retained in trans_preds_t, or the learner failed to train on too few positive
+  # cases, in which case fit_full_models() stores a NULL learner_full. Fail early
+  # with an actionable message naming the offenders instead of deep inside the
+  # per-transition loop below.
+  modeled_ids <- self$get_query(glue::glue(
+    r"[
+    select distinct id_trans
+    from {self$get_read_expr("trans_models_t")}
+    where learner_full is not null
+    ]"
+  ))$id_trans
+
+  missing_models <- setdiff(viable_trans$id_trans, modeled_ids)
+  if (length(missing_models) > 0L) {
+    stop(glue::glue(
+      "No fitted model for viable transition(s): {toString(sort(missing_models))}. ",
+      "Every transition with is_viable == TRUE must have a non-null learner_full in ",
+      "trans_models_t, but model fitting produced none for these (most likely no ",
+      "predictors were retained in trans_preds_t, or the learner failed to train on ",
+      "too few positive cases -- check warnings from fit_full_models()). Refit those ",
+      "transitions, or demote them before allocating, e.g.\n",
+      "  modeled <- db$fetch('trans_models_t', cols = 'id_trans', ",
+      "where = 'learner_full is not null')$id_trans\n",
+      "  db$trans_meta_t <- db$trans_meta_t[, is_viable := is_viable & id_trans %in% modeled]"
+    ))
+  }
 
   gather <- list()
   message(glue::glue("Predicting transition potential for {nrow(viable_trans)} transitions"))
