@@ -27,6 +27,7 @@ Imports:
     terra (>= 1.8-42)
 Suggests:
     base64enc,
+    gifski,
     knitr,
     mlr3viz,
     processx,

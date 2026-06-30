@@ -76,7 +76,7 @@ library(terra)
 
 We create a fresh on-disk database with some synthetic land use categories;
 we use a spatial domain of 30x30 cells on a square grid defined in meters and retain a template raster for later use;
-and we set up three "observed" periods to be filled with synthetic data, plus a single extrapolated period .
+and we set up three "observed" periods to be filled with synthetic data, plus a single extrapolated period.
 
 ```{r}
 #| label: create-db
@@ -433,7 +433,7 @@ runs_out <- db$runs_t[id_run > 0]
 run_ids <- runs_out$id_run
 ```
 
-We now duplicate the baseline allocation parameters for every stochastic run. This ensures that **all differences among runs arise from the allocator's stochasticity, not from parameter perturbations**.
+Note that we do **not** copy the allocation parameters into each run. Every stochastic run is registered with `parent_id_run = 0`, so the run lineage lets each one inherit the baseline `alloc_params_t` (and the rest of the calibration) from run `0` automatically. This guarantees that **all differences among runs arise from the allocator's stochasticity -- driven by the per-run `seed` -- and not from differing parameters**.
 
 ## Running one extrapolated period 30 times
 
@@ -455,10 +455,10 @@ last_observed_id
 first_extrapolated_id
 ```
 
-The wrapper below is intentionally defensive. Some versions of the API may expose `id_run` directly in `alloc_clumpy()`, while others may infer runs from the database state. If the method has an `id_run` argument, we pass it; otherwise we fall back to the method's default signature.
+We now loop over the run records with `.mapply()`. For each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- and then allocate the single extrapolated period (`id_period = 4`) using that run's `seed`. Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
 
 ```{r}
-#| label: allocation-wrapper
+#| label: allocate-realizations
 .mapply(
   dots = runs_out,
   FUN = function(id_run, seed, ...) {
@@ -513,7 +513,7 @@ change_maps <-
   tabular_to_raster(coords = db$coords_minimal, value_col = "value")
 ```
 
-To visualize the result, we join coordinates back in and rasterize the per-cell change frequency.
+The chunk above melts these four per-cell summaries into long form and rasterizes them with `tabular_to_raster()`, producing one map layer per statistic. Below we plot the change-frequency layer as a heatmap.
 
 
 ## Heatmap of stochastic change consistency
@@ -536,28 +536,42 @@ The interpretation is straightforward:
 
 In other words, this map is not a transition-potential surface. It is a **realization-frequency surface**.
 
-## Inspecting a few individual realizations
+## Inspecting individual realizations
 
-The aggregate heatmap is informative, but it helps to also inspect a few single runs side by side.
+The aggregate heatmap compresses 30 runs into a single surface. It is also worth looking at the individual realizations to get an intuition for how much the allocator actually moves things around from one run to the next.
 
-We can have even more fun with these visualisations: here's an animation of each realisation
+Rather than printing 30 static panels, we stitch the realizations into a short looping animation -- one frame per run. The trick for getting this to *animate in the rendered HTML* is to not use `terra::animate()`: that function plays the layers back interactively in a graphics device and leaves nothing behind in a static document. Instead we let **knitr** assemble the per-frame plots into an animated GIF using the [`gifski`](https://cran.r-project.org/package=gifski) hook. We just plot each layer in turn and set two chunk options:
+
+- `animation.hook: gifski` tells knitr to collect every plot produced by the chunk and encode them as a single, browser-looping GIF (this works for any HTML rendering target);
+- `interval` sets the delay between frames, in seconds.
 
 ```{r}
-simulated_extrap |>
-  tabular_to_raster(coords = db$coords_minimal, value_col = "id_lulc_simulated") |>
-  animate(
-    pause = 0.5,
+#| label: animate-realisations
+#| animation.hook: gifski
+#| interval: 0.4
+#| fig-width: 5
+#| fig-height: 5
+#| fig-cap: "Each frame is one stochastic allocation of the single extrapolated period."
+realisation_rasters <-
+  simulated_extrap |>
+  tabular_to_raster(coords = db$coords_minimal, value_col = "id_lulc_simulated")
+
+lulc_palette <- data.frame(
+  value = 1:4,
+  color = c("#91B690", "#EB9486", "#F3DE8A", "#CBC6D2")
+)
+
+# one plot per layer -> one GIF frame per realization
+for (i in seq_len(terra::nlyr(realisation_rasters))) {
+  plot(
+    realisation_rasters[[i]],
     legend = FALSE,
     axes = FALSE,
-    box = FALSE,
-    plg = list(),
     mar = c(0.1, 0.1, 0.1, 0.1),
-    main = "Realisations of stochastic allocation",
-    col = data.frame(
-      value = 1:4,
-      color = c("#91B690", "#EB9486", "#F3DE8A", "#CBC6D2")
-    )
+    main = paste0("Realisation ", i, " / ", terra::nlyr(realisation_rasters)),
+    col = lulc_palette
   )
+}
 ```
 
 Even with identical calibration, transition rates, and allocation parameters, local differences appear across runs. The heatmap above compresses those differences into a robust summary.
