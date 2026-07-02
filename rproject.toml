@@ -1,6 +1,6 @@
 [project]
 name = "evoland-plus"
-r_version = "4.6"
+r_version = "4.5"
 
 repositories = [
   { alias = "CRAN", url = "https://stat.ethz.ch/CRAN/" },
@@ -13,4 +13,5 @@ dependencies = [
   "mirai",
   "httpgd",
   "languageserver",
+  "profvis",
 ]

@@ -1,6 +1,6 @@
+#include "clumpy_geometry.h"
 #include <Rcpp.h>
 #include <algorithm>
-#include <cmath>
 #include <map>
 #include <vector>
 
@@ -95,40 +95,10 @@ struct UnionFind {
  */
 double calculate_elongation(double m00, double m10, double m01, double s20,
                             double s02, double s11) {
-  if (m00 <= 1.0)
-    return 0.0; // Single pixel or empty
-
-  // Normalized second order moments about the center of mass
-  double mean_x = m10 / m00;
-  double mean_y = m01 / m00;
-
-  // eqs 3.I.6, 3.I.7, 3.I.8
-  // mu20 = sum((x - mean_x)^2) / n      becomes
-  // mu20 = (sum(x^2) / n) - mean_x^2    because
-  // sum(x) = n * mean_x
-  double mu20 = (s20 / m00) - (mean_x * mean_x);
-  double mu02 = (s02 / m00) - (mean_y * mean_y);
-  double mu11 = (s11 / m00) - (mean_x * mean_y);
-
-  // Eigenvalues of the inertia tensor
-  // D = sqrt((mu20 - mu02)^2 + 4 * mu11^2)
-  double term1 = mu20 - mu02;
-  double D = std::sqrt(term1 * term1 + 4.0 * mu11 * mu11);
-
-  double lambda1 = 0.5 * (mu20 + mu02 - D);
-  double lambda2 = 0.5 * (mu20 + mu02 + D);
-
-  // lambda2 is the larger eigenvalue (major axis related variance)
-  // lambda1 is the smaller eigenvalue (minor axis related variance)
-
-  if (lambda2 <= 1e-9)
-    return 0.0; // Should not happen for >1 pixel, but check for safety
-
-  // Avoid negative values inside sqrt due to floating point precision
-  if (lambda1 < 0)
-    lambda1 = 0;
-
-  return 1.0 - std::sqrt(lambda1 / lambda2);
+  // Single shared definition lives in clumpy_geometry.h so that the shape
+  // metric measured here during calibration is identical to the one the patch
+  // grower (alloc_clumpy.cpp) targets during allocation.
+  return clumpy::elongation_from_raw_moments(m00, m10, m01, s20, s02, s11);
 }
 
 /**
@@ -242,6 +212,7 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
 
   // 3. Compute Final Statistics per Class
   std::vector<int> out_class;
+  std::vector<int> out_count;
   std::vector<double> out_mean_area;
   std::vector<double> out_variance_area;
   std::vector<double> out_mean_elongation;
@@ -275,10 +246,12 @@ DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize) {
     }
     double mean_elong = sum_elong / n;
     out_mean_elongation.push_back(mean_elong);
+    out_count.push_back((int)areas.size());
   }
 
   return DataFrame::create(
-      Named("class") = out_class, Named("patch_area_mean") = out_mean_area,
+      Named("class") = out_class, Named("patch_count") = out_count,
+      Named("patch_area_mean") = out_mean_area,
       Named("patch_area_variance") = out_variance_area,
       Named("patch_elongation_mean") = out_mean_elongation);
 }

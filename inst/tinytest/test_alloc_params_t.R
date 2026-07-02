@@ -7,10 +7,11 @@ alloc_params_t <- as_alloc_params_t(list(
   id_trans = 1L,
   mean_patch_size = 1.3,
   patch_size_variance = 1.4,
+  patch_elongation = 0.15,
   patch_isometry = 0.2,
   frac_expander = 0.8,
-  gof_window_size = 11,
-  gof_fuzzy_similarity = 0.8
+  frac_patcher = 0.2,
+  similarity = NA_real_
 ))
 
 expect_silent(alloc_params_t)
@@ -67,8 +68,20 @@ params <- evoland:::compute_alloc_params_single(
   id_lulc_ant = 1L,
   id_lulc_post = 2L
 )
+
+# Result now includes patch_elongation (raw) alongside patch_isometry (Dinamica)
+expect_true("patch_elongation" %in% names(params))
+expect_true("patch_isometry" %in% names(params))
+# Patch isometry is derived from elongation via isometry_from_elongation()
+expect_true(is.numeric(params$patch_isometry))
 expect_equal(
-  params,
+  params[c(
+    "mean_patch_size",
+    "patch_size_variance",
+    "patch_isometry",
+    "frac_expander",
+    "frac_patcher"
+  )],
   list(
     mean_patch_size = 3,
     patch_size_variance = NA_real_,
@@ -93,3 +106,4 @@ params_empty <- evoland:::compute_alloc_params_single(
 expect_equal(params_empty$mean_patch_size, 0)
 expect_equal(params_empty$frac_expander, 0)
 expect_equal(params_empty$frac_patcher, 0)
+expect_true(is.na(params_empty$patch_elongation))

@@ -49,6 +49,10 @@ Additional methods and active bindings are added to this class in separate files
 
     \item{\code{alloc_params_t}}{Get or upsert \link{alloc_params_t}}
 
+    \item{\code{trans_pot_t}}{Get or upsert raw transition potentials \link{trans_pot_t}.
+These are per-transition model probabilities stored by \code{\link[=predict_trans_pot]{predict_trans_pot()}}.
+Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-ready values.}
+
     \item{\code{neighbors_t}}{Get or upsert \link{neighbors_t}}
 
     \item{\code{reporting_t}}{Get or upsert \link{reporting_t}}
@@ -65,6 +69,8 @@ Additional methods and active bindings are added to this class in separate files
 \subsection{Public methods}{
   \itemize{
     \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
+    \item \href{#method-evoland_db-adjusted_trans_pot_v}{\code{evoland_db$adjusted_trans_pot_v()}}
+    \item \href{#method-evoland_db-alloc_params_clumpy_v}{\code{evoland_db$alloc_params_clumpy_v()}}
     \item \href{#method-evoland_db-initialize}{\code{evoland_db$new()}}
     \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
     \item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
@@ -76,6 +82,7 @@ Additional methods and active bindings are added to this class in separate files
     \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
     \item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
     \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
+    \item \href{#method-evoland_db-alloc_clumpy}{\code{evoland_db$alloc_clumpy()}}
     \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
     \item \href{#method-evoland_db-create_alloc_params_t}{\code{evoland_db$create_alloc_params_t()}}
     \item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
@@ -110,6 +117,28 @@ Additional methods and active bindings are added to this class in separate files
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$trans_rates_dinamica_v(id_period)}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-adjusted_trans_pot_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-adjusted_trans_pot_v}{}}}
+\subsection{\code{evoland_db$adjusted_trans_pot_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$adjusted_trans_pot_v(id_period_post)}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-alloc_params_clumpy_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-alloc_params_clumpy_v}{}}}
+\subsection{\code{evoland_db$alloc_params_clumpy_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$alloc_params_clumpy_v()}
     \if{html}{\out{</div>}}
   }
 }
@@ -378,6 +407,47 @@ to select model for extrapolation}
 }
 
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-alloc_clumpy"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-alloc_clumpy}{}}}
+\subsection{\code{evoland_db$alloc_clumpy()}}{
+  Runs CLUMPY-style LULC allocation, see \code{\link[=alloc_clumpy]{alloc_clumpy()}}.
+The method (uSAM vs uPAM) is selected automatically from the patch
+parameters: mono-pixel patches (\code{area_mean == 1}, \code{area_var == 0}) use
+uSAM, otherwise uPAM.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$alloc_clumpy(
+  id_periods,
+  select_score,
+  select_maximize,
+  area_dist = "lognormal",
+  avoid_aggregation = TRUE,
+  batch_size = 0L,
+  seed = NULL
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_periods}}{Integer vector of period IDs to include in the simulation.}
+      \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
+to select model for extrapolation.}
+      \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
+      \item{\code{area_dist}}{Character; patch-area distribution, \code{"lognormal"}
+(default) or \code{"normal"}. See \code{\link[=alloc_clumpy]{alloc_clumpy()}}.}
+      \item{\code{avoid_aggregation}}{Logical; if \code{TRUE} (default) uPAM patches that
+would merge fail and allocate nothing. Ignored for uSAM.}
+      \item{\code{batch_size}}{Integer; uPAM pivots attempted per MuST re-draw. \code{0}
+(default) auto-scales with the source pool; \verb{> 0} is an explicit cap
+(\code{1} = strict uPAM); \verb{< 0} = all candidates in one pass. Ignored for uSAM.}
+      \item{\code{seed}}{Optional integer random seed for reproducibility.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-eval_alloc_params_t"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-eval_alloc_params_t}{}}}
 \subsection{\code{evoland_db$eval_alloc_params_t()}}{
@@ -577,7 +647,10 @@ feature selection.}
 \if{html}{\out{<a id="method-evoland_db-predict_trans_pot"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-predict_trans_pot}{}}}
 \subsection{\code{evoland_db$predict_trans_pot()}}{
-  Predict the transition potential for a given period, see \code{\link[=trans_pot_t]{trans_pot_t()}}
+  Predict the raw transition potential for a given period and store in
+\code{trans_pot_t}, see \code{\link[=predict_trans_pot]{predict_trans_pot()}}. Raw potentials are per-transition
+model probabilities (not yet allocation-ready); use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}}
+to obtain column-scaled, row-closed values.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$predict_trans_pot(id_period_post, select_score, select_maximize)}

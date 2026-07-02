@@ -18,9 +18,14 @@
 #'   a specific transition. Used as input to covariance filtering.
 #' - `trans_rates_dinamica_v(id_period)` - Returns transition rates formatted for Dinamica export
 #'   for a specific period.
+#' - `adjusted_trans_pot_v(id_period_post)` - Returns allocation-ready transition potentials:
+#'   column-scaled to match target transition rates, then row-closed so per-cell change
+#'   probabilities sum to at most 1.
+#' - `alloc_params_clumpy_v()` - Returns allocation parameters in CLUMPY format
+#'   (area_mean, area_var, elongation per transition).
 #'
 #' @name evoland_db_views
-#' @aliases lulc_meta_long_v pred_sources_v trans_v coords_minimal trans_rates_dinamica_v
+#' @aliases lulc_meta_long_v pred_sources_v trans_v coords_minimal trans_rates_dinamica_v adjusted_trans_pot_v alloc_params_clumpy_v
 #' @include evoland_db.R
 NULL
 
@@ -111,6 +116,7 @@ evoland_db$set("active", "coords_minimal", function() {
 evoland_db$set(
   "public",
   "trans_rates_dinamica_v",
+  overwrite = TRUE,
   function(id_period) {
     stopifnot(
       "id_period must be a single integer" = {
@@ -138,5 +144,110 @@ evoland_db$set(
     ))
 
     result
+  }
+)
+
+# Return allocation-ready transition potentials for a given posterior period.
+#
+# The raw potentials stored in trans_pot_t are per-transition MLR3 model
+# probabilities that are NOT calibrated to the target transition demand.
+# This view applies two adjustments (c.f. Mazy, 2022, section 2.5):
+#
+#   1. Column scaling: each transition's raw potentials are multiplied by
+#      rate / mean_potential so that the column mean matches the target
+#      transition rate from trans_rates_t.
+#
+#   2. Row closure: where the column-scaled probabilities for a cell sum to
+#      more than 1, all values for that cell are divided by the row sum.
+#      The implicit "no-change" probability is (1 - sum of stored values).
+#
+# id_period_post - integer posterior period ID
+evoland_db$set(
+  "public",
+  "adjusted_trans_pot_v",
+  overwrite = TRUE,
+  function(id_period_post) {
+    stopifnot(
+      "id_period_post must be a single integer" = {
+        length(id_period_post) == 1L && id_period_post == as.integer(id_period_post)
+      }
+    )
+
+    pot_read_expr <- self$get_read_expr("trans_pot_t")
+    rates_read_expr <- self$get_read_expr("trans_rates_t")
+
+    self$get_query(glue::glue(
+      r"{
+      with raw as (
+        select
+          t.id_trans,
+          t.id_coord,
+          t.id_period_post,
+          t.value,
+          r.rate,
+          avg(t.value) over (partition by t.id_trans) as mean_value
+        from {pot_read_expr} t
+        join {rates_read_expr} r
+          on t.id_trans = r.id_trans
+          and r.id_period = t.id_period_post
+        where t.id_period_post = {id_period_post}
+      ),
+      scaled as (
+        select
+          id_trans,
+          id_coord,
+          id_period_post,
+          case
+            when mean_value > 0 then value * rate / mean_value
+            else 0.0
+          end as scaled_value
+        from raw
+      ),
+      closed as (
+        select
+          id_trans,
+          id_coord,
+          id_period_post,
+          case
+            when sum(scaled_value) over (partition by id_coord) > 1.0
+            then scaled_value / sum(scaled_value) over (partition by id_coord)
+            else scaled_value
+          end as value
+        from scaled
+      )
+      select id_trans, id_coord, id_period_post, value
+      from closed
+      }"
+    ))
+  }
+)
+
+# Return allocation parameters in CLUMPY-compatible format.
+#
+# Maps the raw patch statistics stored in alloc_params_t to the three
+# parameters consumed by the CLUMPY patcher:
+#   - area_mean      <- mean_patch_size   (mean cells per patch)
+#   - area_var       <- patch_size_variance (variance, cell^2)
+#   - elongation     <- patch_elongation  (1 - sqrt(lambda_min/lambda_max))
+#
+# Uses the active id_run / run lineage via get_read_expr.
+evoland_db$set(
+  "public",
+  "alloc_params_clumpy_v",
+  overwrite = TRUE,
+  function() {
+    params_read_expr <- self$get_read_expr("alloc_params_t")
+
+    self$get_query(glue::glue(
+      r"{
+      select
+        id_run,
+        id_trans,
+        mean_patch_size     as area_mean,
+        patch_size_variance as area_var,
+        patch_elongation    as elongation
+      from {params_read_expr}
+      }"
+    ))
   }
 )

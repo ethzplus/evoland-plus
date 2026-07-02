@@ -22,9 +22,7 @@ alloc_dinamica_setup_inputs <- function(
   id_period_ant,
   id_period_post,
   anterior_rast,
-  temp_dir,
-  select_score,
-  select_maximize
+  temp_dir
 ) {
   # Get metadata
   coords_meta <- self$get_table_metadata("coords_t")
@@ -102,7 +100,7 @@ alloc_dinamica_setup_inputs <- function(
 
   message(glue::glue("  Wrote anterior LULC to {basename(anterior_path)}"))
 
-  # 6. Generate probability maps
+  # 6. Generate probability maps from the adjusted transition potentials
   prob_map_dir <-
     file.path(temp_dir, "probability_map_dir") |>
     ensure_dir()
@@ -110,17 +108,13 @@ alloc_dinamica_setup_inputs <- function(
   message("  Writing probability maps...")
   coords_minimal <- self$coords_minimal
 
-  trans_pots_t <- self$predict_trans_pot(
-    id_period_post = id_period_post,
-    select_score = select_score,
-    select_maximize = select_maximize
-  )
+  adj_trans_pots <- self$adjusted_trans_pot_v(id_period_post)
 
   # Iterate over viable transitions and write probability maps
   for (i in seq_len(nrow(viable_trans))) {
     id_trans_sel <- viable_trans$id_trans[i]
     prob_spatial <- coords_minimal[
-      trans_pots_t[id_trans == id_trans_sel],
+      adj_trans_pots[id_trans == id_trans_sel],
       .(lon, lat, value),
       on = "id_coord"
     ]
@@ -171,15 +165,21 @@ alloc_dinamica_one_period <- function(
     "Running Dinamica allocation: period {id_period_ant} -> {id_period_post}"
   ))
 
+  # Predict and store raw transition potentials in trans_pot_t
+  # TODO add argument to manually predict_trans_pot if manipulation is desired
+  self$predict_trans_pot(
+    id_period_post = id_period_post,
+    select_score = select_score,
+    select_maximize = select_maximize
+  )
+
   # Set up input files
   input_files <- alloc_dinamica_setup_inputs(
     self = self,
     id_period_ant = id_period_ant,
     id_period_post = id_period_post,
     anterior_rast = anterior_rast,
-    temp_dir = iteration_dir,
-    select_score = select_score,
-    select_maximize = select_maximize
+    temp_dir = iteration_dir
   )
 
   gc() # just in case

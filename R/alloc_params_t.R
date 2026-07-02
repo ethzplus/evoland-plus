@@ -12,8 +12,11 @@
 #'   - `id_run`: Foreign key to runs_t
 #'   - `id_trans`: Foreign key to trans_meta_t
 #'   - `mean_patch_size`: Mean area of new patches (in cell units)
-#'   - `patch_size_variance`: Standard deviation of patch area
-#'   - `patch_isometry`: Measure of patch shape regularity
+#'   - `patch_size_variance`: Variance of patch area (in cell units)
+#'   - `patch_elongation`: Mean patch elongation (\eqn{e = 1 - \sqrt{\lambda_2 / \lambda_1}},
+#'     range 0–1); the raw shape summary from `calculate_class_stats_cpp()`
+#'   - `patch_isometry`: Dinamica-specific isometry parameter derived from `patch_elongation`
+#'     via [isometry_from_elongation()]
 #'   - `frac_expander`: Fraction of transition cells adjacent to existing patches
 #'   - `frac_patcher`: Fraction of transition cells forming new patches
 #'   - `similarity`: Similarity metric for allocation parameters, see
@@ -27,6 +30,7 @@ as_alloc_params_t <- function(x) {
       id_trans = integer(0),
       mean_patch_size = numeric(0),
       patch_size_variance = numeric(0),
+      patch_elongation = numeric(0),
       patch_isometry = numeric(0),
       frac_expander = numeric(0),
       frac_patcher = numeric(0),
@@ -39,6 +43,7 @@ as_alloc_params_t <- function(x) {
     cast_dt_col("id_trans", "int") |>
     cast_dt_col("mean_patch_size", "float") |>
     cast_dt_col("patch_size_variance", "float") |>
+    cast_dt_col("patch_elongation", "float") |>
     cast_dt_col("patch_isometry", "float") |>
     cast_dt_col("frac_expander", "float") |>
     cast_dt_col("frac_patcher", "float") |>
@@ -62,6 +67,7 @@ validate.alloc_params_t <- function(x, ...) {
       "id_trans",
       "mean_patch_size",
       "patch_size_variance",
+      "patch_elongation",
       "patch_isometry",
       "frac_expander",
       "frac_patcher",
@@ -148,9 +154,10 @@ isometry_from_elongation <- function(
 #' @param id_lulc_post Integer ID of the posterior LULC class
 #'
 #' @return A named list with allocation parameters:
-#'   - mean_patch_size: Mean area of patches (hectares)
-#'   - patch_size_variance: Standard deviation of patch area (hectares)
-#'   - patch_isometry: Measure of patch shape regularity (0-1)
+#'   - mean_patch_size: Mean area of patches (cell units)
+#'   - patch_size_variance: Variance of patch area (cell units)
+#'   - patch_elongation: Mean patch elongation (raw, range 0–1)
+#'   - patch_isometry: Dinamica isometry derived from elongation
 #'   - frac_expander: Fraction of transition cells adjacent to old patches in \[0, 1\]
 #'   - frac_patcher: Fraction of transition cells forming new patches in \[0, 1\]
 #'
@@ -176,10 +183,11 @@ compute_alloc_params_single <- function(
     as.integer()
 
   if (is.na(n_trans_cells) || n_trans_cells == 0) {
-    # No transitions occurred - return NULL or default values
+    # No transitions occurred - return default values
     return(list(
       mean_patch_size = 0,
       patch_size_variance = 0,
+      patch_elongation = NA_real_,
       patch_isometry = 0,
       frac_expander = 0,
       frac_patcher = 0
@@ -225,12 +233,15 @@ compute_alloc_params_single <- function(
     # cellsize = 1 because we want the patch characteristics in cell edge units
     calculate_class_stats_cpp(cellsize = 1)
 
+  # Raw elongation from patch_stats.cpp; used as-is for CLUMPY (elongation)
+  # and converted to Dinamica isometry via isometry_from_elongation().
+  raw_elongation <- trans_patch_stats$patch_elongation_mean[1]
+
   list(
-    # Patch parameters for now intended for the Dinamica patcher
-    # https://dinamicaego.com/dokuwiki/doku.php?id=patcher
     mean_patch_size = trans_patch_stats$patch_area_mean[1],
     patch_size_variance = trans_patch_stats$patch_area_variance[1],
-    patch_isometry = isometry_from_elongation(trans_patch_stats$patch_elongation_mean[1]),
+    patch_elongation = raw_elongation,
+    patch_isometry = isometry_from_elongation(raw_elongation),
     frac_expander = frac_expander,
     frac_patcher = frac_patcher
   )
@@ -316,6 +327,7 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
           id_period = period_post,
           mean_patch_size = alloc_params$mean_patch_size,
           patch_size_variance = alloc_params$patch_size_variance,
+          patch_elongation = alloc_params$patch_elongation,
           patch_isometry = alloc_params$patch_isometry,
           frac_expander = alloc_params$frac_expander,
           frac_patcher = alloc_params$frac_patcher
@@ -341,6 +353,7 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
     .(
       mean_patch_size = mean_na(mean_patch_size),
       patch_size_variance = mean_na(patch_size_variance),
+      patch_elongation = mean_na(patch_elongation),
       patch_isometry = mean_na(patch_isometry),
       frac_expander = mean_na(frac_expander),
       frac_patcher = mean_na(frac_patcher),
