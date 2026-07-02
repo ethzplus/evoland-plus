@@ -295,27 +295,46 @@ fit_full_model_worker <- function(item, db, learner = NULL) {
 #' @param seed Optional integer seed for reproducible subsampling.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
+#' @param trans_preds Optional [trans_preds_t] object. When supplied, it is used
+#'   directly instead of reading `trans_preds_t` from the database.
+#' @param trans_meta Optional [trans_meta_t] object. When supplied, it is used
+#'   directly instead of reading `trans_meta_t` from the database.
 fit_partial_models <- function(
   self,
   learner,
   measures,
   sample_frac = 0.7,
   seed = NULL,
-  cluster = NULL
+  cluster = NULL,
+  trans_preds = NULL,
+  trans_meta = NULL
 ) {
   # Accept either a character vector of measure IDs or a list of Measure objects
   if (is.character(measures)) {
     measures <- mlr3::msrs(measures)
   }
 
-  trans_preds_nested <-
-    data.table::as.data.table(self$trans_preds_t)[,
-      .(id_pred = list(id_pred)),
-      by = .(id_run, id_trans)
-    ]
+  preds_source <- if (!is.null(trans_preds)) {
+    stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
+    data.table::as.data.table(trans_preds)
+  } else {
+    data.table::as.data.table(self$trans_preds_t)
+  }
+
+  trans_preds_nested <- preds_source[,
+    .(id_pred = list(id_pred)),
+    by = .(id_run, id_trans)
+  ]
+
+  meta <- if (!is.null(trans_meta)) {
+    stopifnot("trans_meta must be a trans_meta_t" = inherits(trans_meta, "trans_meta_t"))
+    trans_meta
+  } else {
+    self$trans_meta_t
+  }
 
   viable_trans <-
-    self$trans_meta_t[
+    meta[
       is_viable == TRUE,
       .(id_trans, id_lulc_anterior, id_lulc_posterior)
     ][
@@ -376,12 +395,20 @@ fit_partial_models <- function(
 #'   `select_score` is selected; if `FALSE`, the lowest. Only used in score-select mode.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
+#' @param trans_preds Optional [trans_preds_t] object. When supplied in direct-learner
+#'   mode, it is used directly instead of reading `trans_preds_t` from the database.
+#'   Ignored in score-select mode.
+#' @param trans_meta Optional [trans_meta_t] object. When supplied in direct-learner
+#'   mode, it is used directly instead of reading `trans_meta_t` from the database.
+#'   Ignored in score-select mode.
 fit_full_models <- function(
   self,
   learner = NULL,
   select_score = NULL,
   select_maximize = TRUE,
-  cluster = NULL
+  cluster = NULL,
+  trans_preds = NULL,
+  trans_meta = NULL
 ) {
   has_learner <- !is.null(learner)
   has_score <- !is.null(select_score)
@@ -394,14 +421,27 @@ fit_full_models <- function(
     coerce_learner_for_classif(learner)
 
     # Direct mode: get viable transitions with their predictor lists
-    trans_preds_nested <-
-      data.table::as.data.table(self$trans_preds_t)[,
-        .(id_pred = list(id_pred)),
-        by = .(id_run, id_trans)
-      ]
+    preds_source <- if (!is.null(trans_preds)) {
+      stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
+      data.table::as.data.table(trans_preds)
+    } else {
+      data.table::as.data.table(self$trans_preds_t)
+    }
+
+    trans_preds_nested <- preds_source[,
+      .(id_pred = list(id_pred)),
+      by = .(id_run, id_trans)
+    ]
+
+    meta <- if (!is.null(trans_meta)) {
+      stopifnot("trans_meta must be a trans_meta_t" = inherits(trans_meta, "trans_meta_t"))
+      trans_meta
+    } else {
+      self$trans_meta_t
+    }
 
     viable_trans <-
-      self$trans_meta_t[
+      meta[
         is_viable == TRUE,
         .(id_trans)
       ][

@@ -67,6 +67,28 @@ importance_expected <-
       0,       3,        1,           9.780672 ,
       0,       3,        2,          13.208952 ,
       0,       4,        1,          26.786576 ,
-      0,       4,        2,          33.555883  
+      0,       4,        2,          33.555883
   )) # nolint end
 expect_equal(importance_results, importance_expected, tol = 1e-7)
+
+# Test get_pred_filter_score with a manually supplied trans_preds argument
+# Restrict to id_trans == 1 only; expect exactly 1 transition processed
+db$set_full_trans_preds()
+trans_preds_t1 <- db$trans_preds_t[id_trans == 1L]
+
+set.seed(123)
+expect_message(
+  perf_results_manual <- db$get_pred_filter_score(
+    filter = mlr3filters::FilterPerformance$new(resampling = mlr3::rsmp("cv", folds = 2)),
+    trans_preds = trans_preds_t1,
+    ordered_pred_data = TRUE
+  ),
+  "Processing 1 transitions"
+)
+
+# Result should contain only id_trans == 1 rows, identical to the full run
+expect_equal(
+  perf_results_manual,
+  perf_results[id_trans == 1L],
+  tol = 1e-7
+)

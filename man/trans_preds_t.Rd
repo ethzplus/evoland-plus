@@ -17,6 +17,7 @@ set_full_trans_preds(self, overwrite = FALSE)
 get_pred_filter_score(
   self,
   filter,
+  trans_preds = NULL,
   cluster = NULL,
   ordered_pred_data = FALSE,
   ...
@@ -38,6 +39,10 @@ empty table will be created.}
 specifying the filter method, retrieved via \link[mlr3filters:flt]{mlr3filters::flt}. Note that your
 filter must be compatible with the feature data types; compare your
 \code{pred_meta_t} table to \url{https://mlr3filters.mlr-org.com} for filter compatibility.}
+
+\item{trans_preds}{Optional \link{trans_preds_t} object. When supplied, it is used
+directly instead of reading from the database, which is useful for targeted
+exploratory work on a subset of transitions or predictors.}
 
 \item{cluster}{An optional cluster object, see \link{run_parallel_evoland}}
 

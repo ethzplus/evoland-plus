@@ -83,8 +83,6 @@ different nature reserve types, this could be the "not in a reserve" type.}
 
 \item{unit}{opt. Character scalar. SI unit for physical properties, or more complex
 descriptors like "bed nights/year" as a proxy for touristic activity}
-
-\item{self}{an \link{evoland_db} instance}
 }
 \value{
 A data.table of class "pred_data_t" with columns:
