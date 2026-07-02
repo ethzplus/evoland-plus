@@ -167,13 +167,7 @@ flowchart TD
 <div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/evoland_db.html">evoland_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>path <span class="op">=</span> <span class="st">"firstmodel.evolanddb"</span><span class="op">)</span></span></code></pre></div>
 </div>
-<details><summary>
-Messages
-</summary><pre>duckdb: caching downloaded extensions in the package library:
-ℹ /home/runner/work/_temp/Library/duckdb/extensions
-ℹ This is removed when the package is re-installed; see `?duckdb_storage` to choose a different location.
-</pre>
-</details><p>Go ahead and print the <code>db</code> object. There are already a <code>runs_t</code> and a <code>reporting_t</code> table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
+<p>Go ahead and print the <code>db</code> object. There are already a <code>runs_t</code> and a <code>reporting_t</code> table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span></span></code></pre></div>

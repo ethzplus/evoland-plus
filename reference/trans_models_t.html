@@ -59,7 +59,9 @@ structure for storing fitted models via the mlr3 interface.</p>
 <span>  <span class="va">measures</span>,</span>
 <span>  sample_frac <span class="op">=</span> <span class="fl">0.7</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  cluster <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  cluster <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  trans_preds <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  trans_meta <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">fit_full_models</span><span class="op">(</span></span>
@@ -67,7 +69,9 @@ structure for storing fitted models via the mlr3 interface.</p>
 <span>  learner <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  select_score <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  select_maximize <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  cluster <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  cluster <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  trans_preds <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  trans_meta <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'trans_models_t'</span></span>
@@ -115,6 +119,18 @@ testing).</p></dd>
 <dt id="arg-cluster">cluster<a class="anchor" aria-label="anchor" href="#arg-cluster"></a></dt>
 <dd><p>An optional cluster object created by <code><a href="https://rdrr.io/r/parallel/makeCluster.html" class="external-link">parallel::makeCluster()</a></code> or
 <code><a href="https://mirai.r-lib.org/reference/make_cluster.html" class="external-link">mirai::make_cluster()</a></code>.</p></dd>
+
+
+<dt id="arg-trans-preds">trans_preds<a class="anchor" aria-label="anchor" href="#arg-trans-preds"></a></dt>
+<dd><p>Optional <a href="trans_preds_t.html">trans_preds_t</a> object. When supplied in direct-learner
+mode, it is used directly instead of reading <code>trans_preds_t</code> from the database.
+Ignored in score-select mode.</p></dd>
+
+
+<dt id="arg-trans-meta">trans_meta<a class="anchor" aria-label="anchor" href="#arg-trans-meta"></a></dt>
+<dd><p>Optional <a href="trans_meta_t.html">trans_meta_t</a> object. When supplied in direct-learner
+mode, it is used directly instead of reading <code>trans_meta_t</code> from the database.
+Ignored in score-select mode.</p></dd>
 
 
 <dt id="arg-select-score">select_score<a class="anchor" aria-label="anchor" href="#arg-select-score"></a></dt>

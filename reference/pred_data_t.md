@@ -130,12 +130,6 @@ add_predictor(
   complex descriptors like "bed nights/year" as a proxy for touristic
   activity
 
-- self:
-
-  an
-  [evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
-  instance
-
 ## Value
 
 A data.table of class "pred_data_t" with columns:

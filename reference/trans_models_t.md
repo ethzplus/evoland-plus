@@ -15,7 +15,9 @@ fit_partial_models(
   measures,
   sample_frac = 0.7,
   seed = NULL,
-  cluster = NULL
+  cluster = NULL,
+  trans_preds = NULL,
+  trans_meta = NULL
 )
 
 fit_full_models(
@@ -23,7 +25,9 @@ fit_full_models(
   learner = NULL,
   select_score = NULL,
   select_maximize = TRUE,
-  cluster = NULL
+  cluster = NULL,
+  trans_preds = NULL,
+  trans_meta = NULL
 )
 
 # S3 method for class 'trans_models_t'
@@ -76,6 +80,22 @@ get_crossval_plots(self, id_run = NULL, id_trans = NULL)
   [`parallel::makeCluster()`](https://rdrr.io/r/parallel/makeCluster.html)
   or
   [`mirai::make_cluster()`](https://mirai.r-lib.org/reference/make_cluster.html).
+
+- trans_preds:
+
+  Optional
+  [trans_preds_t](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
+  object. When supplied in direct-learner mode, it is used directly
+  instead of reading `trans_preds_t` from the database. Ignored in
+  score-select mode.
+
+- trans_meta:
+
+  Optional
+  [trans_meta_t](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
+  object. When supplied in direct-learner mode, it is used directly
+  instead of reading `trans_meta_t` from the database. Ignored in
+  score-select mode.
 
 - select_score:
 

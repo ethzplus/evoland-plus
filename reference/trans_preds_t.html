@@ -61,6 +61,7 @@ modelling each transition type.</p>
 <span><span class="fu">get_pred_filter_score</span><span class="op">(</span></span>
 <span>  <span class="va">self</span>,</span>
 <span>  <span class="va">filter</span>,</span>
+<span>  trans_preds <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  cluster <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  ordered_pred_data <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
@@ -97,6 +98,12 @@ empty table will be created.</p></dd>
 specifying the filter method, retrieved via <a href="https://mlr3filters.mlr-org.com/reference/flt.html" class="external-link">mlr3filters::flt</a>. Note that your
 filter must be compatible with the feature data types; compare your
 <code>pred_meta_t</code> table to <a href="https://mlr3filters.mlr-org.com" class="external-link">https://mlr3filters.mlr-org.com</a> for filter compatibility.</p></dd>
+
+
+<dt id="arg-trans-preds">trans_preds<a class="anchor" aria-label="anchor" href="#arg-trans-preds"></a></dt>
+<dd><p>Optional trans_preds_t object. When supplied, it is used
+directly instead of reading from the database, which is useful for targeted
+exploratory work on a subset of transitions or predictors.</p></dd>
 
 
 <dt id="arg-cluster">cluster<a class="anchor" aria-label="anchor" href="#arg-cluster"></a></dt>

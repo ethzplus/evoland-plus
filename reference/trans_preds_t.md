@@ -17,6 +17,7 @@ set_full_trans_preds(self, overwrite = FALSE)
 get_pred_filter_score(
   self,
   filter,
+  trans_preds = NULL,
   cluster = NULL,
   ordered_pred_data = FALSE,
   ...
@@ -59,6 +60,12 @@ get_pred_filter_score(
   Note that your filter must be compatible with the feature data types;
   compare your `pred_meta_t` table to <https://mlr3filters.mlr-org.com>
   for filter compatibility.
+
+- trans_preds:
+
+  Optional trans_preds_t object. When supplied, it is used directly
+  instead of reading from the database, which is useful for targeted
+  exploratory work on a subset of transitions or predictors.
 
 - cluster:
 

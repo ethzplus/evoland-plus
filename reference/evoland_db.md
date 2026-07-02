@@ -673,7 +673,9 @@ Two mutually exclusive modes: pass `learner` to train directly, or pass
       learner = NULL,
       select_score = NULL,
       select_maximize = TRUE,
-      cluster = NULL
+      cluster = NULL,
+      trans_preds = NULL,
+      trans_meta = NULL
     )
 
 #### Arguments
@@ -696,6 +698,20 @@ Two mutually exclusive modes: pass `learner` to train directly, or pass
 
   Optional cluster object for parallel processing
 
+- `trans_preds`:
+
+  Optional
+  [trans_preds_t](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md);
+  bypasses the database read in direct-learner mode. Ignored in
+  score-select mode.
+
+- `trans_meta`:
+
+  Optional
+  [trans_meta_t](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md);
+  bypasses the database read in direct-learner mode. Ignored in
+  score-select mode.
+
 ------------------------------------------------------------------------
 
 ### `evoland_db$fit_partial_models()`
@@ -712,7 +728,9 @@ for details.
       measures,
       sample_frac = 0.7,
       seed = NULL,
-      cluster = NULL
+      cluster = NULL,
+      trans_preds = NULL,
+      trans_meta = NULL
     )
 
 #### Arguments
@@ -738,6 +756,18 @@ for details.
 - `cluster`:
 
   Optional cluster object for parallel processing
+
+- `trans_preds`:
+
+  Optional
+  [trans_preds_t](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md);
+  bypasses the `trans_preds_t` database read.
+
+- `trans_meta`:
+
+  Optional
+  [trans_meta_t](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md);
+  bypasses the `trans_meta_t` database read.
 
 ------------------------------------------------------------------------
 
@@ -787,7 +817,12 @@ Add filter scores to predictors for each `id_run, id_trans`. See
 
 #### Usage
 
-    evoland_db$get_pred_filter_score(filter = "correlation", cluster = NULL, ...)
+    evoland_db$get_pred_filter_score(
+      filter = "correlation",
+      trans_preds = NULL,
+      cluster = NULL,
+      ...
+    )
 
 #### Arguments
 
@@ -798,6 +833,13 @@ Add filter scores to predictors for each `id_run, id_trans`. See
   or
   [mlr3filters::Filter](https://mlr3filters.mlr-org.com/reference/Filter.html)
   object specifying the filter method to use for feature selection.
+
+- `trans_preds`:
+
+  Optional
+  [trans_preds_t](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md);
+  when supplied, it is used directly instead of reading from the
+  database.
 
 - `cluster`:
 
