@@ -10,17 +10,27 @@ library(tinytest)
 set.seed(42L)
 P <- matrix(c(0.5, 0.5), nrow = 1L, ncol = 2L)
 result <- evoland:::must_cpp(P, c(1L, 2L))
-expect_true(result %in% c(1L, 2L))
+expect_equal(result, 2L)
 
 # With 100 cells, each gets exactly one state
 set.seed(1L)
 P100 <- matrix(rep(c(0.3, 0.7), each = 100L), nrow = 100L, ncol = 2L)
 must_results_many <- evoland:::must_cpp(P100, c(10L, 20L))
-expect_equal(length(must_results_many), 100L)
-expect_true(all(must_results_many %in% c(10L, 20L)))
+expect_equal(
+  must_results_many,
+  # fmt: skip
+  c(
+    10, 20, 20, 20, 10, 20, 20, 20, 20, 10, 10, 10, 20, 20, 20, 20, 20, 20, 20, 
+    20, 20, 10, 20, 10, 10, 20, 10, 20, 20, 20, 20, 20, 20, 10, 20, 20, 20, 10, 
+    20, 20, 20, 20, 20, 20, 20, 20, 10, 20, 20, 20, 20, 20, 20, 10, 10, 10, 20, 
+    20, 20, 20, 20, 10, 20, 20, 20, 10, 20, 20, 10, 20, 20, 20, 20, 20, 20, 20, 
+    20, 20, 20, 20, 20, 20, 20, 20, 20, 10, 20, 10, 10, 10, 10, 10, 20, 20, 20, 
+    20, 20, 20, 20, 20
+  )
+)
+
 
 # "Stay" column: assign from_class when u > cumsum of all change probs
-set.seed(7L)
 P_stay <- matrix(c(0.0, 0.0, 1.0), nrow = 1L, ncol = 3L) # all stay
 res_stay <- evoland:::must_cpp(P_stay, c(1L, 2L, 3L))
 expect_equal(res_stay, 3L)
@@ -32,29 +42,27 @@ expect_equal(evoland:::must_cpp(P_neg, c(1L, 2L)), 2L)
 # --- area samplers ----------------------------------------------------------
 
 set.seed(1L)
-a <- evoland:::sample_lognorm_area_cpp(area_mean = 4, area_var = 2)
-expect_true(a >= 1L)
-expect_true(is.integer(a))
+expect_equal(evoland:::sample_lognorm_area_cpp(area_mean = 4, area_var = 2), 3)
 expect_equal(evoland:::sample_lognorm_area_cpp(0, 1), 1L)
 expect_equal(evoland:::sample_lognorm_area_cpp(NA_real_, 1), 1L)
 
-set.seed(1L)
-an <- evoland:::sample_normal_area_cpp(area_mean = 4, area_var = 2)
-expect_true(an >= 1L)
-expect_true(is.integer(an))
+set.seed(666L)
+expect_equal(evoland:::sample_normal_area_cpp(area_mean = 4, area_var = 2), 5)
 expect_equal(evoland:::sample_normal_area_cpp(0, 1), 1L)
 # Normal with zero variance returns the (rounded) mean
 expect_equal(evoland:::sample_normal_area_cpp(5, 0), 5L)
 
 # --- evoland:::raster_neighbors_cpp() ---------------------------------------
 
-nbrs <- evoland:::raster_neighbors_cpp(3L, 4L) # 3-row, 4-col raster (12 cells)
-expect_equal(nbrs$above[1L], 0L)
-expect_equal(nbrs$left[1L], 0L)
-expect_equal(nbrs$below[1L], 5L)
-expect_equal(nbrs$right[1L], 2L)
-expect_equal(nbrs$below[12L], 0L)
-expect_equal(nbrs$right[12L], 0L)
+expect_equal(
+  evoland:::raster_neighbors_cpp(3L, 4L), # 3-row, 4-col raster (12 cells)
+  list(
+    above = c(0L, 0L, 0L, 0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L),
+    below = c(5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 0L, 0L, 0L, 0L),
+    left = c(0L, 1L, 2L, 3L, 0L, 5L, 6L, 7L, 0L, 9L, 10L, 11L),
+    right = c(2L, 3L, 4L, 0L, 6L, 7L, 8L, 0L, 10L, 11L, 12L, 0L)
+  )
+)
 
 # --- evoland:::grow_patch_cpp() ---------------------------------------------
 
@@ -66,7 +74,7 @@ probs <- rep(0.8, n)
 nbrs <- evoland:::raster_neighbors_cpp(4L, 4L)
 
 patch <- evoland:::grow_patch_cpp(
-  landscape = landscape,
+  landscape = landscape, # changes landscape by reference
   ant_landscape = ant_land,
   probs = probs,
   nbr_above = nbrs$above,
@@ -80,9 +88,11 @@ patch <- evoland:::grow_patch_cpp(
   elongation = 0.5,
   ncol = 4L
 )
-expect_true(length(patch) <= 4L)
-expect_true(1L %in% patch) # pivot always included
-expect_true(all(patch >= 1L & patch <= n))
+expect_equal(patch, c(1L, 2L, 5L, 3L))
+expect_equal(
+  landscape,
+  c(2L, 2L, 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L)
+)
 
 # Pivot with wrong class -> empty result
 landscape_wrong <- as.integer(rep(2L, n))
@@ -101,7 +111,7 @@ patch_empty <- evoland:::grow_patch_cpp(
   elongation = 0.5,
   ncol = 4L
 )
-expect_equal(length(patch_empty), 0L)
+expect_length(patch_empty, 0L)
 
 # avoid_aggregation: a patch that would touch an existing patch fails entirely.
 # 1x4 row [1,1,2,1] (cell 3 is an existing class-2 patch, originally class 1).
@@ -128,7 +138,7 @@ patch_agg <- evoland:::grow_patch_cpp(
   ncol = 4L,
   avoid_aggregation = TRUE
 )
-expect_equal(length(patch_agg), 0L)
+expect_length(patch_agg, 0L)
 
 # With avoid_aggregation = FALSE, it grows as far as it can (cells 1 and 2).
 land_adj2 <- as.integer(c(1L, 1L, 2L, 1L))
@@ -185,8 +195,17 @@ res_usam <- evoland:::allocate_clumpy_cpp(
   avoid_aggregation = FALSE,
   area_dist = 0L
 )
-expect_equal(length(res_usam), ncell)
-expect_true(all(res_usam %in% c(1L, 2L)))
+expect_equal(
+  res_usam,
+  # fmt: skip
+  c(
+    2L, 2L, 1L, 1L, 2L,
+    1L, 1L, 1L, 1L, 2L,
+    2L, 2L, 1L, 2L, 1L,
+    2L, 1L, 1L, 2L, 1L,
+    1L, 2L, 1L, 2L, 2L
+  )
+)
 
 # uPAM (method 1): iterative, multi-pixel, quota
 set.seed(1L)
@@ -209,9 +228,17 @@ res_upam <- evoland:::allocate_clumpy_cpp(
   avoid_aggregation = TRUE,
   area_dist = 0L
 )
-expect_equal(length(res_upam), ncell)
-expect_true(all(res_upam %in% c(1L, 2L)))
-expect_true(sum(res_upam == 2L) <= ncell)
+expect_equal(
+  res_upam,
+  # fmt: skip
+  c(
+    1L, 1L, 1L, 2L, 1L,
+    1L, 2L, 1L, 2L, 1L,
+    1L, 2L, 1L, 1L, 1L,
+    1L, 1L, 1L, 1L, 2L,
+    1L, 1L, 1L, 1L, 2L
+  )
+)
 
 # Deterministic forcing: potential 1 + uSAM => every source cell transitions,
 # regardless of the RNG draw (the MuST rejection step is bypassed).
@@ -271,7 +298,7 @@ expect_true(all(res_zero == 1L))
 ant_row <- as.integer(rep(1L, 5L))
 row_cell <- list(1:5L)
 row_val <- list(rep(1.0, 5L))
-run_row <- function(agg) {
+run_row <- function(avoid_agg) {
   set.seed(1L)
   evoland:::allocate_clumpy_cpp(
     landscape = ant_row,
@@ -289,15 +316,12 @@ run_row <- function(agg) {
     batch_size = 1L,
     rarefy = FALSE,
     shuffle = FALSE,
-    avoid_aggregation = agg,
+    avoid_aggregation = avoid_agg,
     area_dist = 1L
   )
 }
-res_noagg <- run_row(FALSE)
-res_agg <- run_row(TRUE)
-expect_equal(sum(res_noagg == 2L), 5L)
-expect_equal(sum(res_agg == 2L), 4L)
-expect_true(sum(res_agg == 2L) < sum(res_noagg == 2L))
+expect_equal(run_row(avoid_agg = FALSE), c(2, 2, 2, 2, 2))
+expect_equal(run_row(avoid_agg = TRUE), c(2, 2, 1, 2, 2))
 
 # A sparse subset: only some cells carry a potential; only those can change.
 set.seed(9L)
@@ -348,7 +372,6 @@ res_auto <- evoland:::allocate_clumpy_cpp(
   avoid_aggregation = TRUE,
   area_dist = 0L
 )
-expect_equal(length(res_auto), big2 * big2)
-expect_true(all(res_auto %in% c(1L, 2L)))
+expect_length(res_auto, big2 * big2)
 # quota-bounded: changed count should be near rate * pool, not wildly over
-expect_true(sum(res_auto == 2L) <= ceiling(0.3 * big2 * big2) + 10L)
+expect_equal(tabulate(res_auto), c(1119, 481))

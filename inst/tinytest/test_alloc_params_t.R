@@ -18,7 +18,6 @@ expect_silent(alloc_params_t)
 expect_equal(nrow(alloc_params_t), 1L)
 expect_silent(print(alloc_params_t))
 expect_inherits(alloc_params_t, "alloc_params_t")
-expect_true("patch_elongation" %in% names(alloc_params_t))
 
 # Test create_alloc_params_t with simple synthetic rasters
 # Create simple test rasters

@@ -188,11 +188,14 @@ expect_error(
 )
 
 # Test fit function that throws an error: overwrite trans_preds_t
-db$trans_preds_t <- as_trans_preds_t(data.table::data.table(
-  id_run = 0L,
-  id_pred = 99999L, # non-existent predictor
-  id_trans = 1L
-))
+db$commit(
+  as_trans_preds_t(data.table::data.table(
+    id_run = 0L,
+    id_pred = 99999L, # non-existent predictor
+    id_trans = 1L
+  )),
+  "trans_preds_t"
+)
 
 expect_warning(
   partial_models_error <-
@@ -268,5 +271,43 @@ expect_equal(
     rep("FALSE", 121),
     rep("TRUE", 99),
     rep("FALSE", 220)
+  )
+)
+
+# test prediction and trans rate based potential adjustment
+expect_error(
+  db$predict_trans_pot(id_period_post = 4, select_score = "classif.auc", select_maximize = TRUE),
+  "No fitted model for viable transition"
+)
+expect_message(
+  db$trans_models_t <- db$fit_full_models(learner = mlr3::lrn("classif.rpart")),
+  "Fitting full"
+)
+expect_message(
+  db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE),
+  "Predicting transition potential"
+)
+db$trans_rates_t <-
+  db$get_obs_trans_rates() |>
+  extrapolate_trans_rates(db$periods_t[is_extrapolated == TRUE])
+expect_equal(
+  db$row_count("trans_pot_t"),
+  900L
+)
+
+# the mean potential must scale to the overall prescribed transition rate
+expect_equal(
+  data.table::as.data.table(
+    db$adjusted_trans_pot_v(4)[
+      order(id_trans),
+      .(rate = mean(value)),
+      by = id_trans
+    ]
+  ),
+  data.table::as.data.table(
+    db$trans_rates_t[
+      order(id_trans),
+      .(id_trans, rate)
+    ]
   )
 )
