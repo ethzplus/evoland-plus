@@ -26,3 +26,10 @@ database without storing additional data.
 
 - `trans_rates_dinamica_v(id_period)` - Returns transition rates
   formatted for Dinamica export for a specific period.
+
+- `adjusted_trans_pot_v(id_period_post)` - Returns allocation-ready
+  transition potentials: column-scaled to match target transition rates,
+  then row-closed so per-cell change probabilities sum to at most 1.
+
+- `alloc_params_clumpy_v()` - Returns allocation parameters in CLUMPY
+  format (area_mean, area_var, elongation per transition).

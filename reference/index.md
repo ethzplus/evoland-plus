@@ -37,6 +37,8 @@
   [`trans_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   [`coords_minimal`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   [`trans_rates_dinamica_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  [`adjusted_trans_pot_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  [`alloc_params_clumpy_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   : Views on the evoland-plus data model
 
 - [`fuzzy_similarity`](https://ethzplus.github.io/evoland-plus/reference/fuzzy_similarity.md)

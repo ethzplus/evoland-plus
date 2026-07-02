@@ -94,9 +94,14 @@ A data.table of class "alloc_params_t" with columns:
 
 - `mean_patch_size`: Mean area of new patches (in cell units)
 
-- `patch_size_variance`: Standard deviation of patch area
+- `patch_size_variance`: Variance of patch area (in cell units)
 
-- `patch_isometry`: Measure of patch shape regularity
+- `patch_elongation`: Mean patch elongation (\\e = 1 - \sqrt{\lambda_2 /
+  \lambda_1}\\, range 0–1); the raw shape summary from
+  `calculate_class_stats_cpp()`
+
+- `patch_isometry`: Dinamica-specific isometry parameter derived from
+  `patch_elongation` via `isometry_from_elongation()`
 
 - `frac_expander`: Fraction of transition cells adjacent to existing
   patches
@@ -110,11 +115,13 @@ A data.table of class "alloc_params_t" with columns:
 
 A named list with allocation parameters:
 
-- mean_patch_size: Mean area of patches (hectares)
+- mean_patch_size: Mean area of patches (cell units)
 
-- patch_size_variance: Standard deviation of patch area (hectares)
+- patch_size_variance: Variance of patch area (cell units)
 
-- patch_isometry: Measure of patch shape regularity (0-1)
+- patch_elongation: Mean patch elongation (raw, range 0–1)
+
+- patch_isometry: Dinamica isometry derived from elongation
 
 - frac_expander: Fraction of transition cells adjacent to old patches in
   \[0, 1\]

@@ -39,6 +39,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/ingest-predictors.html">Ingest GeoTIFFs as Predictors</a></li>
     <li><a class="dropdown-item" href="../articles/install-dinamica.html">Installing Dinamica EGO</a></li>
+    <li><a class="dropdown-item" href="../articles/stochastic-allocation-sensitivity.html">Stochastic allocation sensitivity with `runs_t`</a></li>
   </ul>
 </li>
       </ul>
@@ -60,7 +61,7 @@
 <code>evoland-plus</code> tutorial</h1>
 
       <p class="author">Jan Hartman</p>
-      <p class="date">2026-06-11</p>
+      <p class="date">2026-07-02</p>
 
       <small class="dont-index">Source: <a href="https://github.com/ethzplus/evoland-plus/blob/main/vignettes/evoland.qmd" class="external-link"><code>vignettes/evoland.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -166,7 +167,13 @@ flowchart TD
 <div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/evoland_db.html">evoland_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>path <span class="op">=</span> <span class="st">"firstmodel.evolanddb"</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p>Go ahead and print the <code>db</code> object. There are already a <code>runs_t</code> and a <code>reporting_t</code> table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
+<details><summary>
+Messages
+</summary><pre>duckdb: caching downloaded extensions in the package library:
+ℹ /home/runner/work/_temp/Library/duckdb/extensions
+ℹ This is removed when the package is re-installed; see `?duckdb_storage` to choose a different location.
+</pre>
+</details><p>Go ahead and print the <code>db</code> object. There are already a <code>runs_t</code> and a <code>reporting_t</code> table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span></span></code></pre></div>
@@ -185,7 +192,8 @@ DB Methods:
   get_table_metadata, get_table_path, list_tables, row_count
 
 Public Methods:
-  add_predictor, alloc_dinamica, create_alloc_params_t, eval_alloc_params_t,
+  add_predictor, adjusted_trans_pot_v, alloc_clumpy, alloc_dinamica,
+  alloc_params_clumpy_v, create_alloc_params_t, eval_alloc_params_t,
   fit_full_models, fit_partial_models, generate_neighbor_predictors,
   get_crossval_plots, get_obs_trans_rates, get_pred_filter_score,
   lulc_data_as_rast, pred_data_wide_v, predict_trans_pot, set_full_trans_preds,
@@ -324,16 +332,20 @@ Key: &lt;id_coord&gt;
 <code class="sourceCode R"><span><span class="co"># autoregressive noise with skellam distribution</span></span>
 <span><span class="va">n_cells</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">template_rast</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">template_rast</span><span class="op">)</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span></span>
 <span><span class="va">noise1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="va">n_cells</span>, min <span class="op">=</span> <span class="fl">0</span>, max <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span>
-<span><span class="va">noise2</span> <span class="op">&lt;-</span> <span class="va">noise1</span> <span class="op">+</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n_cells</span>, <span class="fl">1</span><span class="op">)</span> <span class="op">-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n_cells</span>, <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">noise3</span> <span class="op">&lt;-</span> <span class="va">noise2</span> <span class="op">+</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n_cells</span>, <span class="fl">1</span><span class="op">)</span> <span class="op">-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n_cells</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">noise2</span> <span class="op">&lt;-</span> <span class="va">noise1</span> <span class="op">+</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n_cells</span>, <span class="fl">0.2</span><span class="op">)</span> <span class="op">-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n_cells</span>, <span class="fl">0.2</span><span class="op">)</span></span>
+<span><span class="va">noise3</span> <span class="op">&lt;-</span> <span class="va">noise2</span> <span class="op">+</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n_cells</span>, <span class="fl">0.2</span><span class="op">)</span> <span class="op">-</span> <span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n_cells</span>, <span class="fl">0.2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">synthetic_lulc</span> <span class="op">&lt;-</span></span>
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">rast</a></span><span class="op">(</span><span class="va">template_rast</span>, nlyrs <span class="op">=</span> <span class="fl">3</span>, vals <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">noise1</span>, <span class="va">noise2</span>, <span class="va">noise3</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/focal.html" class="external-link">focal</a></span><span class="op">(</span>w <span class="op">=</span> <span class="fl">3</span>, fun <span class="op">=</span> <span class="va">mean</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/clamp.html" class="external-link">clamp</a></span><span class="op">(</span>lower <span class="op">=</span> <span class="fl">0</span>, upper <span class="op">=</span> <span class="fl">10</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/classify.html" class="external-link">classify</a></span><span class="op">(</span>rcl <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>    from <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="fl">9</span>, to <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span>, becomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">7</span>, <span class="fl">1</span>, <span class="fl">10</span>, <span class="fl">5</span>, <span class="fl">8</span>, <span class="fl">2</span>, <span class="fl">9</span>, <span class="fl">4</span>, <span class="fl">6</span><span class="op">)</span></span>
-<span>  <span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/classify.html" class="external-link">classify</a></span><span class="op">(</span></span>
+<span>    rcl <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>      from <span class="op">=</span> <span class="fl">0</span><span class="op">:</span><span class="fl">9</span>,</span>
+<span>      to <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span>,</span>
+<span>      becomes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">7</span>, <span class="fl">1</span>, <span class="fl">10</span>, <span class="fl">5</span>, <span class="fl">8</span>, <span class="fl">2</span>, <span class="fl">9</span>, <span class="fl">4</span>, <span class="fl">6</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">synthetic_lulc</span>, nc <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
@@ -376,17 +388,17 @@ Key: &lt;id_coord&gt;
 <div class="cell-output cell-output-stdout">
 <pre><code>     id_period id_lulc_anterior id_lulc_posterior id_coord
          &lt;int&gt;            &lt;int&gt;             &lt;int&gt;    &lt;int&gt;
-  1:         3                4                 2        1
-  2:         2                1                 4        2
-  3:         3                4                 2        3
-  4:         2                1                 4        4
-  5:         2                2                 1        5
+  1:         2                3                 2        7
+  2:         2                3                 2       13
+  3:         3                2                 3       13
+  4:         3                4                 3       15
+  5:         2                1                 4       16
  ---
-673:         2                3                 2      891
-674:         3                2                 1      893
-675:         3                2                 1      895
-676:         2                1                 4      897
-677:         3                4                 3      899</code></pre>
+288:         3                2                 1      885
+289:         2                1                 4      886
+290:         2                4                 1      889
+291:         2                1                 4      897
+292:         3                4                 3      899</code></pre>
 </div>
 </div>
 </section><section class="level2" data-number="2.2"><h3 data-number="2.2" id="add-predictors-and-neighbors">
@@ -412,7 +424,7 @@ Key: &lt;id_coord&gt;
 <details><summary>
 Messages
 </summary><pre>Computed 208360 neighbor relationships
-Appended 8 neighbor predictor variables with 21591 data points
+Appended 8 neighbor predictor variables with 21583 data points
 </pre>
 </details><p>Have a look at the predictor metadata we have defined, it now contains new rows for the neighbor predictors:</p>
 <div class="cell">
@@ -457,7 +469,7 @@ Key: &lt;name&gt;
 <code class="sourceCode R"><span><span class="co"># set full crossproduct of transitions - predictors</span></span>
 <span><span class="va">db</span><span class="op">$</span><span class="fu">set_full_trans_preds</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 96</code></pre>
+<pre><code>[1] 72</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># return importance scores for each predictor - transition combination</span></span>
@@ -475,7 +487,7 @@ Key: &lt;name&gt;
 </div>
 <details><summary>
 Messages
-</summary><pre>Processing 8 transitions...
+</summary><pre>Processing 6 transitions...
 </pre>
 </details></section><section class="level2" data-number="3.2"><h3 data-number="3.2" id="transition-models">
 <span class="header-section-number">3.2</span> Transition Models<a class="anchor" aria-label="anchor" href="#transition-models"></a>
@@ -504,9 +516,9 @@ Messages
 </div>
 <details><summary>
 Messages
-</summary><pre>Fitting partial models for 8 transitions...
-Fitting partial models for 8 transitions...
-Fitting full models for 8 transitions...
+</summary><pre>Fitting partial models for 6 transitions...
+Fitting partial models for 6 transitions...
+Fitting full models for 6 transitions...
 </pre>
 </details></section><section class="level2" data-number="3.3"><h3 data-number="3.3" id="transition-rates-and-allocation-parameters">
 <span class="header-section-number">3.3</span> Transition Rates and Allocation Parameters<a class="anchor" aria-label="anchor" href="#transition-rates-and-allocation-parameters"></a>
@@ -521,7 +533,7 @@ Fitting full models for 8 transitions...
 <span>    coord_count <span class="op">=</span> <span class="va">n_cells</span></span>
 <span>  <span class="op">)</span></span></code></pre></div>
 </div>
-<p>We estimate allocation parameters for DinamicaEGO, which determine the shape and size of new patches, respectively which fraction of converted land use is in new versus expanded patches. This estimation procedure is not unbiased and hence a single estimate may not be enough: normally, we would perturb the estimate and use multiple <code>id_run</code>s to identify the best parametrization. For simplicity, we now just take the estimates for granted and assign <code>id_run=0</code>, i.e. the base run ID.</p>
+<p>We estimate allocation parameters, which determine the shape and size of new patches, respectively which fraction of converted land use is in new versus expanded patches. This estimation procedure is not unbiased and hence a single estimate may not be enough: normally, we would perturb the estimate and use multiple <code>id_run</code>s to identify the best parametrization. For simplicity, we now just take the estimates for granted and assign <code>id_run=0</code>, i.e. the base run ID.</p>
 <div class="cell" data-seed="666">
 <div class="sourceCode cell-code" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">alloc_for_eval</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="fu">create_alloc_params_t</span><span class="op">(</span>n_perturbations <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
@@ -531,82 +543,94 @@ Fitting full models for 8 transitions...
 </div>
 <details><summary>
 Messages
-</summary><pre>Computing allocation parameters for 8 transitions across 2 periods...
+</summary><pre>Computing allocation parameters for 6 transitions across 2 periods...
   Processing period 1 -&gt; 2
   Processing period 2 -&gt; 3
 Aggregating parameters across periods...
 Creating 0 randomly perturbed versions per transition...
-Successfully computed 8 allocation parameter sets (8 transitions x (0 perturbations + best estimate))
+Successfully computed 6 allocation parameter sets (6 transitions x (0 perturbations + best estimate))
 </pre>
 </details></section></section><section class="section level2" data-number="4"><h2 data-number="4" id="prediction-allocation">
 <span class="header-section-number">4</span> Prediction + Allocation<a class="anchor" aria-label="anchor" href="#prediction-allocation"></a>
 </h2>
-<p>With all components in place, we run the allocation step. If Dinamica is not installed, you’ll get a warning that the anterior LULC map is returned as the posterior. For installation instructions, see the <a href="install-dinamica.html">Installing Dinamica EGO</a> vignette.</p>
+<p>For this tutorial, we will use the CLUMPY backend for a self-contained stochastic allocation that does not require the presence of <a href="install-dinamica.html">DinamicaEGO</a> as an external solver.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb33"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="fu">alloc_dinamica</span><span class="op">(</span></span>
-<span>  id_period <span class="op">=</span> <span class="va">db</span><span class="op">$</span><span class="va">periods_t</span><span class="op">[</span><span class="va">is_extrapolated</span> <span class="op">==</span> <span class="cn">TRUE</span>, <span class="va">id_period</span><span class="op">]</span>,</span>
+<code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="fu">alloc_clumpy</span><span class="op">(</span></span>
+<span>  id_period <span class="op">=</span> <span class="va">db</span><span class="op">$</span><span class="va">periods_t</span><span class="op">[</span><span class="va">is_extrapolated</span> <span class="op">==</span> <span class="cn">TRUE</span>, <span class="va">id_period</span><span class="op">]</span>, <span class="co"># select all extrapolation periods</span></span>
 <span>  select_score <span class="op">=</span> <span class="st">"classif.auc"</span>,</span>
-<span>  select_maximize <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  select_maximize <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">42L</span> <span class="co"># optional: reproducibility</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Warning in run_alloc_dinamica(work_dir = iteration_dir, echo = FALSE,
-write_logfile = TRUE): DinamicaConsole not found on PATH; Copying anterior.tif
-to posterior.tif as fallback so we can test.</code></pre>
-</div>
 </div>
 <details><summary>
 Messages
-</summary><pre>Starting Dinamica allocation simulation
+</summary><pre>Starting CLUMPY allocation simulation
 Periods: 4
 Run: 0
-Work directory: dinamica_rundir/run_0
-Loading origin period 4 from lulc_data_t...
-=== Iteration 1/0 ===
-Running Dinamica allocation: period 3 -&gt; 4
-  Wrote transition rates to trans_rates.csv
-  Wrote expansion table to expansion_table.csv
-  Wrote patcher table to patcher_table.csv
-  Wrote anterior LULC to anterior.tif
-  Writing probability maps...
-Predicting transition potential for 8 transitions
-Predicting trans 1/8 (id_trans 4)
-Predicting trans 2/8 (id_trans 2)
-Predicting trans 3/8 (id_trans 3)
-Predicting trans 4/8 (id_trans 6)
-Predicting trans 5/8 (id_trans 5)
-Predicting trans 6/8 (id_trans 7)
-Predicting trans 7/8 (id_trans 8)
-Predicting trans 8/8 (id_trans 9)
-  Executing Dinamica EGO...
-  Converting posterior raster to lulc_data_t...
-  Extracted 900 cells
+=== Iteration 1/1 ===
+Predicting transition potential for 6 transitions
+Predicting trans 1/6 (id_trans 5)
+Predicting trans 2/6 (id_trans 7)
+Predicting trans 3/6 (id_trans 2)
+Predicting trans 4/6 (id_trans 1)
+Predicting trans 5/6 (id_trans 6)
+Predicting trans 6/6 (id_trans 3)
+Running CLUMPY allocation (uPAM): period 3 -&gt; 4
+  Converting posterior vector to lulc_data_t...
+  Allocated 900 cells
 Iteration 1 complete
-Simulation complete!
-Results written to: lulc_data_t
-Cleaning up intermediate files...
+CLUMPY allocation complete!
 </pre>
 </details><section class="level2" data-number="4.1"><h3 data-number="4.1" id="visualization">
 <span class="header-section-number">4.1</span> Visualization<a class="anchor" aria-label="anchor" href="#visualization"></a>
 </h3>
 <p>Finally, we can extract the simulated LULC maps into <code>SpatRaster</code> objects to visualize them.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb35"><pre class="downlit sourceCode r">
+<div class="sourceCode cell-code" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">labels</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="va">periods_t</span><span class="op">[</span></span>
 <span>  <span class="va">id_period</span> <span class="op">!=</span> <span class="fl">0</span>,</span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/IDateTime.html" class="external-link">year</a></span><span class="op">(</span><span class="va">start_date</span><span class="op">)</span>, <span class="st">" to "</span>, <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/IDateTime.html" class="external-link">year</a></span><span class="op">(</span><span class="va">end_date</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">]</span></span>
-<span><span class="va">plot_maps</span> <span class="op">&lt;-</span> <span class="va">db</span><span class="op">$</span><span class="fu">lulc_data_as_rast</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="va">labels</span><span class="op">)</span></span>
+<span><span class="va">plot_maps</span> <span class="op">&lt;-</span></span>
+<span>  <span class="va">db</span><span class="op">$</span><span class="fu">lulc_data_as_rast</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/factors.html" class="external-link">categories</a></span><span class="op">(</span></span>
+<span>    layer <span class="op">=</span> <span class="fl">0</span>, <span class="co"># set for all layers</span></span>
+<span>    value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, name <span class="op">=</span> <span class="va">db</span><span class="op">$</span><span class="va">lulc_meta_t</span><span class="op">$</span><span class="va">pretty_name</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="va">labels</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot_maps</span>, type <span class="op">=</span> <span class="st">"classes"</span>, levels <span class="op">=</span> <span class="va">db</span><span class="op">$</span><span class="va">lulc_meta_t</span><span class="op">$</span><span class="va">pretty_name</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">plot_maps</span><span class="op">)</span></span></code></pre></div>
 <div class="cell-output-display">
 <div>
-<figure><p><img src="evoland_files/figure-html/visualization-1.png" width="672"></p>
+<figure><p><img src="evoland_files/figure-html/visualization-cats-1.png" width="672"></p>
 </figure>
 </div>
 </div>
 </div>
-<p>Of the four maps, only the first three show changes. Due to Dinamica not being available on our github runner, the extrapolated step should look exactly like the step before.</p>
+<p>Due to the extrapolated transition rates, the last step shows a similar difference as exists between the first three periods. We can also show the cumulative difference like so:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">changes</span> <span class="op">&lt;-</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>    <span class="fu"><a href="../reference/create_change_map.html">create_change_map</a></span><span class="op">(</span><span class="va">plot_maps</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="va">plot_maps</span><span class="op">[[</span><span class="fl">2</span><span class="op">]</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="../reference/create_change_map.html">create_change_map</a></span><span class="op">(</span><span class="va">plot_maps</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="va">plot_maps</span><span class="op">[[</span><span class="fl">3</span><span class="op">]</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="../reference/create_change_map.html">create_change_map</a></span><span class="op">(</span><span class="va">plot_maps</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="va">plot_maps</span><span class="op">[[</span><span class="fl">4</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rspatial.github.io/terra/reference/factors.html" class="external-link">categories</a></span><span class="op">(</span></span>
+<span>    layer <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>    value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Posterior:"</span>, <span class="va">db</span><span class="op">$</span><span class="va">lulc_meta_t</span><span class="op">$</span><span class="va">pretty_name</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/stats/setNames.html" class="external-link">setNames</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Period 1 to"</span>, <span class="fl">2</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/plot.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">changes</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div>
+<figure><p><img src="evoland_files/figure-html/visualization-changes-1.png" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
 </section></section><script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);

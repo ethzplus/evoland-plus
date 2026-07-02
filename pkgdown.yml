@@ -5,7 +5,8 @@ articles:
   evoland: evoland.html
   ingest-predictors: ingest-predictors.html
   install-dinamica: install-dinamica.html
-last_built: 2026-06-11T10:33Z
+  stochastic-allocation-sensitivity: stochastic-allocation-sensitivity.html
+last_built: 2026-07-02T14:40Z
 urls:
   reference: https://ethzplus.github.io/evoland-plus/reference
   article: https://ethzplus.github.io/evoland-plus/articles

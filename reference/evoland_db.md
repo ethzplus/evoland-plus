@@ -89,6 +89,16 @@ separate files:
   Get or upsert
   [alloc_params_t](https://ethzplus.github.io/evoland-plus/reference/alloc_params_t.md)
 
+- `trans_pot_t`:
+
+  Get or upsert raw transition potentials
+  [trans_pot_t](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md).
+  These are per-transition model probabilities stored by
+  [`predict_trans_pot()`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md).
+  Use
+  [`adjusted_trans_pot_v()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  for allocation-ready values.
+
 - `neighbors_t`:
 
   Get or upsert
@@ -120,6 +130,10 @@ separate files:
 
 - [`evoland_db$trans_rates_dinamica_v()`](#method-evoland_db-trans_rates_dinamica_v)
 
+- [`evoland_db$adjusted_trans_pot_v()`](#method-evoland_db-adjusted_trans_pot_v)
+
+- [`evoland_db$alloc_params_clumpy_v()`](#method-evoland_db-alloc_params_clumpy_v)
+
 - [`evoland_db$new()`](#method-evoland_db-initialize)
 
 - [`evoland_db$get_read_expr()`](#method-evoland_db-get_read_expr)
@@ -141,6 +155,8 @@ separate files:
 - [`evoland_db$pred_data_wide_v()`](#method-evoland_db-pred_data_wide_v)
 
 - [`evoland_db$alloc_dinamica()`](#method-evoland_db-alloc_dinamica)
+
+- [`evoland_db$alloc_clumpy()`](#method-evoland_db-alloc_clumpy)
 
 - [`evoland_db$eval_alloc_params_t()`](#method-evoland_db-eval_alloc_params_t)
 
@@ -184,6 +200,22 @@ Inherited methods
 #### Usage
 
     evoland_db$trans_rates_dinamica_v(id_period)
+
+------------------------------------------------------------------------
+
+### `evoland_db$adjusted_trans_pot_v()`
+
+#### Usage
+
+    evoland_db$adjusted_trans_pot_v(id_period_post)
+
+------------------------------------------------------------------------
+
+### `evoland_db$alloc_params_clumpy_v()`
+
+#### Usage
+
+    evoland_db$alloc_params_clumpy_v()
 
 ------------------------------------------------------------------------
 
@@ -492,6 +524,64 @@ Runs a path-dependent Monte Carlo simulation using Dinamica EGO, see
 
 ------------------------------------------------------------------------
 
+### `evoland_db$alloc_clumpy()`
+
+Runs CLUMPY-style LULC allocation, see
+[`alloc_clumpy()`](https://ethzplus.github.io/evoland-plus/reference/alloc_clumpy.md).
+The method (uSAM vs uPAM) is selected automatically from the patch
+parameters: mono-pixel patches (`area_mean == 1`, `area_var == 0`) use
+uSAM, otherwise uPAM.
+
+#### Usage
+
+    evoland_db$alloc_clumpy(
+      id_periods,
+      select_score,
+      select_maximize,
+      area_dist = "lognormal",
+      avoid_aggregation = TRUE,
+      batch_size = 0L,
+      seed = NULL
+    )
+
+#### Arguments
+
+- `id_periods`:
+
+  Integer vector of period IDs to include in the simulation.
+
+- `select_score`:
+
+  Character string; mlr3 measure ID (e.g. `"classif.auc"`) used to
+  select model for extrapolation.
+
+- `select_maximize`:
+
+  Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
+
+- `area_dist`:
+
+  Character; patch-area distribution, `"lognormal"` (default) or
+  `"normal"`. See
+  [`alloc_clumpy()`](https://ethzplus.github.io/evoland-plus/reference/alloc_clumpy.md).
+
+- `avoid_aggregation`:
+
+  Logical; if `TRUE` (default) uPAM patches that would merge fail and
+  allocate nothing. Ignored for uSAM.
+
+- `batch_size`:
+
+  Integer; uPAM pivots attempted per MuST re-draw. `0` (default)
+  auto-scales with the source pool; `> 0` is an explicit cap (`1` =
+  strict uPAM); `< 0` = all candidates in one pass. Ignored for uSAM.
+
+- `seed`:
+
+  Optional integer random seed for reproducibility.
+
+------------------------------------------------------------------------
+
 ### `evoland_db$eval_alloc_params_t()`
 
 Evaluates allocation parameters in dinamica, see
@@ -721,8 +811,13 @@ Add filter scores to predictors for each `id_run, id_trans`. See
 
 ### `evoland_db$predict_trans_pot()`
 
-Predict the transition potential for a given period, see
-[`trans_pot_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md)
+Predict the raw transition potential for a given period and store in
+`trans_pot_t`, see
+[`predict_trans_pot()`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md).
+Raw potentials are per-transition model probabilities (not yet
+allocation-ready); use
+[`adjusted_trans_pot_v()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+to obtain column-scaled, row-closed values.
 
 #### Usage
 

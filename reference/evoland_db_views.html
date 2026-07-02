@@ -23,6 +23,7 @@ method. These provide computed views on the database without storing additional 
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/ingest-predictors.html">Ingest GeoTIFFs as Predictors</a></li>
     <li><a class="dropdown-item" href="../articles/install-dinamica.html">Installing Dinamica EGO</a></li>
+    <li><a class="dropdown-item" href="../articles/stochastic-allocation-sensitivity.html">Stochastic allocation sensitivity with `runs_t`</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -64,6 +65,11 @@ method. These provide computed views on the database without storing additional 
 a specific transition. Used as input to covariance filtering.</p></li>
 <li><p><code>trans_rates_dinamica_v(id_period)</code> - Returns transition rates formatted for Dinamica export
 for a specific period.</p></li>
+<li><p><code>adjusted_trans_pot_v(id_period_post)</code> - Returns allocation-ready transition potentials:
+column-scaled to match target transition rates, then row-closed so per-cell change
+probabilities sum to at most 1.</p></li>
+<li><p><code>alloc_params_clumpy_v()</code> - Returns allocation parameters in CLUMPY format
+(area_mean, area_var, elongation per transition).</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

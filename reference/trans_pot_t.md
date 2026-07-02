@@ -63,6 +63,9 @@ A data.table of class "trans_pot_t" with columns:
 
 - `value`: Map of model (hyper) parameters
 
+A `trans_pot_t` object (invisibly); the same data are committed to the
+DB.
+
 ## Methods (by generic)
 
 - `print(trans_pot_t)`: Print a trans_pot_t object, passing params to
@@ -70,6 +73,10 @@ A data.table of class "trans_pot_t" with columns:
 
 ## Functions
 
-- `predict_trans_pot()`: For each viable transition, predict the
-  transition potential for a given period, with cumulative probabilities
-  for a single id_coord capped to 1; returns a `trans_pot_t` object
+- `predict_trans_pot()`: For each viable transition, predict the raw
+  transition potential for a given period and store it in `trans_pot_t`
+  in the database. Raw potentials are per-transition MLR3 model
+  probabilities; they are **not** yet allocation-ready (not
+  column-scaled to target rates, not row-closed). Use
+  [`adjusted_trans_pot_v()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
+  to obtain allocation-ready values.

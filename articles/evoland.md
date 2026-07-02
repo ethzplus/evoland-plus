@@ -105,6 +105,12 @@ directory, we resume from where we left off.
 db <- evoland_db$new(path = "firstmodel.evolanddb")
 ```
 
+Messages
+
+    duckdb: caching downloaded extensions in the package library:
+    ℹ /home/runner/work/_temp/Library/duckdb/extensions
+    ℹ This is removed when the package is re-installed; see `?duckdb_storage` to choose a different location.
+
 Go ahead and print the `db` object. There are already a `runs_t` and a
 `reporting_t` table, which are bare-bones for now but will be used to
 track our [modelling
@@ -130,7 +136,8 @@ db
       get_table_metadata, get_table_path, list_tables, row_count
 
     Public Methods:
-      add_predictor, alloc_dinamica, create_alloc_params_t, eval_alloc_params_t,
+      add_predictor, adjusted_trans_pot_v, alloc_clumpy, alloc_dinamica,
+      alloc_params_clumpy_v, create_alloc_params_t, eval_alloc_params_t,
       fit_full_models, fit_partial_models, generate_neighbor_predictors,
       get_crossval_plots, get_obs_trans_rates, get_pred_filter_score,
       lulc_data_as_rast, pred_data_wide_v, predict_trans_pot, set_full_trans_preds,
@@ -282,16 +289,20 @@ adding autoregressive noise to a noisy raster.
 # autoregressive noise with skellam distribution
 n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
 noise1 <- runif(n_cells, min = 0, max = 10)
-noise2 <- noise1 + stats::rpois(n_cells, 1) - stats::rpois(n_cells, 1)
-noise3 <- noise2 + stats::rpois(n_cells, 1) - stats::rpois(n_cells, 1)
+noise2 <- noise1 + stats::rpois(n_cells, 0.2) - stats::rpois(n_cells, 0.2)
+noise3 <- noise2 + stats::rpois(n_cells, 0.2) - stats::rpois(n_cells, 0.2)
 
 synthetic_lulc <-
   rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
   focal(w = 3, fun = mean, na.rm = TRUE) |>
   clamp(lower = 0, upper = 10) |>
-  classify(rcl = data.frame(
-    from = 0:9, to = 1:10, becomes = c(3, 7, 1, 10, 5, 8, 2, 9, 4, 6)
-  ))
+  classify(
+    rcl = data.frame(
+      from = 0:9,
+      to = 1:10,
+      becomes = c(3, 7, 1, 10, 5, 8, 2, 9, 4, 6)
+    )
+  )
 
 plot(synthetic_lulc, nc = 3)
 ```
@@ -350,17 +361,17 @@ db$trans_v[id_lulc_anterior != id_lulc_posterior]
 
          id_period id_lulc_anterior id_lulc_posterior id_coord
              <int>            <int>             <int>    <int>
-      1:         3                4                 2        1
-      2:         2                1                 4        2
-      3:         3                4                 2        3
-      4:         2                1                 4        4
-      5:         2                2                 1        5
+      1:         2                3                 2        7
+      2:         2                3                 2       13
+      3:         3                2                 3       13
+      4:         3                4                 3       15
+      5:         2                1                 4       16
      ---
-    673:         2                3                 2      891
-    674:         3                2                 1      893
-    675:         3                2                 1      895
-    676:         2                1                 4      897
-    677:         3                4                 3      899
+    288:         3                2                 1      885
+    289:         2                1                 4      886
+    290:         2                4                 1      889
+    291:         2                1                 4      897
+    292:         3                4                 3      899
 
 ### 2.2 Add Predictors and Neighbors
 
@@ -407,7 +418,7 @@ db$generate_neighbor_predictors()
 Messages
 
     Computed 208360 neighbor relationships
-    Appended 8 neighbor predictor variables with 21591 data points
+    Appended 8 neighbor predictor variables with 21583 data points
 
 Have a look at the predictor metadata we have defined, it now contains
 new rows for the neighbor predictors:
@@ -472,7 +483,7 @@ prompted if you want to do this if you’re running R interactively.
 db$set_full_trans_preds()
 ```
 
-    [1] 96
+    [1] 72
 
 ``` r
 
@@ -495,7 +506,7 @@ db$trans_preds_t <- trans_pred_scored[
 
 Messages
 
-    Processing 8 transitions...
+    Processing 6 transitions...
 
 ### 3.2 Transition Models
 
@@ -544,9 +555,9 @@ db$trans_models_t <- db$fit_full_models(
 
 Messages
 
-    Fitting partial models for 8 transitions...
-    Fitting partial models for 8 transitions...
-    Fitting full models for 8 transitions...
+    Fitting partial models for 6 transitions...
+    Fitting partial models for 6 transitions...
+    Fitting full models for 6 transitions...
 
 ### 3.3 Transition Rates and Allocation Parameters
 
@@ -564,12 +575,12 @@ db$trans_rates_t <-
   )
 ```
 
-We estimate allocation parameters for DinamicaEGO, which determine the
-shape and size of new patches, respectively which fraction of converted
-land use is in new versus expanded patches. This estimation procedure is
-not unbiased and hence a single estimate may not be enough: normally, we
-would perturb the estimate and use multiple `id_run`s to identify the
-best parametrization. For simplicity, we now just take the estimates for
+We estimate allocation parameters, which determine the shape and size of
+new patches, respectively which fraction of converted land use is in new
+versus expanded patches. This estimation procedure is not unbiased and
+hence a single estimate may not be enough: normally, we would perturb
+the estimate and use multiple `id_run`s to identify the best
+parametrization. For simplicity, we now just take the estimates for
 granted and assign `id_run=0`, i.e. the base run ID.
 
 ``` r
@@ -585,65 +596,48 @@ db$alloc_params_t <- alloc_for_eval
 
 Messages
 
-    Computing allocation parameters for 8 transitions across 2 periods...
+    Computing allocation parameters for 6 transitions across 2 periods...
       Processing period 1 -> 2
       Processing period 2 -> 3
     Aggregating parameters across periods...
     Creating 0 randomly perturbed versions per transition...
-    Successfully computed 8 allocation parameter sets (8 transitions x (0 perturbations + best estimate))
+    Successfully computed 6 allocation parameter sets (6 transitions x (0 perturbations + best estimate))
 
 ## 4 Prediction + Allocation
 
-With all components in place, we run the allocation step. If Dinamica is
-not installed, you’ll get a warning that the anterior LULC map is
-returned as the posterior. For installation instructions, see the
-[Installing Dinamica
-EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.md)
-vignette.
+For this tutorial, we will use the CLUMPY backend for a self-contained
+stochastic allocation that does not require the presence of
+[DinamicaEGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.md)
+as an external solver.
 
 ``` r
 
-db$alloc_dinamica(
-  id_period = db$periods_t[is_extrapolated == TRUE, id_period],
+db$alloc_clumpy(
+  id_period = db$periods_t[is_extrapolated == TRUE, id_period], # select all extrapolation periods
   select_score = "classif.auc",
-  select_maximize = TRUE
+  select_maximize = TRUE,
+  seed = 42L # optional: reproducibility
 )
 ```
 
-    Warning in run_alloc_dinamica(work_dir = iteration_dir, echo = FALSE,
-    write_logfile = TRUE): DinamicaConsole not found on PATH; Copying anterior.tif
-    to posterior.tif as fallback so we can test.
-
 Messages
 
-    Starting Dinamica allocation simulation
+    Starting CLUMPY allocation simulation
     Periods: 4
     Run: 0
-    Work directory: dinamica_rundir/run_0
-    Loading origin period 4 from lulc_data_t...
-    === Iteration 1/0 ===
-    Running Dinamica allocation: period 3 -> 4
-      Wrote transition rates to trans_rates.csv
-      Wrote expansion table to expansion_table.csv
-      Wrote patcher table to patcher_table.csv
-      Wrote anterior LULC to anterior.tif
-      Writing probability maps...
-    Predicting transition potential for 8 transitions
-    Predicting trans 1/8 (id_trans 4)
-    Predicting trans 2/8 (id_trans 2)
-    Predicting trans 3/8 (id_trans 3)
-    Predicting trans 4/8 (id_trans 6)
-    Predicting trans 5/8 (id_trans 5)
-    Predicting trans 6/8 (id_trans 7)
-    Predicting trans 7/8 (id_trans 8)
-    Predicting trans 8/8 (id_trans 9)
-      Executing Dinamica EGO...
-      Converting posterior raster to lulc_data_t...
-      Extracted 900 cells
+    === Iteration 1/1 ===
+    Predicting transition potential for 6 transitions
+    Predicting trans 1/6 (id_trans 5)
+    Predicting trans 2/6 (id_trans 7)
+    Predicting trans 3/6 (id_trans 2)
+    Predicting trans 4/6 (id_trans 1)
+    Predicting trans 5/6 (id_trans 6)
+    Predicting trans 6/6 (id_trans 3)
+    Running CLUMPY allocation (uPAM): period 3 -> 4
+      Converting posterior vector to lulc_data_t...
+      Allocated 900 cells
     Iteration 1 complete
-    Simulation complete!
-    Results written to: lulc_data_t
-    Cleaning up intermediate files...
+    CLUMPY allocation complete!
 
 ### 4.1 Visualization
 
@@ -656,16 +650,41 @@ labels <- db$periods_t[
   id_period != 0,
   paste0(year(start_date), " to ", year(end_date))
 ]
-plot_maps <- db$lulc_data_as_rast() |> setNames(labels)
+plot_maps <-
+  db$lulc_data_as_rast() |>
+  categories(
+    layer = 0, # set for all layers
+    value = data.frame(id = 1:4, name = db$lulc_meta_t$pretty_name)
+  ) |>
+  setNames(labels)
 
-plot(plot_maps, type = "classes", levels = db$lulc_meta_t$pretty_name)
+plot(plot_maps)
 ```
 
-![](evoland_files/figure-html/visualization-1.png)
+![](evoland_files/figure-html/visualization-cats-1.png)
 
-Of the four maps, only the first three show changes. Due to Dinamica not
-being available on our github runner, the extrapolated step should look
-exactly like the step before.
+Due to the extrapolated transition rates, the last step shows a similar
+difference as exists between the first three periods. We can also show
+the cumulative difference like so:
+
+``` r
+
+changes <-
+  c(
+    create_change_map(plot_maps[[1]], plot_maps[[2]]),
+    create_change_map(plot_maps[[1]], plot_maps[[3]]),
+    create_change_map(plot_maps[[1]], plot_maps[[4]])
+  ) |>
+  categories(
+    layer = 0,
+    value = data.frame(id = 1:4, name = paste("Posterior:", db$lulc_meta_t$pretty_name))
+  ) |>
+  setNames(paste("Period 1 to", 2:4))
+
+plot(changes)
+```
+
+![](evoland_files/figure-html/visualization-changes-1.png)
 
 [^1]: Specifically, we’re creating an R6 object instead of an S3 or S4
     one. This is called “encapsulated object oriented programming”

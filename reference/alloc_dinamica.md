@@ -12,9 +12,7 @@ alloc_dinamica_setup_inputs(
   id_period_ant,
   id_period_post,
   anterior_rast,
-  temp_dir,
-  select_score,
-  select_maximize
+  temp_dir
 )
 
 alloc_dinamica_one_period(
