@@ -106,12 +106,7 @@ predict_trans_pot <- function(
   # TODO parallelize
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
-  # Every viable transition must have a usable (non-null) full model. Model
-  # fitting can leave a viable transition unmodelled -- e.g. no predictors were
-  # retained in trans_preds_t, or the learner failed to train on too few positive
-  # cases, in which case fit_full_models() stores a NULL learner_full. Fail early
-  # with an actionable message naming the offenders instead of deep inside the
-  # per-transition loop below.
+  # Fail early with an actionable message naming missing models
   modeled_ids <- self$get_query(glue::glue(
     r"[
     select distinct id_trans
@@ -125,12 +120,7 @@ predict_trans_pot <- function(
     stop(glue::glue(
       "No fitted model for viable transition(s): {toString(sort(missing_models))}. ",
       "Every transition with is_viable == TRUE must have a non-null learner_full in ",
-      "trans_models_t, but model fitting produced none for these (most likely no ",
-      "predictors were retained in trans_preds_t, or the learner failed to train on ",
-      "too few positive cases -- check warnings from fit_full_models()). Refit those ",
-      "transitions, or drop them from the viable set before allocating by setting ",
-      "is_viable = FALSE for any transition whose fit_full_models() result has a NULL ",
-      "learner_full."
+      "trans_models_t."
     ))
   }
 

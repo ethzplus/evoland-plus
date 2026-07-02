@@ -1,7 +1,6 @@
 #include "clumpy_geometry.h"
 #include <Rcpp.h>
 #include <algorithm>
-#include <cmath>
 #include <map>
 #include <vector>
 

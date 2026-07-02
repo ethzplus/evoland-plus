@@ -219,7 +219,7 @@ fit_full_model_worker <- function(item, db, learner = NULL) {
         )
         learner_params_val <- if (length(learner_params_val) == 0L) NULL else learner_params_val
         learner_spec_blob <- qs2::qs_serialize(trained_learner$clone(deep = TRUE)$reset())
-        crossval_score_val <- list(list())
+        crossval_score_val <- list(list(no.crossval = 1))
         crossval_predictions_val <- list(NULL)
       } else {
         # Score-select mode: reconstruct from learner_spec; fall back to do.call

@@ -12,7 +12,8 @@ number-sections: true
 ```{r}
 #| label: cleanup
 #| include: false
-# TODO render tables into nice HTML interactive ones??
+# TODO render tables into nice HTML interactive ones
+# TODO use the nicer synthetic data routine from stochastic tutorial
 # make sure we're starting clean
 unlink("firstmodel.evolanddb", recursive = TRUE)
 
@@ -453,30 +454,8 @@ db$alloc_params_t <- alloc_for_eval
 
 # Prediction + Allocation
 
-## Transition potential: raw prediction vs. allocation-ready values
-
-For the transition potential estimation, `evoland` separates two concerns:
-
-1. **Raw prediction** – for each viable transition, an MLR3 model predicts the
-   probability that each cell will undergo that transition.  These per-transition
-   model probabilities are stored in the `trans_pot_t` table and are
-   *not* guaranteed to be allocation-ready (they are not calibrated to the
-   target demand and may sum to more than 1 per cell across transitions).
-
-2. **Adjusted (allocation-ready) values** – the `adjusted_trans_pot_v(id_period_post)`
-   method applies two reconciliation steps:
-   - *Column scaling*: each transition's potentials are rescaled so that the
-     column mean matches the target transition rate from `trans_rates_t`.
-   - *Row closure*: where the scaled probabilities for a cell sum to more than 1,
-     all values for that cell are divided by their row sum.  The implicit
-     "no-change" probability equals `1 - sum(stored values)`.
-
-Allocation backends (Dinamica EGO, CLUMPY) consume the adjusted values, not the raw model output.
-
-## Running the allocation
-
 For this tutorial, we will use the CLUMPY backend for a self-contained stochastic allocation that
-does not require the presence of DinamicaEGO as an external solver.
+does not require the presence of [DinamicaEGO](install-dinamica.html) as an external solver.
 
 ```{r}
 #| label: allocation
@@ -524,7 +503,7 @@ changes <-
     layer = 0,
     value = data.frame(id = 1:4, name = paste("Posterior:", db$lulc_meta_t$pretty_name))
   ) |>
-  setNames(paste("Period", 1, "to", 2:4))
+  setNames(paste("Period 1 to", 2:4))
 
 plot(changes)
 ```

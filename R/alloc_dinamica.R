@@ -100,9 +100,7 @@ alloc_dinamica_setup_inputs <- function(
 
   message(glue::glue("  Wrote anterior LULC to {basename(anterior_path)}"))
 
-  # 6. Generate probability maps from the adjusted transition potentials.
-  # predict_trans_pot() has already been called by alloc_dinamica_one_period()
-  # before this function, so trans_pot_t is up to date in the DB.
+  # 6. Generate probability maps from the adjusted transition potentials
   prob_map_dir <-
     file.path(temp_dir, "probability_map_dir") |>
     ensure_dir()
@@ -167,8 +165,8 @@ alloc_dinamica_one_period <- function(
     "Running Dinamica allocation: period {id_period_ant} -> {id_period_post}"
   ))
 
-  # Predict and store raw transition potentials in trans_pot_t.
-  # alloc_dinamica_setup_inputs() will then read adjusted values via adjusted_trans_pot_v().
+  # Predict and store raw transition potentials in trans_pot_t
+  # TODO add argument to manually predict_trans_pot if manipulation is desired
   self$predict_trans_pot(
     id_period_post = id_period_post,
     select_score = select_score,

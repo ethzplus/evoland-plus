@@ -115,6 +115,13 @@ static SparseColumn build_sparse_column(const IntegerVector &cells_1based,
   return col;
 }
 
+// TODO build_neighbors: Can we also look at queen neighbors, does that make sense for
+// the elongation calculus? Should we expand to triangle or hexagon tesselations (Mazy
+// 3.I.2)? Can 60 or 45 degree relationships be easily summarised to primary and
+// secondary moments, which are assumed to be orthogonal here? Just take minimum and
+// maximum of the 60deg moments? CLUMPY implements the moment accumulation in
+// Patcher.allocate
+
 // Rook-adjacency neighbour indices (0-based, -1 == no neighbour / edge) for a
 // row-major (nrow x ncol) raster.
 static void build_neighbors(int nrow, int ncol, std::vector<int> &up,
@@ -343,7 +350,8 @@ template <typename F> static int must_draw_one(int k, F cum_prob) {
 }
 
 // ---------------------------------------------------------------------------
-// Exported: small building blocks (also individually unit-tested)
+// Exporting small building blocks for unit-testing in R/tinytest. Not actually
+// used in R codebase.
 // ---------------------------------------------------------------------------
 
 //' Rook-adjacency neighbour indices for a raster (C++)

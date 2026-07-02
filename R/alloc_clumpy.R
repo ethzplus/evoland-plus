@@ -80,8 +80,8 @@ alloc_clumpy_one_period <- function(
   avoid_aggregation = TRUE,
   batch_size = 0L
 ) {
-  area_dist_code <- .clumpy_area_dist_code(area_dist)
-
+  # TODO as in dinamica, see if we can set potentials externally so we can manipulate
+  # them? or does this need something more elaborate like passing in a callback?
   # 1. Predict and store raw transition potentials
   self$predict_trans_pot(
     id_period_post = id_period_post,
@@ -152,6 +152,7 @@ alloc_clumpy_one_period <- function(
 
   # 8. Select the method from the patch parameters: every transition mono-pixel
   #    (area_mean == 1 & area_var == 0) -> uSAM, otherwise uPAM.
+  # TODO see if this can be decided on a per-transition basis?
   is_mono <- all(!is.na(area_mean) & area_mean == 1 & (is.na(area_var) | area_var == 0))
   method_code <- if (is_mono) 0L else 1L
   method_name <- if (is_mono) "uSAM" else "uPAM"
@@ -179,17 +180,19 @@ alloc_clumpy_one_period <- function(
     rarefy = TRUE,
     shuffle = TRUE,
     avoid_aggregation = avoid_aggregation,
-    area_dist = area_dist_code
+    area_dist = .clumpy_area_dist_code(area_dist)
   )
 
   # 10. Convert result vector back to lulc_data_t
   message("  Converting posterior vector to lulc_data_t...")
   coord_ids <- as.integer(names(coord_to_cell))
   cell_ids <- as.integer(coord_to_cell)
-  valid <- !is.na(cell_ids) &
-    cell_ids >= 1L &
-    cell_ids <= n_cells &
-    !is.na(post_vec[cell_ids])
+  valid <- {
+    !is.na(cell_ids) &
+      cell_ids >= 1L &
+      cell_ids <= n_cells &
+      !is.na(post_vec[cell_ids])
+  }
 
   lulc_result <- data.table::data.table(
     id_run = self$id_run,

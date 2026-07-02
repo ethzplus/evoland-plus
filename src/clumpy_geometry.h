@@ -1,7 +1,6 @@
 #ifndef EVOLAND_CLUMPY_GEOMETRY_H
 #define EVOLAND_CLUMPY_GEOMETRY_H
 
-#include <algorithm>
 #include <cmath>
 
 // Shared patch-shape geometry for the CLUMPY allocation backend.
