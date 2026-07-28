@@ -61,7 +61,7 @@
 <code>evoland-plus</code> tutorial</h1>
 
       <p class="author">Jan Hartman</p>
-      <p class="date">2026-07-02</p>
+      <p class="date">2026-07-28</p>
 
       <small class="dont-index">Source: <a href="https://github.com/ethzplus/evoland-plus/blob/main/vignettes/evoland.qmd" class="external-link"><code>vignettes/evoland.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -167,7 +167,18 @@ flowchart TD
 <div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/evoland_db.html">evoland_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>path <span class="op">=</span> <span class="st">"firstmodel.evolanddb"</span><span class="op">)</span></span></code></pre></div>
 </div>
-<p>Go ahead and print the <code>db</code> object. There are already a <code>runs_t</code> and a <code>reporting_t</code> table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
+<details><summary>
+Messages
+</summary><pre>duckdb keeps downloaded extensions and secrets in a temporary directory:
+ℹ /tmp/RtmpqqK0M8/duckdb
+This is removed when the R session ends.
+• Extensions are re-downloaded each session.
+• Secrets are lost.
+ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
+ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
+ℹ See ?duckdb_storage for details and alternatives.
+</pre>
+</details><p>Go ahead and print the <code>db</code> object. There are already a <code>runs_t</code> and a <code>reporting_t</code> table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span></span></code></pre></div>
@@ -718,7 +729,7 @@ CLUMPY allocation complete!
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

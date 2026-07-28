@@ -105,6 +105,17 @@ directory, we resume from where we left off.
 db <- evoland_db$new(path = "firstmodel.evolanddb")
 ```
 
+Messages
+
+    duckdb keeps downloaded extensions and secrets in a temporary directory:
+    ℹ /tmp/RtmpqqK0M8/duckdb
+    This is removed when the R session ends.
+    • Extensions are re-downloaded each session.
+    • Secrets are lost.
+    ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
+    ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
+    ℹ See ?duckdb_storage for details and alternatives.
+
 Go ahead and print the `db` object. There are already a `runs_t` and a
 `reporting_t` table, which are bare-bones for now but will be used to
 track our [modelling

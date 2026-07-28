@@ -60,7 +60,7 @@
 </h1>
 
       <p class="author">Jan Hartman</p>
-      <p class="date">2026-07-02</p>
+      <p class="date">2026-07-28</p>
 
       <small class="dont-index">Source: <a href="https://github.com/ethzplus/evoland-plus/blob/main/vignettes/stochastic-allocation-sensitivity.qmd" class="external-link"><code>vignettes/stochastic-allocation-sensitivity.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -132,7 +132,18 @@
 <span>  end_extrapolated <span class="op">=</span> <span class="st">"2030-01-01"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
-</section><section class="level2" data-number="3"><h2 data-number="3" id="synthetic-observed-data">
+<details><summary>
+Messages
+</summary><pre>## duckdb keeps downloaded extensions and secrets in a temporary directory:
+## ℹ /tmp/RtmpUvDbti/duckdb
+## This is removed when the R session ends.
+## • Extensions are re-downloaded each session.
+## • Secrets are lost.
+## ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
+## ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
+## ℹ See ?duckdb_storage for details and alternatives.
+</pre>
+</details></section><section class="level2" data-number="3"><h2 data-number="3" id="synthetic-observed-data">
 <span class="header-section-number">3</span> Synthetic observed data<a class="anchor" aria-label="anchor" href="#synthetic-observed-data"></a>
 </h2>
 <p>As in the introductory vignette, we create a small autoregressive synthetic landscape with three observed raster layers. We then transform the synthetic raster stack into <code>lulc_data_t</code> records and attach <code>id_run = 0L</code>, which is the reserved base run for observed data.</p>
@@ -751,7 +762,7 @@ Successfully computed 3 allocation parameter sets (3 transitions x (0 perturbati
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>
