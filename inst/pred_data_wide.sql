@@ -65,23 +65,34 @@ with
   ),
   -- a predictor may carry both a period-specific value and an id_period = 0
   -- fallback (e.g. a climate baseline overridden by a scenario projection).
-  -- id_period = 0 is a *fallback*, so the period-specific row must win; without
+  -- id_period = 0 is a *fallback*, so the period-specific slice must win; without
   -- this, first() below would pick either row nondeterministically.
-  pred_data_resolved as (
+  --
+  -- Precedence is decided per *slice*, not per coordinate: if a predictor has any
+  -- data at the target period, that whole slice is used and its id_period = 0 rows
+  -- are ignored. This mirrors the data_present / best_run logic in
+  -- get_evoland_db_read_expr() and is the same tradeoff -- falling through per
+  -- id_coord would be harder to reason about and much more expensive. Only two
+  -- periods are in scope here, so max(id_period) is the more specific of them.
+  pred_period_present as (
     select
-      id_coord,
       id_pred,
-      "value"
+      max(id_period) as id_period
     from
       pred_data_long
-    qualify
-      row_number() over (
-        partition by
-          id_coord,
-          id_pred
-        order by
-          id_period desc
-      ) = 1
+    group by
+      id_pred
+  ),
+  pred_data_resolved as (
+    select
+      l.id_coord,
+      l.id_pred,
+      l."value"
+    from
+      pred_data_long l
+    semi join
+      pred_period_present p
+      using (id_pred, id_period)
   )
 pivot pred_data_resolved on 'id_pred_' || id_pred using first("value")
 group by
