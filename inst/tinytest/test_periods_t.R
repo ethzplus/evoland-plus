@@ -8,4 +8,19 @@ expect_silent(
     end_extrapolated = "2060-01-01"
   )
 )
-expect_stdout(print(periods_t), "Date range")
+
+expect_equal(
+  as_periods_t(data.table::rowwiseDT(
+    id_period=,  start_date=,  end_date=,  is_extrapolated=,
+    1,          "1985-01-01", "1994-12-31",           FALSE,
+    2,          "1995-01-01", "2004-12-31",           FALSE,
+    3,          "2005-01-01", "2014-12-31",           FALSE,
+    4,          "2015-01-01", "2024-12-31",           FALSE,
+    0,          "2020-01-01", "2020-01-01",           FALSE,
+    5,          "2025-01-01", "2034-12-31",            TRUE,
+    6,          "2035-01-01", "2044-12-31",            TRUE,
+    7,          "2045-01-01", "2054-12-31",            TRUE,
+    8,          "2055-01-01", "2064-12-31",            TRUE
+  )),
+  periods_t
+)
