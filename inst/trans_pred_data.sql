@@ -62,7 +62,10 @@ with
       id_coord,
       id_period,
       id_pred,
-      value
+      value,
+      -- source period the value was read from; used to prefer period-specific
+      -- data over the id_period = 0 static fallback below
+      d.id_period as src_period
     from
       {pred_data_read_expr} d
       inner join period_select s on d.id_period = s.id_period_anterior
@@ -74,7 +77,8 @@ with
       p0.id_coord,
       periods.id_period,
       p0.id_pred,
-      p0.value
+      p0.value,
+      0 as src_period
     from
       {pred_data_read_expr} as p0
       -- cross join so the same static data is present in every period
@@ -90,8 +94,30 @@ with
       p0.id_period = 0
       and id_pred in ({toString(id_pred)})
   ),
+  -- a predictor may carry both a period-specific value and an id_period = 0
+  -- fallback (e.g. a climate baseline overridden by a scenario projection).
+  -- id_period = 0 is a *fallback*, so the period-specific row must win; without
+  -- this, first() below would pick either row nondeterministically.
+  pred_data_resolved as (
+    select
+      id_coord,
+      id_period,
+      id_pred,
+      value
+    from
+      pred_data_long
+    qualify
+      row_number() over (
+        partition by
+          id_coord,
+          id_period,
+          id_pred
+        order by
+          src_period desc
+      ) = 1
+  ),
   pred_data_wide as (
-    pivot pred_data_long on 'id_pred_' || id_pred using first(value)
+    pivot pred_data_resolved on 'id_pred_' || id_pred using first(value)
     group by
       id_coord,
       id_period
