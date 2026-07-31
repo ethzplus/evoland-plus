@@ -84,7 +84,7 @@ db$periods_t <- create_periods_t(
 Messages
 
     ## duckdb keeps downloaded extensions and secrets in a temporary directory:
-    ## ℹ /tmp/RtmpUvDbti/duckdb
+    ## ℹ /tmp/RtmpS7km4o/duckdb
     ## This is removed when the R session ends.
     ## • Extensions are re-downloaded each session.
     ## • Secrets are lost.

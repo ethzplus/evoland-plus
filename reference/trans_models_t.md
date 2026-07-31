@@ -166,9 +166,11 @@ A data.table of class "trans_models_t" with columns:
 
   - **Direct-learner mode** (`learner` provided, `select_score`
     omitted): a fresh clone of `learner` is trained on the full data for
-    each transition. `crossval_score` and `crossval_predictions` will be
-    `NULL` in the result. Does not require a prior call to
-    `fit_partial_models()`.
+    each transition. `crossval_predictions` will be `NULL` in the
+    result, and `crossval_score` holds the sentinel `no.crossval = 1` so
+    that the model stays selectable by
+    [`predict_trans_pot()`](https://ethzplus.github.io/evoland-plus/reference/trans_pot_t.md).
+    Does not require a prior call to `fit_partial_models()`.
 
   - **Score-select mode** (`select_score` provided, `learner` omitted):
     selects the best partial model per transition by `select_score`,

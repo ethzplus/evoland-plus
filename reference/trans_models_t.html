@@ -188,9 +188,10 @@ containing the learner identity, serialized spec, cross-validation scores
 <li><p><code>fit_full_models()</code>: Fit full models (trained on the complete dataset) for each
 viable transition and return a trans_models_t object with <code>learner_full</code> populated.
 Two mutually exclusive modes are supported:</p><ul><li><p><strong>Direct-learner mode</strong> (<code>learner</code> provided, <code>select_score</code> omitted): a fresh clone of
-<code>learner</code> is trained on the full data for each transition. <code>crossval_score</code> and
-<code>crossval_predictions</code> will be <code>NULL</code> in the result. Does not require a prior
-call to <code>fit_partial_models()</code>.</p></li>
+<code>learner</code> is trained on the full data for each transition. <code>crossval_predictions</code>
+will be <code>NULL</code> in the result, and <code>crossval_score</code> holds the sentinel
+<code>no.crossval = 1</code> so that the model stays selectable by <code><a href="trans_pot_t.html">predict_trans_pot()</a></code>.
+Does not require a prior call to <code>fit_partial_models()</code>.</p></li>
 <li><p><strong>Score-select mode</strong> (<code>select_score</code> provided, <code>learner</code> omitted): selects the best
 partial model per transition by <code>select_score</code>, reconstructs its learner from
 <code>learner_spec</code>, and retrains on the full data. Requires <code>fit_partial_models()</code> to

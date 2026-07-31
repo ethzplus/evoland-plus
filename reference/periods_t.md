@@ -1,9 +1,11 @@
 # Create Period Table
 
-Creates a period table, i.e. a description of discrete periods during
-which land use can transition. This is necessary because a) land use
-data may not be available as regular time series and need to be assigned
-to such a form, and b) because this normalization helps consistency.
+Creates a `periods_t` table, i.e. a description of discrete, regular
+periods during which land use can transition. This is a precondition for
+pattern based land use change models. Periods outside the observed range
+are designated `is_extrapolated`. The special period with ID 0 is used
+for static phenomena, coded as instantaneous at the end of the observed
+period.
 
 ## Usage
 
@@ -14,7 +16,7 @@ create_periods_t(
   period_length_str = "P10Y",
   start_observed = "1985-01-01",
   end_observed = "2020-01-01",
-  end_extrapolated = "2060-01-01"
+  end_extrapolated = "2059-12-31"
 )
 
 # S3 method for class 'periods_t'
@@ -38,11 +40,13 @@ print(x, nrow = 10, ...)
 
 - end_observed:
 
-  End date of the observed data (YYYY-MM-DD)
+  End date of the observed data (YYYY-MM-DD); periods that start after
+  `end_observed` are marked `is_extrapolated`.
 
 - end_extrapolated:
 
-  End date for extrapolation time range (YYYY-MM-DD)
+  End date for extrapolation time range (YYYY-MM-DD); only full periods
+  *before* this date are taken into account.
 
 - nrow:
 
@@ -74,7 +78,4 @@ A data.table of class "periods_t" with columns:
 
 ## Functions
 
-- `create_periods_t()`: Creates a periods_t table from specifications;
-  periods that start after `end_observed` are marked as extrapolated.
-  The special period with ID 0 is used for static phenomena that are
-  presumed to be instantaneous at the end of the observed period.
+- `create_periods_t()`: Creates a `periods_t` table from specifications.

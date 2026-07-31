@@ -108,7 +108,7 @@ db <- evoland_db$new(path = "firstmodel.evolanddb")
 Messages
 
     duckdb keeps downloaded extensions and secrets in a temporary directory:
-    ℹ /tmp/RtmpqqK0M8/duckdb
+    ℹ /tmp/RtmpwJk7bb/duckdb
     This is removed when the R session ends.
     • Extensions are re-downloaded each session.
     • Secrets are lost.
