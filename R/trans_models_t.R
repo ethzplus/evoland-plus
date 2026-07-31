@@ -339,7 +339,8 @@ fit_partial_models <- function(
       .(id_trans, id_lulc_anterior, id_lulc_posterior)
     ][
       trans_preds_nested,
-      on = "id_trans"
+      on = "id_trans",
+      nomatch = NULL
     ]
 
   coerce_learner_for_classif(learner)
@@ -378,9 +379,10 @@ fit_partial_models <- function(
 #' viable transition and return a [trans_models_t] object with `learner_full` populated.
 #' Two mutually exclusive modes are supported:
 #' - **Direct-learner mode** (`learner` provided, `select_score` omitted): a fresh clone of
-#'   `learner` is trained on the full data for each transition. `crossval_score` and
-#'   `crossval_predictions` will be `NULL` in the result. Does not require a prior
-#'   call to [fit_partial_models()].
+#'   `learner` is trained on the full data for each transition. `crossval_predictions`
+#'   will be `NULL` in the result, and `crossval_score` holds the sentinel
+#'   `no.crossval = 1` so that the model stays selectable by [predict_trans_pot()].
+#'   Does not require a prior call to [fit_partial_models()].
 #' - **Score-select mode** (`select_score` provided, `learner` omitted): selects the best
 #'   partial model per transition by `select_score`, reconstructs its learner from
 #'   `learner_spec`, and retrains on the full data. Requires [fit_partial_models()] to
@@ -446,7 +448,8 @@ fit_full_models <- function(
         .(id_trans)
       ][
         trans_preds_nested,
-        on = "id_trans"
+        on = "id_trans",
+        nomatch = NULL
       ]
 
     message(glue::glue(
