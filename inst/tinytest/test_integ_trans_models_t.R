@@ -288,8 +288,9 @@ expect_message(
   db$trans_models_t <- full_models_direct <- db$fit_full_models(learner = test_learner),
   "Fitting full models for"
 )
-# direct mode: crossval_score and crossval_predictions should be length 0
-expect_true(all(vapply(full_models_direct$crossval_score, length, integer(1)) == 0L))
+# direct mode: crossval_predictions is empty, crossval_score carries the no.crossval
+# sentinel so predict_trans_pot() can still select the model
+expect_true(all(vapply(full_models_direct$crossval_score, names, character(1)) == "no.crossval"))
 expect_true(all(vapply(full_models_direct$crossval_predictions, length, integer(1)) == 0L))
 # learner_full should be populated
 expect_true(all(vapply(full_models_direct$learner_full, is.raw, logical(1))))
@@ -300,8 +301,9 @@ expect_message(
   db$trans_models_t <- full_models_direct <- db$fit_full_models(learner = test_learner),
   "Fitting full models for"
 )
-# direct mode: crossval_score and crossval_predictions should be length 0
-expect_true(all(vapply(full_models_direct$crossval_score, length, integer(1)) == 0L))
+# direct mode: crossval_predictions is empty, crossval_score carries the no.crossval
+# sentinel so predict_trans_pot() can still select the model
+expect_true(all(vapply(full_models_direct$crossval_score, names, character(1)) == "no.crossval"))
 expect_true(all(vapply(full_models_direct$crossval_predictions, length, integer(1)) == 0L))
 # learner_full should be populated
 expect_true(all(vapply(full_models_direct$learner_full, is.raw, logical(1))))

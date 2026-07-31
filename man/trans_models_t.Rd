@@ -122,9 +122,10 @@ viable transition and return a \link{trans_models_t} object with \code{learner_f
 Two mutually exclusive modes are supported:
 \itemize{
 \item \strong{Direct-learner mode} (\code{learner} provided, \code{select_score} omitted): a fresh clone of
-\code{learner} is trained on the full data for each transition. \code{crossval_score} and
-\code{crossval_predictions} will be \code{NULL} in the result. Does not require a prior
-call to \code{\link[=fit_partial_models]{fit_partial_models()}}.
+\code{learner} is trained on the full data for each transition. \code{crossval_predictions}
+will be \code{NULL} in the result, and \code{crossval_score} holds the sentinel
+\code{no.crossval = 1} so that the model stays selectable by \code{\link[=predict_trans_pot]{predict_trans_pot()}}.
+Does not require a prior call to \code{\link[=fit_partial_models]{fit_partial_models()}}.
 \item \strong{Score-select mode} (\code{select_score} provided, \code{learner} omitted): selects the best
 partial model per transition by \code{select_score}, reconstructs its learner from
 \code{learner_spec}, and retrains on the full data. Requires \code{\link[=fit_partial_models]{fit_partial_models()}} to
