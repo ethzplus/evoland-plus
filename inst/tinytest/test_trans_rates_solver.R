@@ -1,5 +1,4 @@
 library(tinytest)
-library(data.table)
 
 # Rates compound multiplicatively, so rescaling to a shorter interval is not a division.
 expect_equal(evoland:::rescale_trans_rate(0.1, 10, 10), 0.1)
@@ -7,7 +6,7 @@ expect_equal(evoland:::rescale_trans_rate(1 - 0.9^2, 10, 5), 0.1)
 expect_equal(evoland:::rescale_trans_rate(0.81, 10, 5, is_persistence = TRUE), 0.9)
 
 periods <-
-  rowwiseDT(
+  data.table::rowwiseDT(
     id_period=,  start_date=,  end_date=,   is_extrapolated=, # nolint
     0,          "2020-01-01", "2020-01-01", FALSE,
     1,          "1990-01-01", "1999-12-31", FALSE,
@@ -25,7 +24,7 @@ expect_true(is.na(intervals[["interval_years"]][1]))
 expect_equal(round(intervals[["interval_years"]][-1]), rep(10, 4))
 
 trans_meta <-
-  data.table(
+  data.table::data.table(
     id_trans = 1:4,
     id_lulc_anterior = c(1L, 2L, 2L, 3L),
     id_lulc_posterior = c(2L, 1L, 3L, 1L),
@@ -37,7 +36,7 @@ trans_meta <-
   as_trans_meta_t()
 
 obs_rates <-
-  rowwiseDT(
+  data.table::rowwiseDT(
     id_run=, id_period=, id_trans=, count=,      rate=, # nolint
     0,       2,          1,         NA_integer_, 0.05,
     0,       2,          2,         NA_integer_, 0.02,
@@ -61,14 +60,14 @@ expect_false(bounds[id_trans == 4, is_viable])
 expect_equal(bounds[id_lulc_anterior == 3 & id_lulc_posterior == 3, min_rate], 1)
 
 # Reachability against a hand-computable case: only 1 -> 2 may move, at most 10% per step.
-simple_bounds <- data.table(
+simple_bounds <- data.table::data.table(
   id_lulc_anterior = c(1L, 1L, 2L, 2L),
   id_lulc_posterior = c(1L, 2L, 1L, 2L),
   min_rate = 0,
   max_rate = c(1, 0.1, 0, 1),
   is_viable = TRUE
 )
-init_area <- data.table(id_lulc = 1:2, area = c(5000, 2000))
+init_area <- data.table::data.table(id_lulc = 1:2, area = c(5000, 2000))
 
 reach_1 <- trans_rate_reachability(init_area, simple_bounds, n_steps = 1L)
 expect_equal(reach_1[["area_max"]], c(5000, 2500))
@@ -78,9 +77,9 @@ reach_2 <- trans_rate_reachability(init_area, simple_bounds, n_steps = 2L)
 expect_equal(round(reach_2[["area_max"]], 6), c(5000, 2950))
 
 # A three-class scenario the observed bounds can accommodate.
-init_area <- data.table(id_lulc = 1:3, area = c(5000, 3000, 2000))
-targets <- data.table(id_lulc = 1:3, area = c(4600, 3200, 2200))
-shapes <- data.table(id_lulc = 1:3, shape = c("Instant decline", "Delayed growth", NA))
+init_area <- data.table::data.table(id_lulc = 1:3, area = c(5000, 3000, 2000))
+targets <- data.table::data.table(id_lulc = 1:3, area = c(4600, 3200, 2200))
+shapes <- data.table::data.table(id_lulc = 1:3, shape = c("Instant decline", "Delayed growth", NA))
 
 solution <- solve_trans_rates(init_area, targets, shapes, bounds, periods = periods)
 
@@ -101,12 +100,18 @@ expect_true(solution[["areas"]][order(step), all(diff(area) >= -1e-6), by = id_l
 ])
 # rates are the LP's own flow over its own predicted source area
 expect_true(all(solution[["rates"]][["rate"]] >= 0))
-expect_true(solution[["rates"]][, all(sum(rate) <= 1 + 1e-9), by = .(id_lulc_anterior, step)][[
-  "V1"
-]] |> all())
+expect_true(
+  solution[["rates"]][,
+    all(sum(rate) <= 1 + 1e-9),
+    by = .(id_lulc_anterior, step)
+  ][[
+    "V1"
+  ]] |>
+    all()
+)
 
 # Targets stated as a share of the landscape are grid independent, and rehydrate exactly.
-share_targets <- data.table(id_lulc = 1:3, share = c(0.46, 0.32, 0.22))
+share_targets <- data.table::data.table(id_lulc = 1:3, share = c(0.46, 0.32, 0.22))
 share_solution <- solve_trans_rates(init_area, share_targets, shapes, bounds, periods = periods)
 expect_equal(
   round(share_solution[["diagnostics"]][["target_error"]][["area_final"]], 6),
@@ -115,7 +120,7 @@ expect_equal(
 
 # Elicited targets are normative and routinely lie outside the observed envelope, so the
 # precheck reports rather than gates: the target is still met, by paying rate-bound slack.
-stretch <- data.table(id_lulc = 1:3, area = c(1000, 7000, 2000))
+stretch <- data.table::data.table(id_lulc = 1:3, area = c(1000, 7000, 2000))
 stretched <- solve_trans_rates(init_area, stretch, NULL, bounds, periods = periods)
 expect_true(stretched[["diagnostics"]][["reachability"]][id_lulc == 1, ratio] > 2)
 expect_true(stretched[["diagnostics"]][["flow_summary"]][["flow_above_max_rate"]] > 0)
@@ -146,7 +151,7 @@ expect_silent(validate(rates_t))
 # areas cannot be compared against the ones the solver promised.
 replayed <- trans_rate_areas(init_area, rates_t[id_run == 11L], trans_meta)
 lp_areas <- solution[["areas"]][,
-  .(id_lulc, id_period = fifelse(is.na(id_period), 3L, id_period), lp = area)
+  .(id_lulc, id_period = data.table::fifelse(is.na(id_period), 3L, id_period), lp = area)
 ]
 comparison <- merge(
   replayed[, .(id_lulc, id_period, replayed = area)],
