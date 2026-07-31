@@ -1,18 +1,23 @@
-^renv$
-^renv\.lock$
-^LICENSE\.md$
+# CI/CD
 ^\.github$
-^doc$
-^Meta$
+
+# dependency manangement
+^rv$
+^renv$
+^.devcontainer$
+
+# general supporting infra
+^data-raw$
+^.+\.lock$
+^.+\.yml$
+^.+\.toml$
+^.+\.json$
+^.+\.md$
 .lintr
-air.toml
-^_pkgdown\.yml$
+.clangd
+
+# build infra
+^Meta$
+^doc$
 ^docs$
 ^pkgdown$
-^.devcontainer$
-^rv$
-^rv.lock$
-^rproject.toml$
-^data-raw$
-.clangd
-.sql-formatter.json
