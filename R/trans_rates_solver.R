@@ -117,8 +117,7 @@ trans_rate_bounds <- function(
     inherits(obs_rates, "trans_rates_t"),
     inherits(periods, "periods_t"),
     inherits(trans_meta, "trans_meta_t"),
-    "obs_rates must contain exactly one id_run" =
-      length(unique(obs_rates[["id_run"]])) == 1L,
+    "obs_rates must contain exactly one id_run" = length(unique(obs_rates[["id_run"]])) == 1L,
     "obs_rates is empty" = nrow(obs_rates) > 0L
   )
 
@@ -128,19 +127,22 @@ trans_rate_bounds <- function(
     future_ids <- periods[is_extrapolated == TRUE][["id_period"]]
     future_years <- intervals[id_period %in% future_ids][["interval_years"]]
     stopifnot(
-      "cannot infer step_years: `periods` has no extrapolated periods" =
-        length(future_years) >= 1L,
-      "cannot infer step_years: the first extrapolated period has no predecessor" =
-        !anyNA(future_years),
+      "cannot infer step_years: `periods` has no extrapolated periods" = length(future_years) >= 1L,
+      "cannot infer step_years: the first extrapolated period has no predecessor" = !anyNA(
+        future_years
+      ),
       # leap years make nominally equal steps differ by a fraction of a percent
-      "cannot infer step_years: extrapolated periods differ in length, pass step_years" =
-        diff(range(future_years)) <= 0.05 * mean(future_years)
+      "cannot infer step_years: extrapolated periods differ in length, pass step_years" = diff(range(
+        future_years
+      )) <=
+        0.05 * mean(future_years)
     )
     step_years <- mean(future_years)
   }
   stopifnot(
-    "step_years must be a single positive number" =
-      length(step_years) == 1L && is.finite(step_years) && step_years > 0
+    "step_years must be a single positive number" = length(step_years) == 1L &&
+      is.finite(step_years) &&
+      step_years > 0
   )
 
   obs_periods <- sort(unique(obs_rates[["id_period"]]))
@@ -173,8 +175,7 @@ trans_rate_bounds <- function(
       by = .(id_lulc_anterior, id_period, interval_years)
     ]
     stopifnot(
-      "outflow rates sum above 1 for some class and period" =
-        all(persistence[["rate"]] > -1e-9)
+      "outflow rates sum above 1 for some class and period" = all(persistence[["rate"]] > -1e-9)
     )
     persistence[, rate := pmax(rate, 0)]
     persistence[, id_lulc_posterior := id_lulc_anterior]
@@ -260,8 +261,7 @@ add_lp_row <- function(problem, cols, vals, dir, rhs) {
 
   stopifnot(
     "a constraint row has no non-zero coefficient" = length(cols) > 0L,
-    "a constraint row references an unknown variable" =
-      all(cols >= 1L & cols <= problem[["n_var"]])
+    "a constraint row references an unknown variable" = all(cols >= 1L & cols <= problem[["n_var"]])
   )
 
   n_row <- length(problem[["cols"]]) + 1L
@@ -310,8 +310,7 @@ solve_lp_problem <- function(problem, objective, direction = "min") {
 as_lulc_area_vector <- function(x, ids, total, what) {
   stopifnot(
     "table must have an id_lulc column" = "id_lulc" %in% names(x),
-    "table needs either an area or a share column" =
-      any(c("area", "share") %in% names(x)),
+    "table needs either an area or a share column" = any(c("area", "share") %in% names(x)),
     "id_lulc values must be unique" = !anyDuplicated(x[["id_lulc"]]),
     "id_lulc values must match those of init_area" = setequal(x[["id_lulc"]], ids)
   )
@@ -351,8 +350,7 @@ as_lulc_area_vector <- function(x, ids, total, what) {
 #' @export
 trans_rate_reachability <- function(init_area, bounds, n_steps, monotone_sign = NULL) {
   stopifnot(
-    "n_steps must be a single positive integer" =
-      length(n_steps) == 1L && n_steps >= 1L,
+    "n_steps must be a single positive integer" = length(n_steps) == 1L && n_steps >= 1L,
     "bounds needs a max_rate column" = "max_rate" %in% names(bounds)
   )
 
@@ -405,7 +403,9 @@ trans_rate_reachability <- function(init_area, bounds, n_steps, monotone_sign = 
     }
     for (i in seq_len(n_lulc)) {
       for (j in seq_len(n_lulc)) {
-        if (i == j) next
+        if (i == j) {
+          next
+        }
         add_lp_row(
           problem,
           c(idx_x(i, j, t), idx_area(i, t)),
@@ -423,7 +423,9 @@ trans_rate_reachability <- function(init_area, bounds, n_steps, monotone_sign = 
     }
     stopifnot("monotone_sign must have one entry per class" = length(signs) == n_lulc)
     for (l in seq_len(n_lulc)) {
-      if (is.na(signs[l]) || signs[l] == 0) next
+      if (is.na(signs[l]) || signs[l] == 0) {
+        next
+      }
       for (t in seq_len(n_step)) {
         add_lp_row(
           problem,
@@ -441,8 +443,7 @@ trans_rate_reachability <- function(init_area, bounds, n_steps, monotone_sign = 
     objective[idx_area(l, n_step)] <- 1
     solution <- solve_lp_problem(problem, objective, direction)
     stopifnot(
-      "the reachability LP is infeasible; check bounds and init_area" =
-        solution[["status"]] == 0L
+      "the reachability LP is infeasible; check bounds and init_area" = solution[["status"]] == 0L
     )
     solution[["objval"]] * total
   }
@@ -605,8 +606,9 @@ solve_trans_rates <- function(
   stopifnot(
     "pass either periods or n_steps" = !is.null(periods) || !is.null(n_steps),
     "pass only one of periods and n_steps" = is.null(periods) || is.null(n_steps),
-    "bounds needs min_rate, max_rate and is_viable columns" =
-      all(c("min_rate", "max_rate", "is_viable") %in% names(bounds))
+    "bounds needs min_rate, max_rate and is_viable columns" = all(
+      c("min_rate", "max_rate", "is_viable") %in% names(bounds)
+    )
   )
 
   id_periods <- NULL
@@ -619,8 +621,7 @@ solve_trans_rates <- function(
     step_years <- intervals[match(id_periods, id_period)][["interval_years"]]
     stopifnot(
       "periods contains no extrapolated periods" = length(id_periods) >= 1L,
-      "an extrapolated period has no predecessor to measure its length against" =
-        !anyNA(step_years)
+      "an extrapolated period has no predecessor to measure its length against" = !anyNA(step_years)
     )
     n_steps <- length(id_periods)
   }
@@ -638,8 +639,10 @@ solve_trans_rates <- function(
   target <- as_lulc_area_vector(targets, ids, total, "targets")
 
   stopifnot(
-    "targets must sum to the total area of init_area; state them as shares to rehydrate" =
-      abs(sum(target) - total) <= 1e-6 * total
+    "targets must sum to the total area of init_area; state them as shares to rehydrate" = abs(
+      sum(target) - total
+    ) <=
+      1e-6 * total
   )
 
   shape <- canonical_shapes(shapes, ids)
@@ -681,7 +684,13 @@ solve_trans_rates <- function(
   use_smooth <- mu_smooth > 0 && n_step >= 2L
   use_target <- mu_target > 0
   use_historic <- mu_historic > 0 && !is.null(ref_rate)
-  fair_weight <- if (isTRUE(fairness)) lambda_bounds else if (is.numeric(fairness)) fairness else 0
+  fair_weight <- if (isTRUE(fairness)) {
+    lambda_bounds
+  } else if (is.numeric(fairness)) {
+    fairness
+  } else {
+    0
+  }
   use_fairness <- fair_weight > 0
 
   n_x <- n_lulc * n_lulc * n_step
@@ -746,7 +755,9 @@ solve_trans_rates <- function(
   # each zero, so one row per edge suffices
   for (i in seq_len(n_lulc)) {
     for (j in seq_len(n_lulc)) {
-      if (!forbidden[i, j]) next
+      if (!forbidden[i, j]) {
+        next
+      }
       add_lp_row(
         problem,
         idx_x(i, j, seq.int(0L, n_step - 1L)),
@@ -760,7 +771,9 @@ solve_trans_rates <- function(
   for (t in seq.int(0L, n_step - 1L)) {
     for (i in seq_len(n_lulc)) {
       for (j in seq_len(n_lulc)) {
-        if (forbidden[i, j]) next
+        if (forbidden[i, j]) {
+          next
+        }
 
         upper <- max_rate[i, j] + margin
         if (upper < 1) {
@@ -824,7 +837,9 @@ solve_trans_rates <- function(
 
   if (isTRUE(monotone)) {
     for (l in seq_len(n_lulc)) {
-      if (monotone_sign[l] == 0) next
+      if (monotone_sign[l] == 0) {
+        next
+      }
       for (t in seq_len(n_step)) {
         add_lp_row(
           problem,
@@ -849,7 +864,9 @@ solve_trans_rates <- function(
 
   if (use_shape) {
     for (l in seq_len(n_lulc)) {
-      if (is.na(shape[l])) next
+      if (is.na(shape[l])) {
+        next
+      }
       growing <- target_share[l] > init_share[l]
       declining <- target_share[l] < init_share[l]
       # a shape elicited against the opposite direction of change says nothing
@@ -861,7 +878,9 @@ solve_trans_rates <- function(
         "delayed decline" = declining,
         "constant change" = TRUE
       )
-      if (!applies) next
+      if (!applies) {
+        next
+      }
 
       strict <- shape_strictness * abs(target_share[l] - init_share[l]) / n_step
       for (t in seq_len(n_step - 1L)) {
@@ -1059,8 +1078,11 @@ trans_rates_from_solution <- function(solution, id_run, tolerance = 1) {
 
   stopifnot(
     "solution rates lack id_period; solve with a periods_t" = !anyNA(rates[["id_period"]]),
-    "flow was allocated to non-viable transitions; solve with forbid_non_viable = TRUE" =
-      rates[is_viable == FALSE, sum(count)] <= tolerance
+    "flow was allocated to non-viable transitions; solve with forbid_non_viable = TRUE" = rates[
+      is_viable == FALSE,
+      sum(count)
+    ] <=
+      tolerance
   )
 
   viable <- rates[is_viable == TRUE & !is.na(id_trans)]
@@ -1092,8 +1114,8 @@ trans_rates_from_solution <- function(solution, id_run, tolerance = 1) {
 trans_rate_areas <- function(init_area, rates, trans_meta) {
   stopifnot(
     inherits(trans_meta, "trans_meta_t"),
-    "rates must contain exactly one id_run" =
-      !("id_run" %in% names(rates)) || length(unique(rates[["id_run"]])) == 1L
+    "rates must contain exactly one id_run" = !("id_run" %in% names(rates)) ||
+      length(unique(rates[["id_run"]])) == 1L
   )
 
   ids <- sort(unique(init_area[["id_lulc"]]))
