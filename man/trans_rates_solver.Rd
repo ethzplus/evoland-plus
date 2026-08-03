@@ -163,7 +163,8 @@ row (outflow) and column (inflow) closure, total-area conservation, softly penal
 per-transition rate bounds derived from observed history, an optional hard monotonic
 direction per class, and optional soft trajectory-shape and smoothness terms. The
 objective is a weighted sum of slack penalties, normalised per class so that small
-classes are not ignored.
+classes are not ignored. The program itself is assembled block by block in
+\link{trans_rate_lp}, and the inputs are prepared by \link{trans_rate_inputs}.
 }
 \section{Functions}{
 \itemize{
@@ -178,7 +179,9 @@ upward.
 class can attain at the horizon under mass balance and \emph{hard} historic maximum rates,
 ignoring targets. Persistence is left free and minimum rates are not imposed, which
 makes this the loosest honest question -- "can this class get there at all, given that
-no edge has ever moved faster than it historically did?".
+no edge has ever moved faster than it historically did?". It is the same program
+\code{\link[=solve_trans_rates]{solve_trans_rates()}} builds, with the penalty blocks switched off and the bounds made
+hard; see \link{trans_rate_lp}.
 
 \item \code{solve_trans_rates()}: Solve for the per-transition flows that take the
 landscape from \code{init_area} to \code{targets} over the extrapolated periods. Rate bounds are

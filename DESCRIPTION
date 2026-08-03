@@ -68,6 +68,7 @@ Collate:
     'trans_meta_t.R'
     'trans_pot_t.R'
     'trans_preds_t.R'
+    'trans_rates_lp.R'
     'trans_rates_solver.R'
     'trans_rates_t.R'
     'util.R'
