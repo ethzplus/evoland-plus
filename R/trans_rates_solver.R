@@ -648,18 +648,18 @@ solve_trans_rates <- function(
   shape <- canonical_shapes(shapes, ids)
   monotone_sign <- sign(target - init)
 
-  reachability <- trans_rate_reachability(init_area, bounds, n_step)
-  reachability <- reachability_verdict(reachability, target)
+  reachability <-
+    trans_rate_reachability(init_area, bounds, n_step) |>
+    reachability_verdict(target)
+
   over_threshold <- reachability[ratio > max_reachability_ratio]
   if (nrow(over_threshold) > 0L) {
-    stop(sprintf(
-      paste0(
-        "targets for id_lulc %s ask for %s times the historically achievable change, ",
-        "above max_reachability_ratio = %s; see trans_rate_reachability()"
-      ),
-      paste(over_threshold[["id_lulc"]], collapse = ", "),
-      paste(round(over_threshold[["ratio"]], 2L), collapse = ", "),
-      max_reachability_ratio
+    stop(glue::glue(
+      "Targets for id_lulc {toString(over_threshold[['id_lulc']])} ",
+      "ask for {toString(round(over_threshold[['ratio']], 2L))}",
+      "times the historically achievable change. ",
+      "This is above the current max_reachability_ratio = {max_reachability_ratio};",
+      "see trans_rate_reachability()"
     ))
   }
 
