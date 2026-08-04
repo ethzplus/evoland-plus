@@ -167,6 +167,12 @@ trans_rate_bounds <- function(
 #' `area_min` and `area_max`, in cells.
 #' @export
 trans_rate_reachability <- function(init_area, bounds, n_steps, monotone_sign = NULL) {
+  # FIXME here too, the init_area should be derived from lulc_data_t, of which
+  # we take the last period
+  # FIXME n_steps should be replaced by periods, reachability should be
+  # calculated for each (id_lulc, id_period)
+  # FIXME monotone_sign should be dropped, we simply want the maximum attainable
+  # areas
   stopifnot(
     "n_steps must be a single positive integer" = length(n_steps) == 1L && n_steps >= 1L,
     "bounds needs a max_rate column" = "max_rate" %in% names(bounds)
@@ -296,7 +302,7 @@ solve_trans_rates <- function(
   shapes,
   bounds,
   periods = NULL,
-  n_steps = NULL,
+  n_steps = NULL, # FIXME drop this branch, will always use periods_t
   lambda_bounds = 0.1,
   mu_shape = 15,
   mu_smooth = 1,
@@ -346,9 +352,9 @@ solve_trans_rates <- function(
   )
 
   solution <- solve_lp_problem(
-    trans_rate_lp_problem(model),
-    trans_rate_lp_objective(model),
-    "min"
+    problem = trans_rate_lp_problem(model),
+    objective = trans_rate_lp_objective(model),
+    direction = "min"
   )
   if (solution[["status"]] != 0L) {
     stop(glue::glue(
@@ -386,6 +392,9 @@ solve_trans_rates <- function(
 #' @return `trans_rates_from_solution()` returns a [trans_rates_t] table.
 #' @export
 trans_rates_from_solution <- function(solution, id_run, tolerance = 1) {
+  # TODO this getter is overkill; provide future R6 lp_problem class with
+  # simple active binding for retrieving table with current id_run set -
+  # tolerance should have been addressed in LP problem
   rates <- data.table::as.data.table(solution[["rates"]])
 
   stopifnot(
@@ -410,65 +419,6 @@ trans_rates_from_solution <- function(solution, id_run, tolerance = 1) {
     }) |>
     data.table::rbindlist() |>
     as_trans_rates_t()
-}
-
-#' @describeIn trans_rates_solver Replay a rate table forward from an initial state to
-#' recover the class-area trajectory it implies. Transitions not present in `rates` are
-#' taken to be zero, so the residual `1 - sum(rate)` of each class persists. This is what
-#' makes a solved trajectory recoverable from [trans_rates_t] alone, and therefore
-#' comparable against the areas an allocation run actually realised.
-#'
-#' @param rates A [trans_rates_t] table for a single `id_run`.
-#' @return `trans_rate_areas()` returns a data.table with `id_lulc`, `id_period` and
-#' `area`; `id_period` is the period whose *state* the area describes, so the initial state
-#' carries the period preceding the first one in `rates`.
-#' @export
-trans_rate_areas <- function(init_area, rates, trans_meta) {
-  stopifnot(
-    inherits(trans_meta, "trans_meta_t"),
-    "rates must contain exactly one id_run" = !("id_run" %in% names(rates)) ||
-      length(unique(rates[["id_run"]])) == 1L
-  )
-
-  ids <- sort(unique(init_area[["id_lulc"]]))
-  area <- as_lulc_area_vector(init_area, ids, NA_real_, "init_area")
-
-  edges <- merge(
-    data.table::as.data.table(rates)[, .(id_trans, id_period, rate)],
-    data.table::as.data.table(trans_meta)[, .(id_trans, id_lulc_anterior, id_lulc_posterior)],
-    by = "id_trans"
-  )
-  step_periods <- sort(unique(edges[["id_period"]]))
-
-  trajectory <- vector("list", length(step_periods) + 1L)
-  trajectory[[1L]] <- data.table::data.table(
-    id_lulc = ids,
-    id_period = min(step_periods) - 1L,
-    area = area
-  )
-
-  for (i in seq_along(step_periods)) {
-    step_rate <- lulc_pair_matrix(
-      edges[id_period == step_periods[i]],
-      ids,
-      "rate",
-      default = 0,
-      diag_default = 0
-    )
-    outflow_rate <- rowSums(step_rate)
-    stopifnot(
-      "outflow rates sum above 1 for some class and period" = all(outflow_rate <= 1 + 1e-9)
-    )
-    diag(step_rate) <- 1 - outflow_rate
-    area <- as.numeric(crossprod(step_rate, area))
-    trajectory[[i + 1L]] <- data.table::data.table(
-      id_lulc = ids,
-      id_period = step_periods[i],
-      area = area
-    )
-  }
-
-  data.table::rbindlist(trajectory)
 }
 
 #' Preparing the inputs of the transition rate solver
@@ -511,6 +461,7 @@ rescale_trans_rate <- function(rate, from_years, to_years, is_persistence = FALS
 #' `interval_years`, the latter `NA` for the first period.
 #' @keywords internal
 period_interval_years <- function(periods) {
+  # FIXME drop this; can be derived easily from periods_t
   stopifnot(inherits(periods, "periods_t"))
 
   anchors <- data.table::as.data.table(periods)[id_period > 0L]
@@ -538,6 +489,9 @@ period_interval_years <- function(periods) {
 #' `id_periods` (`NULL` when no [periods_t] was given).
 #' @keywords internal
 trans_rate_time_grid <- function(periods = NULL, n_steps = NULL) {
+  # FIXME drop this function!  the full logic of this function is
+  # periods[is_extrapolated == TRUE, .(id_period, period_length_d/365.25)]
+  # this is because n_steps is dropped
   stopifnot(
     "pass either periods or n_steps" = !is.null(periods) || !is.null(n_steps),
     "pass only one of periods and n_steps" = is.null(periods) || is.null(n_steps)
@@ -569,6 +523,8 @@ trans_rate_time_grid <- function(periods = NULL, n_steps = NULL) {
 #' `init_share`, `target_share`, `shape` and `monotone_sign`.
 #' @keywords internal
 trans_rate_scenario <- function(init_area, targets, shapes) {
+  # FIXME better legible using data.table syntax on lulc_data_t for last
+  # observed period (init_area), joint to targets and shapes
   ids <- sort(unique(init_area[["id_lulc"]]))
   init <- as_lulc_area_vector(init_area, ids, NA_real_, "init_area")
   total <- sum(init)
@@ -675,6 +631,7 @@ lulc_viable_matrix <- function(bounds, ids) {
 #' @return `canonical_shapes()` returns canonical shape labels, `NA` where unset.
 #' @keywords internal
 canonical_shapes <- function(shapes, ids) {
+  # FIXME why do we pass ids separately? they are already in shapes
   known <- c(
     "instant growth",
     "delayed growth",
@@ -767,9 +724,9 @@ assert_reachable_targets <- function(reachability, max_ratio) {
 
   stop(glue::glue(
     "Targets for id_lulc {toString(over_threshold[['id_lulc']])} ",
-    "ask for {toString(round(over_threshold[['ratio']], 2L))}",
+    "ask for {toString(round(over_threshold[['ratio']], 2L))} ",
     "times the historically achievable change. ",
-    "This is above the current max_reachability_ratio = {max_ratio};",
+    "This is above the current max_reachability_ratio = {max_ratio}; ",
     "see trans_rate_reachability()"
   ))
 }

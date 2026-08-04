@@ -6,16 +6,9 @@
 \alias{trans_rate_reachability}
 \alias{solve_trans_rates}
 \alias{trans_rates_from_solution}
-\alias{trans_rate_areas}
 \title{Demand-driven transition rate solver}
 \usage{
-trans_rate_bounds(
-  obs_rates,
-  periods,
-  trans_meta,
-  include_persistence = TRUE,
-  step_years = NULL
-)
+trans_rate_bounds(obs_rates, periods, trans_meta, include_persistence = TRUE)
 
 trans_rate_reachability(init_area, bounds, n_steps, monotone_sign = NULL)
 
@@ -41,8 +34,6 @@ solve_trans_rates(
 )
 
 trans_rates_from_solution(solution, id_run, tolerance = 1)
-
-trans_rate_areas(init_area, rates, trans_meta)
 }
 \arguments{
 \item{obs_rates}{A \link{trans_rates_t} table of observed rates for a single \code{id_run}, as
@@ -55,9 +46,6 @@ returned by \code{evoland_db$get_obs_trans_rates()}.}
 \item{include_persistence}{Whether to reconstruct the \code{i -> i} diagonal as
 \code{1 - sum(rate)} over all transitions out of \code{i}. The diagonal is not part of
 \link{trans_meta_t} but the LP needs it; without it, persistence is left unbounded.}
-
-\item{step_years}{Length of a future step in years. Inferred from the extrapolated
-periods when \code{NULL}.}
 
 \item{init_area}{A data.table with \code{id_lulc} and \code{area} (cells at the anchor period).}
 
@@ -122,14 +110,11 @@ historically achievable change. Everything below the threshold is reported, not 
 is usually shared by several runs, for instance across climate variants.}
 
 \item{tolerance}{Cells of flow on non-viable transitions to tolerate before failing.}
-
-\item{rates}{A \link{trans_rates_t} table for a single \code{id_run}.}
 }
 \value{
 \code{trans_rate_bounds()} returns a data.table with \code{id_trans} (\code{NA} on the
 diagonal), \code{id_lulc_anterior}, \code{id_lulc_posterior}, \code{min_rate}, \code{max_rate}, \code{ref_rate}
-(the historic mean, for the optional historic-preference term) and \code{is_viable}. The
-step length the bounds apply to is attached as the \code{step_years} attribute.
+(the historic mean, for the optional historic-preference term) and \code{is_viable}.
 
 \code{trans_rate_reachability()} returns a data.table with \code{id_lulc}, \code{area_init},
 \code{area_min} and \code{area_max}, in cells.
@@ -140,10 +125,6 @@ step length the bounds apply to is attached as the \code{step_years} attribute.
 \code{diagnostics}.
 
 \code{trans_rates_from_solution()} returns a \link{trans_rates_t} table.
-
-\code{trans_rate_areas()} returns a data.table with \code{id_lulc}, \code{id_period} and
-\code{area}; \code{id_period} is the period whose \emph{state} the area describes, so the initial state
-carries the period preceding the first one in \code{rates}.
 }
 \description{
 A coupled linear program that derives per-transition flows from per-class area targets,
@@ -192,12 +173,6 @@ how far outside is reported in the returned diagnostics rather than being suppre
 diagonal and on non-viable transitions are dropped, since neither has an \code{id_trans} or
 any \code{trans_pot_t} rows to be allocated against; non-viable flow is asserted to be zero
 rather than filtered away silently.
-
-\item \code{trans_rate_areas()}: Replay a rate table forward from an initial state to
-recover the class-area trajectory it implies. Transitions not present in \code{rates} are
-taken to be zero, so the residual \code{1 - sum(rate)} of each class persists. This is what
-makes a solved trajectory recoverable from \link{trans_rates_t} alone, and therefore
-comparable against the areas an allocation run actually realised.
 
 }}
 \section{Reachability}{

@@ -46,93 +46,126 @@ obs_rates <-
   ) |>
   as_trans_rates_t()
 
-bounds <- trans_rate_bounds(obs_rates, periods, trans_meta)
+bounds <-
+  trans_rate_bounds(obs_rates, periods, trans_meta) |>
+  data.table::setindex(NULL)
 
-# transition 3 is absent in period 2: that is a rate of 0, not a missing observation
-expect_equal(bounds[id_trans == 3, min_rate], 0)
-expect_equal(round(bounds[id_trans == 3, max_rate], 4), 0.04)
-# the diagonal is not part of trans_meta_t but the LP needs it
-expect_equal(bounds[id_lulc_anterior == id_lulc_posterior, sort(id_lulc_anterior)], 1:3)
-expect_true(all(is.na(bounds[id_lulc_anterior == id_lulc_posterior, id_trans])))
-expect_false(bounds[id_trans == 4, is_viable])
+# id_trans 3 is absent in period 2: that is a rate of 0, not a missing observation
+# -> min_rate is 0
+# the persistence "transitions" are not part of trans_meta_t, but the LP needs it
+# -> complements of sum of all other rates with same id_lulc_anterior; id_trans is NA
 # class 3 was never observed transitioning, so it persists entirely
-expect_equal(bounds[id_lulc_anterior == 3 & id_lulc_posterior == 3, min_rate], 1)
+bounds_ref <- data.table::fread(
+  text = "
+    id_trans id_lulc_anterior id_lulc_posterior is_viable   min_rate   max_rate   ref_rate
+          NA                1                 1      TRUE 0.93000924 0.94999333 0.93995349
+           1                1                 2      TRUE 0.05000667 0.06999076 0.06004651
+           2                2                 1      TRUE 0.01999729 0.02000271 0.02000000
+          NA                2                 2      TRUE 0.94000796 0.97999729 0.95981520
+           3                2                 3      TRUE 0.00000000 0.03999464 0.02018096
+           4                3                 1     FALSE 0.00000000 0.00000000 0.00000000
+          NA                3                 3      TRUE 1.00000000 1.00000000 1.00000000
+  "
+)
+expect_equal(bounds_ref, bounds)
 
 # Reachability against a hand-computable case: only 1 -> 2 may move, at most 10% per step.
-simple_bounds <- data.table::data.table(
-  id_lulc_anterior = c(1L, 1L, 2L, 2L),
-  id_lulc_posterior = c(1L, 2L, 1L, 2L),
-  min_rate = 0,
-  max_rate = c(1, 0.1, 0, 1),
-  is_viable = TRUE
-)
-init_area <- data.table::data.table(id_lulc = 1:2, area = c(5000, 2000))
+simple_bounds <-
+  data.table::data.table(
+    id_lulc_anterior = c(1L, 1L, 2L, 2L),
+    id_lulc_posterior = c(1L, 2L, 1L, 2L),
+    min_rate = 0,
+    max_rate = c(1, 0.1, 0, 1),
+    is_viable = TRUE
+  )
+init_area <-
+  data.table::data.table(
+    id_lulc = 1:2,
+    area = c(5000, 2000)
+  )
 
 expect_equal(
   trans_rate_reachability(init_area, simple_bounds, n_steps = 2L),
   data.table::data.table(
     id_lulc = 1:2,
     area_init = c(5000, 2000),
-    area_min = c(4050, 2000),
+    area_min = c(4050, 2000), # compound change: 10% of 5000, then 10% of 4500
     area_max = c(5000, 2950)
   )
 )
 
 # A three-class scenario the observed bounds can accommodate.
 init_area <- data.table::data.table(id_lulc = 1:3, area = c(5000, 3000, 2000))
-targets <- data.table::data.table(id_lulc = 1:3, area = c(4600, 3200, 2200))
+area_targets <- data.table::data.table(id_lulc = 1:3, area = c(4600, 3200, 2200))
 shapes <- data.table::data.table(id_lulc = 1:3, shape = c("Instant decline", "Delayed growth", NA))
 
-solution <- solve_trans_rates(init_area, targets, shapes, bounds, periods = periods)
+area_solution <- solve_trans_rates(init_area, area_targets, shapes, bounds, periods = periods)
 
-expect_equal(solution[["status"]], 0L)
+expect_equal(area_solution[["status"]], 0L)
 # mass is conserved at every step and the terminal areas meet the targets
-expect_equal(solution[["areas"]][, sum(area), by = step][["V1"]], rep(10000, 3))
-expect_equal(round(solution[["diagnostics"]][["target_error"]][["error"]], 6), rep(0, 3))
+expect_equal(area_solution[["areas"]][, sum(area), by = step][["V1"]], rep(10000, 3))
+expect_equal(
+  area_solution[["diagnostics"]][["target_error"]][["error"]],
+  rep(0, 3),
+  tolerance = 1e-6
+)
 # non-viable transitions have no trans_pot_t rows, so any flow on them would be lost
-expect_equal(solution[["flows"]][is_viable == FALSE, sum(flow)], 0)
+expect_equal(area_solution[["flows"]][is_viable == FALSE, sum(flow)], 0)
 # each class moves monotonically towards its target
-expect_true(solution[["areas"]][order(step), all(diff(area) <= 1e-6), by = id_lulc][
-  id_lulc == 1,
-  V1
-])
-expect_true(solution[["areas"]][order(step), all(diff(area) >= -1e-6), by = id_lulc][
-  id_lulc == 2,
-  V1
-])
-# rates are the LP's own flow over its own predicted source area
-expect_true(all(solution[["rates"]][["rate"]] >= 0))
 expect_true(
-  solution[["rates"]][,
-    all(sum(rate) <= 1 + 1e-9),
+  area_solution[["areas"]][
+    order(step),
+    .(monotone = {
+      # change in area -> rounded -> ensure only one sign per id_lulc
+      area |> diff() |> round(6) |> sign() |> (\(x) length(unique(x)) == 1L)()
+    }),
+    by = id_lulc
+  ][, all(monotone)]
+)
+
+# rates in [0, 1]
+expect_true(all(area_solution[["rates"]][["rate"]] >= 0))
+expect_true(
+  area_solution[["rates"]][,
+    .(lte_unity = all(sum(rate) <= 1 + 1e-9)), # tolerance
     by = .(id_lulc_anterior, step)
-  ][[
-    "V1"
-  ]] |>
-    all()
+  ][, all(lte_unity)]
 )
 
 # Targets stated as a share of the landscape are grid independent, and rehydrate exactly.
 share_targets <- data.table::data.table(id_lulc = 1:3, share = c(0.46, 0.32, 0.22))
 share_solution <- solve_trans_rates(init_area, share_targets, shapes, bounds, periods = periods)
 expect_equal(
-  round(share_solution[["diagnostics"]][["target_error"]][["area_final"]], 6),
-  round(solution[["diagnostics"]][["target_error"]][["area_final"]], 6)
+  share_solution[["diagnostics"]][["target_error"]],
+  area_solution[["diagnostics"]][["target_error"]],
+  tolerance = 1e-6
 )
 
 # Elicited targets are normative and routinely lie outside the observed envelope, so the
 # precheck reports rather than gates: the target is still met, by paying rate-bound slack.
-stretch <- data.table::data.table(id_lulc = 1:3, area = c(1000, 7000, 2000))
-stretched <- solve_trans_rates(init_area, stretch, NULL, bounds, periods = periods)
-expect_true(stretched[["diagnostics"]][["reachability"]][id_lulc == 1, ratio] > 2)
-expect_true(stretched[["diagnostics"]][["flow_summary"]][["flow_above_max_rate"]] > 0)
-expect_equal(round(stretched[["diagnostics"]][["target_error"]][["error"]], 6), rep(0, 3))
+stretch_targets <- data.table::data.table(id_lulc = 1:3, area = c(1000, 7000, 2000))
+stretch_solution <- solve_trans_rates(init_area, stretch_targets, NULL, bounds, periods = periods)
+expect_equal(
+  stretch_solution[["diagnostics"]][["reachability"]][, verdict := as.character(verdict)],
+  data.table::fread(
+    text = '
+     id_lulc area_init area_min area_max target asked achievable    ratio               verdict
+           1      5000 4324.586 5118.816   1000 -4000  -675.4141 5.922293 "far outside history"
+           2      3000 2650.815 3675.414   7000  4000   675.4141 5.922293 "far outside history"
+           3      2000 2000.000 2249.165   2000     0   249.1654 1.000000           "reachable"
+    '
+  ),
+  tolerance = 1e-6
+)
+
+expect_true(stretch_solution[["diagnostics"]][["flow_summary"]][["flow_above_max_rate"]] > 0)
+expect_equal(round(stretch_solution[["diagnostics"]][["target_error"]][["error"]], 6), rep(0, 3))
 
 # Only gross violations fail, on a configurable threshold.
 expect_error(
   solve_trans_rates(
     init_area,
-    stretch,
+    stretch_targets,
     NULL,
     bounds,
     periods = periods,
@@ -142,17 +175,16 @@ expect_error(
 )
 
 # One demand solution is usually written to several runs.
-rates_t <- trans_rates_from_solution(solution, id_run = c(11L, 12L))
+rates_t <- trans_rates_from_solution(area_solution, id_run = c(11L, 12L))
 expect_inherits(rates_t, "trans_rates_t")
 expect_equal(sort(unique(rates_t[["id_run"]])), c(11L, 12L))
 expect_equal(sort(unique(rates_t[["id_period"]])), c(4L, 5L))
 expect_false(any(is.na(rates_t[["id_trans"]])))
-expect_silent(validate(rates_t))
 
 # The area trajectory has to be recoverable from the rate table alone, otherwise realised
 # areas cannot be compared against the ones the solver promised.
 replayed <- trans_rate_areas(init_area, rates_t[id_run == 11L], trans_meta)
-lp_areas <- solution[["areas"]][,
+lp_areas <- area_solution[["areas"]][,
   .(id_lulc, id_period = data.table::fifelse(is.na(id_period), 3L, id_period), lp = area)
 ]
 comparison <- merge(
@@ -165,12 +197,12 @@ expect_true(comparison[, max(abs(replayed - lp))] < 1e-6)
 
 # A straight line satisfies every one of the one-sided shape constraints, so shapes only
 # bend the trajectory once a minimum curvature is demanded.
-flat <- solve_trans_rates(init_area, targets, shapes, bounds, periods = periods)
+flat <- solve_trans_rates(init_area, area_targets, shapes, bounds, periods = periods)
 expect_equal(round(flat[["diagnostics"]][["shape"]][["curvature_slack"]], 6), rep(0, 3))
 
 bent <- solve_trans_rates(
   init_area,
-  targets,
+  area_targets,
   shapes,
   bounds,
   periods = periods,

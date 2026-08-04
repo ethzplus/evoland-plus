@@ -42,6 +42,8 @@ A data.table of class "periods_t" with columns:
 \item \code{id_period}: Unique ID for each tperiod
 \item \code{start_date}: Start date for period
 \item \code{end_date}: End date for period
+\item \code{period_length_d}: Days between this and the preceding period's
+midpoints, derived from start and end date.
 \item \code{is_extrapolated}: bool, are observations matched to this period, or is it used
 for extrapolation?
 }
@@ -60,6 +62,6 @@ the end of the observed period.
 }}
 \section{Functions}{
 \itemize{
-\item \code{create_periods_t()}: Creates a \code{periods_t} table from specifications.
+\item \code{create_periods_t()}: Creates a regular \code{periods_t} table from specifications.
 
 }}

@@ -44,6 +44,8 @@ NULL
 #' @return `new_lp_problem()` returns an environment collecting constraint rows.
 #' @keywords internal
 new_lp_problem <- function(n_var) {
+  # FIXME this environment is just a poor man's R6 object; reimplement and make
+  # use of active bindings etc
   problem <- new.env(parent = emptyenv())
   problem[["n_var"]] <- n_var
   problem[["cols"]] <- list()
@@ -63,6 +65,8 @@ new_lp_problem <- function(n_var) {
 #' @param rhs Right-hand side.
 #' @keywords internal
 add_lp_row <- function(problem, cols, vals, dir, rhs) {
+  # TODO check if this is not more legibly implemented in a long data.table that
+  # can easily be passed to dense.const using as.array()
   cols <- as.integer(cols)
   vals <- as.numeric(vals)
 
@@ -96,6 +100,7 @@ add_lp_row <- function(problem, cols, vals, dir, rhs) {
 #' @param direction `"min"` or `"max"`.
 #' @keywords internal
 solve_lp_problem <- function(problem, objective, direction = "min") {
+  # TODO make this a method on lp_solve R6 class
   stopifnot(length(objective) == problem[["n_var"]])
 
   cols <- problem[["cols"]]
