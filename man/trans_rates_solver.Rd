@@ -5,126 +5,49 @@
 \alias{trans_rate_bounds}
 \alias{trans_rate_reachability}
 \alias{solve_trans_rates}
-\alias{trans_rates_from_solution}
 \title{Demand-driven transition rate solver}
 \usage{
 trans_rate_bounds(obs_rates, periods, trans_meta, include_persistence = TRUE)
 
-trans_rate_reachability(init_area, bounds, n_steps, monotone_sign = NULL)
+trans_rate_reachability(lulc_data, bounds, periods)
 
-solve_trans_rates(
-  init_area,
-  targets,
-  shapes,
-  bounds,
-  periods = NULL,
-  n_steps = NULL,
-  lambda_bounds = 0.1,
-  mu_shape = 15,
-  mu_smooth = 1,
-  mu_target = 1000,
-  mu_historic = 0,
-  margin = 0.01,
-  terminal_band = NA,
-  shape_strictness = 0,
-  monotone = TRUE,
-  fairness = TRUE,
-  forbid_non_viable = TRUE,
-  max_reachability_ratio = 10
-)
-
-trans_rates_from_solution(solution, id_run, tolerance = 1)
+solve_trans_rates(lulc_data, targets, shapes, bounds, periods, ...)
 }
 \arguments{
 \item{obs_rates}{A \link{trans_rates_t} table of observed rates for a single \code{id_run}, as
 returned by \code{evoland_db$get_obs_trans_rates()}.}
 
-\item{periods}{A \link{periods_t} table, used for the true interval lengths.}
+\item{periods}{A \link{periods_t} table, used for the true period lengths.}
 
-\item{trans_meta}{A \link{trans_meta_t} table, defining the full edge set and its viability.}
+\item{trans_meta}{A \link{trans_meta_t} table, defining the full set of transitions and their
+viability.}
 
 \item{include_persistence}{Whether to reconstruct the \code{i -> i} diagonal as
 \code{1 - sum(rate)} over all transitions out of \code{i}. The diagonal is not part of
 \link{trans_meta_t} but the LP needs it; without it, persistence is left unbounded.}
 
-\item{init_area}{A data.table with \code{id_lulc} and \code{area} (cells at the anchor period).}
+\item{lulc_data}{A \link{lulc_data_t} for a single \code{id_run}; the areas of its last observed
+period are the initial state.}
 
-\item{bounds}{Edge bounds as returned by \code{\link[=trans_rate_bounds]{trans_rate_bounds()}}.}
-
-\item{n_steps}{Number of steps to the horizon; inferred from \code{periods} when \code{NULL}.}
-
-\item{monotone_sign}{Optional named or \code{id_lulc}-ordered vector of \code{-1}, \code{0}, \code{1}
-constraining the direction of change per class. \code{NULL} leaves the trajectory free.}
+\item{bounds}{Per-transition rate bounds, as returned by \code{\link[=trans_rate_bounds]{trans_rate_bounds()}}.}
 
 \item{targets}{A data.table with \code{id_lulc} and either \code{area} (cells on the same grid as
-\code{init_area}) or \code{share} (of the landscape, rehydrated against \code{init_area}).}
+\code{lulc_data}) or \code{share} (of the landscape, rehydrated against \code{lulc_data}).}
 
-\item{shapes}{A data.table with \code{id_lulc} and \code{shape}, one of \code{"instant growth"},
-\code{"delayed growth"}, \code{"constant change"}, \code{"instant decline"}, \code{"delayed decline"}, or
-\code{NULL} for no shape preference. Note that a straight line satisfies every one of these
-one-sided curvature constraints, so shapes only bind when \code{shape_strictness > 0}.}
+\item{shapes}{A data.table with \code{id_lulc} and \code{shape}, or \code{NULL} for no shape
+preference. See \link{trans_rate_lp}.}
 
-\item{lambda_bounds}{Penalty weight on rate-bound violation.}
-
-\item{mu_shape}{Penalty weight on trajectory-shape violation.}
-
-\item{mu_smooth}{Penalty weight on the second difference of the trajectory; a
-tie-breaker among otherwise equivalent trajectories.}
-
-\item{mu_target}{Penalty weight on the L1 distance between the solved terminal area and
-the target. Without it, a hard terminal band is treated as free real estate and every
-class parks on a band edge.}
-
-\item{mu_historic}{Penalty weight on the L1 distance between flows and the historic
-outflow pattern (\code{ref_rate}). Zero by default; raising it keeps flows near the observed
-pattern where the target does not force otherwise.}
-
-\item{margin}{Slack around the rate bounds before a violation is penalised.}
-
-\item{terminal_band}{Relative half-width of a \emph{hard} band around the terminal target,
-or \code{NA} (the default) to rely on \code{mu_target} alone. A hard band and \code{forbid_non_viable}
-together turn an out-of-reach target into an infeasible program rather than a near miss:
-on the SSP-CH demand that combination is infeasible for three of five scenarios, while
-the L1 fit lands as close as the viable edge set allows and reports the shortfall.}
-
-\item{shape_strictness}{Minimum curvature a shaped trajectory must exhibit, as a
-fraction of the class's mean per-step change. At 0 (the default) the shape constraints
-are one-sided and a straight line satisfies all of them.}
-
-\item{monotone}{Whether to hard-constrain each class to move monotonically in the
-direction of \code{sign(target - init)}.}
-
-\item{fairness}{Minimax bound on the worst per-class rate-bound violation. \code{TRUE} uses
-\code{lambda_bounds} as its weight; a number sets the weight explicitly.}
-
-\item{forbid_non_viable}{Whether to hard-zero flows on transitions that
-\link{trans_meta_t} marks as non-viable. Such flows have no \code{trans_pot_t} rows and would be
-silently dropped at allocation time, so the trajectory would not materialise.}
-
-\item{max_reachability_ratio}{Fail if any target asks for more than this multiple of the
-historically achievable change. Everything below the threshold is reported, not gated.}
-
-\item{solution}{A list as returned by \code{\link[=solve_trans_rates]{solve_trans_rates()}}.}
-
-\item{id_run}{One or more \code{id_run} values to write the same solution to. Scenario demand
-is usually shared by several runs, for instance across climate variants.}
-
-\item{tolerance}{Cells of flow on non-viable transitions to tolerate before failing.}
+\item{...}{Further arguments to \code{trans_rate_lp$new()}, such as the penalty weights.}
 }
 \value{
 \code{trans_rate_bounds()} returns a data.table with \code{id_trans} (\code{NA} on the
 diagonal), \code{id_lulc_anterior}, \code{id_lulc_posterior}, \code{min_rate}, \code{max_rate}, \code{ref_rate}
 (the historic mean, for the optional historic-preference term) and \code{is_viable}.
 
-\code{trans_rate_reachability()} returns a data.table with \code{id_lulc}, \code{area_init},
-\code{area_min} and \code{area_max}, in cells.
+\code{trans_rate_reachability()} returns a data.table with \code{id_lulc}, \code{id_period},
+\code{area_init}, \code{area_min} and \code{area_max}, in cells.
 
-\code{solve_trans_rates()} returns a list with \code{status}, \code{objective}, \code{areas}
-(\code{id_lulc}, \code{step}, \code{id_period}, \code{area}), \code{flows} and \code{rates} (\code{id_trans},
-\code{id_lulc_anterior}, \code{id_lulc_posterior}, \code{step}, \code{id_period}, \code{count}, \code{rate}), and
-\code{diagnostics}.
-
-\code{trans_rates_from_solution()} returns a \link{trans_rates_t} table.
+\code{solve_trans_rates()} returns the solved \link{trans_rate_lp} object.
 }
 \description{
 A coupled linear program that derives per-transition flows from per-class area targets,
@@ -134,45 +57,36 @@ regression per transition and has no input for a scenario target.
 \details{
 The model works in three unit layers, each at the layer where it is correct:
 scenario targets may be given as a share of the landscape (grid-independent), the LP
-itself is solved in absolute cells (readable diagnostics), and the result is written to
-\link{trans_rates_t} as both a \code{rate} (what \link{evoland_db} \code{adjusted_trans_pot_v} and the
-allocators consume) and a \code{count} of cells.
+itself is solved in shares and reported in cells (readable diagnostics), and the result
+is written to \link{trans_rates_t} as both a \code{rate} (what \link{evoland_db} \code{adjusted_trans_pot_v}
+and the allocators consume) and a \code{count} of cells.
 
-Decision variables are the per-step flows \code{x[i, j, t]} between classes and the per-step
-class areas \code{area[l, t]}; both are absolute. Constraints are the initial condition,
-row (outflow) and column (inflow) closure, total-area conservation, softly penalised
-per-transition rate bounds derived from observed history, an optional hard monotonic
-direction per class, and optional soft trajectory-shape and smoothness terms. The
-objective is a weighted sum of slack penalties, normalised per class so that small
-classes are not ignored. The program itself is assembled block by block in
-\link{trans_rate_lp}, and the inputs are prepared by \link{trans_rate_inputs}.
+The program is built and solved by the \link{trans_rate_lp} class; these functions are the
+one-call form of it. Decision variables are the per-period flows between classes and the
+per-period class areas. Constraints are the initial condition, row and column closure,
+total-area conservation, softly penalised per-transition rate bounds derived from
+observed history, an optional hard monotonic direction per class, and optional soft
+trajectory-shape and smoothness terms. The objective is a weighted sum of slack
+penalties, normalised per class so that small classes are not ignored.
 }
 \section{Functions}{
 \itemize{
 \item \code{trans_rate_bounds()}: Derive per-transition minimum and maximum rate bounds
 from observed history. Rates are annualised before the minimum and maximum are taken and
-then re-inflated to the step length of the extrapolated periods, because observed
-intervals are typically irregular. Transitions absent from \code{obs_rates} in a given period
-count as a rate of 0 for that period, not as missing -- otherwise \code{min_rate} is biased
-upward.
+then re-inflated to the length of an extrapolated period, because observed periods are
+typically irregular. Transitions absent from \code{obs_rates} in a given period count as a
+rate of 0 for that period, not as missing -- otherwise \code{min_rate} is biased upward.
 
-\item \code{trans_rate_reachability()}: Reachability precheck: the maximum and minimum area each
-class can attain at the horizon under mass balance and \emph{hard} historic maximum rates,
-ignoring targets. Persistence is left free and minimum rates are not imposed, which
-makes this the loosest honest question -- "can this class get there at all, given that
-no edge has ever moved faster than it historically did?". It is the same program
-\code{\link[=solve_trans_rates]{solve_trans_rates()}} builds, with the penalty blocks switched off and the bounds made
-hard; see \link{trans_rate_lp}.
+\item \code{trans_rate_reachability()}: Reachability precheck: the areas each class can attain at
+each extrapolated period under mass balance and \emph{hard} historic maximum rates, ignoring
+targets. Persistence is left free and minimum rates are not imposed, which makes this
+the loosest honest question -- "can this class get there at all, given that no
+transition has ever moved faster than it historically did?".
 
 \item \code{solve_trans_rates()}: Solve for the per-transition flows that take the
-landscape from \code{init_area} to \code{targets} over the extrapolated periods. Rate bounds are
-soft, because elicited targets routinely require flows outside the observed envelope;
-how far outside is reported in the returned diagnostics rather than being suppressed.
-
-\item \code{trans_rates_from_solution()}: Turn a solution into a \link{trans_rates_t} table. Flows on the
-diagonal and on non-viable transitions are dropped, since neither has an \code{id_trans} or
-any \code{trans_pot_t} rows to be allocated against; non-viable flow is asserted to be zero
-rather than filtered away silently.
+landscape from its observed state to \code{targets} over the extrapolated periods. A one-call
+form of \link{trans_rate_lp}; use the class itself to inspect the program or to write the
+same solution to several runs.
 
 }}
 \section{Reachability}{
@@ -182,7 +96,7 @@ observed transition rates. \code{\link[=trans_rate_reachability]{trans_rate_reac
 target, and \code{\link[=solve_trans_rates]{solve_trans_rates()}} runs it as a precheck: it \emph{reports} how far outside
 history each target is and only fails on gross violations (see \code{max_reachability_ratio}).
 A solver that does not report how far outside history it went is actively misleading, so
-the returned \code{diagnostics} are part of the result, not debug output.
+the returned diagnostics are part of the result, not debug output.
 }
 
 \section{Solver dependency}{
@@ -193,25 +107,6 @@ fairness across classes) are implemented as their L1 or minimax equivalents, whi
 linear.
 }
 
-\examples{
-bounds <- data.table::data.table(
-  id_trans = c(NA, 1L, NA, 2L),
-  id_lulc_anterior = c(1L, 1L, 2L, 2L),
-  id_lulc_posterior = c(1L, 2L, 2L, 1L),
-  min_rate = c(0.9, 0, 0.95, 0),
-  max_rate = c(1, 0.1, 1, 0.05),
-  is_viable = TRUE
-)
-solution <- solve_trans_rates(
-  init_area = data.table::data.table(id_lulc = 1:2, area = c(6000, 4000)),
-  targets = data.table::data.table(id_lulc = 1:2, share = c(0.5, 0.5)),
-  shapes = NULL,
-  bounds = bounds,
-  n_steps = 3L
-)
-solution[["areas"]]
-solution[["diagnostics"]][["reachability"]]
-}
 \seealso{
-\link{trans_rates_t}, \link{trans_meta_t}, \link{periods_t}
+\link{trans_rate_lp}, \link{trans_rates_t}, \link{trans_meta_t}, \link{periods_t}
 }

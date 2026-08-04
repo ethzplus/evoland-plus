@@ -17,7 +17,7 @@ extrapolate_trans_rates(obs_rates, periods, coord_count = NA_integer_)
 
 \method{print}{trans_rates_t}(x, nrow = 10, ...)
 
-trans_rate_areas(init_area, rates, trans_meta)
+trans_rate_areas(lulc_data, rates, trans_meta)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -35,7 +35,12 @@ trans_rate_areas(init_area, rates, trans_meta)
 
 \item{...}{passed to \link[data.table:print.data.table]{data.table::print.data.table}}
 
+\item{lulc_data}{A \link{lulc_data_t} for a single \code{id_run}; the areas of its last period are
+the state the replay starts from.}
+
 \item{rates}{A \link{trans_rates_t} table for a single \code{id_run}.}
+
+\item{trans_meta}{A \link{trans_meta_t} table, resolving \code{id_trans} to a pair of classes.}
 }
 \value{
 A data.table of class "trans_rates_t" with columns:
@@ -50,7 +55,7 @@ over count of cells of id_lulc_anterior in id_period
 
 \code{trans_rate_areas()} returns a data.table with \code{id_lulc}, \code{id_period} and
 \code{area}; \code{id_period} is the period whose \emph{state} the area describes, so the initial state
-carries the period preceding the first one in \code{rates}.
+carries the last period of \code{lulc_data}.
 }
 \description{
 Creates a trans_rates_t table that stores transition rates (probabilities) for each
@@ -72,11 +77,11 @@ id_lulc_anterior cells that transitioned to id_lulc_posterior.
 each id_run + id_trans, fits a linear model of rate vs period number and extrapolates
 to future periods. Negative predicted rates are set to 0.
 
-\item \code{trans_rate_areas()}: Derive target areas from an initial state and a
-\code{\link{trans_rates_t}}. Transition rates not explicitly recorded in \code{rates} are
-implied to be zero. The residual is \code{1 - sum(rate)} for each class. This
-is what makes a solved trajectory recoverable from \link{trans_rates_t} alone, and
-therefore comparable against the areas an allocation run actually realised.
+\item \code{trans_rate_areas()}: Replay a rate table forward from an observed state to recover
+the class areas it implies. Transitions not recorded in \code{rates} are implied to be zero,
+so the residual \code{1 - sum(rate)} of each class persists. This is what makes a solved
+trajectory recoverable from a \link{trans_rates_t} alone, and therefore comparable against
+the areas an allocation run actually realised.
 
 }}
 \keyword{internal}

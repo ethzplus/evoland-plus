@@ -3,146 +3,40 @@
 \name{trans_rate_inputs}
 \alias{trans_rate_inputs}
 \alias{rescale_trans_rate}
-\alias{period_interval_years}
-\alias{trans_rate_time_grid}
-\alias{trans_rate_scenario}
-\alias{as_lulc_area_vector}
-\alias{lulc_pair_matrix}
-\alias{lulc_viable_matrix}
 \alias{canonical_shapes}
-\alias{align_monotone_sign}
-\alias{reachability_verdict}
-\alias{assert_reachable_targets}
 \title{Preparing the inputs of the transition rate solver}
 \usage{
 rescale_trans_rate(rate, from_years, to_years, is_persistence = FALSE)
 
-period_interval_years(periods)
-
-trans_rate_time_grid(periods = NULL, n_steps = NULL)
-
-trans_rate_scenario(init_area, targets, shapes)
-
-as_lulc_area_vector(x, ids, total, what)
-
-lulc_pair_matrix(edges, ids, value_col, default, diag_default = default)
-
-lulc_viable_matrix(bounds, ids)
-
-canonical_shapes(shapes, ids)
-
-align_monotone_sign(monotone_sign, ids)
-
-reachability_verdict(reachability, target)
-
-assert_reachable_targets(reachability, max_ratio)
+canonical_shapes(shapes)
 }
 \arguments{
 \item{rate}{Numeric vector of rates in \verb{[0, 1]}.}
 
-\item{from_years, to_years}{Interval lengths in years.}
+\item{from_years, to_years}{Period lengths in years.}
 
 \item{is_persistence}{Logical, \code{TRUE} for \code{i -> i} rates.}
 
-\item{x}{A data.table with \code{id_lulc} and either \code{area} or \code{share}.}
-
-\item{ids}{Sorted vector of class ids.}
-
-\item{total}{Total landscape area in cells.}
-
-\item{what}{Name of the argument, for error messages.}
-
-\item{edges}{A data.table keyed by \code{id_lulc_anterior} and \code{id_lulc_posterior}.}
-
-\item{value_col}{Column of \code{edges} to place in the matrix.}
-
-\item{default}{Value for pairs absent from \code{edges}.}
-
-\item{diag_default}{Value for absent diagonal entries; defaults to \code{default}.}
-
-\item{reachability}{Output of \code{\link[=trans_rate_reachability]{trans_rate_reachability()}}.}
-
-\item{target}{Numeric vector of target areas, aligned with \code{reachability$id_lulc}.}
-
-\item{max_ratio}{The \code{max_reachability_ratio} of \code{\link[=solve_trans_rates]{solve_trans_rates()}}.}
+\item{shapes}{A data.table with \code{id_lulc} and \code{shape}.}
 }
 \value{
 \code{rescale_trans_rate()} returns rates on the \code{to_years} scale.
 
-\code{period_interval_years()} returns a data.table with \code{id_period} and
-\code{interval_years}, the latter \code{NA} for the first period.
-
-\code{trans_rate_time_grid()} returns a list of \code{n_step}, \code{step_years} and
-\code{id_periods} (\code{NULL} when no \link{periods_t} was given).
-
-\code{trans_rate_scenario()} returns a list of \code{ids}, \code{total}, \code{init}, \code{target},
-\code{init_share}, \code{target_share}, \code{shape} and \code{monotone_sign}.
-
-\code{as_lulc_area_vector()} returns areas in cells, aligned with \code{ids}.
-
-\code{lulc_pair_matrix()} returns a \code{length(ids)} square matrix.
-
-\code{lulc_viable_matrix()} returns a logical square matrix.
-
-\code{canonical_shapes()} returns canonical shape labels, \code{NA} where unset.
-
-\code{align_monotone_sign()} returns the signs in class order, or \code{NULL}.
-
-\code{reachability_verdict()} returns \code{reachability} with \code{target}, \code{asked},
-\code{achievable}, \code{ratio} and \code{verdict}.
+\code{canonical_shapes()} returns \code{shapes} with canonical labels, \code{NA} where unset.
 }
 \description{
-Unit conversions and table reshaping that happen before any program is built: rescaling
-rates between interval lengths, resolving the time grid, aligning per-class vectors and
-matrices to one class ordering, and comparing targets against the reachable band. The
+Unit conversion and label normalisation that happen before any program is built. The
 program itself is in \link{trans_rate_lp}.
 }
 \section{Functions}{
 \itemize{
-\item \code{rescale_trans_rate()}: Rescale a transition rate between interval lengths.
+\item \code{rescale_trans_rate()}: Rescale a transition rate between period lengths.
 Transition rates are survival-style quantities: the complement \code{1 - rate} compounds
 multiplicatively, so a rate observed over 12 years is not comparable to one over 10.
 Persistence (a class staying itself) is the complement of the total outflow and
 therefore compounds directly.
 
-\item \code{period_interval_years()}: Interval length in years covered by each period's
-transition. The rate at period \code{p} describes the transition from the state at \code{p - 1} to
-the state at \code{p}, so the interval that matters is the spacing between consecutive period
-anchors, not the length of a single period. Period 0 (static phenomena) is ignored.
-
-\item \code{trans_rate_time_grid()}: Resolve how many steps to solve for, how long each is and
-which \code{id_period} each belongs to. Either a \link{periods_t} or a plain step count is given;
-without periods the steps are taken to be of equal length, which only matters for the
-curvature of the trajectory.
-
-\item \code{trans_rate_scenario()}: Align the initial state, the targets and the elicited
-shapes to one class ordering, and check that the targets conserve area.
-
-\item \code{as_lulc_area_vector()}: Coerce an area or share table to a vector aligned with
-\code{ids}. Targets stated as a share of the landscape are grid-independent and therefore
-portable; targets stated in cells are only meaningful on the grid they were elicited on.
-Shares are rehydrated against the total area of \code{init_area}.
-
-\item \code{lulc_pair_matrix()}: Build a class-by-class matrix from an edge table.
-
-\item \code{lulc_viable_matrix()}: Which transitions may carry flow at all. Edge tables
-without an \code{is_viable} column place no restriction; persistence is always allowed,
-because without it a class could not stay itself.
-
-\item \code{canonical_shapes()}: Normalise elicited trajectory shape labels and align them
-with \code{ids}.
-
-\item \code{align_monotone_sign()}: Align a per-class direction of change with \code{ids}, whether
-it is named or already in class order.
-
-\item \code{reachability_verdict()}: Compare targets against the reachable band. A class that
-cannot move at all in the direction asked is unreachable outright, not unreachable by a
-very large multiple.
-
-\item \code{assert_reachable_targets()}: Fail on targets far beyond what history supports. The
-precheck quantifies and reports; it gates only above \code{max_ratio}, because scenario
-targets are normative and a precheck that failed on every departure from observed
-dynamics would abort every scenario.
+\item \code{canonical_shapes()}: Normalise elicited trajectory shape labels.
 
 }}
 \keyword{internal}

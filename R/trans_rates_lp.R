@@ -1,719 +1,1286 @@
-#' Building and solving the transition rate linear program
+#' R6 Class for the Demand-Driven Transition Rate Program
 #'
-#' Internals of [solve_trans_rates()], separated so that each block of the program can be
-#' read on its own. The pieces are, in the order they are used: a sparse problem builder
-#' ([new_lp_problem()]), a variable layout ([trans_rate_lp_layout()]), a model object
-#' gathering everything the constraint blocks need ([trans_rate_lp_model()]), one function
-#' per block of constraint rows, the objective, and the extraction of the solved vector
-#' back into tables.
+#' @description
+#' A coupled linear program that derives per-transition flows from per-class area targets.
+#' It is assembled one constraint block at a time; every block has an `add_` method of the
+#' same name, and [lp_problem] keeps the resulting rows tagged with that name so a program
+#' can be solved over a subset of its blocks. That is what makes the reachability precheck
+#' the same program as the solve, rather than a second implementation of it.
 #'
-#' @section Variable layout:
-#' All variables are non-negative, and all areas and flows are shares of the landscape.
-#' Optional blocks are only allocated when the corresponding term is switched on.
+#' @details
+#' # Units
 #'
-#' | block | count | meaning |
+#' The program is solved in shares of the landscape: shares and absolute areas are the same
+#' program up to a scalar, but the share version spans six fewer orders of magnitude.
+#' Everything the object returns is in cells, rehydrated against the number of cells
+#' `lulc_data` holds at the anchor period.
+#'
+#' # Periods
+#'
+#' Following [trans_rates_t], the flows of period `p` take the landscape from its state at
+#' `p - 1` to its state at `p`. Area variables therefore exist at the anchor period -- the
+#' last observed one -- and at every extrapolated period, while flow variables exist at the
+#' extrapolated periods only.
+#'
+#' # Variables
+#'
+#' All variables are non-negative. `id_lulc` identifies the class a class-level variable
+#' belongs to; `id_lulc_anterior` and `id_lulc_posterior` identify a transition-level one.
+#'
+#' | block | keys | meaning |
 #' | --- | --- | --- |
-#' | `x[i, j, t]` | `L^2 * n_step` | flow from class `i` to class `j` during step `t` |
-#' | `lower[i, j, t]`, `upper[i, j, t]` | `L^2 * n_step` each | rate-bound violation |
-#' | `area[l, t]` | `L * (n_step + 1)` | area of class `l` at time point `t` |
-#' | `shape[l, t]`, `smooth[l, t]` | `L * (n_step - 1)` each | curvature violation |
-#' | `plus[l]`, `minus[l]` | `L` each | terminal fit, above and below the target |
-#' | `historic[i, j, t]` | `L^2 * n_step` | distance from the historic outflow pattern |
-#' | `fair` | 1 | minimax bound on the worst per-class violation |
+#' | `flow` | transition, period | cells moving along a transition |
+#' | `area` | class, period | area of a class at a state |
+#' | `rate_lower`, `rate_upper` | transition, period | rate-bound violation |
+#' | `historic` | transition, period | distance from the historic outflow pattern |
+#' | `shape`, `smoothness` | class, period | curvature violation |
+#' | `target_over`, `target_under` | class | terminal fit either side of the target |
+#' | `fairness` | none | worst per-class rate-bound violation |
 #'
-#' @section The model object:
-#' A plain list, so that the constraint blocks take one argument rather than fifteen. It
-#' carries the scenario (`ids`, `init_share`, `target_share`, `shape`, `monotone_sign`,
-#' `total`), the time grid (`n_step`, `step_years`, `id_periods`), the rate matrices
-#' (`rate`, `viable`, `forbidden`, `id_trans`), the layout (`n_var`, `ix`, `blocks`) and the
-#' tuning parameters (`params`, `weight`, `fair_weight`). [trans_rate_reachability()]
-#' assembles a reduced model of the same shape, which is why the balance, bound and
-#' monotonicity blocks are shared between the precheck and the solver.
+#' # Constraint blocks
 #'
-#' @name trans_rate_lp
-#' @keywords internal
-NULL
-
-#' @describeIn trans_rate_lp Start an empty sparse program. [lpSolve::lp()] accepts
-#' constraints in triplet form via `dense.const`, which keeps memory linear in the number of
-#' non-zero coefficients. It matches constraint rows to `const.dir`/`const.rhs` by the order
-#' of the row indices it sees, so every row must carry at least one non-zero coefficient.
-#' The returned object is an environment, so the constraint blocks can add to it in place.
+#' `initial`, `conservation` and `closure` are the mass balance; `forbidden` and
+#' `rate_limits` are the hard statements about what a transition may do; the rest carry
+#' slack variables and are paid for in the objective. `blocks` records which are enabled,
+#' which enter a solve and which enter the reachability precheck.
 #'
-#' @param n_var Number of decision variables.
-#' @return `new_lp_problem()` returns an environment collecting constraint rows.
-#' @keywords internal
-new_lp_problem <- function(n_var) {
-  # FIXME this environment is just a poor man's R6 object; reimplement and make
-  # use of active bindings etc
-  problem <- new.env(parent = emptyenv())
-  problem[["n_var"]] <- n_var
-  problem[["cols"]] <- list()
-  problem[["vals"]] <- list()
-  problem[["dir"]] <- character(0L)
-  problem[["rhs"]] <- numeric(0L)
-  problem
-}
-
-#' @describeIn trans_rate_lp Add one constraint row, summing duplicated and dropping zero
-#' coefficients.
+#' @examples
+#' periods <- create_periods_t("P10Y", "1990-01-01", "2020-01-01", "2040-01-01")
+#' lulc_data <- as_lulc_data_t(data.table::data.table(
+#'   id_run = 0L,
+#'   id_coord = 1:10000,
+#'   id_period = 4L,
+#'   id_lulc = rep(1:2, c(6000, 4000))
+#' ))
+#' bounds <- data.table::data.table(
+#'   id_trans = c(NA, 1L, NA, 2L),
+#'   id_lulc_anterior = c(1L, 1L, 2L, 2L),
+#'   id_lulc_posterior = c(1L, 2L, 2L, 1L),
+#'   min_rate = c(0.9, 0, 0.95, 0),
+#'   max_rate = c(1, 0.1, 1, 0.05),
+#'   ref_rate = c(0.95, 0.05, 0.97, 0.03),
+#'   is_viable = TRUE
+#' )
 #'
-#' @param problem An object from [new_lp_problem()].
-#' @param cols Integer vector of variable indices.
-#' @param vals Numeric vector of coefficients, parallel to `cols`.
-#' @param dir One of `"<="`, `">="`, `"="`.
-#' @param rhs Right-hand side.
-#' @keywords internal
-add_lp_row <- function(problem, cols, vals, dir, rhs) {
-  # TODO check if this is not more legibly implemented in a long data.table that
-  # can easily be passed to dense.const using as.array()
-  cols <- as.integer(cols)
-  vals <- as.numeric(vals)
-
-  if (anyDuplicated(cols)) {
-    summed <- rowsum(vals, cols, reorder = TRUE)
-    cols <- as.integer(rownames(summed))
-    vals <- as.numeric(summed)
-  }
-  nonzero <- vals != 0
-  cols <- cols[nonzero]
-  vals <- vals[nonzero]
-
-  stopifnot(
-    "a constraint row has no non-zero coefficient" = length(cols) > 0L,
-    "a constraint row references an unknown variable" = all(
-      cols >= 1L & cols <= problem[["n_var"]]
-    )
-  )
-
-  n_row <- length(problem[["cols"]]) + 1L
-  problem[["cols"]][[n_row]] <- cols
-  problem[["vals"]][[n_row]] <- vals
-  problem[["dir"]][n_row] <- dir
-  problem[["rhs"]][n_row] <- rhs
-  invisible(problem)
-}
-
-#' @describeIn trans_rate_lp Hand the collected rows to [lpSolve::lp()].
+#' solver <- trans_rate_lp$new(
+#'   lulc_data = lulc_data,
+#'   bounds = bounds,
+#'   periods = periods,
+#'   targets = data.table::data.table(id_lulc = 1:2, share = c(0.5, 0.5))
+#' )
+#' solver$solve()
+#' solver$areas
 #'
-#' @param objective Numeric vector of objective coefficients, one per variable.
-#' @param direction `"min"` or `"max"`.
-#' @keywords internal
-solve_lp_problem <- function(problem, objective, direction = "min") {
-  # TODO make this a method on lp_solve R6 class
-  stopifnot(length(objective) == problem[["n_var"]])
+#' @seealso [trans_rates_solver], [lp_problem], [trans_rates_t]
+#' @export
+trans_rate_lp <- R6::R6Class(
+  classname = "trans_rate_lp",
+  inherit = lp_problem,
 
-  cols <- problem[["cols"]]
-  triplets <- cbind(
-    rep.int(seq_along(cols), lengths(cols)),
-    unlist(cols, use.names = FALSE),
-    unlist(problem[["vals"]], use.names = FALSE)
-  )
+  public = list(
+    #' @field id_run Run the solved rates belong to, see [runs_t]. Set it before reading
+    #' `trans_rates_t`; one demand solution is usually written to several runs.
+    id_run = NULL,
 
-  lpSolve::lp(
-    direction = direction,
-    objective.in = objective,
-    const.dir = problem[["dir"]],
-    const.rhs = problem[["rhs"]],
-    dense.const = triplets
-  )
-}
+    #' @description Set up the program from an observed landscape and a scenario demand.
+    #' Constraint blocks are added immediately, so the object is ready to solve.
+    #'
+    #' @param lulc_data A [lulc_data_t] for a single `id_run`. The areas of its last
+    #' observed period are the initial state.
+    #' @param bounds Per-transition rate bounds, see [trans_rate_bounds()].
+    #' @param periods A [periods_t]. Its extrapolated periods are the steps to solve for,
+    #' and their lengths set the time scale of the trajectory-shape constraints.
+    #' @param targets A data.table with `id_lulc` and either `area` (cells on the same grid
+    #' as `lulc_data`) or `share` (of the landscape, rehydrated against it). Without
+    #' targets the object can only answer `reachability`.
+    #' @param shapes A data.table with `id_lulc` and `shape`, one of `"instant growth"`,
+    #' `"delayed growth"`, `"constant change"`, `"instant decline"`, `"delayed decline"`.
+    #' Note that a straight line satisfies every one of these one-sided curvature
+    #' constraints, so shapes only bind when `shape_strictness > 0`.
+    #' @param lambda_bounds Penalty weight on rate-bound violation.
+    #' @param mu_shape Penalty weight on trajectory-shape violation.
+    #' @param mu_smooth Penalty weight on the second difference of the trajectory; a
+    #' tie-breaker among otherwise equivalent trajectories.
+    #' @param mu_target Penalty weight on the L1 distance between the solved terminal area
+    #' and the target. Without it, a hard terminal band is treated as free real estate and
+    #' every class parks on a band edge.
+    #' @param mu_historic Penalty weight on the L1 distance between flows and the historic
+    #' outflow pattern (`ref_rate`). Zero by default; raising it keeps flows near the
+    #' observed pattern where the target does not force otherwise.
+    #' @param margin Slack around the rate bounds before a violation is penalised.
+    #' @param terminal_band Relative half-width of a *hard* band around the terminal
+    #' target, or `NA` (the default) to rely on `mu_target` alone. A hard band and
+    #' `forbid_non_viable` together turn an out-of-reach target into an infeasible program
+    #' rather than a near miss: on the SSP-CH demand that combination is infeasible for
+    #' three of five scenarios, while the L1 fit lands as close as the viable transitions
+    #' allow and reports the shortfall.
+    #' @param shape_strictness Minimum curvature a shaped trajectory must exhibit, as a
+    #' fraction of the class's mean per-step change.
+    #' @param monotone Whether to hard-constrain each class to move monotonically in the
+    #' direction of `sign(target - init)`.
+    #' @param fairness Minimax bound on the worst per-class rate-bound violation. `TRUE`
+    #' uses `lambda_bounds` as its weight; a number sets the weight explicitly.
+    #' @param forbid_non_viable Whether to hard-zero flows on transitions that
+    #' [trans_meta_t] marks as non-viable. Such flows have no [trans_pot_t] rows and would
+    #' be silently dropped at allocation time, so the trajectory would not materialise.
+    #' @param max_reachability_ratio Refuse to solve if a target asks for more than this
+    #' multiple of the historically achievable change. Everything below the threshold is
+    #' reported, not gated.
+    #'
+    #' @return A new `trans_rate_lp` object
+    initialize = function(
+      lulc_data,
+      bounds,
+      periods,
+      targets = NULL,
+      shapes = NULL,
+      lambda_bounds = 0.1,
+      mu_shape = 15,
+      mu_smooth = 1,
+      mu_target = 1e3,
+      mu_historic = 0,
+      margin = 0.01,
+      terminal_band = NA,
+      shape_strictness = 0,
+      monotone = TRUE,
+      fairness = TRUE,
+      forbid_non_viable = TRUE,
+      max_reachability_ratio = 10
+    ) {
+      stopifnot(
+        inherits(lulc_data, "lulc_data_t"),
+        inherits(periods, "periods_t"),
+        "bounds needs min_rate, max_rate and is_viable columns" = all(
+          c("id_lulc_anterior", "id_lulc_posterior", "min_rate", "max_rate", "is_viable") %in%
+            names(bounds)
+        ),
+        "penalty weights and tolerances must be single numbers" = all(
+          lengths(list(
+            lambda_bounds,
+            mu_shape,
+            mu_smooth,
+            mu_target,
+            mu_historic,
+            margin,
+            terminal_band,
+            shape_strictness,
+            max_reachability_ratio
+          )) ==
+            1L
+        ),
+        "terminal_band must be non-negative" = is.na(terminal_band) || terminal_band >= 0
+      )
 
-#' @describeIn trans_rate_lp Lay the decision variables out in one contiguous vector and
-#' return the index function of each block. Blocks that are switched off are not allocated
-#' and their index function is `NULL`, so reaching for one is an error rather than a silent
-#' collision with the next block.
-#'
-#' @param n_lulc Number of land use classes.
-#' @param n_step Number of steps to the horizon.
-#' @param blocks Named logical vector switching the optional variable blocks on: `slack`,
-#' `shape`, `smooth`, `target`, `historic`, `fairness`.
-#' @return `trans_rate_lp_layout()` returns a list with `n_var`, the `blocks` it was given
-#' and `ix`, a list of index functions.
-#' @keywords internal
-trans_rate_lp_layout <- function(n_lulc, n_step, blocks) {
-  n_x <- n_lulc * n_lulc * n_step
-  n_area <- n_lulc * (n_step + 1L)
-  n_curve <- if (n_step >= 2L) n_lulc * (n_step - 1L) else 0L
-  sized <- function(block, size) if (isTRUE(blocks[[block]])) as.integer(size) else 0L
+      private$.lambda_bounds <- lambda_bounds
+      private$.mu_shape <- mu_shape
+      private$.mu_smooth <- mu_smooth
+      private$.mu_target <- mu_target
+      private$.mu_historic <- mu_historic
+      private$.margin <- margin
+      private$.terminal_band <- terminal_band
+      private$.shape_strictness <- shape_strictness
+      private$.monotone <- isTRUE(monotone)
+      private$.forbid_non_viable <- isTRUE(forbid_non_viable)
+      private$.max_reachability_ratio <- max_reachability_ratio
+      private$.fair_weight <- data.table::fcase(
+        isTRUE(fairness)     , lambda_bounds            ,
+        is.numeric(fairness) , as.numeric(fairness)[1L] ,
+        default = 0
+      )
+      private$.has_targets <- !is.null(targets)
 
-  off_x <- 0L
-  off_lower <- off_x + n_x
-  off_upper <- off_lower + sized("slack", n_x)
-  off_area <- off_upper + sized("slack", n_x)
-  off_shape <- off_area + n_area
-  off_smooth <- off_shape + sized("shape", n_curve)
-  off_target <- off_smooth + sized("smooth", n_curve)
-  off_historic <- off_target + sized("target", 2L * n_lulc)
-  off_fair <- off_historic + sized("historic", n_x)
-  n_var <- off_fair + sized("fairness", 1L)
+      private$build_steps(periods)
+      private$build_scenario(lulc_data, targets, shapes)
+      private$build_transitions(bounds)
+      private$build_blocks()
 
-  flow <- function(offset) {
-    function(i, j, t) as.integer(offset + t * n_lulc * n_lulc + (i - 1L) * n_lulc + j)
-  }
-  curve <- function(offset) {
-    function(l, t) as.integer(offset + (l - 1L) * (n_step - 1L) + t)
-  }
-  only_if <- function(block, index_fun) if (isTRUE(blocks[[block]])) index_fun else NULL
+      super$initialize(private$build_variables())
+      private$build_anterior_area()
+      self$add_all()
 
-  list(
-    n_var = n_var,
-    blocks = blocks,
-    ix = list(
-      x = flow(off_x),
-      lower = only_if("slack", flow(off_lower)),
-      upper = only_if("slack", flow(off_upper)),
-      area = function(l, t) as.integer(off_area + t * n_lulc + l),
-      shape = only_if("shape", curve(off_shape)),
-      smooth = only_if("smooth", curve(off_smooth)),
-      plus = only_if("target", function(l) as.integer(off_target + l)),
-      minus = only_if("target", function(l) as.integer(off_target + n_lulc + l)),
-      historic = only_if("historic", flow(off_historic)),
-      fair = only_if("fairness", function() as.integer(off_fair + 1L))
-    )
-  )
-}
+      invisible(self)
+    },
 
-#' @describeIn trans_rate_lp Gather the scenario, the time grid, the rate matrices and the
-#' tuning parameters into the single object the constraint blocks read from.
-#'
-#' @param scenario A list from `trans_rate_scenario()`.
-#' @param grid A list from `trans_rate_time_grid()`.
-#' @param bounds Edge bounds as returned by [trans_rate_bounds()].
-#' @param params A list of the tuning arguments of [solve_trans_rates()].
-#' @keywords internal
-trans_rate_lp_model <- function(scenario, grid, bounds, params) {
-  ids <- scenario[["ids"]]
-  n_lulc <- length(ids)
-  n_step <- grid[["n_step"]]
+    #' @description Add every enabled constraint block, by calling the `add_` method of the
+    #' same name.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_all = function() {
+      for (block in private$.blocks[is_enabled == TRUE, block]) {
+        self[[paste0("add_", block)]]()
+      }
+      invisible(self)
+    },
 
-  rate <- list(
-    min = lulc_pair_matrix(bounds, ids, "min_rate", default = 0, diag_default = 0),
-    max = lulc_pair_matrix(bounds, ids, "max_rate", default = 0, diag_default = 1),
-    ref = if ("ref_rate" %in% names(bounds)) {
-      lulc_pair_matrix(bounds, ids, "ref_rate", default = 0, diag_default = 0)
+    #' @description The landscape starts in the observed state.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_initial = function() {
+      anchor_area <-
+        private$vars("area")[id_period == private$.anchor][
+          private$.scenario[, .(id_lulc, share_init)],
+          on = "id_lulc",
+          nomatch = NULL
+        ]
+
+      self$add_constraints(
+        "initial",
+        anchor_area[, .(id_row = .I, id_var, coefficient = 1, dir = "=", rhs = share_init)]
+      )
+    },
+
+    #' @description The classes cover the whole landscape at every state. Redundant given
+    #' closure in both directions, but a cheap numerical anchor.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_conservation = function() {
+      self$add_constraints(
+        "conservation",
+        private$vars("area")[,
+          .(id_var, coefficient = 1, dir = "=", rhs = 1),
+          by = .(id_row = id_period)
+        ]
+      )
+    },
+
+    #' @description Every cell of a class leaves it along exactly one transition, and every
+    #' cell of a state arrived along one. Together with `initial` this conserves area
+    #' exactly.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_closure = function() {
+      flows <- private$vars("flow")
+      areas <- private$vars("area")
+
+      # what leaves class i during period p is the area it held at the previous state
+      outflow <-
+        rbind(
+          flows[, .(id_lulc = id_lulc_anterior, id_period, id_var, coefficient = 1)],
+          private$.anterior_area[,
+            .(id_lulc = id_lulc_anterior, id_period, id_var = id_var_area, coefficient = -1)
+          ]
+        )[, id_row := .GRP, by = .(id_lulc, id_period)]
+
+      # what class j holds at state p is everything that arrived during period p
+      inflow <-
+        rbind(
+          areas[
+            id_period %in% private$.steps[["id_period"]],
+            .(id_lulc, id_period, id_var, coefficient = 1)
+          ],
+          flows[, .(id_lulc = id_lulc_posterior, id_period, id_var, coefficient = -1)]
+        )[, id_row := .GRP + max(outflow[["id_row"]]), by = .(id_lulc, id_period)]
+
+      self$add_constraints(
+        "closure",
+        rbind(outflow, inflow)[, `:=`(dir = "=", rhs = 0)]
+      )
+    },
+
+    #' @description A non-viable transition carries no flow at all. It is zero, not merely
+    #' expensive: it has no [trans_pot_t] rows and would be dropped at allocation time. One
+    #' row per transition and period -- a single row summing the periods says the same
+    #' thing about non-negative flows, but it is dense enough for [lpSolve::lp()]'s default
+    #' scaling to fail on it numerically.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_forbidden = function() {
+      forbidden <-
+        private$vars("flow")[
+          private$.transitions[is_forbidden == TRUE, .(id_lulc_anterior, id_lulc_posterior)],
+          on = .(id_lulc_anterior, id_lulc_posterior),
+          nomatch = NULL
+        ]
+
+      self$add_constraints(
+        "forbidden",
+        forbidden[, .(id_row = .I, id_var, coefficient = 1, dir = "=", rhs = 0)]
+      )
+    },
+
+    #' @description No transition moves faster than it ever has, as a *hard* bound with no
+    #' slack and no margin, and with persistence left free. This is the loosest honest
+    #' question about what a class can reach, and it is the block `reachability` solves
+    #' over. It is deliberately absent from a solve, where the same statement appears as
+    #' the softly penalised `rate_bounds`.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_rate_limits = function() {
+      limits <- private$flow_with_area(
+        private$.transitions[is_persistence == FALSE & is_forbidden == FALSE]
+      )
+
+      self$add_constraints(
+        "rate_limits",
+        rbind(
+          limits[, .(id_row = .I, id_var, coefficient = 1)],
+          limits[, .(id_row = .I, id_var = id_var_area, coefficient = -max_rate)]
+        )[, `:=`(dir = "<=", rhs = 0)]
+      )
+    },
+
+    #' @description No transition moves much faster or much slower than it historically
+    #' has, as a softly penalised bound widened by `margin`. Soft because elicited targets
+    #' routinely require flows outside the observed envelope; how far outside is reported
+    #' in `diagnostics` rather than suppressed.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_rate_bounds = function() {
+      bounded <- private$flow_with_area(private$.transitions[is_forbidden == FALSE])
+      bounded[
+        private$vars("rate_upper")[, .(id_lulc_anterior, id_lulc_posterior, id_period, id_var)],
+        id_var_upper := i.id_var,
+        on = .(id_lulc_anterior, id_lulc_posterior, id_period)
+      ]
+      bounded[
+        private$vars("rate_lower")[, .(id_lulc_anterior, id_lulc_posterior, id_period, id_var)],
+        id_var_lower := i.id_var,
+        on = .(id_lulc_anterior, id_lulc_posterior, id_period)
+      ]
+
+      # a bound at or above 1 is implied by closure, one at or below 0 by non-negativity
+      upper <- bounded[max_rate + private$.margin < 1]
+      lower <- bounded[min_rate - private$.margin > 0]
+
+      self$add_constraints(
+        "rate_bounds",
+        rbind(
+          upper[, .(id_row = .I, id_var, coefficient = 1)],
+          upper[, .(
+            id_row = .I,
+            id_var = id_var_area,
+            coefficient = -(max_rate + private$.margin)
+          )],
+          upper[, .(id_row = .I, id_var = id_var_upper, coefficient = -1)],
+          lower[, .(id_row = .I + nrow(upper), id_var, coefficient = -1)],
+          lower[,
+            .(
+              id_row = .I + nrow(upper),
+              id_var = id_var_area,
+              coefficient = min_rate - private$.margin
+            )
+          ],
+          lower[, .(id_row = .I + nrow(upper), id_var = id_var_lower, coefficient = -1)]
+        )[, `:=`(dir = "<=", rhs = 0)]
+      )
+    },
+
+    #' @description Flows stay near the historic outflow pattern, as an L1 penalty on
+    #' `|flow - ref_rate * area|`. This is the term that stops the program inventing
+    #' transitions that happen to be cheap.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_historic = function() {
+      preferred <- private$flow_with_area(
+        private$.transitions[is_persistence == FALSE & is_forbidden == FALSE]
+      )
+      preferred[
+        private$vars("historic")[, .(id_lulc_anterior, id_lulc_posterior, id_period, id_var)],
+        id_var_historic := i.id_var,
+        on = .(id_lulc_anterior, id_lulc_posterior, id_period)
+      ]
+
+      self$add_constraints(
+        "historic",
+        rbind(
+          preferred[, .(id_row = .I, id_var, coefficient = 1)],
+          preferred[, .(id_row = .I, id_var = id_var_area, coefficient = -ref_rate)],
+          preferred[, .(id_row = .I, id_var = id_var_historic, coefficient = -1)],
+          preferred[, .(id_row = .I + nrow(preferred), id_var, coefficient = -1)],
+          preferred[, .(
+            id_row = .I + nrow(preferred),
+            id_var = id_var_area,
+            coefficient = ref_rate
+          )],
+          preferred[, .(id_row = .I + nrow(preferred), id_var = id_var_historic, coefficient = -1)]
+        )[, `:=`(dir = "<=", rhs = 0)]
+      )
+    },
+
+    #' @description The landscape ends where the scenario asks it to: an L1 fit that
+    #' degrades gracefully, plus a hard band when `terminal_band` is set.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_target = function() {
+      terminal <-
+        private$vars("area")[id_period == private$.horizon][
+          private$.scenario[, .(id_lulc, share_target)],
+          on = "id_lulc",
+          nomatch = NULL
+        ]
+      terminal[
+        private$vars("target_over")[, .(id_lulc, id_var)],
+        id_var_over := i.id_var,
+        on = "id_lulc"
+      ]
+      terminal[
+        private$vars("target_under")[, .(id_lulc, id_var)],
+        id_var_under := i.id_var,
+        on = "id_lulc"
+      ]
+
+      # area - over + under = target, so that the objective pays for the distance either way
+      fit <-
+        rbind(
+          terminal[, .(id_row = .I, id_var, coefficient = 1)],
+          terminal[, .(id_row = .I, id_var = id_var_over, coefficient = -1)],
+          terminal[, .(id_row = .I, id_var = id_var_under, coefficient = 1)]
+        )[
+          terminal[, .(id_row = .I, rhs = share_target)],
+          on = "id_row"
+        ][, dir := "="]
+
+      band <- private$.terminal_band
+      n_class <- nrow(terminal)
+      if (!is.na(band)) {
+        fit <- rbind(
+          fit,
+          terminal[, .(id_row = .I + n_class, id_var, coefficient = 1, dir = ">=")][,
+            rhs := (1 - band) * terminal[["share_target"]]
+          ],
+          terminal[, .(id_row = .I + 2L * n_class, id_var, coefficient = 1, dir = "<=")][,
+            rhs := (1 + band) * terminal[["share_target"]]
+          ]
+        )
+      }
+
+      self$add_constraints("target", fit)
+    },
+
+    #' @description Each class moves in the direction of its target and does not turn back,
+    #' as a hard constraint with no tolerance.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_monotonicity = function() {
+      areas <- private$vars("area")[, .(id_lulc, id_period, id_var)]
+      moving <-
+        private$.steps[, .(id_period, id_period_prev)][
+          areas,
+          on = "id_period",
+          nomatch = NULL
+        ][
+          private$.scenario[monotone_sign != 0, .(id_lulc, monotone_sign)],
+          on = "id_lulc",
+          nomatch = NULL
+        ]
+      moving[areas, id_var_prev := i.id_var, on = .(id_lulc, id_period_prev = id_period)]
+      moving[, dir := data.table::fifelse(monotone_sign > 0, ">=", "<=")]
+
+      self$add_constraints(
+        "monotonicity",
+        rbind(
+          moving[, .(id_row = .I, id_var, coefficient = 1, dir, rhs = 0)],
+          moving[, .(id_row = .I, id_var = id_var_prev, coefficient = -1, dir, rhs = 0)]
+        )
+      )
+    },
+
+    #' @description Each class trajectory curves the way its elicited shape says, as a
+    #' softly penalised one-sided constraint on the change in the per-year rate of change.
+    #' `"instant"` front-loads the change and `"delayed"` back-loads it; `"constant
+    #' change"` asks for both at once, which is what makes it an equality.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_shape = function() {
+      shaped <- private$curvature_terms(
+        private$.scenario[shape_binds == TRUE, .(id_lulc, shape, strict)],
+        "shape"
+      )
+
+      front_loaded <- shaped[shape %chin% c("instant growth", "delayed decline", "constant change")]
+      back_loaded <- shaped[shape %chin% c("delayed growth", "instant decline", "constant change")]
+      # a shape that asks for constant change asks for no curvature in either direction
+      front_loaded[, rhs := data.table::fifelse(shape == "constant change", 0, strict)]
+      back_loaded[, rhs := data.table::fifelse(shape == "constant change", 0, -strict)]
+
+      self$add_constraints(
+        "shape",
+        rbind(
+          private$curvature_rows(front_loaded, slack_coefficient = 1, dir = ">="),
+          private$curvature_rows(
+            back_loaded,
+            slack_coefficient = -1,
+            dir = "<=",
+            id_row_offset = nrow(front_loaded)
+          )
+        )
+      )
+    },
+
+    #' @description Each class trajectory prefers a small second difference. A tie-breaker
+    #' among the many trajectories that satisfy everything else, not a modelling statement.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_smoothness = function() {
+      smooth <- private$curvature_terms(private$.scenario[, .(id_lulc)], "smoothness")
+      # the second difference, as opposed to the change in per-year rate of change, bounded
+      # from both sides so that the slack absorbs its absolute value
+      positive <- data.table::copy(smooth)[,
+        `:=`(coefficient_prev = 1, coefficient_here = -2, coefficient_next = 1, rhs = 0)
+      ]
+      negative <- data.table::copy(smooth)[,
+        `:=`(coefficient_prev = -1, coefficient_here = 2, coefficient_next = -1, rhs = 0)
+      ]
+
+      self$add_constraints(
+        "smoothness",
+        rbind(
+          private$curvature_rows(positive, slack_coefficient = -1, dir = "<="),
+          private$curvature_rows(
+            negative,
+            slack_coefficient = -1,
+            dir = "<=",
+            id_row_offset = nrow(positive)
+          )
+        )
+      )
+    },
+
+    #' @description No class carries a much worse rate-bound violation than the others. A
+    #' minimax of linear expressions is itself linear, so this needs no quadratic solver.
+    #' @return The `trans_rate_lp` object, invisibly
+    add_fairness = function() {
+      violation <- rbind(private$vars("rate_lower"), private$vars("rate_upper"))
+      violation[
+        private$.scenario[, .(id_lulc, weight)],
+        weight := i.weight,
+        on = .(id_lulc_anterior = id_lulc)
+      ]
+      worst <- private$vars("fairness")[["id_var"]]
+
+      self$add_constraints(
+        "fairness",
+        rbind(
+          violation[, .(id_lulc_anterior, id_var, coefficient = weight)],
+          violation[,
+            .(id_lulc_anterior = unique(id_lulc_anterior), id_var = worst, coefficient = -1)
+          ]
+        )[, id_row := .GRP, by = id_lulc_anterior][, `:=`(dir = "<=", rhs = 0)]
+      )
+    },
+
+    #' @description Solve for the flows that take the landscape to its targets, after
+    #' checking that the targets are not grossly beyond what history supports.
+    #' @return The `trans_rate_lp` object, invisibly
+    solve = function() {
+      stopifnot(
+        "no targets were given; this program can only answer reachability" = private$.has_targets
+      )
+      private$assert_reachable_targets()
+
+      super$solve(
+        objective = private$objective_coefficients(),
+        direction = "min",
+        blocks = private$.blocks[is_enabled == TRUE & in_solution == TRUE, block]
+      )
+
+      if (self$status != 0L) {
+        stop(glue::glue(
+          "The transition rate LP has no solution (lpSolve status {self$status}). ",
+          "A hard terminal_band on an out-of-reach target is the usual cause; ",
+          "set terminal_band = NA to fall back on the mu_target penalty, ",
+          "or inspect the reachability field."
+        ))
+      }
+      invisible(self)
+    },
+
+    #' @description Print a summary of the program.
+    #' @param ... Ignored.
+    print = function(...) {
+      cat(glue::glue(
+        "<trans_rate_lp>\n",
+        "{nrow(private$.scenario)} classes, {nrow(private$.steps)} steps ",
+        "from period {private$.anchor} to {private$.horizon}\n",
+        "{format(private$.total, big.mark = ',')} cells, ",
+        "{nrow(private$.transitions[is_forbidden == FALSE])} allowed transitions\n",
+        "status: {self$status %||% 'unsolved'}\n\n"
+      ))
+      print(private$.blocks)
+      invisible(self)
     }
-  )
-  viable <- lulc_viable_matrix(bounds, ids)
+  ),
 
-  fair_weight <- if (isTRUE(params[["fairness"]])) {
-    params[["lambda_bounds"]]
-  } else if (is.numeric(params[["fairness"]])) {
-    params[["fairness"]]
-  } else {
-    0
-  }
+  active = list(
+    #' @field blocks The constraint blocks, whether each is enabled, and which programs
+    #' each takes part in.
+    blocks = function() private$.blocks[],
 
-  blocks <- c(
-    slack = TRUE,
-    shape = any(!is.na(scenario[["shape"]])) && n_step >= 2L,
-    smooth = params[["mu_smooth"]] > 0 && n_step >= 2L,
-    target = params[["mu_target"]] > 0,
-    historic = params[["mu_historic"]] > 0 && !is.null(rate[["ref"]]),
-    fairness = fair_weight > 0
-  )
+    #' @field scenario Per class: the initial and target areas, the elicited shape and the
+    #' objective weight.
+    scenario = function() private$.scenario[],
 
-  c(
-    scenario,
-    grid,
-    trans_rate_lp_layout(n_lulc, n_step, blocks),
-    list(
-      n_lulc = n_lulc,
-      rate = rate,
-      viable = viable,
-      forbidden = isTRUE(params[["forbid_non_viable"]]) & !viable,
-      id_trans = if ("id_trans" %in% names(bounds)) {
-        lulc_pair_matrix(bounds, ids, "id_trans", default = NA_integer_, diag_default = NA_integer_)
-      } else {
-        matrix(NA_integer_, n_lulc, n_lulc)
-      },
-      params = params,
-      fair_weight = fair_weight,
-      weight = 1 / pmax(scenario[["init_share"]], 1e-9)
-    )
-  )
-}
+    #' @field transitions Every ordered pair of classes with its rate bounds, whether it is
+    #' viable, and whether the program forbids it.
+    transitions = function() private$.transitions[],
 
-#' @describeIn trans_rate_lp Add the initial condition, total-area conservation and the row
-#' and column closure of the flows. Total-area conservation is redundant given closure in
-#' both directions, but it is a cheap numerical anchor.
-#'
-#' @param model A list from [trans_rate_lp_model()], or the reduced equivalent that
-#' [trans_rate_reachability()] builds.
-#' @keywords internal
-add_balance_rows <- function(problem, model) {
-  ix <- model[["ix"]]
-  n_lulc <- model[["n_lulc"]]
-  n_step <- model[["n_step"]]
-  classes <- seq_len(n_lulc)
+    #' @field steps The extrapolated periods, the state each starts from, and its length.
+    steps = function() private$.steps[],
 
-  for (l in classes) {
-    add_lp_row(problem, ix[["area"]](l, 0L), 1, "=", model[["init_share"]][l])
-  }
-  for (t in seq.int(0L, n_step)) {
-    add_lp_row(problem, ix[["area"]](classes, t), rep(1, n_lulc), "=", 1)
-  }
-  for (t in seq.int(0L, n_step - 1L)) {
-    for (i in classes) {
-      add_lp_row(
-        problem,
-        c(ix[["x"]](i, classes, t), ix[["area"]](i, t)),
-        c(rep(1, n_lulc), -1),
-        "=",
-        0
+    #' @field reachability Per class and period: the areas reachable under mass balance and
+    #' hard historic rates, ignoring targets. Solved on demand and then cached.
+    reachability = function() {
+      if (is.null(private$.reachability)) {
+        private$.reachability <- private$solve_reachability()
+      }
+      private$.reachability[]
+    },
+
+    #' @field areas The solved class areas, in cells, per class and state.
+    areas = function() {
+      self$values[block == "area", .(id_lulc, id_period, area = value * private$.total)][
+        order(id_period, id_lulc)
+      ]
+    },
+
+    #' @field flows The solved transition flows, in cells.
+    flows = function() {
+      private$solved_flows()[,
+        .(
+          id_trans,
+          id_lulc_anterior,
+          id_lulc_posterior,
+          id_period,
+          flow,
+          count,
+          is_viable
+        )
+      ]
+    },
+
+    #' @field rates The solved flows as rates of their anterior class, which is what
+    #' [adjusted_trans_pot_v()] and the allocators consume.
+    rates = function() {
+      private$solved_flows()[,
+        .(
+          id_trans,
+          id_lulc_anterior,
+          id_lulc_posterior,
+          id_period,
+          count,
+          rate,
+          is_viable
+        )
+      ]
+    },
+
+    #' @field trans_rates_t The solved rates as a [trans_rates_t] for the current `id_run`.
+    #' Persistence and non-viable transitions are dropped: neither has an `id_trans` or any
+    #' [trans_pot_t] rows to be allocated against.
+    trans_rates_t = function() {
+      stopifnot("id_run must be set" = length(self$id_run) == 1L && !is.na(self$id_run))
+      flows <- private$solved_flows()
+      stopifnot(
+        "flow was allocated to non-viable transitions; set forbid_non_viable = TRUE" = flows[
+          is_viable == FALSE,
+          sum(count)
+        ] ==
+          0
+      )
+
+      flows[
+        is_viable == TRUE & !is.na(id_trans),
+        .(id_run = as.integer(self$id_run), id_period, id_trans, count, rate)
+      ] |>
+        as_trans_rates_t()
+    },
+
+    #' @field diagnostics How far the solution had to depart from the target and from
+    #' observed history. These are results, not debug output: a solver that does not report
+    #' how far outside history it went is actively misleading.
+    diagnostics = function() {
+      flows <- private$solved_flows()
+      off_diagonal <- flows[id_lulc_anterior != id_lulc_posterior]
+
+      list(
+        reachability = private$reachability_verdict(),
+        target_error = private$.scenario[
+          self$areas[id_period == private$.horizon],
+          on = "id_lulc",
+          .(
+            id_lulc,
+            area_init,
+            area_final = i.area,
+            target = area_target,
+            error = i.area - area_target,
+            pct_error = 100 * (i.area - area_target) / pmax(area_target, 1)
+          )
+        ],
+        bound_violation = flows[
+          dev_lower > 1e-6 | dev_upper > 1e-6,
+          .(id_trans, id_lulc_anterior, id_lulc_posterior, id_period, dev_lower, dev_upper)
+        ],
+        flow_summary = data.table::data.table(
+          total_flow = off_diagonal[, sum(flow)],
+          # flow the historic envelope does not support, and by how much it overshoots
+          flow_above_max_rate = off_diagonal[flow > max_flow + 1e-6, sum(flow)],
+          excess_above_max_rate = off_diagonal[, sum(pmax(flow - max_flow, 0))],
+          shortfall_below_min_rate = off_diagonal[, sum(pmax(min_flow - flow, 0))],
+          flow_non_viable = flows[is_viable == FALSE, sum(flow)]
+        ),
+        shape = private$shape_diagnostics()
       )
     }
-    for (j in classes) {
-      add_lp_row(
-        problem,
-        c(ix[["area"]](j, t + 1L), ix[["x"]](classes, j, t)),
-        c(1, rep(-1, n_lulc)),
-        "=",
-        0
+  ),
+
+  private = list(
+    .lambda_bounds = NULL,
+    .mu_shape = NULL,
+    .mu_smooth = NULL,
+    .mu_target = NULL,
+    .mu_historic = NULL,
+    .margin = NULL,
+    .terminal_band = NULL,
+    .shape_strictness = NULL,
+    .monotone = NULL,
+    .forbid_non_viable = NULL,
+    .fair_weight = NULL,
+    .max_reachability_ratio = NULL,
+    .has_targets = NULL,
+
+    .blocks = NULL,
+    .scenario = NULL,
+    .transitions = NULL,
+    .steps = NULL,
+    .curvature = NULL,
+    .anterior_area = NULL,
+    .reachability = NULL,
+    .anchor = NULL,
+    .horizon = NULL,
+    .total = NULL,
+
+    ## Model tables ----
+
+    # the extrapolated periods, each with the state it starts from and its length in years
+    build_steps = function(periods) {
+      periods <- data.table::as.data.table(periods)
+      stopifnot(
+        "periods_t needs an extrapolated period to solve for" = nrow(periods[
+          is_extrapolated == TRUE
+        ]) >
+          0L,
+        "periods_t needs an observed period to start from" = nrow(periods[
+          id_period > 0L & is_extrapolated == FALSE
+        ]) >
+          0L
       )
-    }
-  }
-  invisible(problem)
-}
 
-#' @describeIn trans_rate_lp Hard-zero the forbidden edges. A forbidden edge is zero, not
-#' merely expensive -- non-viable transitions have no `trans_pot_t` rows and would be
-#' dropped at allocation time. One row per edge and step: a single row summing the steps
-#' says the same thing about non-negative flows, but it makes the program dense enough in
-#' that one row for `lpSolve`'s default scaling to fail on it numerically.
-#' @keywords internal
-add_forbidden_rows <- function(problem, model) {
-  ix <- model[["ix"]]
+      private$.anchor <- periods[id_period > 0L & is_extrapolated == FALSE, max(id_period)]
+      private$.steps <-
+        periods[is_extrapolated == TRUE][order(id_period)][,
+          .(
+            id_period,
+            id_period_prev = data.table::shift(id_period, fill = private$.anchor),
+            period_length_y = period_length_d / 365.25
+          )
+        ]
+      private$.horizon <- private$.steps[, max(id_period)]
 
-  for (i in seq_len(model[["n_lulc"]])) {
-    for (j in seq_len(model[["n_lulc"]])) {
-      if (!model[["forbidden"]][i, j]) {
-        next
+      # curvature compares the per-year change over consecutive steps, so it is defined on
+      # every pair of them and keyed by the earlier one
+      private$.curvature <-
+        private$.steps[,
+          .(
+            id_period,
+            id_period_prev,
+            id_period_next = data.table::shift(id_period, -1L),
+            ratio = period_length_y / data.table::shift(period_length_y, -1L)
+          )
+        ][!is.na(id_period_next)]
+      invisible(self)
+    },
+
+    # one row per class: where it starts, where it is asked to go, and how it may travel
+    build_scenario = function(lulc_data, targets, shapes) {
+      scenario <-
+        data.table::as.data.table(lulc_data)[
+          id_period == private$.anchor,
+          .(area_init = .N),
+          by = id_lulc
+        ][order(id_lulc)]
+      stopifnot(
+        "lulc_data must hold a single id_run" = data.table::uniqueN(lulc_data[["id_run"]]) == 1L,
+        "lulc_data has no cells in the last observed period" = nrow(scenario) > 0L,
+        "lulc_data must cover the last observed period of periods_t" = private$.anchor %in%
+          lulc_data[["id_period"]]
+      )
+
+      private$.total <- scenario[, sum(area_init)]
+      scenario[, share_init := area_init / private$.total]
+      scenario[, weight := 1 / pmax(share_init, 1e-9)]
+
+      if (is.null(targets)) {
+        private$.scenario <- scenario
+        return(invisible(self))
       }
-      for (t in seq.int(0L, model[["n_step"]] - 1L)) {
-        add_lp_row(problem, ix[["x"]](i, j, t), 1, "=", 0)
+
+      scenario[
+        private$target_shares(targets, scenario[["id_lulc"]]),
+        share_target := i.share_target,
+        on = "id_lulc"
+      ]
+      scenario[, area_target := share_target * private$.total]
+      scenario[, shape := NA_character_]
+      if (!is.null(shapes)) {
+        scenario[canonical_shapes(shapes), shape := i.shape, on = "id_lulc"]
       }
-    }
-  }
-  invisible(problem)
-}
+      scenario[,
+        monotone_sign := if (private$.monotone) sign(area_target - area_init) else 0
+      ]
+      # a shape elicited against the opposite direction of change says nothing
+      scenario[,
+        shape_binds := data.table::fcase(
+          shape %chin% c("instant growth", "delayed growth")   , area_target > area_init ,
+          shape %chin% c("instant decline", "delayed decline") , area_target < area_init ,
+          shape == "constant change"                           , TRUE                    ,
+          default = FALSE
+        )
+      ]
+      scenario[,
+        strict := private$.shape_strictness *
+          abs(share_target - share_init) /
+          nrow(private$.steps)
+      ]
 
-#' @describeIn trans_rate_lp Bound each flow by the historic rates of its edge, times the
-#' area of its source class at that step. With the `slack` block the bounds are soft and
-#' widened by `margin`, which is what lets an elicited target that lies outside the observed
-#' envelope still be met, at a price. Without it they are hard and the diagonal is left
-#' free, which is the question [trans_rate_reachability()] asks.
-#' @keywords internal
-add_rate_bound_rows <- function(problem, model) {
-  ix <- model[["ix"]]
-  soft <- isTRUE(model[["blocks"]][["slack"]])
-  margin <- if (soft) model[["params"]][["margin"]] else 0
-  classes <- seq_len(model[["n_lulc"]])
+      private$.scenario <- scenario
+      invisible(self)
+    },
 
-  for (t in seq.int(0L, model[["n_step"]] - 1L)) {
-    for (i in classes) {
-      for (j in classes) {
-        if (model[["forbidden"]][i, j] || (!soft && i == j)) {
-          next
-        }
-
-        upper <- model[["rate"]][["max"]][i, j] + margin
-        if (upper < 1) {
-          cols <- c(ix[["x"]](i, j, t), ix[["area"]](i, t))
-          vals <- c(1, -upper)
-          if (soft) {
-            cols <- c(cols, ix[["upper"]](i, j, t))
-            vals <- c(vals, -1)
-          }
-          add_lp_row(problem, cols, vals, "<=", 0)
-        }
-
-        lower <- model[["rate"]][["min"]][i, j] - margin
-        if (soft && lower > 0) {
-          add_lp_row(
-            problem,
-            c(ix[["x"]](i, j, t), ix[["area"]](i, t), ix[["lower"]](i, j, t)),
-            c(-1, lower, -1),
-            "<=",
+    # targets may be stated in cells on our own grid, or as a share of the landscape, which
+    # is the only form that transfers between grids
+    target_shares = function(targets, classes) {
+      targets <- data.table::as.data.table(targets)
+      stopifnot(
+        "targets needs an id_lulc column" = "id_lulc" %in% names(targets),
+        "targets needs either an area or a share column" = any(
+          c("area", "share") %in% names(targets)
+        ),
+        "targets must cover exactly the classes of lulc_data" = setequal(
+          targets[["id_lulc"]],
+          classes
+        ),
+        "targets must be non-negative" = all(
+          targets[[
+            if ("share" %in% names(targets)) "share" else "area"
+          ]] >=
             0
+        )
+      )
+
+      if ("share" %in% names(targets)) {
+        total_share <- targets[, sum(share)]
+        if (abs(total_share - 1) > 1e-6) {
+          warning(sprintf("target shares sum to %.6f, renormalising to 1", total_share))
+        }
+        return(targets[, .(id_lulc, share_target = share / total_share)])
+      }
+
+      stopifnot(
+        "target areas must sum to the area of lulc_data; state them as shares to rehydrate" = abs(
+          targets[, sum(area)] - private$.total
+        ) <=
+          1e-6 * private$.total
+      )
+      targets[, .(id_lulc, share_target = area / private$.total)]
+    },
+
+    # every ordered pair of classes, whether or not it was ever observed
+    build_transitions = function(bounds) {
+      # id_trans and ref_rate are only needed to write rates out and to prefer the historic
+      # pattern; a caller interested in reachability alone need not supply them
+      bounds <- data.table::copy(data.table::as.data.table(bounds))
+      for (optional in setdiff(c("id_trans", "ref_rate"), names(bounds))) {
+        data.table::set(bounds, j = optional, value = NA)
+      }
+
+      classes <- private$.scenario[["id_lulc"]]
+      transitions <- data.table::CJ(id_lulc_anterior = classes, id_lulc_posterior = classes)
+      transitions[
+        bounds,
+        `:=`(
+          id_trans = as.integer(i.id_trans),
+          min_rate = i.min_rate,
+          max_rate = i.max_rate,
+          ref_rate = as.numeric(i.ref_rate),
+          is_viable = i.is_viable
+        ),
+        on = .(id_lulc_anterior, id_lulc_posterior)
+      ]
+
+      transitions[, is_persistence := id_lulc_anterior == id_lulc_posterior]
+      transitions[, has_history := !is.na(min_rate)]
+      transitions[
+        has_history == FALSE,
+        `:=`(min_rate = 0, max_rate = 0, ref_rate = 0, is_viable = FALSE)
+      ]
+      # a transition with no recorded historic mean has no historic pattern to prefer
+      transitions[is.na(ref_rate), ref_rate := 0]
+      # a class must be able to stay itself, even where no history says how often
+      transitions[is_persistence == TRUE, is_viable := TRUE]
+      transitions[is_persistence == TRUE & has_history == FALSE, max_rate := 1]
+      transitions[, is_forbidden := private$.forbid_non_viable & !is_viable]
+
+      private$.transitions <- transitions
+      invisible(self)
+    },
+
+    # which blocks this program has, and which of its two questions each answers
+    build_blocks = function() {
+      targets <- private$.has_targets
+      curved <- nrow(private$.curvature) > 0L
+
+      private$.blocks <- data.table::data.table(
+        block = c(
+          "initial",
+          "conservation",
+          "closure",
+          "forbidden",
+          "rate_limits",
+          "rate_bounds",
+          "historic",
+          "target",
+          "monotonicity",
+          "shape",
+          "smoothness",
+          "fairness"
+        ),
+        is_enabled = c(
+          TRUE,
+          TRUE,
+          TRUE,
+          private$.transitions[, any(is_forbidden)],
+          TRUE,
+          targets,
+          targets && private$.mu_historic > 0,
+          targets,
+          targets && private$.scenario[, any(monotone_sign != 0)],
+          targets && curved && private$.scenario[, any(shape_binds)],
+          targets && curved && private$.mu_smooth > 0,
+          targets && private$.fair_weight > 0
+        ),
+        in_solution = c(
+          TRUE,
+          TRUE,
+          TRUE,
+          TRUE,
+          FALSE,
+          TRUE,
+          TRUE,
+          TRUE,
+          TRUE,
+          TRUE,
+          TRUE,
+          TRUE
+        ),
+        in_reachability = c(
+          TRUE,
+          TRUE,
+          TRUE,
+          TRUE,
+          TRUE,
+          FALSE,
+          FALSE,
+          FALSE,
+          FALSE,
+          FALSE,
+          FALSE,
+          FALSE
+        )
+      )
+      invisible(self)
+    },
+
+    # one row per decision variable, keyed by what it describes rather than by position
+    build_variables = function() {
+      enabled <- function(name) private$.blocks[block == name, is_enabled]
+      per_step <- function(name) {
+        private$.transitions[,
+          .(block = name, id_period = private$.steps[["id_period"]]),
+          by = .(id_lulc_anterior, id_lulc_posterior, id_trans)
+        ]
+      }
+      per_state <- function(name, id_periods) {
+        private$.scenario[, .(block = name, id_period = id_periods), by = id_lulc]
+      }
+
+      variables <- data.table::rbindlist(
+        list(
+          per_step("flow"),
+          per_state("area", c(private$.anchor, private$.steps[["id_period"]])),
+          if (enabled("rate_bounds")) per_step("rate_lower"),
+          if (enabled("rate_bounds")) per_step("rate_upper"),
+          if (enabled("historic")) per_step("historic"),
+          if (enabled("shape")) per_state("shape", private$.curvature[["id_period"]]),
+          if (enabled("smoothness")) per_state("smoothness", private$.curvature[["id_period"]]),
+          if (enabled("target")) per_state("target_over", private$.horizon),
+          if (enabled("target")) per_state("target_under", private$.horizon),
+          if (enabled("fairness")) data.table::data.table(block = "fairness")
+        ),
+        use.names = TRUE,
+        fill = TRUE
+      )
+
+      variables[, id_var := .I]
+      data.table::setcolorder(
+        variables,
+        c("id_var", "block", "id_lulc", "id_lulc_anterior", "id_lulc_posterior", "id_trans")
+      )
+      data.table::setindex(variables, block)
+      variables[]
+    },
+
+    # the area a step draws from, which is the state it starts at
+    build_anterior_area = function() {
+      private$.anterior_area <-
+        private$vars("area")[
+          private$.steps,
+          on = .(id_period = id_period_prev),
+          .(id_lulc_anterior = id_lulc, id_period = i.id_period, id_var_area = id_var)
+        ]
+      invisible(self)
+    },
+
+    ## Constraint helpers ----
+
+    vars = function(name) private$.variables[block %chin% name],
+
+    # the flow variables of a set of transitions, with the area variable they draw from and
+    # the rate bounds that apply to them
+    flow_with_area = function(transitions) {
+      flows <- private$vars("flow")[
+        transitions[, .(id_lulc_anterior, id_lulc_posterior, min_rate, max_rate, ref_rate)],
+        on = .(id_lulc_anterior, id_lulc_posterior),
+        nomatch = NULL
+      ]
+      flows[
+        private$.anterior_area,
+        id_var_area := i.id_var_area,
+        on = .(id_lulc_anterior, id_period)
+      ]
+      flows
+    },
+
+    # expand a per-class table over the curvature periods, attaching the three area
+    # variables a curvature row spans and the slack variable that absorbs its violation
+    curvature_terms = function(classes, slack_block) {
+      areas <- private$vars("area")[, .(id_lulc, id_period, id_var)]
+      terms <- classes[, .(id_period = private$.curvature[["id_period"]]), by = names(classes)]
+      terms[
+        private$.curvature,
+        on = "id_period",
+        `:=`(
+          id_period_prev = i.id_period_prev,
+          id_period_next = i.id_period_next,
+          ratio = i.ratio
+        )
+      ]
+
+      terms[areas, id_var_here := i.id_var, on = .(id_lulc, id_period)]
+      terms[areas, id_var_prev := i.id_var, on = .(id_lulc, id_period_prev = id_period)]
+      terms[areas, id_var_next := i.id_var, on = .(id_lulc, id_period_next = id_period)]
+      terms[
+        private$vars(slack_block)[, .(id_lulc, id_period, id_var)],
+        id_var_slack := i.id_var,
+        on = .(id_lulc, id_period)
+      ]
+
+      # the change in per-year rate of change over consecutive steps, scaled by the length
+      # of the earlier one
+      terms[, `:=`(coefficient_prev = -1, coefficient_here = 1 + ratio, coefficient_next = -ratio)]
+      terms
+    },
+
+    curvature_rows = function(terms, slack_coefficient, dir, id_row_offset = 0L) {
+      rbind(
+        terms[, .(
+          id_row = .I + id_row_offset,
+          id_var = id_var_prev,
+          coefficient = coefficient_prev
+        )],
+        terms[, .(
+          id_row = .I + id_row_offset,
+          id_var = id_var_here,
+          coefficient = coefficient_here
+        )],
+        terms[, .(
+          id_row = .I + id_row_offset,
+          id_var = id_var_next,
+          coefficient = coefficient_next
+        )],
+        terms[, .(
+          id_row = .I + id_row_offset,
+          id_var = id_var_slack,
+          coefficient = slack_coefficient
+        )]
+      )[
+        terms[, .(id_row = .I + id_row_offset, rhs)],
+        on = "id_row"
+      ][, dir := ..dir][]
+    },
+
+    ## Objective ----
+
+    objective_coefficients = function() {
+      weights <- private$.scenario[, .(id_lulc, weight)]
+      by_class <- function(name, mu) {
+        private$vars(name)[weights, on = "id_lulc", .(id_var, coefficient = mu * weight)]
+      }
+      by_anterior <- function(name, mu) {
+        private$vars(name)[
+          weights,
+          on = .(id_lulc_anterior = id_lulc),
+          .(id_var, coefficient = mu * weight)
+        ]
+      }
+      enabled <- function(name) private$.blocks[block == name, is_enabled]
+
+      data.table::rbindlist(list(
+        by_anterior("rate_lower", private$.lambda_bounds),
+        by_anterior("rate_upper", private$.lambda_bounds),
+        if (enabled("historic")) by_anterior("historic", private$.mu_historic),
+        if (enabled("shape")) by_class("shape", private$.mu_shape),
+        if (enabled("smoothness")) by_class("smoothness", private$.mu_smooth),
+        if (enabled("target")) by_class("target_over", private$.mu_target),
+        if (enabled("target")) by_class("target_under", private$.mu_target),
+        if (enabled("fairness")) {
+          data.table::data.table(
+            id_var = private$vars("fairness")[["id_var"]],
+            coefficient = private$.fair_weight
           )
         }
-      }
-    }
-  }
-  invisible(problem)
-}
+      ))
+    },
 
-#' @describeIn trans_rate_lp Pull each flow towards the historic outflow pattern, as an L1
-#' penalty on `|x[i, j, t] - ref_rate[i, j] * area[i, t]|`. This is what stops the program
-#' inventing edges that happen to be cheap.
-#' @keywords internal
-add_historic_rows <- function(problem, model) {
-  if (!isTRUE(model[["blocks"]][["historic"]])) {
-    return(invisible(problem))
-  }
-  ix <- model[["ix"]]
-  classes <- seq_len(model[["n_lulc"]])
+    ## Reachability ----
 
-  for (t in seq.int(0L, model[["n_step"]] - 1L)) {
-    for (i in classes) {
-      for (j in classes) {
-        if (i == j || model[["forbidden"]][i, j]) {
-          next
-        }
-        cols <- c(ix[["x"]](i, j, t), ix[["area"]](i, t), ix[["historic"]](i, j, t))
-        ref <- model[["rate"]][["ref"]][i, j]
-        add_lp_row(problem, cols, c(1, -ref, -1), "<=", 0)
-        add_lp_row(problem, cols, c(-1, ref, -1), "<=", 0)
-      }
-    }
-  }
-  invisible(problem)
-}
-
-#' @describeIn trans_rate_lp Tie the terminal areas to the targets: a hard band when
-#' `terminal_band` is set, and the L1 fit `area[l, T] - target = plus - minus` when
-#' `mu_target` is positive.
-#' @keywords internal
-add_target_rows <- function(problem, model) {
-  ix <- model[["ix"]]
-  n_step <- model[["n_step"]]
-  band <- model[["params"]][["terminal_band"]]
-  target_share <- model[["target_share"]]
-
-  if (!is.null(band) && !is.na(band)) {
-    stopifnot("terminal_band must be non-negative" = band >= 0)
-    for (l in seq_len(model[["n_lulc"]])) {
-      add_lp_row(problem, ix[["area"]](l, n_step), 1, ">=", (1 - band) * target_share[l])
-      add_lp_row(problem, ix[["area"]](l, n_step), 1, "<=", (1 + band) * target_share[l])
-    }
-  }
-
-  if (isTRUE(model[["blocks"]][["target"]])) {
-    for (l in seq_len(model[["n_lulc"]])) {
-      add_lp_row(
-        problem,
-        c(ix[["area"]](l, n_step), ix[["plus"]](l), ix[["minus"]](l)),
-        c(1, -1, 1),
-        "=",
-        target_share[l]
-      )
-    }
-  }
-  invisible(problem)
-}
-
-#' @describeIn trans_rate_lp Constrain each class to move in the direction of
-#' `sign(target - init)`, as a hard constraint with no tolerance. `monotone_sign` of `NULL`
-#' or 0 leaves the trajectory free.
-#' @keywords internal
-add_monotonicity_rows <- function(problem, model) {
-  signs <- model[["monotone_sign"]]
-  if (is.null(signs)) {
-    return(invisible(problem))
-  }
-  ix <- model[["ix"]]
-  stopifnot("monotone_sign must have one entry per class" = length(signs) == model[["n_lulc"]])
-
-  for (l in seq_len(model[["n_lulc"]])) {
-    if (is.na(signs[l]) || signs[l] == 0) {
-      next
-    }
-    for (t in seq_len(model[["n_step"]])) {
-      add_lp_row(
-        problem,
-        c(ix[["area"]](l, t), ix[["area"]](l, t - 1L)),
-        c(1, -1),
-        if (signs[l] > 0) ">=" else "<=",
-        0
-      )
-    }
-  }
-  invisible(problem)
-}
-
-#' @describeIn trans_rate_lp The curvature of a class trajectory: its per-year change over
-#' step `t` against that over step `t + 1`, scaled by the length of step `t`.
-#'
-#' @param l Index of a land use class.
-#' @param t Index of a step.
-#' @return `curvature_row()` returns a list of `cols` and `vals`.
-#' @keywords internal
-curvature_row <- function(model, l, t) {
-  ix <- model[["ix"]]
-  ratio <- model[["step_years"]][t] / model[["step_years"]][t + 1L]
-  list(
-    cols = c(ix[["area"]](l, t - 1L), ix[["area"]](l, t), ix[["area"]](l, t + 1L)),
-    vals = c(-1, 1 + ratio, -ratio)
-  )
-}
-
-#' @describeIn trans_rate_lp Ask each class trajectory to curve the way its elicited shape
-#' says, as a softly penalised one-sided constraint on curvature. Note that zero curvature
-#' satisfies all five shapes at once, so the block only bites once `shape_strictness`
-#' demands a minimum curvature.
-#' @keywords internal
-add_shape_rows <- function(problem, model) {
-  if (!isTRUE(model[["blocks"]][["shape"]])) {
-    return(invisible(problem))
-  }
-  ix <- model[["ix"]]
-  shape <- model[["shape"]]
-  n_step <- model[["n_step"]]
-  init_share <- model[["init_share"]]
-  target_share <- model[["target_share"]]
-
-  for (l in seq_len(model[["n_lulc"]])) {
-    if (is.na(shape[l])) {
-      next
-    }
-    growing <- target_share[l] > init_share[l]
-    declining <- target_share[l] < init_share[l]
-    # a shape elicited against the opposite direction of change says nothing
-    applies <- switch(
-      shape[l],
-      "instant growth" = growing,
-      "delayed growth" = growing,
-      "instant decline" = declining,
-      "delayed decline" = declining,
-      "constant change" = TRUE
-    )
-    if (!applies) {
-      next
-    }
-
-    strict <- model[["params"]][["shape_strictness"]] *
-      abs(target_share[l] - init_share[l]) /
-      n_step
-
-    for (t in seq_len(n_step - 1L)) {
-      row <- curvature_row(model, l, t)
-      slack <- ix[["shape"]](l, t)
-      # "instant" front-loads the change, "delayed" back-loads it
-      if (shape[l] %in% c("instant growth", "delayed decline")) {
-        add_lp_row(problem, c(row[["cols"]], slack), c(row[["vals"]], 1), ">=", strict)
-      }
-      if (shape[l] %in% c("delayed growth", "instant decline")) {
-        add_lp_row(problem, c(row[["cols"]], slack), c(row[["vals"]], -1), "<=", -strict)
-      }
-      if (shape[l] == "constant change") {
-        add_lp_row(problem, c(row[["cols"]], slack), c(row[["vals"]], 1), ">=", 0)
-        add_lp_row(problem, c(row[["cols"]], slack), c(row[["vals"]], -1), "<=", 0)
-      }
-    }
-  }
-  invisible(problem)
-}
-
-#' @describeIn trans_rate_lp Penalise the second difference of each class trajectory. This
-#' is a tie-breaker among the many trajectories that satisfy everything else, not a
-#' modelling statement.
-#' @keywords internal
-add_smoothness_rows <- function(problem, model) {
-  if (!isTRUE(model[["blocks"]][["smooth"]])) {
-    return(invisible(problem))
-  }
-  ix <- model[["ix"]]
-
-  for (l in seq_len(model[["n_lulc"]])) {
-    for (t in seq_len(model[["n_step"]] - 1L)) {
-      cols <- c(
-        ix[["area"]](l, t + 1L),
-        ix[["area"]](l, t),
-        ix[["area"]](l, t - 1L),
-        ix[["smooth"]](l, t)
-      )
-      add_lp_row(problem, cols, c(1, -2, 1, -1), "<=", 0)
-      add_lp_row(problem, cols, c(-1, 2, -1, -1), "<=", 0)
-    }
-  }
-  invisible(problem)
-}
-
-#' @describeIn trans_rate_lp Bound the worst per-class rate-bound violation from above by a
-#' single variable. A minimax of linear expressions is itself linear, so this needs no
-#' quadratic solver.
-#' @keywords internal
-add_fairness_rows <- function(problem, model) {
-  if (!isTRUE(model[["blocks"]][["fairness"]])) {
-    return(invisible(problem))
-  }
-  ix <- model[["ix"]]
-  pairs <- expand.grid(j = seq_len(model[["n_lulc"]]), t = seq.int(0L, model[["n_step"]] - 1L))
-
-  for (i in seq_len(model[["n_lulc"]])) {
-    cols <- c(
-      ix[["lower"]](i, pairs[["j"]], pairs[["t"]]),
-      ix[["upper"]](i, pairs[["j"]], pairs[["t"]]),
-      ix[["fair"]]()
-    )
-    vals <- c(rep(model[["weight"]][i], 2L * nrow(pairs)), -1)
-    add_lp_row(problem, cols, vals, "<=", 0)
-  }
-  invisible(problem)
-}
-
-#' @describeIn trans_rate_lp Assemble every constraint block into one program.
-#' @keywords internal
-trans_rate_lp_problem <- function(model) {
-  problem <- new_lp_problem(model[["n_var"]])
-
-  add_balance_rows(problem, model)
-  add_forbidden_rows(problem, model)
-  add_rate_bound_rows(problem, model)
-  add_historic_rows(problem, model)
-  add_target_rows(problem, model)
-  add_monotonicity_rows(problem, model)
-  add_shape_rows(problem, model)
-  add_smoothness_rows(problem, model)
-  add_fairness_rows(problem, model)
-
-  problem
-}
-
-#' @describeIn trans_rate_lp The objective: a weighted sum of the slack penalties. Weights
-#' are `1 / init_share`, so that a violation counts relative to the size of the class it
-#' happens in and small classes are not ignored.
-#' @keywords internal
-trans_rate_lp_objective <- function(model) {
-  ix <- model[["ix"]]
-  params <- model[["params"]]
-  weight <- model[["weight"]]
-  blocks <- model[["blocks"]]
-  n_step <- model[["n_step"]]
-  curve_steps <- seq_len(n_step - 1L)
-  pairs <- expand.grid(j = seq_len(model[["n_lulc"]]), t = seq.int(0L, n_step - 1L))
-
-  objective <- numeric(model[["n_var"]])
-  for (i in seq_len(model[["n_lulc"]])) {
-    objective[ix[["lower"]](i, pairs[["j"]], pairs[["t"]])] <- params[["lambda_bounds"]] * weight[i]
-    objective[ix[["upper"]](i, pairs[["j"]], pairs[["t"]])] <- params[["lambda_bounds"]] * weight[i]
-    if (isTRUE(blocks[["historic"]])) {
-      objective[ix[["historic"]](i, pairs[["j"]], pairs[["t"]])] <- params[["mu_historic"]] *
-        weight[i]
-    }
-  }
-  for (l in seq_len(model[["n_lulc"]])) {
-    if (isTRUE(blocks[["shape"]])) {
-      objective[ix[["shape"]](l, curve_steps)] <- params[["mu_shape"]] * weight[l]
-    }
-    if (isTRUE(blocks[["smooth"]])) {
-      objective[ix[["smooth"]](l, curve_steps)] <- params[["mu_smooth"]] * weight[l]
-    }
-    if (isTRUE(blocks[["target"]])) {
-      objective[c(ix[["plus"]](l), ix[["minus"]](l))] <- params[["mu_target"]] * weight[l]
-    }
-  }
-  if (isTRUE(blocks[["fairness"]])) {
-    objective[ix[["fair"]]()] <- model[["fair_weight"]]
-  }
-  objective
-}
-
-#' @describeIn trans_rate_lp Turn the solved variable vector back into an `areas` and a
-#' `flows` table, in cells, keyed by `id_lulc` and `id_trans` and labelled with the
-#' `id_period` each step belongs to.
-#'
-#' @param values The `solution` element of an [lpSolve::lp()] result.
-#' @return `trans_rate_lp_tables()` returns a list of `areas` and `flows`.
-#' @keywords internal
-trans_rate_lp_tables <- function(values, model) {
-  ix <- model[["ix"]]
-  ids <- model[["ids"]]
-  total <- model[["total"]]
-  n_step <- model[["n_step"]]
-  id_periods <- model[["id_periods"]]
-
-  areas <- data.table::CJ(step = seq.int(0L, n_step), id_lulc = ids, sorted = FALSE)
-  areas[, area := values[ix[["area"]](match(id_lulc, ids), step)] * total]
-
-  flows <- data.table::CJ(
-    step = seq_len(n_step),
-    id_lulc_anterior = ids,
-    id_lulc_posterior = ids,
-    sorted = FALSE
-  )
-  flows[, c("row", "col") := .(match(id_lulc_anterior, ids), match(id_lulc_posterior, ids))]
-  flows[, flow := values[ix[["x"]](row, col, step - 1L)] * total]
-  flows[, dev_lower := values[ix[["lower"]](row, col, step - 1L)] * total]
-  flows[, dev_upper := values[ix[["upper"]](row, col, step - 1L)] * total]
-  flows[, area_anterior := values[ix[["area"]](row, step - 1L)] * total]
-  flows[, rate := data.table::fifelse(area_anterior > 1e-9, flow / area_anterior, 0)]
-  flows[, count := round(flow)]
-  flows[, id_trans := model[["id_trans"]][cbind(row, col)]]
-  flows[, is_viable := model[["viable"]][cbind(row, col)]]
-
-  # measured against the historic envelope itself, not against the margin around it: the
-  # margin is a modelling convenience, and on a large class it is a lot of unremarked flow
-  flows[, max_flow := model[["rate"]][["max"]][cbind(row, col)] * area_anterior]
-  flows[, min_flow := model[["rate"]][["min"]][cbind(row, col)] * area_anterior]
-  flows[, above_max_rate := flow > max_flow + 1e-6]
-  flows[, below_min_rate := flow < min_flow - 1e-6]
-
-  if (is.null(id_periods)) {
-    areas[, id_period := NA_integer_]
-    flows[, id_period := NA_integer_]
-  } else {
-    areas[, id_period := c(NA_integer_, id_periods)[step + 1L]]
-    flows[, id_period := id_periods[step]]
-  }
-
-  list(areas = areas, flows = flows)
-}
-
-#' @describeIn trans_rate_lp Summarise how far the solution had to depart from the target
-#' and from observed history. These are results, not debug output: a solver that does not
-#' report how far outside history it went is actively misleading.
-#'
-#' @param tables A list from [trans_rate_lp_tables()].
-#' @param reachability The precheck table, as returned by `reachability_verdict()`.
-#' @keywords internal
-trans_rate_lp_diagnostics <- function(tables, values, model, reachability) {
-  areas <- tables[["areas"]]
-  flows <- tables[["flows"]]
-  ids <- model[["ids"]]
-  target <- model[["target"]]
-  off_diagonal <- flows[["id_lulc_anterior"]] != flows[["id_lulc_posterior"]]
-
-  final_area <- areas[step == model[["n_step"]]][match(ids, id_lulc)][["area"]]
-
-  list(
-    reachability = reachability,
-    target_error = data.table::data.table(
-      id_lulc = ids,
-      area_init = model[["init"]],
-      area_final = final_area,
-      target = target,
-      error = final_area - target,
-      pct_error = 100 * (final_area - target) / pmax(target, 1)
-    ),
-    bound_violation = flows[
-      dev_lower > 1e-6 | dev_upper > 1e-6,
-      .(id_trans, id_lulc_anterior, id_lulc_posterior, step, id_period, dev_lower, dev_upper)
-    ],
-    flow_summary = data.table::data.table(
-      total_flow = flows[off_diagonal, sum(flow)],
-      # flow the historic envelope does not support, and by how much it overshoots
-      flow_above_max_rate = flows[off_diagonal & above_max_rate == TRUE, sum(flow)],
-      excess_above_max_rate = flows[off_diagonal, sum(pmax(flow - max_flow, 0))],
-      shortfall_below_min_rate = flows[off_diagonal, sum(pmax(min_flow - flow, 0))],
-      flow_non_viable = flows[is_viable == FALSE, sum(flow)]
-    ),
-    shape = data.table::data.table(
-      id_lulc = ids,
-      shape = model[["shape"]],
-      curvature_slack = if (isTRUE(model[["blocks"]][["shape"]])) {
-        vapply(
-          seq_len(model[["n_lulc"]]),
-          \(l) {
-            sum(values[model[["ix"]][["shape"]](l, seq_len(model[["n_step"]] - 1L))]) *
-              model[["total"]]
-          },
-          numeric(1L)
+    solve_reachability = function() {
+      blocks <- private$.blocks[is_enabled == TRUE & in_reachability == TRUE, block]
+      extreme_area <- function(id_var, direction) {
+        solution <- private$run(
+          objective = data.table::data.table(id_var = id_var, coefficient = 1),
+          direction = direction,
+          blocks = blocks
         )
-      } else {
-        rep(NA_real_, model[["n_lulc"]])
+        stopifnot(
+          "the reachability program is infeasible; check bounds and lulc_data" = solution[[
+            "status"
+          ]] ==
+            0L
+        )
+        solution[["objval"]] * private$.total
       }
-    )
+
+      states <- private$vars("area")[id_period != private$.anchor, .(id_lulc, id_period, id_var)]
+      states[private$.scenario, area_init := i.area_init, on = "id_lulc"]
+      states[, `:=`(
+        area_min = vapply(id_var, extreme_area, numeric(1L), direction = "min"),
+        area_max = vapply(id_var, extreme_area, numeric(1L), direction = "max")
+      )]
+      states[order(id_period, id_lulc), .(id_lulc, id_period, area_init, area_min, area_max)]
+    },
+
+    # how far each target lies beyond what the observed transitions can deliver
+    reachability_verdict = function() {
+      verdict <- self$reachability[id_period == private$.horizon]
+      verdict[private$.scenario, target := i.area_target, on = "id_lulc"]
+      verdict[, asked := target - area_init]
+      verdict[,
+        achievable := data.table::fifelse(asked >= 0, area_max - area_init, area_min - area_init)
+      ]
+
+      # a class that cannot move at all in the direction asked is unreachable outright, not
+      # unreachable by a very large multiple
+      verdict[, immovable := 1e-6 * pmax(area_init, 1)]
+      verdict[,
+        ratio := data.table::fcase(
+          abs(asked) <= abs(achievable) + immovable ,   1 ,
+          abs(achievable) < immovable               , Inf ,
+          default = abs(asked) / abs(achievable)
+        )
+      ]
+      verdict[,
+        verdict := cut(
+          ratio,
+          breaks = c(-Inf, 1 + 1e-9, 1.5, 3, Inf),
+          labels = c("reachable", "near the edge", "outside history", "far outside history")
+        )
+      ]
+      verdict[, .(
+        id_lulc,
+        area_init,
+        area_min,
+        area_max,
+        target,
+        asked,
+        achievable,
+        ratio,
+        verdict
+      )]
+    },
+
+    # the precheck quantifies and reports; it gates only above max_reachability_ratio,
+    # because scenario targets are normative and a precheck that failed on every departure
+    # from observed dynamics would abort every scenario
+    assert_reachable_targets = function() {
+      over_threshold <- private$reachability_verdict()[ratio > private$.max_reachability_ratio]
+      if (nrow(over_threshold) == 0L) {
+        return(invisible(self))
+      }
+
+      stop(glue::glue(
+        "Targets for id_lulc {toString(over_threshold[['id_lulc']])} ",
+        "ask for {toString(round(over_threshold[['ratio']], 2L))} ",
+        "times the historically achievable change. ",
+        "This is above the current max_reachability_ratio = ",
+        "{private$.max_reachability_ratio}; see the reachability field."
+      ))
+    },
+
+    ## Solution ----
+
+    # the solved flows in cells, with the rate they imply and the envelope they sit in
+    solved_flows = function() {
+      values <- self$values
+      flows <- values[block == "flow"]
+      flows[
+        private$.anterior_area,
+        id_var_area := i.id_var_area,
+        on = .(id_lulc_anterior, id_period)
+      ]
+      flows[values, share_anterior := i.value, on = .(id_var_area = id_var)]
+      flows[
+        private$.transitions,
+        `:=`(is_viable = i.is_viable, min_rate = i.min_rate, max_rate = i.max_rate),
+        on = .(id_lulc_anterior, id_lulc_posterior)
+      ]
+
+      if (private$.blocks[block == "rate_bounds", is_enabled]) {
+        flows[
+          values[block == "rate_lower"],
+          dev_lower := i.value * private$.total,
+          on = .(id_lulc_anterior, id_lulc_posterior, id_period)
+        ]
+        flows[
+          values[block == "rate_upper"],
+          dev_upper := i.value * private$.total,
+          on = .(id_lulc_anterior, id_lulc_posterior, id_period)
+        ]
+      } else {
+        flows[, `:=`(dev_lower = 0, dev_upper = 0)]
+      }
+
+      flows[, `:=`(
+        flow = value * private$.total,
+        area_anterior = share_anterior * private$.total,
+        rate = data.table::fifelse(share_anterior > 1e-12, value / share_anterior, 0)
+      )]
+      flows[, count := round(flow)]
+      # measured against the historic envelope itself, not against the margin around it:
+      # the margin is a modelling convenience, and on a large class it is a lot of
+      # unremarked flow
+      flows[, `:=`(max_flow = max_rate * area_anterior, min_flow = min_rate * area_anterior)]
+      flows[order(id_period, id_lulc_anterior, id_lulc_posterior)]
+    },
+
+    shape_diagnostics = function() {
+      shapes <- private$.scenario[, .(id_lulc, shape, shape_binds)]
+      if (!private$.blocks[block == "shape", is_enabled]) {
+        return(shapes[, curvature_slack := NA_real_][])
+      }
+      slack <- self$values[
+        block == "shape",
+        .(curvature_slack = sum(value) * private$.total),
+        by = id_lulc
+      ]
+      shapes[slack, curvature_slack := i.curvature_slack, on = "id_lulc"][]
+    }
   )
-}
+)

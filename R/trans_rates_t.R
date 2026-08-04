@@ -213,65 +213,78 @@ print.trans_rates_t <- function(x, nrow = 10, ...) {
   invisible(x)
 }
 
-#' @describeIn trans_rates_t Derive target areas from an initial state and a
-#' [`trans_rates_t`]. Transition rates not explicitly recorded in `rates` are
-#' implied to be zero. The residual is `1 - sum(rate)` for each class. This
-#' is what makes a solved trajectory recoverable from [trans_rates_t] alone, and
-#' therefore comparable against the areas an allocation run actually realised.
+#' @describeIn trans_rates_t Replay a rate table forward from an observed state to recover
+#' the class areas it implies. Transitions not recorded in `rates` are implied to be zero,
+#' so the residual `1 - sum(rate)` of each class persists. This is what makes a solved
+#' trajectory recoverable from a [trans_rates_t] alone, and therefore comparable against
+#' the areas an allocation run actually realised.
 #'
+#' @param lulc_data A [lulc_data_t] for a single `id_run`; the areas of its last period are
+#' the state the replay starts from.
 #' @param rates A [trans_rates_t] table for a single `id_run`.
+#' @param trans_meta A [trans_meta_t] table, resolving `id_trans` to a pair of classes.
 #' @return `trans_rate_areas()` returns a data.table with `id_lulc`, `id_period` and
 #' `area`; `id_period` is the period whose *state* the area describes, so the initial state
-#' carries the period preceding the first one in `rates`.
+#' carries the last period of `lulc_data`.
 #' @export
-trans_rate_areas <- function(init_area, rates, trans_meta) {
-  # FIXME this is a general function that belongs in trans_rates_t.R, or a new trans_rates_util.R
-  # FIXME init_area is not a sensible construct, just use last period from a lulc_data_t
+trans_rate_areas <- function(lulc_data, rates, trans_meta) {
   stopifnot(
+    inherits(lulc_data, "lulc_data_t"),
     inherits(rates, "trans_rates_t"),
     inherits(trans_meta, "trans_meta_t"),
-    "rates must contain exactly one id_run" = !("id_run" %in% names(rates)) ||
-      length(unique(rates[["id_run"]])) == 1L
+    "lulc_data must contain exactly one id_run" = {
+      data.table::uniqueN(lulc_data[["id_run"]]) == 1L
+    },
+    "rates must contain exactly one id_run" = {
+      data.table::uniqueN(rates[["id_run"]]) == 1L
+    }
   )
 
-  ids <- sort(unique(init_area[["id_lulc"]]))
-  area <- as_lulc_area_vector(init_area, ids, NA_real_, "init_area")
-
-  # FIXME stop using the edge terminology; edges are synonymous with transitions
-  # FIXME use idiomatic data.table syntax for join
-  edges <- merge(
-    data.table::as.data.table(rates)[, .(id_trans, id_period, rate)],
-    data.table::as.data.table(trans_meta)[, .(id_trans, id_lulc_anterior, id_lulc_posterior)],
-    by = "id_trans"
+  transitions <-
+    rates[
+      trans_meta,
+      .(id_period, id_lulc_anterior, id_lulc_posterior, rate),
+      on = "id_trans",
+      nomatch = NULL
+    ]
+  stopifnot(
+    "outflow rates sum above 1 for some class and period" = {
+      transitions[, all(sum(rate) <= 1 + 1e-9), by = .(id_lulc_anterior, id_period)][, all(V1)]
+    }
   )
-  step_periods <- sort(unique(edges[["id_period"]]))
 
+  state <-
+    lulc_data[
+      id_period == max(id_period),
+      .(area = as.numeric(.N)),
+      by = .(id_lulc, id_period)
+    ][order(id_lulc)]
+
+  step_periods <- sort(unique(transitions[["id_period"]]))
   trajectory <- vector("list", length(step_periods) + 1L)
-  trajectory[[1L]] <- data.table::data.table(
-    id_lulc = ids,
-    id_period = min(step_periods) - 1L,
-    area = area
-  )
+  trajectory[[1L]] <- state
 
   for (i in seq_along(step_periods)) {
-    step_rate <- lulc_pair_matrix(
-      edges[id_period == step_periods[i]],
-      ids,
-      "rate",
-      default = 0,
-      diag_default = 0
-    )
-    outflow_rate <- rowSums(step_rate)
-    stopifnot(
-      "outflow rates sum above 1 for some class and period" = all(outflow_rate <= 1 + 1e-9)
-    )
-    diag(step_rate) <- 1 - outflow_rate
-    area <- as.numeric(crossprod(step_rate, area))
-    trajectory[[i + 1L]] <- data.table::data.table(
-      id_lulc = ids,
-      id_period = step_periods[i],
-      area = area
-    )
+    moved <-
+      transitions[id_period == step_periods[i]][
+        state,
+        .(id_lulc_anterior, id_lulc_posterior, cells = rate * i.area),
+        on = .(id_lulc_anterior = id_lulc),
+        nomatch = NULL
+      ]
+
+    state <- data.table::copy(state)[, id_period := step_periods[i]]
+    state[
+      moved[, .(loss = sum(cells)), by = id_lulc_anterior],
+      area := area - i.loss,
+      on = .(id_lulc = id_lulc_anterior)
+    ]
+    state[
+      moved[, .(gain = sum(cells)), by = id_lulc_posterior],
+      area := area + i.gain,
+      on = .(id_lulc = id_lulc_posterior)
+    ]
+    trajectory[[i + 1L]] <- state
   }
 
   data.table::rbindlist(trajectory)

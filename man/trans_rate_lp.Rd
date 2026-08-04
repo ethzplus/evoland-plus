@@ -2,232 +2,503 @@
 % Please edit documentation in R/trans_rates_lp.R
 \name{trans_rate_lp}
 \alias{trans_rate_lp}
-\alias{new_lp_problem}
-\alias{add_lp_row}
-\alias{solve_lp_problem}
-\alias{trans_rate_lp_layout}
-\alias{trans_rate_lp_model}
-\alias{add_balance_rows}
-\alias{add_forbidden_rows}
-\alias{add_rate_bound_rows}
-\alias{add_historic_rows}
-\alias{add_target_rows}
-\alias{add_monotonicity_rows}
-\alias{curvature_row}
-\alias{add_shape_rows}
-\alias{add_smoothness_rows}
-\alias{add_fairness_rows}
-\alias{trans_rate_lp_problem}
-\alias{trans_rate_lp_objective}
-\alias{trans_rate_lp_tables}
-\alias{trans_rate_lp_diagnostics}
-\title{Building and solving the transition rate linear program}
-\usage{
-new_lp_problem(n_var)
-
-add_lp_row(problem, cols, vals, dir, rhs)
-
-solve_lp_problem(problem, objective, direction = "min")
-
-trans_rate_lp_layout(n_lulc, n_step, blocks)
-
-trans_rate_lp_model(scenario, grid, bounds, params)
-
-add_balance_rows(problem, model)
-
-add_forbidden_rows(problem, model)
-
-add_rate_bound_rows(problem, model)
-
-add_historic_rows(problem, model)
-
-add_target_rows(problem, model)
-
-add_monotonicity_rows(problem, model)
-
-curvature_row(model, l, t)
-
-add_shape_rows(problem, model)
-
-add_smoothness_rows(problem, model)
-
-add_fairness_rows(problem, model)
-
-trans_rate_lp_problem(model)
-
-trans_rate_lp_objective(model)
-
-trans_rate_lp_tables(values, model)
-
-trans_rate_lp_diagnostics(tables, values, model, reachability)
-}
-\arguments{
-\item{n_var}{Number of decision variables.}
-
-\item{problem}{An object from \code{\link[=new_lp_problem]{new_lp_problem()}}.}
-
-\item{cols}{Integer vector of variable indices.}
-
-\item{vals}{Numeric vector of coefficients, parallel to \code{cols}.}
-
-\item{dir}{One of \code{"<="}, \code{">="}, \code{"="}.}
-
-\item{rhs}{Right-hand side.}
-
-\item{objective}{Numeric vector of objective coefficients, one per variable.}
-
-\item{direction}{\code{"min"} or \code{"max"}.}
-
-\item{n_lulc}{Number of land use classes.}
-
-\item{n_step}{Number of steps to the horizon.}
-
-\item{blocks}{Named logical vector switching the optional variable blocks on: \code{slack},
-\code{shape}, \code{smooth}, \code{target}, \code{historic}, \code{fairness}.}
-
-\item{scenario}{A list from \code{trans_rate_scenario()}.}
-
-\item{grid}{A list from \code{trans_rate_time_grid()}.}
-
-\item{bounds}{Edge bounds as returned by \code{\link[=trans_rate_bounds]{trans_rate_bounds()}}.}
-
-\item{params}{A list of the tuning arguments of \code{\link[=solve_trans_rates]{solve_trans_rates()}}.}
-
-\item{model}{A list from \code{\link[=trans_rate_lp_model]{trans_rate_lp_model()}}, or the reduced equivalent that
-\code{\link[=trans_rate_reachability]{trans_rate_reachability()}} builds.}
-
-\item{l}{Index of a land use class.}
-
-\item{t}{Index of a step.}
-
-\item{values}{The \code{solution} element of an \code{\link[lpSolve:lp]{lpSolve::lp()}} result.}
-
-\item{tables}{A list from \code{\link[=trans_rate_lp_tables]{trans_rate_lp_tables()}}.}
-
-\item{reachability}{The precheck table, as returned by \code{reachability_verdict()}.}
-}
-\value{
-\code{new_lp_problem()} returns an environment collecting constraint rows.
-
-\code{trans_rate_lp_layout()} returns a list with \code{n_var}, the \code{blocks} it was given
-and \code{ix}, a list of index functions.
-
-\code{curvature_row()} returns a list of \code{cols} and \code{vals}.
-
-\code{trans_rate_lp_tables()} returns a list of \code{areas} and \code{flows}.
-}
+\title{R6 Class for the Demand-Driven Transition Rate Program}
 \description{
-Internals of \code{\link[=solve_trans_rates]{solve_trans_rates()}}, separated so that each block of the program can be
-read on its own. The pieces are, in the order they are used: a sparse problem builder
-(\code{\link[=new_lp_problem]{new_lp_problem()}}), a variable layout (\code{\link[=trans_rate_lp_layout]{trans_rate_lp_layout()}}), a model object
-gathering everything the constraint blocks need (\code{\link[=trans_rate_lp_model]{trans_rate_lp_model()}}), one function
-per block of constraint rows, the objective, and the extraction of the solved vector
-back into tables.
+A coupled linear program that derives per-transition flows from per-class area targets.
+It is assembled one constraint block at a time; every block has an \code{add_} method of the
+same name, and \link{lp_problem} keeps the resulting rows tagged with that name so a program
+can be solved over a subset of its blocks. That is what makes the reachability precheck
+the same program as the solve, rather than a second implementation of it.
 }
-\section{Functions}{
-\itemize{
-\item \code{new_lp_problem()}: Start an empty sparse program. \code{\link[lpSolve:lp]{lpSolve::lp()}} accepts
-constraints in triplet form via \code{dense.const}, which keeps memory linear in the number of
-non-zero coefficients. It matches constraint rows to \code{const.dir}/\code{const.rhs} by the order
-of the row indices it sees, so every row must carry at least one non-zero coefficient.
-The returned object is an environment, so the constraint blocks can add to it in place.
+\section{Units}{
+The program is solved in shares of the landscape: shares and absolute areas are the same
+program up to a scalar, but the share version spans six fewer orders of magnitude.
+Everything the object returns is in cells, rehydrated against the number of cells
+\code{lulc_data} holds at the anchor period.
+}
 
-\item \code{add_lp_row()}: Add one constraint row, summing duplicated and dropping zero
-coefficients.
+\section{Periods}{
+Following \link{trans_rates_t}, the flows of period \code{p} take the landscape from its state at
+\code{p - 1} to its state at \code{p}. Area variables therefore exist at the anchor period -- the
+last observed one -- and at every extrapolated period, while flow variables exist at the
+extrapolated periods only.
+}
 
-\item \code{solve_lp_problem()}: Hand the collected rows to \code{\link[lpSolve:lp]{lpSolve::lp()}}.
-
-\item \code{trans_rate_lp_layout()}: Lay the decision variables out in one contiguous vector and
-return the index function of each block. Blocks that are switched off are not allocated
-and their index function is \code{NULL}, so reaching for one is an error rather than a silent
-collision with the next block.
-
-\item \code{trans_rate_lp_model()}: Gather the scenario, the time grid, the rate matrices and the
-tuning parameters into the single object the constraint blocks read from.
-
-\item \code{add_balance_rows()}: Add the initial condition, total-area conservation and the row
-and column closure of the flows. Total-area conservation is redundant given closure in
-both directions, but it is a cheap numerical anchor.
-
-\item \code{add_forbidden_rows()}: Hard-zero the forbidden edges. A forbidden edge is zero, not
-merely expensive -- non-viable transitions have no \code{trans_pot_t} rows and would be
-dropped at allocation time. One row per edge and step: a single row summing the steps
-says the same thing about non-negative flows, but it makes the program dense enough in
-that one row for \code{lpSolve}'s default scaling to fail on it numerically.
-
-\item \code{add_rate_bound_rows()}: Bound each flow by the historic rates of its edge, times the
-area of its source class at that step. With the \code{slack} block the bounds are soft and
-widened by \code{margin}, which is what lets an elicited target that lies outside the observed
-envelope still be met, at a price. Without it they are hard and the diagonal is left
-free, which is the question \code{\link[=trans_rate_reachability]{trans_rate_reachability()}} asks.
-
-\item \code{add_historic_rows()}: Pull each flow towards the historic outflow pattern, as an L1
-penalty on \verb{|x[i, j, t] - ref_rate[i, j] * area[i, t]|}. This is what stops the program
-inventing edges that happen to be cheap.
-
-\item \code{add_target_rows()}: Tie the terminal areas to the targets: a hard band when
-\code{terminal_band} is set, and the L1 fit \code{area[l, T] - target = plus - minus} when
-\code{mu_target} is positive.
-
-\item \code{add_monotonicity_rows()}: Constrain each class to move in the direction of
-\code{sign(target - init)}, as a hard constraint with no tolerance. \code{monotone_sign} of \code{NULL}
-or 0 leaves the trajectory free.
-
-\item \code{curvature_row()}: The curvature of a class trajectory: its per-year change over
-step \code{t} against that over step \code{t + 1}, scaled by the length of step \code{t}.
-
-\item \code{add_shape_rows()}: Ask each class trajectory to curve the way its elicited shape
-says, as a softly penalised one-sided constraint on curvature. Note that zero curvature
-satisfies all five shapes at once, so the block only bites once \code{shape_strictness}
-demands a minimum curvature.
-
-\item \code{add_smoothness_rows()}: Penalise the second difference of each class trajectory. This
-is a tie-breaker among the many trajectories that satisfy everything else, not a
-modelling statement.
-
-\item \code{add_fairness_rows()}: Bound the worst per-class rate-bound violation from above by a
-single variable. A minimax of linear expressions is itself linear, so this needs no
-quadratic solver.
-
-\item \code{trans_rate_lp_problem()}: Assemble every constraint block into one program.
-
-\item \code{trans_rate_lp_objective()}: The objective: a weighted sum of the slack penalties. Weights
-are \code{1 / init_share}, so that a violation counts relative to the size of the class it
-happens in and small classes are not ignored.
-
-\item \code{trans_rate_lp_tables()}: Turn the solved variable vector back into an \code{areas} and a
-\code{flows} table, in cells, keyed by \code{id_lulc} and \code{id_trans} and labelled with the
-\code{id_period} each step belongs to.
-
-\item \code{trans_rate_lp_diagnostics()}: Summarise how far the solution had to depart from the target
-and from observed history. These are results, not debug output: a solver that does not
-report how far outside history it went is actively misleading.
-
-}}
-\section{Variable layout}{
-
-All variables are non-negative, and all areas and flows are shares of the landscape.
-Optional blocks are only allocated when the corresponding term is switched on.\tabular{lll}{
-   block \tab count \tab meaning \cr
-   \code{x[i, j, t]} \tab \code{L^2 * n_step} \tab flow from class \code{i} to class \code{j} during step \code{t} \cr
-   \code{lower[i, j, t]}, \code{upper[i, j, t]} \tab \code{L^2 * n_step} each \tab rate-bound violation \cr
-   \code{area[l, t]} \tab \code{L * (n_step + 1)} \tab area of class \code{l} at time point \code{t} \cr
-   \code{shape[l, t]}, \code{smooth[l, t]} \tab \code{L * (n_step - 1)} each \tab curvature violation \cr
-   \code{plus[l]}, \code{minus[l]} \tab \code{L} each \tab terminal fit, above and below the target \cr
-   \code{historic[i, j, t]} \tab \code{L^2 * n_step} \tab distance from the historic outflow pattern \cr
-   \code{fair} \tab 1 \tab minimax bound on the worst per-class violation \cr
+\section{Variables}{
+All variables are non-negative. \code{id_lulc} identifies the class a class-level variable
+belongs to; \code{id_lulc_anterior} and \code{id_lulc_posterior} identify a transition-level one.\tabular{lll}{
+   block \tab keys \tab meaning \cr
+   \code{flow} \tab transition, period \tab cells moving along a transition \cr
+   \code{area} \tab class, period \tab area of a class at a state \cr
+   \code{rate_lower}, \code{rate_upper} \tab transition, period \tab rate-bound violation \cr
+   \code{historic} \tab transition, period \tab distance from the historic outflow pattern \cr
+   \code{shape}, \code{smoothness} \tab class, period \tab curvature violation \cr
+   \code{target_over}, \code{target_under} \tab class \tab terminal fit either side of the target \cr
+   \code{fairness} \tab none \tab worst per-class rate-bound violation \cr
 }
 }
 
-\section{The model object}{
-
-A plain list, so that the constraint blocks take one argument rather than fifteen. It
-carries the scenario (\code{ids}, \code{init_share}, \code{target_share}, \code{shape}, \code{monotone_sign},
-\code{total}), the time grid (\code{n_step}, \code{step_years}, \code{id_periods}), the rate matrices
-(\code{rate}, \code{viable}, \code{forbidden}, \code{id_trans}), the layout (\code{n_var}, \code{ix}, \code{blocks}) and the
-tuning parameters (\code{params}, \code{weight}, \code{fair_weight}). \code{\link[=trans_rate_reachability]{trans_rate_reachability()}}
-assembles a reduced model of the same shape, which is why the balance, bound and
-monotonicity blocks are shared between the precheck and the solver.
+\section{Constraint blocks}{
+\code{initial}, \code{conservation} and \code{closure} are the mass balance; \code{forbidden} and
+\code{rate_limits} are the hard statements about what a transition may do; the rest carry
+slack variables and are paid for in the objective. \code{blocks} records which are enabled,
+which enter a solve and which enter the reachability precheck.
 }
 
-\keyword{internal}
+\examples{
+periods <- create_periods_t("P10Y", "1990-01-01", "2020-01-01", "2040-01-01")
+lulc_data <- as_lulc_data_t(data.table::data.table(
+  id_run = 0L,
+  id_coord = 1:10000,
+  id_period = 4L,
+  id_lulc = rep(1:2, c(6000, 4000))
+))
+bounds <- data.table::data.table(
+  id_trans = c(NA, 1L, NA, 2L),
+  id_lulc_anterior = c(1L, 1L, 2L, 2L),
+  id_lulc_posterior = c(1L, 2L, 2L, 1L),
+  min_rate = c(0.9, 0, 0.95, 0),
+  max_rate = c(1, 0.1, 1, 0.05),
+  ref_rate = c(0.95, 0.05, 0.97, 0.03),
+  is_viable = TRUE
+)
+
+solver <- trans_rate_lp$new(
+  lulc_data = lulc_data,
+  bounds = bounds,
+  periods = periods,
+  targets = data.table::data.table(id_lulc = 1:2, share = c(0.5, 0.5))
+)
+solver$solve()
+solver$areas
+
+}
+\seealso{
+\link{trans_rates_solver}, \link{lp_problem}, \link{trans_rates_t}
+}
+\section{Super class}{
+\code{\link[evoland:lp_problem]{lp_problem}} -> \code{trans_rate_lp}
+}
+\section{Public fields}{
+  \if{html}{\out{<div class="r6-fields">}}
+  \describe{
+    \item{\code{id_run}}{Run the solved rates belong to, see \link{runs_t}. Set it before reading
+\code{trans_rates_t}; one demand solution is usually written to several runs.}
+  }
+  \if{html}{\out{</div>}}
+}
+\section{Active bindings}{
+  \if{html}{\out{<div class="r6-active-bindings">}}
+  \describe{
+    \item{\code{blocks}}{The constraint blocks, whether each is enabled, and which programs
+each takes part in.}
+
+    \item{\code{scenario}}{Per class: the initial and target areas, the elicited shape and the
+objective weight.}
+
+    \item{\code{transitions}}{Every ordered pair of classes with its rate bounds, whether it is
+viable, and whether the program forbids it.}
+
+    \item{\code{steps}}{The extrapolated periods, the state each starts from, and its length.}
+
+    \item{\code{reachability}}{Per class and period: the areas reachable under mass balance and
+hard historic rates, ignoring targets. Solved on demand and then cached.}
+
+    \item{\code{areas}}{The solved class areas, in cells, per class and state.}
+
+    \item{\code{flows}}{The solved transition flows, in cells.}
+
+    \item{\code{rates}}{The solved flows as rates of their anterior class, which is what
+\code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} and the allocators consume.}
+
+    \item{\code{trans_rates_t}}{The solved rates as a \link{trans_rates_t} for the current \code{id_run}.
+Persistence and non-viable transitions are dropped: neither has an \code{id_trans} or any
+\link{trans_pot_t} rows to be allocated against.}
+
+    \item{\code{diagnostics}}{How far the solution had to depart from the target and from
+observed history. These are results, not debug output: a solver that does not report
+how far outside history it went is actively misleading.}
+  }
+  \if{html}{\out{</div>}}
+}
+\section{Methods}{
+\subsection{Public methods}{
+  \itemize{
+    \item \href{#method-trans_rate_lp-initialize}{\code{trans_rate_lp$new()}}
+    \item \href{#method-trans_rate_lp-add_all}{\code{trans_rate_lp$add_all()}}
+    \item \href{#method-trans_rate_lp-add_initial}{\code{trans_rate_lp$add_initial()}}
+    \item \href{#method-trans_rate_lp-add_conservation}{\code{trans_rate_lp$add_conservation()}}
+    \item \href{#method-trans_rate_lp-add_closure}{\code{trans_rate_lp$add_closure()}}
+    \item \href{#method-trans_rate_lp-add_forbidden}{\code{trans_rate_lp$add_forbidden()}}
+    \item \href{#method-trans_rate_lp-add_rate_limits}{\code{trans_rate_lp$add_rate_limits()}}
+    \item \href{#method-trans_rate_lp-add_rate_bounds}{\code{trans_rate_lp$add_rate_bounds()}}
+    \item \href{#method-trans_rate_lp-add_historic}{\code{trans_rate_lp$add_historic()}}
+    \item \href{#method-trans_rate_lp-add_target}{\code{trans_rate_lp$add_target()}}
+    \item \href{#method-trans_rate_lp-add_monotonicity}{\code{trans_rate_lp$add_monotonicity()}}
+    \item \href{#method-trans_rate_lp-add_shape}{\code{trans_rate_lp$add_shape()}}
+    \item \href{#method-trans_rate_lp-add_smoothness}{\code{trans_rate_lp$add_smoothness()}}
+    \item \href{#method-trans_rate_lp-add_fairness}{\code{trans_rate_lp$add_fairness()}}
+    \item \href{#method-trans_rate_lp-solve}{\code{trans_rate_lp$solve()}}
+    \item \href{#method-trans_rate_lp-print}{\code{trans_rate_lp$print()}}
+    \item \href{#method-trans_rate_lp-clone}{\code{trans_rate_lp$clone()}}
+  }
+}
+\if{html}{\out{<details open><summary>Inherited methods</summary>
+<ul>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="lp_problem" data-id="add_constraints"><a href='../../evoland/html/lp_problem.html#method-lp_problem-add_constraints'><code>lp_problem$add_constraints()</code></a></span></li>
+</ul>
+</details>}}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-initialize}{}}}
+\subsection{\code{trans_rate_lp$new()}}{
+  Set up the program from an observed landscape and a scenario demand.
+Constraint blocks are added immediately, so the object is ready to solve.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$new(
+  lulc_data,
+  bounds,
+  periods,
+  targets = NULL,
+  shapes = NULL,
+  lambda_bounds = 0.1,
+  mu_shape = 15,
+  mu_smooth = 1,
+  mu_target = 1000,
+  mu_historic = 0,
+  margin = 0.01,
+  terminal_band = NA,
+  shape_strictness = 0,
+  monotone = TRUE,
+  fairness = TRUE,
+  forbid_non_viable = TRUE,
+  max_reachability_ratio = 10
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{lulc_data}}{A \link{lulc_data_t} for a single \code{id_run}. The areas of its last
+observed period are the initial state.}
+      \item{\code{bounds}}{Per-transition rate bounds, see \code{\link[=trans_rate_bounds]{trans_rate_bounds()}}.}
+      \item{\code{periods}}{A \link{periods_t}. Its extrapolated periods are the steps to solve for,
+and their lengths set the time scale of the trajectory-shape constraints.}
+      \item{\code{targets}}{A data.table with \code{id_lulc} and either \code{area} (cells on the same grid
+as \code{lulc_data}) or \code{share} (of the landscape, rehydrated against it). Without
+targets the object can only answer \code{reachability}.}
+      \item{\code{shapes}}{A data.table with \code{id_lulc} and \code{shape}, one of \code{"instant growth"},
+\code{"delayed growth"}, \code{"constant change"}, \code{"instant decline"}, \code{"delayed decline"}.
+Note that a straight line satisfies every one of these one-sided curvature
+constraints, so shapes only bind when \code{shape_strictness > 0}.}
+      \item{\code{lambda_bounds}}{Penalty weight on rate-bound violation.}
+      \item{\code{mu_shape}}{Penalty weight on trajectory-shape violation.}
+      \item{\code{mu_smooth}}{Penalty weight on the second difference of the trajectory; a
+tie-breaker among otherwise equivalent trajectories.}
+      \item{\code{mu_target}}{Penalty weight on the L1 distance between the solved terminal area
+and the target. Without it, a hard terminal band is treated as free real estate and
+every class parks on a band edge.}
+      \item{\code{mu_historic}}{Penalty weight on the L1 distance between flows and the historic
+outflow pattern (\code{ref_rate}). Zero by default; raising it keeps flows near the
+observed pattern where the target does not force otherwise.}
+      \item{\code{margin}}{Slack around the rate bounds before a violation is penalised.}
+      \item{\code{terminal_band}}{Relative half-width of a \emph{hard} band around the terminal
+target, or \code{NA} (the default) to rely on \code{mu_target} alone. A hard band and
+\code{forbid_non_viable} together turn an out-of-reach target into an infeasible program
+rather than a near miss: on the SSP-CH demand that combination is infeasible for
+three of five scenarios, while the L1 fit lands as close as the viable transitions
+allow and reports the shortfall.}
+      \item{\code{shape_strictness}}{Minimum curvature a shaped trajectory must exhibit, as a
+fraction of the class's mean per-step change.}
+      \item{\code{monotone}}{Whether to hard-constrain each class to move monotonically in the
+direction of \code{sign(target - init)}.}
+      \item{\code{fairness}}{Minimax bound on the worst per-class rate-bound violation. \code{TRUE}
+uses \code{lambda_bounds} as its weight; a number sets the weight explicitly.}
+      \item{\code{forbid_non_viable}}{Whether to hard-zero flows on transitions that
+\link{trans_meta_t} marks as non-viable. Such flows have no \link{trans_pot_t} rows and would
+be silently dropped at allocation time, so the trajectory would not materialise.}
+      \item{\code{max_reachability_ratio}}{Refuse to solve if a target asks for more than this
+multiple of the historically achievable change. Everything below the threshold is
+reported, not gated.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new \code{trans_rate_lp} object
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_all"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_all}{}}}
+\subsection{\code{trans_rate_lp$add_all()}}{
+  Add every enabled constraint block, by calling the \code{add_} method of the
+same name.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_all()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_initial"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_initial}{}}}
+\subsection{\code{trans_rate_lp$add_initial()}}{
+  The landscape starts in the observed state.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_initial()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_conservation"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_conservation}{}}}
+\subsection{\code{trans_rate_lp$add_conservation()}}{
+  The classes cover the whole landscape at every state. Redundant given
+closure in both directions, but a cheap numerical anchor.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_conservation()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_closure"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_closure}{}}}
+\subsection{\code{trans_rate_lp$add_closure()}}{
+  Every cell of a class leaves it along exactly one transition, and every
+cell of a state arrived along one. Together with \code{initial} this conserves area
+exactly.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_closure()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_forbidden"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_forbidden}{}}}
+\subsection{\code{trans_rate_lp$add_forbidden()}}{
+  A non-viable transition carries no flow at all. It is zero, not merely
+expensive: it has no \link{trans_pot_t} rows and would be dropped at allocation time. One
+row per transition and period -- a single row summing the periods says the same
+thing about non-negative flows, but it is dense enough for \code{\link[lpSolve:lp]{lpSolve::lp()}}'s default
+scaling to fail on it numerically.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_forbidden()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_rate_limits"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_rate_limits}{}}}
+\subsection{\code{trans_rate_lp$add_rate_limits()}}{
+  No transition moves faster than it ever has, as a \emph{hard} bound with no
+slack and no margin, and with persistence left free. This is the loosest honest
+question about what a class can reach, and it is the block \code{reachability} solves
+over. It is deliberately absent from a solve, where the same statement appears as
+the softly penalised \code{rate_bounds}.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_rate_limits()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_rate_bounds"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_rate_bounds}{}}}
+\subsection{\code{trans_rate_lp$add_rate_bounds()}}{
+  No transition moves much faster or much slower than it historically
+has, as a softly penalised bound widened by \code{margin}. Soft because elicited targets
+routinely require flows outside the observed envelope; how far outside is reported
+in \code{diagnostics} rather than suppressed.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_rate_bounds()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_historic"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_historic}{}}}
+\subsection{\code{trans_rate_lp$add_historic()}}{
+  Flows stay near the historic outflow pattern, as an L1 penalty on
+\verb{|flow - ref_rate * area|}. This is the term that stops the program inventing
+transitions that happen to be cheap.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_historic()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_target"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_target}{}}}
+\subsection{\code{trans_rate_lp$add_target()}}{
+  The landscape ends where the scenario asks it to: an L1 fit that
+degrades gracefully, plus a hard band when \code{terminal_band} is set.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_target()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_monotonicity"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_monotonicity}{}}}
+\subsection{\code{trans_rate_lp$add_monotonicity()}}{
+  Each class moves in the direction of its target and does not turn back,
+as a hard constraint with no tolerance.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_monotonicity()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_shape"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_shape}{}}}
+\subsection{\code{trans_rate_lp$add_shape()}}{
+  Each class trajectory curves the way its elicited shape says, as a
+softly penalised one-sided constraint on the change in the per-year rate of change.
+\code{"instant"} front-loads the change and \code{"delayed"} back-loads it; \code{"constant change"} asks for both at once, which is what makes it an equality.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_shape()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_smoothness"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_smoothness}{}}}
+\subsection{\code{trans_rate_lp$add_smoothness()}}{
+  Each class trajectory prefers a small second difference. A tie-breaker
+among the many trajectories that satisfy everything else, not a modelling statement.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_smoothness()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-add_fairness"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-add_fairness}{}}}
+\subsection{\code{trans_rate_lp$add_fairness()}}{
+  No class carries a much worse rate-bound violation than the others. A
+minimax of linear expressions is itself linear, so this needs no quadratic solver.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$add_fairness()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-solve"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-solve}{}}}
+\subsection{\code{trans_rate_lp$solve()}}{
+  Solve for the flows that take the landscape to its targets, after
+checking that the targets are not grossly beyond what history supports.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$solve()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The \code{trans_rate_lp} object, invisibly
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-print"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-print}{}}}
+\subsection{\code{trans_rate_lp$print()}}{
+  Print a summary of the program.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$print(...)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{...}}{Ignored.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-clone"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-clone}{}}}
+\subsection{\code{trans_rate_lp$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+}
