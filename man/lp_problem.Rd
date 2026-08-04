@@ -25,6 +25,9 @@ the order of the row indices it is given, and cannot represent an empty row.
 
 All variables are non-negative: \code{\link[lpSolve:lp]{lpSolve::lp()}} has no notion of variable bounds, so a
 quantity that may take either sign has to be split into two variables.
+
+\code{lpSolve} is a suggested dependency, since most of the package does not solve linear
+programs. It has to be installed before a program can be constructed.
 }
 \seealso{
 \link{trans_rate_lp}
@@ -64,7 +67,8 @@ quantity that may take either sign has to be split into two variables.
 \if{html}{\out{<a id="method-lp_problem-initialize"></a>}}
 \if{latex}{\out{\hypertarget{method-lp_problem-initialize}{}}}
 \subsection{\code{lp_problem$new()}}{
-  Initialize a program over a fixed set of decision variables.
+  Initialize a program over a fixed set of decision variables. Fails if
+the suggested \code{lpSolve} package is not installed, since nothing could be solved.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{lp_problem$new(variables)}

@@ -23,17 +23,23 @@
 #' All variables are non-negative: [lpSolve::lp()] has no notion of variable bounds, so a
 #' quantity that may take either sign has to be split into two variables.
 #'
+#' `lpSolve` is a suggested dependency, since most of the package does not solve linear
+#' programs. It has to be installed before a program can be constructed.
+#'
 #' @seealso [trans_rate_lp]
 #' @export
 lp_problem <- R6::R6Class(
   classname = "lp_problem",
 
   public = list(
-    #' @description Initialize a program over a fixed set of decision variables.
+    #' @description Initialize a program over a fixed set of decision variables. Fails if
+    #' the suggested `lpSolve` package is not installed, since nothing could be solved.
     #' @param variables A data.table with `id_var` (`1:n`, in order) and `block`, plus any
     #' key columns identifying each variable.
     #' @return A new `lp_problem` object
     initialize = function(variables) {
+      require_suggested("lpSolve", "build a linear program")
+
       variables <- data.table::as.data.table(variables)
       stopifnot(
         "variables needs id_var and block columns" = all(

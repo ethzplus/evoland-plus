@@ -44,6 +44,12 @@
 #' slack variables and are paid for in the objective. `blocks` records which are enabled,
 #' which enter a solve and which enter the reachability precheck.
 #'
+#' # Installation
+#'
+#' Solving needs `lpSolve`, which evoland only suggests: most of the package never solves a
+#' linear program. `trans_rate_lp$new()` fails with an actionable message if it is missing,
+#' so install it before constructing one -- `install.packages("lpSolve")`.
+#'
 #' @examples
 #' periods <- create_periods_t("P10Y", "1990-01-01", "2020-01-01", "2040-01-01")
 #' lulc_data <- as_lulc_data_t(data.table::data.table(
@@ -83,7 +89,8 @@ trans_rate_lp <- R6::R6Class(
     id_run = NULL,
 
     #' @description Set up the program from an observed landscape and a scenario demand.
-    #' Constraint blocks are added immediately, so the object is ready to solve.
+    #' Constraint blocks are added immediately, so the object is ready to solve. Requires
+    #' the suggested `lpSolve` package to be installed.
     #'
     #' @param lulc_data A [lulc_data_t] for a single `id_run`. The areas of its last
     #' observed period are the initial state.
@@ -147,6 +154,9 @@ trans_rate_lp <- R6::R6Class(
       forbid_non_viable = TRUE,
       max_reachability_ratio = 10
     ) {
+      # checked again in lp_problem, but there is no point building the model tables first
+      require_suggested("lpSolve", "build a trans_rate_lp")
+
       stopifnot(
         inherits(lulc_data, "lulc_data_t"),
         inherits(periods, "periods_t"),

@@ -63,6 +63,11 @@ bounds_ref <- data.table::fread(
 )
 expect_equal(bounds_ref, bounds)
 
+# Everything above works on tables alone; everything below builds a program.
+if (!requireNamespace("lpSolve", quietly = TRUE)) {
+  exit_file("lpSolve not available; skipping the transition rate program tests")
+}
+
 # The observed landscape the solver starts from: the last period that is not extrapolated.
 lulc_data <-
   data.table::data.table(

@@ -45,6 +45,12 @@ slack variables and are paid for in the objective. \code{blocks} records which a
 which enter a solve and which enter the reachability precheck.
 }
 
+\section{Installation}{
+Solving needs \code{lpSolve}, which evoland only suggests: most of the package never solves a
+linear program. \code{trans_rate_lp$new()} fails with an actionable message if it is missing,
+so install it before constructing one -- \code{install.packages("lpSolve")}.
+}
+
 \examples{
 periods <- create_periods_t("P10Y", "1990-01-01", "2020-01-01", "2040-01-01")
 lulc_data <- as_lulc_data_t(data.table::data.table(
@@ -153,7 +159,8 @@ how far outside history it went is actively misleading.}
 \if{latex}{\out{\hypertarget{method-trans_rate_lp-initialize}{}}}
 \subsection{\code{trans_rate_lp$new()}}{
   Set up the program from an observed landscape and a scenario demand.
-Constraint blocks are added immediately, so the object is ready to solve.
+Constraint blocks are added immediately, so the object is ready to solve. Requires
+the suggested \code{lpSolve} package to be installed.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{trans_rate_lp$new(
