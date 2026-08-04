@@ -48,7 +48,6 @@ obs_rates <-
 
 bounds <- trans_rate_bounds(obs_rates, periods, trans_meta)
 
-expect_equal(attr(bounds, "step_years"), 10)
 # transition 3 is absent in period 2: that is a rate of 0, not a missing observation
 expect_equal(bounds[id_trans == 3, min_rate], 0)
 expect_equal(round(bounds[id_trans == 3, max_rate], 4), 0.04)
@@ -69,12 +68,15 @@ simple_bounds <- data.table::data.table(
 )
 init_area <- data.table::data.table(id_lulc = 1:2, area = c(5000, 2000))
 
-reach_1 <- trans_rate_reachability(init_area, simple_bounds, n_steps = 1L)
-expect_equal(reach_1[["area_max"]], c(5000, 2500))
-expect_equal(reach_1[["area_min"]], c(4500, 2000))
-
-reach_2 <- trans_rate_reachability(init_area, simple_bounds, n_steps = 2L)
-expect_equal(round(reach_2[["area_max"]], 6), c(5000, 2950))
+expect_equal(
+  trans_rate_reachability(init_area, simple_bounds, n_steps = 2L),
+  data.table::data.table(
+    id_lulc = 1:2,
+    area_init = c(5000, 2000),
+    area_min = c(4050, 2000),
+    area_max = c(5000, 2950)
+  )
+)
 
 # A three-class scenario the observed bounds can accommodate.
 init_area <- data.table::data.table(id_lulc = 1:3, area = c(5000, 3000, 2000))

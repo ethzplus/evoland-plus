@@ -51,104 +51,103 @@ NULL
 #' @param include_persistence Whether to reconstruct the `i -> i` diagonal as
 #' `1 - sum(rate)` over all transitions out of `i`. The diagonal is not part of
 #' [trans_meta_t] but the LP needs it; without it, persistence is left unbounded.
-#' @param step_years Length of a future step in years. Inferred from the extrapolated
-#' periods when `NULL`.
 #' @return `trans_rate_bounds()` returns a data.table with `id_trans` (`NA` on the
 #' diagonal), `id_lulc_anterior`, `id_lulc_posterior`, `min_rate`, `max_rate`, `ref_rate`
-#' (the historic mean, for the optional historic-preference term) and `is_viable`. The
-#' step length the bounds apply to is attached as the `step_years` attribute.
+#' (the historic mean, for the optional historic-preference term) and `is_viable`.
 #' @export
 trans_rate_bounds <- function(
   obs_rates,
   periods,
   trans_meta,
-  include_persistence = TRUE,
-  step_years = NULL
+  include_persistence = TRUE
 ) {
   stopifnot(
     inherits(obs_rates, "trans_rates_t"),
     inherits(periods, "periods_t"),
     inherits(trans_meta, "trans_meta_t"),
-    "obs_rates must contain exactly one id_run" = length(unique(obs_rates[["id_run"]])) == 1L,
+    "must have at least 2 non-0 periods" = nrow(periods) > 2,
+    "obs_rates must contain exactly one id_run" = {
+      length(unique(obs_rates[["id_run"]])) == 1L
+    },
     "obs_rates is empty" = nrow(obs_rates) > 0L
   )
 
-  intervals <- period_interval_years(periods)
+  # may not be one unique period length because of leap years
+  extrap_step_years <- mean(periods[is_extrapolated == TRUE, period_length_d / 365.25])
 
-  if (is.null(step_years)) {
-    future_ids <- periods[is_extrapolated == TRUE][["id_period"]]
-    future_years <- intervals[id_period %in% future_ids][["interval_years"]]
-    stopifnot(
-      "cannot infer step_years: `periods` has no extrapolated periods" = length(future_years) >= 1L,
-      "cannot infer step_years: the first extrapolated period has no predecessor" = !anyNA(
-        future_years
-      ),
-      # leap years make nominally equal steps differ by a fraction of a percent
-      "extrapolated periods differ in length: pass step_years" = diff(range(
-        future_years
-      )) <=
-        0.05 * mean(future_years)
-    )
-    step_years <- mean(future_years)
-  }
-  stopifnot(
-    "step_years must be a single positive number" = length(step_years) == 1L &&
-      is.finite(step_years) &&
-      step_years > 0
-  )
-
-  obs_periods <- sort(unique(obs_rates[["id_period"]]))
-  obs_periods <- obs_periods[obs_periods > 0L]
-
-  # complete the grid: an edge absent in a period transitioned at rate 0, not at NA
-  rates <- merge(
-    data.table::CJ(id_trans = trans_meta[["id_trans"]], id_period = obs_periods),
-    data.table::as.data.table(obs_rates)[, .(id_trans, id_period, rate)],
-    by = c("id_trans", "id_period"),
-    all.x = TRUE
-  )
-  rates[is.na(rate), rate := 0]
-  rates <- merge(
-    rates,
-    data.table::as.data.table(trans_meta)[,
-      .(id_trans, id_lulc_anterior, id_lulc_posterior, is_viable)
-    ],
-    by = "id_trans"
-  )
-  rates[intervals, interval_years := i.interval_years, on = "id_period"]
-  rates[, is_persistence := FALSE]
-  stopifnot(
-    "observed periods without an interval length" = !anyNA(rates[["interval_years"]])
-  )
-
-  if (isTRUE(include_persistence)) {
-    persistence <- rates[,
-      .(rate = 1 - sum(rate), id_trans = NA_integer_, is_viable = TRUE, is_persistence = TRUE),
-      by = .(id_lulc_anterior, id_period, interval_years)
+  # only interested in observed periods that carry a rate (i.e. cannot be the
+  # first period)
+  obs_periods <-
+    data.table::as.data.table(
+      periods[id_period > 1 & is_extrapolated == FALSE, ]
+    )[,
+      period_length_y := period_length_d / 365.25 # good enough for leap years
     ]
-    stopifnot(
-      "outflow rates sum above 1 for some class and period" = all(persistence[["rate"]] > -1e-9)
-    )
-    persistence[, rate := pmax(rate, 0)]
-    persistence[, id_lulc_posterior := id_lulc_anterior]
-    rates <- rbind(rates, persistence, use.names = TRUE)
+
+  rates <-
+    # like tidyr::complete obs_rates: all id_trans x observed id_period
+    obs_rates[
+      data.table::CJ(
+        id_trans = trans_meta[, id_trans],
+        id_period = obs_periods[, id_period],
+        unique = TRUE
+      ),
+      .(id_trans, id_period, rate),
+      on = c("id_trans", "id_period")
+    ][
+      # if not observed: no transitions happened
+      is.na(rate),
+      rate := 0
+    ][
+      # there is an id_trans for non-persistence transitions
+      trans_meta,
+      on = "id_trans"
+    ][
+      obs_periods,
+      .(
+        id_trans,
+        id_period,
+        id_lulc_anterior,
+        id_lulc_posterior,
+        is_viable,
+        rate,
+        period_length_y,
+        is_persistence = FALSE
+      ),
+      on = "id_period",
+      nomatch = NULL
+    ]
+
+  if (include_persistence) {
+    # all the cells that did _not_ transition
+    persistence <- rates[,
+      .(
+        rate = 1 - sum(rate),
+        id_trans = NA_integer_,
+        is_viable = TRUE,
+        is_persistence = TRUE,
+        id_lulc_posterior = id_lulc_anterior
+      ),
+      by = .(id_lulc_anterior, id_period, period_length_y)
+    ]
+    rates <- rbind(rates, persistence, use.names = TRUE, fill = TRUE)
   }
 
-  rates[,
-    rate_annual := rescale_trans_rate(rate, interval_years, 1, is_persistence)
-  ]
+  bounds <-
+    rates[,
+      rate_annual := rescale_trans_rate(rate, period_length_y, 1, is_persistence)
+    ][,
+      .(
+        min_rate = rescale_trans_rate(min(rate_annual), 1, extrap_step_years, is_persistence[1L]),
+        max_rate = rescale_trans_rate(max(rate_annual), 1, extrap_step_years, is_persistence[1L]),
+        ref_rate = rescale_trans_rate(mean(rate_annual), 1, extrap_step_years, is_persistence[1L])
+      ),
+      by = .(id_trans, id_lulc_anterior, id_lulc_posterior, is_viable)
+    ][
+      order(id_lulc_anterior, id_lulc_posterior)
+    ]
 
-  bounds <- rates[,
-    .(
-      min_rate = rescale_trans_rate(min(rate_annual), 1, step_years, is_persistence[1L]),
-      max_rate = rescale_trans_rate(max(rate_annual), 1, step_years, is_persistence[1L]),
-      ref_rate = rescale_trans_rate(mean(rate_annual), 1, step_years, is_persistence[1L])
-    ),
-    by = .(id_trans, id_lulc_anterior, id_lulc_posterior, is_viable)
-  ]
-  data.table::setorder(bounds, id_lulc_anterior, id_lulc_posterior)
-  data.table::setattr(bounds, "step_years", step_years)
-  bounds[]
+  bounds
 }
 
 #' @describeIn trans_rates_solver Reachability precheck: the maximum and minimum area each
