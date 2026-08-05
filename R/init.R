@@ -16,6 +16,7 @@
 }
 
 #' @importFrom data.table :=
+#' @importFrom data.table %chin%
 .datatable.aware <- TRUE
 
 # rcpp imports

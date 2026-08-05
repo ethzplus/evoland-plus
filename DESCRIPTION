@@ -29,6 +29,7 @@ Suggests:
     base64enc,
     gifski,
     knitr,
+    lpSolve,
     mlr3viz,
     processx,
     quarto,
@@ -56,6 +57,7 @@ Collate:
     'init.R'
     'intrv_masks_t.R'
     'intrv_meta_t.R'
+    'lp_problem.R'
     'lulc_data_t.R'
     'lulc_meta_t.R'
     'neighbors_t.R'
@@ -67,6 +69,8 @@ Collate:
     'trans_meta_t.R'
     'trans_pot_t.R'
     'trans_preds_t.R'
+    'trans_rates_lp.R'
+    'trans_rates_solver.R'
     'trans_rates_t.R'
     'util.R'
     'util_dinamica.R'

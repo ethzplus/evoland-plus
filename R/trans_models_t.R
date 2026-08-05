@@ -606,9 +606,7 @@ print.trans_models_t <- function(x, ...) {
 #' @param id_run Optional integer; filter by run ID.
 #' @param id_trans Optional integer; filter by transition ID.
 get_crossval_plots <- function(self, id_run = NULL, id_trans = NULL) {
-  if (!requireNamespace("mlr3viz", quietly = TRUE)) {
-    stop("Package 'mlr3viz' is required. Install with: install.packages('mlr3viz')")
-  }
+  require_suggested("mlr3viz", "plot cross-validation predictions")
 
   where_clauses <- c()
   if (!is.null(id_run)) {

@@ -91,6 +91,25 @@ ensure_dir <- function(dir) {
   invisible(dir)
 }
 
+#' @describeIn util Require a package that evoland only suggests, failing with an
+#' actionable message rather than with the one R gives for a missing namespace
+#' @param package Name of the suggested package
+#' @param purpose What the package is needed for, completing "is required to ..."
+require_suggested <- function(package, purpose) {
+  if (requireNamespace(package, quietly = TRUE)) {
+    return(invisible(TRUE))
+  }
+
+  stop(
+    glue::glue(
+      "Package '{package}' is required to {purpose}. ",
+      "It is a suggested dependency of evoland; ",
+      "install it with: install.packages('{package}')"
+    ),
+    call. = FALSE
+  )
+}
+
 #' @describeIn util Print a dataframe in a row-wise yaml style
 #' @param df A data.frame or data.table to print
 #' @export
