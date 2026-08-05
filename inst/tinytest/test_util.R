@@ -88,3 +88,10 @@ if (
 ) {
   expect_error(evoland:::ensure_dir("/tests"), "Read-only file system")
 }
+
+# check for package availability
+expect_true(evoland:::require_suggested("base", "already attached"))
+expect_error(
+  evoland:::require_suggested("thispackagedoesnotexistiknowthat", "show that this fails"),
+  "show that this fails"
+)
