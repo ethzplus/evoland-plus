@@ -68,15 +68,6 @@ if (!requireNamespace("lpSolve", quietly = TRUE)) {
   exit_file("lpSolve not available; skipping the transition rate program tests")
 }
 
-# The observed landscape the solver starts from: the last period that is not extrapolated.
-lulc_data <-
-  data.table::data.table(
-    id_run = 0L,
-    id_coord = seq_len(10000),
-    id_period = 3L,
-    id_lulc = rep(1:3, c(5000, 3000, 2000))
-  ) |>
-  as_lulc_data_t()
 
 # Reachability against a hand-computable case: only 1 -> 2 may move, at most 10% per step.
 simple_bounds <-
@@ -107,6 +98,16 @@ expect_equal(
     area_max = c(5000, 2500, 5000, 2950)
   )
 )
+
+# The observed landscape the solver starts from: the last period that is not extrapolated.
+lulc_data <-
+  data.table::data.table(
+    id_run = 0L,
+    id_coord = seq_len(10000),
+    id_period = 3L,
+    id_lulc = rep(1:3, c(5000, 3000, 2000))
+  ) |>
+  as_lulc_data_t()
 
 # A three-class scenario the observed bounds can accommodate.
 area_targets <- data.table::data.table(id_lulc = 1:3, area = c(4600, 3200, 2200))

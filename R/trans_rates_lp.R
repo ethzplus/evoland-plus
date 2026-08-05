@@ -27,7 +27,7 @@
 #' All variables are non-negative. `id_lulc` identifies the class a class-level variable
 #' belongs to; `id_lulc_anterior` and `id_lulc_posterior` identify a transition-level one.
 #'
-#' | block | keys | meaning |
+#' | **block** | **keys** | **meaning** |
 #' | --- | --- | --- |
 #' | `flow` | transition, period | cells moving along a transition |
 #' | `area` | class, period | area of a class at a state |
@@ -927,62 +927,43 @@ trans_rate_lp <- R6::R6Class(
       targets <- private$.has_targets
       curved <- nrow(private$.curvature) > 0L
 
+      # fmt: skip
       private$.blocks <- data.table::data.table(
         block = c(
-          "initial",
-          "conservation",
-          "closure",
-          "forbidden",
-          "rate_limits",
-          "rate_bounds",
-          "historic",
-          "target",
-          "monotonicity",
-          "shape",
-          "smoothness",
-          "fairness"
+          "initial",   "conservation", "closure",
+          "forbidden", "rate_limits",  "rate_bounds",
+          "historic",  "target",       "monotonicity",
+          "shape",     "smoothness",   "fairness"
         ),
         is_enabled = c(
+          # initial to closure
           TRUE,
           TRUE,
           TRUE,
+          # forbidden to rate_bounds
           private$.transitions[, any(is_forbidden)],
           TRUE,
           targets,
+          # historic to monotonicity
           targets && private$.mu_historic > 0,
           targets,
           targets && private$.scenario[, any(monotone_sign != 0)],
+          # shape to fairness
           targets && curved && private$.scenario[, any(shape_binds)],
           targets && curved && private$.mu_smooth > 0,
           targets && private$.fair_weight > 0
         ),
         in_solution = c(
-          TRUE,
-          TRUE,
-          TRUE,
-          TRUE,
-          FALSE,
-          TRUE,
-          TRUE,
-          TRUE,
-          TRUE,
-          TRUE,
-          TRUE,
-          TRUE
+          TRUE, TRUE,  TRUE,
+          TRUE, FALSE, TRUE,
+          TRUE, TRUE,  TRUE,
+          TRUE, TRUE,  TRUE
         ),
         in_reachability = c(
-          TRUE,
-          TRUE,
-          TRUE,
-          TRUE,
-          TRUE,
-          FALSE,
-          FALSE,
-          FALSE,
-          FALSE,
-          FALSE,
-          FALSE,
-          FALSE
+          TRUE,  TRUE,  TRUE,
+          TRUE,  TRUE,  FALSE,
+          FALSE, FALSE, FALSE,
+          FALSE, FALSE, FALSE
         )
       )
       invisible(self)

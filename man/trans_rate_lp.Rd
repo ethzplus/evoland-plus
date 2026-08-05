@@ -27,7 +27,7 @@ extrapolated periods only.
 \section{Variables}{
 All variables are non-negative. \code{id_lulc} identifies the class a class-level variable
 belongs to; \code{id_lulc_anterior} and \code{id_lulc_posterior} identify a transition-level one.\tabular{lll}{
-   block \tab keys \tab meaning \cr
+   \strong{block} \tab \strong{keys} \tab \strong{meaning} \cr
    \code{flow} \tab transition, period \tab cells moving along a transition \cr
    \code{area} \tab class, period \tab area of a class at a state \cr
    \code{rate_lower}, \code{rate_upper} \tab transition, period \tab rate-bound violation \cr
