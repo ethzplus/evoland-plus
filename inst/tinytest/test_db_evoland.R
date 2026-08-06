@@ -143,3 +143,60 @@ expect_equivalent(
     value = as.numeric(value)
   )])
 )
+
+# --- id_period = 0 is a fallback, and precedence is decided per slice ----------------------
+#
+# pred_data_wide.sql and trans_pred_data.sql both read `id_period in (0, <target>)` and pivot
+# with first(), which has no ordering guarantee. Without an explicit precedence a predictor
+# carrying both a period-0 baseline and a period-specific value -- what a scenario projection
+# creates -- resolves to either one depending on physical row order.
+
+precedence_db <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
+
+# elevation (id_pred 1) is static-only in the fixture; give it a period-3 value on some, but
+# deliberately not all, coordinates. The slice rule says the period-3 slice is then used
+# wholesale, so the untouched coordinates come back NA rather than falling back to period 0.
+baseline <- precedence_db$pred_data_t[id_pred == 1L & id_period == 0L]
+covered <- head(baseline$id_coord, 500L)
+
+precedence_db$pred_data_t <- as_pred_data_t(data.table::data.table(
+  id_run = 0L,
+  id_period = 3L,
+  id_pred = 1L,
+  id_coord = covered,
+  value = -999
+))
+
+viable_trans <- precedence_db$trans_meta_t[is_viable == TRUE][1L]
+wide <- precedence_db$pred_data_wide_v(
+  id_trans = viable_trans$id_trans,
+  id_period_anterior = 3L
+)
+
+# the period-specific slice wins for every coordinate it covers
+expect_true(all(wide[id_coord %in% covered][["id_pred_1"]] == -999))
+
+# ...and is used wholesale: coordinates outside it are NA, not the period-0 baseline
+uncovered <- wide[!id_coord %in% covered]
+if (nrow(uncovered) > 0L) {
+  expect_true(all(is.na(uncovered[["id_pred_1"]])))
+}
+
+# a predictor with no period-specific data still falls back to period 0
+expect_false(anyNA(wide[["id_pred_2"]]))
+expect_true(
+  wide[
+    precedence_db$pred_data_t[id_pred == 2L & id_period == 0L],
+    on = "id_coord",
+    nomatch = NULL
+  ][, all(id_pred_2 == value)]
+)
+
+# the training-path query resolves the same way, per (id_pred, id_period): period 3 takes the
+# override, periods without one keep the baseline
+train <- precedence_db$trans_pred_data_v(
+  id_trans = viable_trans$id_trans,
+  id_pred = c(1L, 2L)
+)
+expect_true(all(train[id_period_anterior == 3L & id_coord %in% covered][["id_pred_1"]] == -999))
+expect_false(any(train[id_period_anterior == 1L][["id_pred_1"]] == -999, na.rm = TRUE))
