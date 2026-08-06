@@ -82,13 +82,19 @@ create_trans_meta_t <- function(
     ][,
       .(cardinality = .N),
       by = .(id_lulc_anterior, id_lulc_posterior)
-    ][
-      order(id_lulc_anterior, id_lulc_posterior),
+    ][,
       `:=`(
         frequency_rel = cardinality / sum(cardinality),
         frequency_abs = cardinality / n_total_pairs
       )
     ]
+
+  # `by` returns groups in order of first appearance, and `transitions` usually comes from
+  # an unordered DuckDB query, whose row order is not guaranteed across platforms, thread
+  # counts or partition layouts. Sort before numbering, so that id_trans -- a key that
+  # trans_preds_t, trans_models_t and trans_rates_t all reference -- is a reproducible
+  # function of the observed transitions rather than of scan order.
+  data.table::setorder(trans_summary, id_lulc_anterior, id_lulc_posterior)
 
   # default: all viable until determined otherwise
   trans_summary[, is_viable := TRUE]

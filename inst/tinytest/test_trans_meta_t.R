@@ -50,3 +50,23 @@ expect_equal(
   create_trans_meta_t(synthetic_transitions)[["frequency_rel"]],
   c(0.10, 0.05, 0.10, 0.05, 0.05, 0.15, 0.05, 0.05, 0.10, 0.15, 0.15)
 )
+
+# `transitions` normally comes from trans_v, an unordered DuckDB query whose row order is
+# not guaranteed. id_trans is a key referenced from other tables, so it must depend only
+# on the observed transitions, not on the order they arrive in.
+trans_meta_ordered <- create_trans_meta_t(synthetic_transitions)
+
+expect_equal(
+  trans_meta_ordered[["id_trans"]],
+  seq_len(nrow(trans_meta_ordered))
+)
+expect_equal(
+  trans_meta_ordered,
+  trans_meta_ordered[order(id_lulc_anterior, id_lulc_posterior)]
+)
+
+set.seed(11)
+for (i in 1:5) {
+  shuffled <- synthetic_transitions[sample(.N)]
+  expect_equal(create_trans_meta_t(shuffled), trans_meta_ordered)
+}

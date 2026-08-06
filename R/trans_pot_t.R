@@ -115,13 +115,36 @@ predict_trans_pot <- function(
     ]"
   ))$id_trans
 
-  missing_models <- setdiff(viable_trans$id_trans, modeled_ids)
+  missing_models <- sort(setdiff(viable_trans$id_trans, modeled_ids))
   if (length(missing_models) > 0L) {
-    stop(glue::glue(
-      "No fitted model for viable transition(s): {toString(sort(missing_models))}. ",
-      "Every transition with is_viable == TRUE must have a non-null learner_full in ",
-      "trans_models_t."
-    ))
+    # Fitting records why it failed rather than aborting; replay those reasons here, so
+    # the cause is reported together with the symptom.
+    recorded <- self$fetch(
+      "trans_models_t",
+      cols = c("id_trans", "learner_params"),
+      where = glue::glue("id_trans in ({toString(missing_models)})")
+    ) |>
+      failed_fits()
+
+    reasons <- vapply(missing_models, function(id) {
+      row <- match(id, recorded[["id_trans"]])
+      reason <- if (is.na(row)) {
+        "no model row recorded; see warnings from fit_partial_models()/fit_full_models()"
+      } else {
+        as.character(recorded[["learner_params"]][[row]][["error_message"]])
+      }
+      glue::glue("  id_trans {id}: {reason}")
+    }, character(1))
+
+    stop(
+      glue::glue(
+        "No fitted model for viable transition(s): {toString(missing_models)}. ",
+        "Every transition with is_viable == TRUE must have a non-null learner_full in ",
+        "trans_models_t. Reasons recorded while fitting:"
+      ),
+      "\n",
+      paste(reasons, collapse = "\n")
+    )
   }
 
   gather <- list()

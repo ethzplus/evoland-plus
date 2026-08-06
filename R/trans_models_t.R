@@ -14,7 +14,9 @@
 #'   - `learner_id`: mlr3 twoclass [LearnerClassif](https://mlr3.mlr-org.com/reference/LearnerClassif.html)
 #'     key, e.g. `"classif.ranger"`
 #'   - `learner_params`: MAP of atomic scalar learner hyperparameters for
-#'     querying; complete hyperparameters are captured by `learner_spec`
+#'     querying; complete hyperparameters are captured by `learner_spec`.
+#'     A fit that failed is recorded as a sentinel row whose `learner_params`
+#'     holds a single `error_message` entry, and whose `learner_full` is `NULL`
 #'   - `learner_spec`: BLOB of serialized untrained mlr3 `Learner`; for
 #'     AutoTuners, this is the optimal inner learner after tuning
 #'   - `crossval_score`: MAP of cross-validation performance scores
@@ -168,7 +170,7 @@ fit_partial_model_worker <- function(
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
         learner_id = "error",
-        learner_params = list(list()),
+        learner_params = list(list(error_message = conditionMessage(e))),
         learner_spec = list(NULL),
         crossval_score = list(list()),
         crossval_predictions = list(NULL),
@@ -176,6 +178,48 @@ fit_partial_model_worker <- function(
       )
     }
   )
+}
+
+# Rows whose fit failed, identified by the error_message the workers record in
+# learner_params. Not exported; used by fit_partial_models, fit_full_models and
+# predict_trans_pot.
+failed_fits <- function(models) {
+  if (nrow(models) == 0L) {
+    return(models[0L])
+  }
+  models[
+    vapply(
+      models[["learner_params"]],
+      function(params) "error_message" %in% names(params),
+      logical(1)
+    )
+  ]
+}
+
+# A failed fit is recorded as a sentinel row rather than aborting the batch, so that one
+# unfittable transition does not discard the models that did train. Report the failures
+# together at the end of the batch: the individual warnings are easily lost in fitting
+# output, and the consequence otherwise only surfaces much later, when allocation finds a
+# viable transition that has no model.
+warn_failed_fits <- function(models) {
+  failed <- failed_fits(models)
+  if (nrow(failed) == 0L) {
+    return(invisible(models))
+  }
+
+  reasons <- vapply(
+    failed[["learner_params"]],
+    function(params) as.character(params[["error_message"]]),
+    character(1)
+  )
+  warning(
+    glue::glue("No model was fitted for {nrow(failed)} of {nrow(models)} transition(s):"),
+    "\n",
+    paste0("  id_trans ", failed[["id_trans"]], ": ", reasons, collapse = "\n"),
+    call. = FALSE
+  )
+
+  invisible(models)
 }
 
 # Worker function for full model fitting
@@ -264,7 +308,7 @@ fit_full_model_worker <- function(item, db, learner = NULL) {
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
         learner_id = if (!is.null(learner)) learner$id else item[["learner_id"]],
-        learner_params = list(list()),
+        learner_params = list(list(error_message = conditionMessage(e))),
         learner_spec = list(NULL),
         crossval_score = list(list()),
         crossval_predictions = list(NULL),
@@ -372,7 +416,8 @@ fit_partial_models <- function(
       sample_frac = sample_frac
     ) |>
     data.table::rbindlist() |>
-    as_trans_models_t()
+    as_trans_models_t() |>
+    warn_failed_fits()
 }
 
 #' @describeIn trans_models_t Fit full models (trained on the complete dataset) for each
@@ -466,7 +511,8 @@ fit_full_models <- function(
         learner = learner
       ) |>
       data.table::rbindlist() |>
-      as_trans_models_t()
+      as_trans_models_t() |>
+      warn_failed_fits()
   } else {
     # Score-select mode
     stopifnot(
@@ -506,10 +552,14 @@ fit_full_models <- function(
       where
         pn.id_run = tm.id_run
         and pn.id_trans = tm.id_trans
+        -- sentinel rows from partial fits that errored carry no learner to retrain
+        and tm.learner_spec is not null
       qualify row_number() over (
-          -- FIXME edge case: two models with same score, what do?
           partition by tm.id_run, tm.id_trans
-          order by tm.crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
+          -- learner_id breaks ties (e.g. two learners scoring an identical AUC), so the
+          -- selection does not depend on scan order
+          order by tm.crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")},
+            tm.learner_id
       ) = 1;
         ]"
       )) |>
@@ -531,7 +581,8 @@ fit_full_models <- function(
         cluster = cluster
       ) |>
       data.table::rbindlist() |>
-      as_trans_models_t()
+      as_trans_models_t() |>
+      warn_failed_fits()
   }
 }
 
