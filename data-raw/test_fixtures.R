@@ -1,4 +1,10 @@
 # Creates canonical test fixture data for use in tests, examples, and vignettes.
+#
+# This script is not run during checks. Each fixture below is replicated in the
+# corresponding inst/tinytest/test_*.R file, which compares the freshly built object
+# against the one stored in R/sysdata.rda. Changing a fixture here therefore requires
+# rerunning this script, so that the stored data cannot go stale relative to the
+# constructors it is built from.
 library("evoland")
 library("data.table")
 
