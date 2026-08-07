@@ -63,7 +63,11 @@ db$pred_data_t <- added_run_2 <- db$pred_data_t[
 ]
 
 pred_run_2 <- db$pred_data_t
-
+# check that the total number of rows across all pred_data_t is increased by added_run_2
+expect_equal(
+  nrow(pred_run_2) + nrow(added_run_2),
+  db$row_count("pred_data_t")
+)
 expect_equal(nrow(pred_run_0), nrow(pred_run_2))
 
 # cannot check equality because of weird class/attribute changes due to
@@ -144,59 +148,91 @@ expect_equivalent(
   )])
 )
 
-# --- id_period = 0 is a fallback, and precedence is decided per slice ----------------------
-#
-# pred_data_wide.sql and trans_pred_data.sql both read `id_period in (0, <target>)` and pivot
-# with first(), which has no ordering guarantee. Without an explicit precedence a predictor
-# carrying both a period-0 baseline and a period-specific value -- what a scenario projection
-# creates -- resolves to either one depending on physical row order.
+# pred_data_wide_v and trans_pred_data_v both should return timed (selected
+# id_period) data, if it is available for that id_pred id_period slice.
+# otherwise, fall back to static (id_period=0)
 
 precedence_db <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
 
-# elevation (id_pred 1) is static-only in the fixture; give it a period-3 value on some, but
-# deliberately not all, coordinates. The slice rule says the period-3 slice is then used
-# wholesale, so the untouched coordinates come back NA rather than falling back to period 0.
-baseline <- precedence_db$pred_data_t[id_pred == 1L & id_period == 0L]
-covered <- head(baseline$id_coord, 500L)
+expect_equal(
+  nrow(precedence_db$pred_data_wide_v(
+    id_trans = 2L,
+    id_period_anterior = 1L
+  )[is.na(id_pred_1)]),
+  0L # there should not be any rows with missing id_pred_1 in fixture
+)
+expect_equal(
+  nrow(precedence_db$trans_pred_data_v(
+    id_trans = 2L,
+    id_pred = 1:2
+  )[is.na(id_pred_1)]),
+  0L # there should not be any rows with missing id_pred_1 in fixture
+)
 
-precedence_db$pred_data_t <- as_pred_data_t(data.table::data.table(
+
+n_lulc_ant <-
+  precedence_db$lulc_data_t[
+    id_period == 1L
+  ][
+    precedence_db$trans_meta_t,
+    .(id_trans, id_lulc),
+    on = c(id_lulc = "id_lulc_anterior")
+  ][,
+    .N,
+    by = "id_trans"
+  ]
+
+
+# elevation (id_pred=1) is static-only in the fixture; we only overwrite it for
+# one coordinate point in period 1. all other locations should come back NA.
+precedence_db$pred_data_t[id_pred == 1 & id_coord == 333] <- as_pred_data_t(data.table::data.table(
   id_run = 0L,
-  id_period = 3L,
+  id_period = 1L,
   id_pred = 1L,
-  id_coord = covered,
+  id_coord = 333L, # a coordinate with id_lulc=1 at id_period=1
   value = -999
 ))
 
-viable_trans <- precedence_db$trans_meta_t[is_viable == TRUE][1L]
-wide <- precedence_db$pred_data_wide_v(
-  id_trans = viable_trans$id_trans,
-  id_period_anterior = 3L
+# get predictor data for the transition starting at id_lulc=1
+expect_equal(
+  precedence_db$pred_data_wide_v(
+    id_trans = 2L,
+    id_period_anterior = 1L
+  )[
+    is.na(id_pred_1),
+    .N
+  ],
+  n_lulc_ant[id_trans == 2L, N] - 1L # all rows but 1 should be NA
+)
+expect_equal(
+  precedence_db$trans_pred_data_v(
+    id_trans = 2L,
+    id_pred = 1L
+  )[
+    is.na(id_pred_1),
+    .N
+  ],
+  n_lulc_ant[id_trans == 2L, N] - 1L # all rows but 1 should be NA
 )
 
-# the period-specific slice wins for every coordinate it covers
-expect_true(all(wide[id_coord %in% covered][["id_pred_1"]] == -999))
-
-# ...and is used wholesale: coordinates outside it are NA, not the period-0 baseline
-uncovered <- wide[!id_coord %in% covered]
-if (nrow(uncovered) > 0L) {
-  expect_true(all(is.na(uncovered[["id_pred_1"]])))
-}
-
-# a predictor with no period-specific data still falls back to period 0
-expect_false(anyNA(wide[["id_pred_2"]]))
-expect_true(
-  wide[
-    precedence_db$pred_data_t[id_pred == 2L & id_period == 0L],
-    on = "id_coord",
-    nomatch = NULL
-  ][, all(id_pred_2 == value)]
+# get predictor data for the transition starting at id_lulc=2
+expect_equal(
+  precedence_db$pred_data_wide_v(
+    id_trans = 1L,
+    id_period_anterior = 1L
+  )[
+    is.na(id_pred_1),
+    .N
+  ],
+  n_lulc_ant[id_trans == 1L, N] # all rows should be NA
 )
-
-# the training-path query resolves the same way, per (id_pred, id_period): period 3 takes the
-# override, periods without one keep the baseline
-train <- precedence_db$trans_pred_data_v(
-  id_trans = viable_trans$id_trans,
-  id_pred = c(1L, 2L)
+expect_equal(
+  precedence_db$trans_pred_data_v(
+    id_trans = 1L,
+    id_pred = 1L
+  )[
+    is.na(id_pred_1),
+    .N
+  ],
+  n_lulc_ant[id_trans == 1L, N] # all rows should be NA
 )
-expect_true(all(train[id_period_anterior == 3L & id_coord %in% covered][["id_pred_1"]] == -999))
-expect_false(any(train[id_period_anterior == 1L][["id_pred_1"]] == -999, na.rm = TRUE))
