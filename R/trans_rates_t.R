@@ -136,10 +136,10 @@ extrapolate_trans_rates <- function(obs_rates, periods, coord_count = NA_integer
     merge(periods, by = "id_period") |>
     split(by = c("id_run", "id_trans")) |>
     lapply(FUN = \(subtable) {
-      mod <- lm(rate ~ mean_date, data = subtable)
+      mod <- stats::lm(rate ~ mean_date, data = subtable)
 
       predictions <-
-        suppressWarnings(predict(
+        suppressWarnings(stats::predict(
           # suppress warnings (e.g. if model is rank-deficient, i.e. fit using one observed rate)
           mod,
           newdata = data.table::data.table(mean_date = extrap_mean_dates)

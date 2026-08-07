@@ -59,7 +59,7 @@ as_pred_meta_t <- function(x) {
         # coerce to data.table with exactly url & md5sum
         if (
           inherits(src, "data.frame") &&
-            all(hasName(src, c("url", "md5sum")))
+            all(utils::hasName(src, c("url", "md5sum")))
         ) {
           return(src[, c("url", "md5sum")])
         }

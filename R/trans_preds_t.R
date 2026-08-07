@@ -150,7 +150,7 @@ pred_filter_worker <- function(item, db, filter, ordered_pred_data = FALSE) {
 
       scores_dt <-
         data.table::as.data.table(filter) |>
-        setNames(c("id_pred", filter_id))
+        stats::setNames(c("id_pred", filter_id))
 
       scores_dt[, id_pred := as.integer(sub("^id_pred_", "", id_pred))]
       scores_dt[, id_run := id_run]

@@ -143,7 +143,7 @@ cast_dt_col <- function(x, colname, type, levels = NULL) {
     bool = is.logical,
     factor = is.factor,
     char = is.character,
-    date = \(x) is(x, "Date")
+    date = \(x) methods::is(x, "Date")
   )
   if (predicate_fn(x[[colname]])) {
     return(invisible(x))

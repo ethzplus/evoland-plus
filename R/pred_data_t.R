@@ -229,7 +229,7 @@ set_pred_coltypes <- function(result, pred_meta_t) {
 
     # if col is factor, fill_value being a character is safe
     # dt set() can add a new level if it's not already present
-    fill_value <- meta_row$fill_value |> type.convert(as.is = TRUE)
+    fill_value <- meta_row$fill_value |> utils::type.convert(as.is = TRUE)
     if (!is.na(fill_value)) {
       data.table::set(
         result,

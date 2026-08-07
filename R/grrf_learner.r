@@ -148,7 +148,7 @@ LearnerClassifGrrf <- R6::R6Class(
 
     .predict = function(task) {
       newdata <- task$data(cols = task$feature_names)
-      list(response = predict(self$model, data = newdata)$predictions)
+      list(response = stats::predict(self$model, data = newdata)$predictions)
     }
   )
 )

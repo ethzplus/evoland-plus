@@ -19,6 +19,12 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      # The package ships no Makevars; these hardening flags come from the CFLAGS/CXXFLAGS
+      # baked into the Debian/Ubuntu R build and would otherwise be reported as
+      # "non-portable flag(s)". Declaring them known keeps that NOTE out of the check.
+      _R_CHECK_COMPILATION_FLAGS_KNOWN_: >-
+        -Wdate-time -Werror=format-security -Wformat -Wformat-security
+        -mno-omit-leaf-frame-pointer -fno-omit-frame-pointer
 
     steps:
       - uses: actions/checkout@v6

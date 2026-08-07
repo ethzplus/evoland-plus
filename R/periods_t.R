@@ -81,9 +81,9 @@ create_periods_t <- function(
     seq(start_observed, by = paste(period_length_years, "years"), length.out = _)
 
   # lead, drop last date
-  start_dates <- head(boundaries, -1L)
+  start_dates <- utils::head(boundaries, -1L)
   # lag, drop first date: start of next period minus 1 day
-  end_dates <- tail(boundaries, -1L) - 1
+  end_dates <- utils::tail(boundaries, -1L) - 1
 
   # Determine which periods are observed vs extrapolated
   is_extrapolated <- start_dates > end_observed

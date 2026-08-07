@@ -21,10 +21,13 @@ Imports:
     duckdb (>= 1.5.2),
     glue,
     mlr3,
+    methods,
     mlr3filters,
     paradox,
     qs2,
-    terra (>= 1.8-42)
+    stats,
+    terra (>= 1.8-42),
+    utils
 Suggests:
     base64enc,
     gifski,
