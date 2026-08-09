@@ -196,11 +196,7 @@ failed_fits <- function(models) {
   ]
 }
 
-# A failed fit is recorded as a sentinel row rather than aborting the batch, so that one
-# unfittable transition does not discard the models that did train. Report the failures
-# together at the end of the batch: the individual warnings are easily lost in fitting
-# output, and the consequence otherwise only surfaces much later, when allocation finds a
-# viable transition that has no model.
+# call for side effect: Report any recorded failures
 warn_failed_fits <- function(models) {
   failed <- failed_fits(models)
   if (nrow(failed) == 0L) {

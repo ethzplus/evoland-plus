@@ -56,8 +56,8 @@ expect_message(
 expect_equal(
   partial_models[["crossval_score"]],
   list(
-    list(classif.auc = 0.5, classif.acc = 0.55),
-    list(classif.auc = 0.5, classif.acc = 0.5358255)
+    list(classif.auc = 0.5, classif.acc = 0.5358255),
+    list(classif.auc = 0.5, classif.acc = 0.55)
   ),
   tolerance = 1e-7
 )
@@ -330,19 +330,19 @@ expect_equal(length(plots), nrow(db$trans_models_t))
 expect_true(all(vapply(plots, inherits, logical(1), "gg")))
 
 # Filter by id_trans
-plots_filtered <- db$get_crossval_plots(id_trans = 1)
+plots_filtered <- db$get_crossval_plots(id_trans = 2L)
 expect_equal(length(plots_filtered), 1L)
-plot_trans_1 <- plots_filtered[[1]]
-expect_true(inherits(plot_trans_1, "gg"))
+plot_trans <- plots_filtered[[1]]
+expect_true(inherits(plot_trans, "gg"))
 expect_equal(
-  plot_trans_1$data$variable,
+  plot_trans$data$variable,
   factor(
     c(rep("truth", 220), rep("response", 220)),
     levels = c("truth", "response")
   )
 )
 expect_equal(
-  plot_trans_1$data$value |> as.character(),
+  plot_trans$data$value |> as.character(),
   c(
     rep("FALSE", 121),
     rep("TRUE", 99),

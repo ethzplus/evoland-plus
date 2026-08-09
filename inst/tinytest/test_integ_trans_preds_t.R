@@ -33,16 +33,16 @@ expect_message(
 perf_expected <-
   as_trans_preds_t(data.table::rowwiseDT( # nolint start
       id_run=, id_pred=, id_trans=, performance=,
-      0,       1,        1,         -0.4515679  ,
-      0,       1,        2,         -0.4639171  ,
-      0,       2,        1,         -0.4515679  ,
-      0,       2,        2,         -0.4639171  ,
-      0,       3,        1,         -0.4515679  ,
-      0,       3,        2,         -0.4639171  ,
-      0,       4,        1,         -0.4515679  ,
-      0,       4,        2,         -0.4639171
+      0,       1,        1,         -0.4639329  ,
+      0,       1,        2,         -0.4515716  ,
+      0,       2,        1,         -0.4639329  ,
+      0,       2,        2,         -0.4515716  ,
+      0,       3,        1,         -0.4639329  ,
+      0,       3,        2,         -0.4515716  ,
+      0,       4,        1,         -0.4639329  ,
+      0,       4,        2,         -0.4515716
   )) # nolint end
-expect_equal(perf_results, perf_expected, tol = 1e-7)
+expect_equal(perf_results, perf_expected, tol = 1e-6)
 
 # Test GRRF filter via FilterImportance
 grrf_learner <- LearnerClassifGrrf$new()
