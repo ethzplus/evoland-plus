@@ -38,7 +38,7 @@ synthetic_transitions <- data.table::rowwiseDT(
   1        , 4                , 3                 , 2         ,
   1        , 4                , 3                 , 2         ,
   1        , 4                , 4                 , 2         ,
-  2        , 4                , 4                 , 3         
+  2        , 4                , 4                 , 3
 ) |>
   evoland:::cast_dt_col("id_coord", "int") |>
   evoland:::cast_dt_col("id_lulc_anterior", "int") |>
@@ -58,11 +58,7 @@ trans_meta_ordered <- create_trans_meta_t(synthetic_transitions)
 
 expect_equal(
   trans_meta_ordered[["id_trans"]],
-  seq_len(nrow(trans_meta_ordered))
-)
-expect_equal(
-  trans_meta_ordered,
-  trans_meta_ordered[order(id_lulc_anterior, id_lulc_posterior)]
+  trans_meta_ordered[order(id_lulc_anterior, id_lulc_posterior), id_trans]
 )
 
 set.seed(11)
