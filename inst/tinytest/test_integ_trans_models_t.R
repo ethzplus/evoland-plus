@@ -163,6 +163,24 @@ expect_error(
   "trans_meta must be a trans_meta_t"
 )
 
+# model crashes during execution
+error_learner <- mlr3::lrn(
+  "classif.debug",
+  error_predict = 1 # probability that error occurs in [0,1]
+)
+expect_warning(
+  err_model_t1 <- db$fit_partial_models(
+    learner = error_learner,
+    measures = test_measures,
+    trans_meta = trans_meta_t1
+  ),
+  "Error from classif.debug->predict()"
+)
+expect_match(
+  err_model_t1[["learner_params"]][[1]][["error_message"]],
+  "Error from classif.debug->predict()"
+)
+
 # fit_full_models (direct mode): supply trans_preds restricted to id_trans == 1
 db$set_full_trans_preds()
 expect_message(
