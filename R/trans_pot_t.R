@@ -117,8 +117,9 @@ predict_trans_pot <- function(
 
   missing_models <- sort(setdiff(viable_trans$id_trans, modeled_ids))
   if (length(missing_models) > 0L) {
-    # Fitting records why it failed rather than aborting; replay those reasons here, so
-    # the cause is reported together with the symptom.
+    # Fitting warns and records the reason rather than aborting, so by the time the
+    # missing model is fatal its warning may belong to a session that is long gone.
+    # The record outlives it: re-emit it here, next to the error it explains.
     recorded <- self$fetch(
       "trans_models_t",
       cols = c("id_trans", "learner_params"),
@@ -126,25 +127,22 @@ predict_trans_pot <- function(
     ) |>
       failed_fits()
 
-    reasons <- vapply(missing_models, function(id) {
-      row <- match(id, recorded[["id_trans"]])
-      reason <- if (is.na(row)) {
-        "no model row recorded; see warnings from fit_partial_models()/fit_full_models()"
-      } else {
-        as.character(recorded[["learner_params"]][[row]][["error_message"]])
-      }
-      glue::glue("  id_trans {id}: {reason}")
-    }, character(1))
+    for (row in seq_len(nrow(recorded))) {
+      warning(
+        glue::glue(
+          "Error fitting model for transition {recorded[['id_trans']][[row]]}: ",
+          "{recorded[['learner_params']][[row]][['error_message']]}"
+        ),
+        call. = FALSE
+      )
+    }
 
-    stop(
-      glue::glue(
-        "No fitted model for viable transition(s): {toString(missing_models)}. ",
-        "Every transition with is_viable == TRUE must have a non-null learner_full in ",
-        "trans_models_t. Reasons recorded while fitting:"
-      ),
-      "\n",
-      paste(reasons, collapse = "\n")
-    )
+    stop(glue::glue(
+      "No fitted model for viable transition(s): {toString(missing_models)}. ",
+      "Every transition with is_viable == TRUE must have a non-null learner_full in ",
+      "trans_models_t. {nrow(recorded)} of them recorded a reason while fitting, ",
+      "re-emitted as warnings above."
+    ))
   }
 
   gather <- list()
