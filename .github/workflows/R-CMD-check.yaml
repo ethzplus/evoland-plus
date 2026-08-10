@@ -14,20 +14,16 @@ permissions: read-all
 
 jobs:
   R-CMD-check:
-    runs-on: ${{ matrix.config.os }}
-
-    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
-
     strategy:
-      fail-fast: false
       matrix:
-        config:
-          - { os: macos-latest, r: "release" }
-          - { os: ubuntu-latest, r: "release" }
-          # r cmd build apparently fails to install the package - no errors or warnings
-          # only becomes evident when trying to build vignette
-          # pak not installing system dependencies?
-          # - { os: windows-latest, r: "release" }
+        include:
+          - { name: container, os: ubuntu-latest, container: rocker/r2u4ci }
+          - { name: macos, os: macos-latest }
+          # - { name: ubuntu,    os: ubuntu-latest }
+          # TODO do we want to test on windows? does pak manage sys. deps?
+
+    runs-on: ${{ matrix.include.os }}
+    name: ${{ matrix.include.os }}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -36,63 +32,40 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: r-lib/actions/setup-pandoc@v2
+      - uses: eddelbuettel/github-actions/r-ci@master
 
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: ${{ matrix.config.r }}
-          http-user-agent: ${{ matrix.config.http-user-agent }}
-          use-public-rspm: false
+      # r-ci installs R packages; the quarto vignette engine shells out to the CLI, which
+      # is not an R package and has to come from somewhere else
+      - uses: quarto-dev/quarto-actions/setup@v2
 
-      - name: Resolve macOS dependency versions
+      # TODO check if we can make use of caching for macos + ubuntu sys. deps.
+      #
+      # - name: Resolve macOS dependency versions
+      #   if: runner.os == 'macos'
+      #   run: |
+      #     brew update
+      #     brew info --json gdal proj | jq -r '.[].versions.stable' > brew-versions.txt
+
+      # - name: Cache macOS system dependencies
+      #   if: runner.os == 'macos'
+      #   id: cache-brew
+      #   uses: actions/cache@v5
+      #   with:
+      #     path: |
+      #       /opt/homebrew/Cellar/
+      #       /usr/local/Cellar/
+      #     key: ${{ runner.os }}-brew-gdal-proj-${{ hashFiles('brew-versions.txt') }}
+
+      - name: Install macOS dependencies
         if: runner.os == 'macos'
-        run: |
-          brew update
-          brew info --json gdal proj | jq -r '.[].versions.stable' > brew-versions.txt
+        run: brew install gdal proj
 
-      - name: Cache macOS system dependencies
-        if: runner.os == 'macos'
-        id: cache-brew
-        uses: actions/cache@v5
-        with:
-          path: |
-            /opt/homebrew/Cellar/
-            /usr/local/Cellar/
-          key: ${{ runner.os }}-brew-gdal-proj-${{ hashFiles('brew-versions.txt') }}
+      - name: Install dependencies as apt binaries
+        run: ./run.sh install_all
 
-      - name: Install or link macOS dependencies
-        if: runner.os == 'macos'
-        run: |
-          if [ "${{ steps.cache-brew.outputs.cache-hit }}" == "true" ]; then
-            brew link gdal proj
-          else
-            brew install gdal proj
-          fi
+      - name: R CMD check
+        run: ./run.sh run_tests
 
-      - name: Resolve Ubuntu dependency versions
-        if: runner.os == 'linux'
-        run: |
-          sudo apt-get update
-          apt-cache policy libgdal-dev libproj-dev | grep Candidate > apt-versions.txt
-
-      - name: Cache Ubuntu system dependencies
-        if: runner.os == 'linux'
-        id: cache-apt
-        uses: actions/cache@v5
-        with:
-          path: /var/cache/apt/archives
-          key: ${{ runner.os }}-apt-gdal-proj-${{ hashFiles('apt-versions.txt') }}
-
-      - name: Install Ubuntu dependencies
-        if: runner.os == 'linux'
-        run: sudo apt-get install -y libgdal-dev libproj-dev
-
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: any::rcmdcheck
-          needs: check
-
-      - uses: r-lib/actions/check-r-package@v2
-        with:
-          upload-snapshots: true
-          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
+      - name: Dump check log
+        if: failure()
+        run: ./run.sh dump_logs"
