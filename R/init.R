@@ -39,7 +39,8 @@ NULL
 #   tools:::.check_code_usage_in_package("evoland")
 utils::globalVariables(c(
   ".", ".I", ".N", ".SD", "From*", "To*", "V1", "area", "cardinality", "cells",
-  "did_transition", "distance", "distance_class", "end_date", "found_files", "frac_expander",
+  "did_transition", "distance", "distance_class", "end_date", "error_message", "found_files",
+  "frac_expander",
   "frac_patcher", "frequency_rel", "i.area", "i.gain", "i.loss", "id_coord", "id_lulc",
   "id_lulc_anterior", "id_lulc_posterior", "id_period", "id_pred", "id_run", "id_trans",
   "is_extrapolated", "is_persistence", "is_viable", "lat", "local_filename", "local_path",
