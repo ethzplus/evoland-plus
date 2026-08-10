@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - { name: container, os: ubuntu-latest, container: rocker/r2u4ci }
+          - { name: rocker-r2u4ci, os: ubuntu-latest, container: rocker/r2u4ci }
           - { name: macos, os: macos-latest }
           # - { name: ubuntu,    os: ubuntu-latest }
           # TODO do we want to test on windows? does pak manage sys. deps?
@@ -26,8 +26,14 @@ jobs:
     name: ${{ matrix.name }}
 
     env:
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-      R_KEEP_PKG_SOURCE: yes
+      # r-ci defaults to --no-build-vignettes/--no-vignettes
+      R_BUILD_ARGS: "--no-manual --compact-vignettes=gs+qpdf"
+      R_CHECK_ARGS: "--no-manual --as-cran"
+      # hardening flags from the Ubuntu R build; the package ships no Makevars
+      _R_CHECK_COMPILATION_FLAGS_KNOWN_: >-
+        -Wdate-time -Werror=format-security -Wformat -Wformat-security
+        -mno-omit-leaf-frame-pointer -fno-omit-frame-pointer
+
 
     steps:
       - uses: actions/checkout@v6
