@@ -1,13 +1,8 @@
-# PR check running everything from apt binaries via r2u (https://eddelbuettel.github.io/r2u/).
-#
-# r2u resolves R packages *and* the system libraries they link against through apt, so
-# r-cran-terra arrives with libgdal34t64, libgeos-c1t64 and libproj25 as ordinary apt
-# dependencies. Nothing is compiled from source, and GDAL/PROJ are never rebuilt.
-#
-# Note this cannot be layered onto ghcr.io/rocker-org/geospatial: every r-cran-* deb
-# declares `Depends: r-base-core`, i.e. the apt R under /usr/lib/R, whereas the rocker
-# images ship an R built from source under /usr/local/lib/R. Adding r2u there installs a
-# second R, and the debs land in a library the running R never sees.
+# Run only on linux, fetch CRAN dependencies from apt binaries via r2u
+# See https://eddelbuettel.github.io/r2u/
+# r2u resolves R packages *and* the system libraries they link against; gdal+proj
+# installed automagically
+
 on:
   pull_request:
   workflow_dispatch:
@@ -16,22 +11,19 @@ name: "R CMD check (r2u)"
 
 permissions: read-all
 
-env:
-  # hardening flags from the Ubuntu R build; the package ships no Makevars
-  _R_CHECK_COMPILATION_FLAGS_KNOWN_: >-
-    -Wdate-time -Werror=format-security -Wformat -Wformat-security
-    -mno-omit-leaf-frame-pointer -fno-omit-frame-pointer
-
 jobs:
   R-CMD-check:
     runs-on: ubuntu-latest
     name: "ubuntu-latest (r2u)"
 
     env:
-      # r-ci defaults to --no-build-vignettes/--no-vignettes; the vignettes execute the
-      # whole pipeline and are where the platform-dependent failures surface, so build them
+      # r-ci defaults to --no-build-vignettes/--no-vignettes
       R_BUILD_ARGS: "--no-manual --compact-vignettes=gs+qpdf"
       R_CHECK_ARGS: "--no-manual --as-cran"
+      # hardening flags from the Ubuntu R build; the package ships no Makevars
+      _R_CHECK_COMPILATION_FLAGS_KNOWN_: >-
+        -Wdate-time -Werror=format-security -Wformat -Wformat-security
+        -mno-omit-leaf-frame-pointer -fno-omit-frame-pointer
 
     steps:
       - uses: actions/checkout@v6
@@ -51,8 +43,7 @@ jobs:
       # than the single OK/ERROR line that R CMD check reports.
       - name: Unit and integration tests (tinytest)
         run: |
-          sudo R CMD INSTALL --install-tests .
-          Rscript -e 'out <- tinytest::test_package("evoland", at_home = TRUE); print(out); if (!all(vapply(out, isTRUE, logical(1)))) quit(status = 1L)'
+          Rscript -e 'out <- tinytest::build_install_test(., at_home = TRUE); print(out); if (!all(vapply(out, isTRUE, logical(1)))) quit(status = 1L)'
 
       - name: R CMD check
         run: ./run.sh run_tests
