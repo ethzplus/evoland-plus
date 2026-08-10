@@ -289,9 +289,9 @@ expect_warning(
       measures = test_measures,
       sample_frac = 0.7
     ),
-  "No predictor columns|No data"
+  "No predictor columns for transition 1, skipping"
 )
-expect_equal(partial_models_error$learner_id, "error")
+expect_equal(partial_models_error$learner_id, "classif.featureless")
 
 # Test direct-learner mode: fit_full_models with a learner
 db$set_full_trans_preds()
