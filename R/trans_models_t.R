@@ -136,6 +136,7 @@ fit_partial_model_worker <- function(
       scores <- as.list(prediction$score(measures))
 
       # For AutoTuner: extract optimal inner learner; otherwise use trained learner
+      # TODO do we want to throw out any indication that this was from an autotuner?
       extract_from <-
         if (inherits(trained_learner, "AutoTuner") && !is.null(trained_learner$learner$model)) {
           trained_learner$learner
@@ -169,7 +170,7 @@ fit_partial_model_worker <- function(
       data.table::data.table(
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
-        learner_id = "error",
+        learner_id = learner$id, # retains autotuner id as e.g. classif.rpart.tuned
         learner_params = list(list(error_message = conditionMessage(e))),
         learner_spec = list(NULL),
         crossval_score = list(list()),
@@ -178,21 +179,6 @@ fit_partial_model_worker <- function(
       )
     }
   )
-}
-
-# Rows whose fit failed, identified by the error_message the workers record in
-# learner_params. Not exported; used by predict_trans_pot to replay those messages.
-failed_fits <- function(models) {
-  if (nrow(models) == 0L) {
-    return(models[0L])
-  }
-  models[
-    vapply(
-      models[["learner_params"]],
-      function(params) "error_message" %in% names(params),
-      logical(1)
-    )
-  ]
 }
 
 # Worker function for full model fitting
@@ -236,6 +222,7 @@ fit_full_model_worker <- function(item, db, learner = NULL) {
         )
         learner_params_val <- if (length(learner_params_val) == 0L) NULL else learner_params_val
         learner_spec_blob <- qs2::qs_serialize(trained_learner$clone(deep = TRUE)$reset())
+        # FIXME this never made it to predict_trans_pot
         crossval_score_val <- list(list(no.crossval = 1))
         crossval_predictions_val <- list(NULL)
       } else {
@@ -523,7 +510,6 @@ fit_full_models <- function(
       where
         pn.id_run = tm.id_run
         and pn.id_trans = tm.id_trans
-        -- sentinel rows from partial fits that errored carry no learner to retrain
         and tm.learner_spec is not null
       qualify row_number() over (
           partition by tm.id_run, tm.id_trans

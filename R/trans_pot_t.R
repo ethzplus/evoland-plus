@@ -106,42 +106,49 @@ predict_trans_pot <- function(
   # TODO parallelize
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
-  # Fail early with an actionable message naming missing models
   modeled_ids <- self$get_query(glue::glue(
     r"[
     select distinct id_trans
     from {self$get_read_expr("trans_models_t")}
     where learner_full is not null
     ]"
-  ))$id_trans
+  ))[[1]]
 
   missing_models <- sort(setdiff(viable_trans$id_trans, modeled_ids))
   if (length(missing_models) > 0L) {
-    # Fitting warns and records the reason rather than aborting, so by the time the
-    # missing model is fatal its warning may belong to a session that is long gone.
-    # The record outlives it: re-emit it here, next to the error it explains.
-    recorded <- self$fetch(
-      "trans_models_t",
-      cols = c("id_trans", "learner_params"),
-      where = glue::glue("id_trans in ({toString(missing_models)})")
-    ) |>
-      failed_fits()
-
-    for (row in seq_len(nrow(recorded))) {
-      warning(
+    # If a transition has no valid model but _has_ an error row, print that
+    err_messages <-
+      self$get_query(glue::glue(
+        r"[
+        select id_trans, learner_id, learner_params.error_message
+        from {self$get_read_expr("trans_models_t")}
+        where id_trans in ({toString(missing_models)})
+          and learner_params.error_message is not null
+        ]"
+      )) |>
+      split(by = c("id_trans", "learner_id"), keep.by = TRUE) |>
+      sapply(function(df) {
         glue::glue(
-          "Error fitting model for transition {recorded[['id_trans']][[row]]}: ",
-          "{recorded[['learner_params']][[row]][['error_message']]}"
-        ),
-        call. = FALSE
-      )
+          "id_trans: {df[,id_trans]}, learner_id: {df[,learner_id]}",
+          df[, error_message],
+          "\n"
+        )
+      }) |>
+      gsub(pattern = "\\x1b\\[[0-9;]*m", replacement = "")
+
+    err_messages <- if (length(err_messages) > 0) {
+      c("\nFound following failed models:", err_messages)
+    } else {
+      character()
     }
 
-    stop(glue::glue(
-      "No fitted model for viable transition(s): {toString(missing_models)}. ",
-      "Every transition with is_viable == TRUE must have a non-null learner_full in ",
-      "trans_models_t. {nrow(recorded)} of them recorded a reason while fitting, ",
-      "re-emitted as warnings above."
+    stop(glue::glue_collapse(
+      sep = "\n",
+      c(
+        "No fitted model for viable transition(s): {toString(missing_models)}.",
+        "  Check that trans_models_t has a learner_full for each viable trans",
+        err_messages
+      )
     ))
   }
 
