@@ -43,7 +43,7 @@ jobs:
       # than the single OK/ERROR line that R CMD check reports.
       - name: Unit and integration tests (tinytest)
         run: |
-          Rscript -e 'out <- tinytest::build_install_test(., at_home = TRUE); print(out); if (!all(vapply(out, isTRUE, logical(1)))) quit(status = 1L)'
+          Rscript -e 'out <- tinytest::build_install_test(); print(out); if (!all(vapply(out, isTRUE, logical(1)))) quit(status = 1L)'
 
       - name: R CMD check
         run: ./run.sh run_tests
