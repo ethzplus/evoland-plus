@@ -7,6 +7,9 @@ on:
 
 name: "R CMD check (light)"
 
+env:
+  QUARTO_LOG_LEVEL: DEBUG
+
 permissions: read-all
 
 jobs:

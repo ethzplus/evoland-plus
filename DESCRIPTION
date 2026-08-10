@@ -30,7 +30,6 @@ Imports:
     utils
 Suggests:
     base64enc,
-    evaluate,
     gifski,
     knitr,
     lpSolve,

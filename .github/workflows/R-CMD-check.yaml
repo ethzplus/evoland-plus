@@ -7,6 +7,9 @@ on:
 
 name: "R CMD check (full)"
 
+env:
+  QUARTO_LOG_LEVEL: DEBUG
+
 permissions: read-all
 
 jobs:

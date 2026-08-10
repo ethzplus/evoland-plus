@@ -18,17 +18,6 @@ number-sections: true
 unlink("firstmodel.evolanddb", recursive = TRUE)
 
 set.seed(666)
-
-# Log warnings to stderr as they are signalled, instead of only collecting them into the
-# rendered document. A chunk that fails takes its document output down with it, so
-# without this the render log shows the fatal error and nothing that led up to it --
-# including warnings raised inside the failing chunk itself.
-if ("log_warning" %in% names(formals(evaluate::evaluate))) {
-  knitr::knit_hooks$set(evaluate = function(...) {
-    evaluate::evaluate(..., log_warning = TRUE)
-  })
-  options(warn = 1)
-}
 knitr::knit_hooks$set(seed = function(before, options, envir) {
   if (before && !is.null(options$seed)) {
     set.seed(options$seed)
