@@ -14,8 +14,9 @@ permissions: read-all
 jobs:
   R-CMD-check:
     runs-on: ubuntu-latest
-    name: "ubuntu-latest, r2u4ci container"
-    container: rocker/r2u4ci
+    name: "ubuntu-latest (r2u)"
+    # name: "ubuntu-latest, r2u4ci container"
+    # container: rocker/r2u4ci
 
     env:
       # r-ci defaults to --no-build-vignettes/--no-vignettes
@@ -31,8 +32,9 @@ jobs:
 
       - uses: eddelbuettel/github-actions/r-ci@master
 
-      - name: apt install additional deps
-        run: ./run.sh aptget_install jq
+      # if we end up using rocker/r2u4ci
+      # - name: apt install additional deps
+      #   run: ./run.sh aptget_install jq
 
       # r-ci installs R packages; the quarto vignette engine shells out to the CLI, which
       # is not an R package and has to come from somewhere else
