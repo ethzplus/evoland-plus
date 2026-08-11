@@ -14,7 +14,9 @@
 #'   - `learner_id`: mlr3 twoclass [LearnerClassif](https://mlr3.mlr-org.com/reference/LearnerClassif.html)
 #'     key, e.g. `"classif.ranger"`
 #'   - `learner_params`: MAP of atomic scalar learner hyperparameters for
-#'     querying; complete hyperparameters are captured by `learner_spec`
+#'     querying; complete hyperparameters are captured by `learner_spec`.
+#'     A fit that failed is recorded as a sentinel row whose `learner_params`
+#'     holds a single `error_message` entry, and whose `learner_full` is `NULL`
 #'   - `learner_spec`: BLOB of serialized untrained mlr3 `Learner`; for
 #'     AutoTuners, this is the optimal inner learner after tuning
 #'   - `crossval_score`: MAP of cross-validation performance scores
@@ -134,6 +136,7 @@ fit_partial_model_worker <- function(
       scores <- as.list(prediction$score(measures))
 
       # For AutoTuner: extract optimal inner learner; otherwise use trained learner
+      # TODO do we want to throw out any indication that this was from an autotuner?
       extract_from <-
         if (inherits(trained_learner, "AutoTuner") && !is.null(trained_learner$learner$model)) {
           trained_learner$learner
@@ -167,8 +170,8 @@ fit_partial_model_worker <- function(
       data.table::data.table(
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
-        learner_id = "error",
-        learner_params = list(list()),
+        learner_id = learner$id, # retains autotuner id as e.g. classif.rpart.tuned
+        learner_params = list(list(error_message = conditionMessage(e))),
         learner_spec = list(NULL),
         crossval_score = list(list()),
         crossval_predictions = list(NULL),
@@ -219,6 +222,7 @@ fit_full_model_worker <- function(item, db, learner = NULL) {
         )
         learner_params_val <- if (length(learner_params_val) == 0L) NULL else learner_params_val
         learner_spec_blob <- qs2::qs_serialize(trained_learner$clone(deep = TRUE)$reset())
+        # FIXME this never made it to predict_trans_pot
         crossval_score_val <- list(list(no.crossval = 1))
         crossval_predictions_val <- list(NULL)
       } else {
@@ -264,7 +268,7 @@ fit_full_model_worker <- function(item, db, learner = NULL) {
         id_run = item[["id_run"]],
         id_trans = item[["id_trans"]],
         learner_id = if (!is.null(learner)) learner$id else item[["learner_id"]],
-        learner_params = list(list()),
+        learner_params = list(list(error_message = conditionMessage(e))),
         learner_spec = list(NULL),
         crossval_score = list(list()),
         crossval_predictions = list(NULL),
@@ -506,10 +510,13 @@ fit_full_models <- function(
       where
         pn.id_run = tm.id_run
         and pn.id_trans = tm.id_trans
+        and tm.learner_spec is not null
       qualify row_number() over (
-          -- FIXME edge case: two models with same score, what do?
           partition by tm.id_run, tm.id_trans
-          order by tm.crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
+          -- learner_id breaks ties (e.g. two learners scoring an identical AUC), so the
+          -- selection does not depend on scan order
+          order by tm.crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")},
+            tm.learner_id
       ) = 1;
         ]"
       )) |>

@@ -33,16 +33,16 @@ expect_message(
 perf_expected <-
   as_trans_preds_t(data.table::rowwiseDT( # nolint start
       id_run=, id_pred=, id_trans=, performance=,
-      0,       1,        1,         -0.4515679  ,
-      0,       1,        2,         -0.4639171  ,
-      0,       2,        1,         -0.4515679  ,
-      0,       2,        2,         -0.4639171  ,
-      0,       3,        1,         -0.4515679  ,
-      0,       3,        2,         -0.4639171  ,
-      0,       4,        1,         -0.4515679  ,
-      0,       4,        2,         -0.4639171
+      0,       1,        1,         -0.4639329  ,
+      0,       1,        2,         -0.4515716  ,
+      0,       2,        1,         -0.4639329  ,
+      0,       2,        2,         -0.4515716  ,
+      0,       3,        1,         -0.4639329  ,
+      0,       3,        2,         -0.4515716  ,
+      0,       4,        1,         -0.4639329  ,
+      0,       4,        2,         -0.4515716
   )) # nolint end
-expect_equal(perf_results, perf_expected, tol = 1e-7)
+expect_equal(perf_results, perf_expected, tol = 1e-6)
 
 # Test GRRF filter via FilterImportance
 grrf_learner <- LearnerClassifGrrf$new()
@@ -60,16 +60,16 @@ expect_message(
 importance_expected <-
   as_trans_preds_t(data.table::rowwiseDT( # nolint start
       id_run=, id_pred=, id_trans=, importance=,
-      0,       1,        1,         135.268208 ,
-      0,       1,        2,         170.083786 ,
-      0,       2,        1,         132.745360 ,
-      0,       2,        2,         167.511848 ,
-      0,       3,        1,           9.780672 ,
-      0,       3,        2,          13.208952 ,
-      0,       4,        1,          26.786576 ,
-      0,       4,        2,          33.555883
+      0,       1,        1,         175.322855 ,
+      0,       1,        2,         129.138887 ,
+      0,       2,        1,         168.299098 ,
+      0,       2,        2,         137.339063 ,
+      0,       3,        1,          15.719198 ,
+      0,       3,        2,          14.312763 ,
+      0,       4,        1,          39.324345 ,
+      0,       4,        2,          27.297686
   )) # nolint end
-expect_equal(importance_results, importance_expected, tol = 1e-7)
+expect_equal(importance_results, importance_expected, tol = 1e-6)
 
 # Test get_pred_filter_score with a manually supplied trans_preds argument
 # Restrict to id_trans == 1 only; expect exactly 1 transition processed

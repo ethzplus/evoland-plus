@@ -156,14 +156,14 @@ precedence_db <- make_test_db(include_neighbors = FALSE, include_trans_preds = T
 
 expect_equal(
   nrow(precedence_db$pred_data_wide_v(
-    id_trans = 2L,
+    id_trans = 1L,
     id_period_anterior = 1L
   )[is.na(id_pred_1)]),
   0L # there should not be any rows with missing id_pred_1 in fixture
 )
 expect_equal(
   nrow(precedence_db$trans_pred_data_v(
-    id_trans = 2L,
+    id_trans = 1L,
     id_pred = 1:2
   )[is.na(id_pred_1)]),
   0L # there should not be any rows with missing id_pred_1 in fixture
@@ -185,7 +185,7 @@ n_lulc_ant <-
 
 # elevation (id_pred=1) is static-only in the fixture; we only overwrite it for
 # one coordinate point in period 1. all other locations should come back NA.
-precedence_db$pred_data_t[id_pred == 1 & id_coord == 333] <- as_pred_data_t(data.table::data.table(
+precedence_db$pred_data_t <- as_pred_data_t(data.table::data.table(
   id_run = 0L,
   id_period = 1L,
   id_pred = 1L,
@@ -196,43 +196,43 @@ precedence_db$pred_data_t[id_pred == 1 & id_coord == 333] <- as_pred_data_t(data
 # get predictor data for the transition starting at id_lulc=1
 expect_equal(
   precedence_db$pred_data_wide_v(
-    id_trans = 2L,
+    id_trans = 1L,
     id_period_anterior = 1L
   )[
     is.na(id_pred_1),
     .N
   ],
-  n_lulc_ant[id_trans == 2L, N] - 1L # all rows but 1 should be NA
+  n_lulc_ant[id_trans == 1L, N] - 1L # all rows but 1 should be NA
 )
 expect_equal(
   precedence_db$trans_pred_data_v(
-    id_trans = 2L,
+    id_trans = 1L,
     id_pred = 1L
   )[
     is.na(id_pred_1),
     .N
   ],
-  n_lulc_ant[id_trans == 2L, N] - 1L # all rows but 1 should be NA
+  n_lulc_ant[id_trans == 1L, N] - 1L # all rows but 1 should be NA
 )
 
 # get predictor data for the transition starting at id_lulc=2
 expect_equal(
   precedence_db$pred_data_wide_v(
-    id_trans = 1L,
+    id_trans = 2L,
     id_period_anterior = 1L
   )[
     is.na(id_pred_1),
     .N
   ],
-  n_lulc_ant[id_trans == 1L, N] # all rows should be NA
+  n_lulc_ant[id_trans == 2L, N] # all rows should be NA
 )
 expect_equal(
   precedence_db$trans_pred_data_v(
-    id_trans = 1L,
+    id_trans = 2L,
     id_pred = 1L
   )[
     is.na(id_pred_1),
     .N
   ],
-  n_lulc_ant[id_trans == 1L, N] # all rows should be NA
+  n_lulc_ant[id_trans == 2L, N] # all rows should be NA
 )

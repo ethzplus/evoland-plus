@@ -1,0 +1,56 @@
+# Run only on linux, fetch CRAN dependencies from apt binaries via r2u
+# See https://eddelbuettel.github.io/r2u/
+# r2u resolves R packages *and* the system libraries they link against; gdal+proj
+# installed automagically
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+name: "R CMD check (r2u)"
+
+permissions: read-all
+
+jobs:
+  R-CMD-check:
+    runs-on: ubuntu-latest
+    name: "ubuntu-latest (r2u)"
+    # name: "ubuntu-latest, r2u4ci container"
+    # container: rocker/r2u4ci
+
+    env:
+      # r-ci defaults to --no-build-vignettes/--no-vignettes
+      R_BUILD_ARGS: "--no-manual --compact-vignettes=gs+qpdf"
+      R_CHECK_ARGS: "--no-manual --as-cran"
+      # hardening flags from the Ubuntu R build; the package ships no Makevars
+      _R_CHECK_COMPILATION_FLAGS_KNOWN_: >-
+        -Wdate-time -Werror=format-security -Wformat -Wformat-security
+        -mno-omit-leaf-frame-pointer -fno-omit-frame-pointer
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: eddelbuettel/github-actions/r-ci@master
+
+      # if we end up using rocker/r2u4ci
+      # - name: apt install additional deps
+      #   run: ./run.sh aptget_install jq
+
+      # r-ci installs R packages; the quarto vignette engine shells out to the CLI, which
+      # is not an R package and has to come from somewhere else
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Install dependencies as apt binaries
+        run: ./run.sh install_all
+
+      # Run tinytest directly (at_home=TRUE) and to get per-file results in the log
+      - name: Unit and integration tests (tinytest)
+        run: |
+          Rscript -e 'out <- tinytest::build_install_test(); print(out); if (!all(vapply(out, isTRUE, logical(1)))) quit(status = 1L)'
+
+      - name: R CMD check
+        run: ./run.sh run_tests
+
+      - name: Dump check log
+        if: failure()
+        run: ./run.sh dump_logs"
