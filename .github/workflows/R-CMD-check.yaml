@@ -74,4 +74,4 @@ jobs:
 
       - name: Dump check log
         if: failure()
-        run: ./run.sh dump_logs"
+        run: ./run.sh dump_logs
