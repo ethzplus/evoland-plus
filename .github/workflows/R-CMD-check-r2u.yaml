@@ -31,6 +31,9 @@ jobs:
 
       - uses: eddelbuettel/github-actions/r-ci@master
 
+      - name: apt install additional deps
+        run: ./run.sh aptget_install jq
+
       # r-ci installs R packages; the quarto vignette engine shells out to the CLI, which
       # is not an R package and has to come from somewhere else
       - uses: quarto-dev/quarto-actions/setup@v2
