@@ -83,6 +83,8 @@ alloc_clumpy_one_period <- function(
   # TODO as in dinamica, see if we can set potentials externally so we can manipulate
   # them? or does this need something more elaborate like passing in a callback?
   # 1. Predict and store raw transition potentials
+  # TODO option to use parent ID for trans pot; predict_trans_pot only recomputes if exact
+  # id_run/id_trans/id_period_post is not already present; or if override
   self$predict_trans_pot(
     id_period_post = id_period_post,
     select_score = select_score,

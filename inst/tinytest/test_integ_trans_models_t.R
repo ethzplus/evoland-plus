@@ -360,12 +360,14 @@ expect_message(
 )
 db$trans_rates_t <-
   db$get_obs_trans_rates() |>
-  extrapolate_trans_rates(db$periods_t[is_extrapolated == TRUE])
+  extrapolate_trans_rates(db$periods_t)
+expect_equal(db$row_count("trans_rates_t"), 2L)
 expect_equal(
   db$row_count("trans_pot_t"),
   900L
 )
 
+db$id_run <- 1 # ensure fallthrough works
 # the mean potential must scale to the overall prescribed transition rate
 expect_equal(
   data.table::as.data.table(

@@ -11,7 +11,13 @@ as_trans_pot_t(x)
 
 \method{print}{trans_pot_t}(x, nrow = 10, ...)
 
-predict_trans_pot(self, id_period_post, select_score, select_maximize)
+predict_trans_pot(
+  self,
+  id_period_post,
+  select_score,
+  select_maximize,
+  force = FALSE
+)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -22,7 +28,7 @@ predict_trans_pot(self, id_period_post, select_score, select_maximize)
 
 \item{self}{an \link{evoland_db} instance}
 
-\item{id_period_post}{scalar integerish, passed to \code{self$pred_data_wide_v()}}
+\item{id_period_post}{scalar integerish, passed to \code{\link[=pred_data_wide_v]{pred_data_wide_v()}}}
 
 \item{select_score}{character scalar, name of score/measure to identify best fitting model}
 
@@ -37,7 +43,7 @@ A data.table of class "trans_pot_t" with columns:
 \item \code{value}: Map of model (hyper) parameters
 }
 
-A \code{trans_pot_t} object (invisibly); the same data are committed to the DB.
+\code{predict_trans_pot()}: called for side effect; commit \code{trans_pot_t} to database
 }
 \description{
 Estimate transition potential at \code{id_period_post}. Based on the LULC at \code{id_period_anterior}
@@ -49,10 +55,10 @@ Estimate transition potential at \code{id_period_post}. Based on the LULC at \co
 }}
 \section{Functions}{
 \itemize{
-\item \code{predict_trans_pot()}: For each viable transition, predict the raw transition
-potential for a given period and store it in \code{trans_pot_t} in the database.
-Raw potentials are per-transition MLR3 model probabilities; they are \strong{not}
-yet allocation-ready (not column-scaled to target rates, not row-closed).
-Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} to obtain allocation-ready values.
+\item \code{predict_trans_pot()}: For each viable transition in current \code{id_run}, predict the raw
+transition potential for a given period and store it in \code{trans_pot_t} in the database. Raw
+potentials are per-transition MLR3 model probabilities; they are \strong{not} yet allocation-ready
+(not column-scaled to target rates, not row-closed to max probability of 1). Use
+\code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} to obtain allocation-ready values.
 
 }}
