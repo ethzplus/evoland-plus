@@ -136,9 +136,10 @@ validate.periods_t <- function(x, ...) {
     "start_date should be a Date" = inherits(x[["start_date"]], "Date"),
     "end_date should be a Date" = inherits(x[["end_date"]], "Date"),
     "is_extrapolated should be bool" = is.logical(x[["is_extrapolated"]]),
-    # leap years may not deviate by more than 2 days
     "extrapolated periods must be regular (within leap-year tolerance)" = {
-      diff(range(x[is_extrapolated == TRUE, period_length_d])) <= 2
+      # leap years may not deviate by more than 2 days
+      # exclude first extrapolated period because the last observed period may be irregular
+      diff(range(tail(x[is_extrapolated == TRUE, period_length_d], -1))) <= 2
     },
     "periods must not overlap" = nrow(overlapping) == 0
   )
