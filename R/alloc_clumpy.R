@@ -51,11 +51,12 @@ NULL
 
 #' @describeIn alloc_clumpy
 #' Allocate LULC changes for a single period using the CLUMPY algorithm.
+#' Can either independently compute transition potential, use the parent run's transition potential
+#' (useful when forking runs for Monte-Carlo) or read pre-written trans_pot_t values
 #'
 #' @param self An [evoland_db] instance.
 #' @param id_period_ant Integer anterior period ID.
 #' @param id_period_post Integer posterior period ID.
-#' @param anterior_rast [terra::SpatRaster] of the anterior LULC state.
 #' @param select_score Character; mlr3 measure ID for model selection.
 #' @param select_maximize Logical; whether to maximise `select_score`.
 #' @param area_dist Character; patch-area distribution, `"lognormal"` (default)
@@ -67,29 +68,39 @@ NULL
 #'   (default) auto-scales to ~1% of each class's source pool, bounding the
 #'   number of MuST passes so large rasters stay tractable; `> 0` is an explicit
 #'   cap (1 = strict uPAM); `< 0` processes all candidates in a single pass.
+#' @param use_parent_trans_pot Logical; if TRUE, use the parent run's transition
+#'   potentials. Useful if a run branches off from parent.
 #' @return An [lulc_data_t] with the simulated posterior LULC.
 #' @keywords internal
 alloc_clumpy_one_period <- function(
   self,
-  id_period_ant,
   id_period_post,
-  anterior_rast,
   select_score,
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 0L
+  batch_size = 0L,
+  use_parent_trans_pot = FALSE
 ) {
-  # TODO as in dinamica, see if we can set potentials externally so we can manipulate
-  # them? or does this need something more elaborate like passing in a callback?
+  id_period_ant <- id_period_post - 1L
+  # TODO rework whole function into more idiomatic code
   # 1. Predict and store raw transition potentials
-  # TODO option to use parent ID for trans pot; predict_trans_pot only recomputes if exact
-  # id_run/id_trans/id_period_post is not already present; or if override
+  if (use_parent_trans_pot) {
+    id_run_init <- self$id_run
+    on.exit(self$id_run <- id_run_init, add = TRUE)
+    parent_run <- self$run_lineage[2]
+    if (!is.na(parent_run)) {
+      self$id_run <- parent_run
+    }
+  }
   self$predict_trans_pot(
     id_period_post = id_period_post,
     select_score = select_score,
     select_maximize = select_maximize
   )
+  if (use_parent_trans_pot) {
+    self$id_run <- id_run_init # immediately reset, cannot wait for on.exit
+  }
 
   # 2. Retrieve adjusted potentials, patch params and target rates
   adj_pots <- self$adjusted_trans_pot_v(id_period_post)
@@ -99,15 +110,11 @@ alloc_clumpy_one_period <- function(
     .(id_trans, rate)
   ]
 
-  # 3. Viable transitions (stable order: by anterior class, then transition id)
+  # 3. Viable transitions
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
-  data.table::setorder(viable_trans, id_lulc_anterior, id_trans)
   n_trans <- nrow(viable_trans)
-  if (n_trans == 0L) {
-    stop("No viable transitions found in trans_meta_t")
-  }
-
   # 4. Raster representation (row-major, 1-based cell indices)
+  anterior_rast <- self$lulc_data_as_rast(id_period = id_period_ant)
   nrow_r <- terra::nrow(anterior_rast)
   ncol_r <- terra::ncol(anterior_rast)
   n_cells <- nrow_r * ncol_r
@@ -169,8 +176,8 @@ alloc_clumpy_one_period <- function(
     landscape = ant_vec,
     nrow = nrow_r,
     ncol = ncol_r,
-    trans_from = as.integer(viable_trans$id_lulc_anterior),
-    trans_to = as.integer(viable_trans$id_lulc_posterior),
+    trans_from = viable_trans[["id_lulc_anterior"]],
+    trans_to = viable_trans[["id_lulc_posterior"]],
     prob_cell = prob_cell,
     prob_value = prob_value,
     area_mean = area_mean,
@@ -225,7 +232,6 @@ alloc_clumpy_one_period <- function(
 #' @param avoid_aggregation Logical; uPAM merge avoidance (default `TRUE`).
 #' @param batch_size Integer; uPAM pivots attempted per MuST re-draw. `0`
 #'   (default) auto-scales with the source pool; see [alloc_clumpy_one_period()].
-#' @param seed Optional integer random seed for reproducibility.
 alloc_clumpy <- function(
   self,
   id_periods,
@@ -233,27 +239,15 @@ alloc_clumpy <- function(
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 0L,
-  seed = NULL
+  batch_size = 0L
 ) {
   stopifnot(
     "id_periods must be a numeric vector" = is.numeric(id_periods),
     "id_periods must be contiguous" = all(diff(id_periods) == 1L),
-    "id_run must be set" = !is.null(self$id_run)
+    "id_run must be set" = !is.null(self$id_run),
+    "id_periods must be in periods_t" = all(id_periods %in% self$periods_t$id_period)
   )
   area_dist <- match.arg(area_dist, c("lognormal", "normal"))
-
-  available_periods <- self$periods_t$id_period
-  missing_periods <- setdiff(id_periods, available_periods)
-  if (length(missing_periods) > 0L) {
-    stop(glue::glue(
-      "Periods not found in periods_t: {paste(missing_periods, collapse = ', ')}"
-    ))
-  }
-
-  if (!is.null(seed)) {
-    set.seed(seed)
-  }
 
   message(glue::glue(
     "Starting CLUMPY allocation simulation\n",
@@ -261,19 +255,14 @@ alloc_clumpy <- function(
     "  Run: {self$id_run}"
   ))
 
-  current_rast <- self$lulc_data_as_rast(id_period = id_periods[1L] - 1L)
-
-  i <- 1L
   for (id_period_post in id_periods) {
-    id_period_ant <- id_period_post - 1L
-
-    message(glue::glue("\n=== Iteration {i}/{length(id_periods)} ==="))
+    message(glue::glue(
+      "\n=== Period {which(id_period_post == id_periods)}/{length(id_periods)} ==="
+    ))
 
     lulc_result <- alloc_clumpy_one_period(
       self = self,
-      id_period_ant = id_period_ant,
       id_period_post = id_period_post,
-      anterior_rast = current_rast,
       select_score = select_score,
       select_maximize = select_maximize,
       area_dist = area_dist,
@@ -283,10 +272,6 @@ alloc_clumpy <- function(
 
     self$commit(lulc_result, "lulc_data_t", method = "upsert")
     self$upsert_new_neighbors(id_period_post)
-    current_rast <- self$lulc_data_as_rast(id_period = id_period_post)
-
-    message(glue::glue("Iteration {i} complete"))
-    i <- i + 1L
   }
 
   message("CLUMPY allocation complete!")

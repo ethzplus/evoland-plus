@@ -96,8 +96,7 @@ expect_message(
   db$alloc_clumpy(
     id_periods = 4L,
     select_score = "classif.auc",
-    select_maximize = TRUE,
-    seed = 42L
+    select_maximize = TRUE
   ),
   "CLUMPY allocation"
 )
@@ -114,8 +113,7 @@ expect_message(
     id_periods = 4L,
     select_score = "classif.auc",
     select_maximize = TRUE,
-    avoid_aggregation = FALSE,
-    seed = 42L
+    avoid_aggregation = FALSE
   ),
   "CLUMPY allocation"
 )
