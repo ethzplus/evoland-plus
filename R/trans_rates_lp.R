@@ -84,10 +84,6 @@ trans_rate_lp <- R6::R6Class(
   inherit = lp_problem,
 
   public = list(
-    #' @field id_run Run the solved rates belong to, see [runs_t]. Set it before reading
-    #' `trans_rates_t`; one demand solution is usually written to several runs.
-    id_run = NULL,
-
     #' @description Set up the program from an observed landscape and a scenario demand.
     #' Constraint blocks are added immediately, so the object is ready to solve. Requires
     #' the suggested `lpSolve` package to be installed.
@@ -596,6 +592,27 @@ trans_rate_lp <- R6::R6Class(
       ))
       print(private$.blocks)
       invisible(self)
+    },
+
+    #' @description trans_rates_t The solved rates as a [trans_rates_t] for the indicated `id_run`.
+    #' Persistence and non-viable transitions are dropped.
+    #' @param id_run Integerish id_run to attach to this table
+    trans_rates_t = function(id_run) {
+      flows <- private$solved_flows()
+      stopifnot(
+        "flow was allocated to non-viable transitions; set forbid_non_viable = TRUE" = flows[
+          is_viable == FALSE,
+          sum(count)
+        ] ==
+          0
+      )
+
+      as_trans_rates_t(
+        flows[
+          is_viable == TRUE & !is.na(id_trans),
+          .(id_run = as.integer(id_run), id_period, id_trans, count, rate)
+        ]
+      )
     }
   ),
 
@@ -660,27 +677,6 @@ trans_rate_lp <- R6::R6Class(
           is_viable
         )
       ]
-    },
-
-    #' @field trans_rates_t The solved rates as a [trans_rates_t] for the current `id_run`.
-    #' Persistence and non-viable transitions are dropped: neither has an `id_trans` or any
-    #' [trans_pot_t] rows to be allocated against.
-    trans_rates_t = function() {
-      stopifnot("id_run must be set" = length(self$id_run) == 1L && !is.na(self$id_run))
-      flows <- private$solved_flows()
-      stopifnot(
-        "flow was allocated to non-viable transitions; set forbid_non_viable = TRUE" = flows[
-          is_viable == FALSE,
-          sum(count)
-        ] ==
-          0
-      )
-
-      flows[
-        is_viable == TRUE & !is.na(id_trans),
-        .(id_run = as.integer(self$id_run), id_period, id_trans, count, rate)
-      ] |>
-        as_trans_rates_t()
     },
 
     #' @field diagnostics How far the solution had to depart from the target and from

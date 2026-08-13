@@ -195,8 +195,7 @@ expect_error(
 )
 
 # One demand solution is usually written to several runs.
-area_solution[["id_run"]] <- 11L
-rates_t <- area_solution[["trans_rates_t"]]
+rates_t <- area_solution$trans_rates_t(11)
 expect_inherits(rates_t, "trans_rates_t")
 expect_equal(unique(rates_t[["id_run"]]), 11L)
 expect_equal(sort(unique(rates_t[["id_period"]])), c(4L, 5L))

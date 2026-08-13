@@ -85,14 +85,6 @@ solver$areas
 \section{Super class}{
 \code{\link[evoland:lp_problem]{lp_problem}} -> \code{trans_rate_lp}
 }
-\section{Public fields}{
-  \if{html}{\out{<div class="r6-fields">}}
-  \describe{
-    \item{\code{id_run}}{Run the solved rates belong to, see \link{runs_t}. Set it before reading
-\code{trans_rates_t}; one demand solution is usually written to several runs.}
-  }
-  \if{html}{\out{</div>}}
-}
 \section{Active bindings}{
   \if{html}{\out{<div class="r6-active-bindings">}}
   \describe{
@@ -116,10 +108,6 @@ hard historic rates, ignoring targets. Solved on demand and then cached.}
 
     \item{\code{rates}}{The solved flows as rates of their anterior class, which is what
 \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} and the allocators consume.}
-
-    \item{\code{trans_rates_t}}{The solved rates as a \link{trans_rates_t} for the current \code{id_run}.
-Persistence and non-viable transitions are dropped: neither has an \code{id_trans} or any
-\link{trans_pot_t} rows to be allocated against.}
 
     \item{\code{diagnostics}}{How far the solution had to depart from the target and from
 observed history. These are results, not debug output: a solver that does not report
@@ -146,6 +134,7 @@ how far outside history it went is actively misleading.}
     \item \href{#method-trans_rate_lp-add_fairness}{\code{trans_rate_lp$add_fairness()}}
     \item \href{#method-trans_rate_lp-solve}{\code{trans_rate_lp$solve()}}
     \item \href{#method-trans_rate_lp-print}{\code{trans_rate_lp$print()}}
+    \item \href{#method-trans_rate_lp-trans_rates_t}{\code{trans_rate_lp$trans_rates_t()}}
     \item \href{#method-trans_rate_lp-clone}{\code{trans_rate_lp$clone()}}
   }
 }
@@ -484,6 +473,26 @@ checking that the targets are not grossly beyond what history supports.
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{...}}{Ignored.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-trans_rate_lp-trans_rates_t"></a>}}
+\if{latex}{\out{\hypertarget{method-trans_rate_lp-trans_rates_t}{}}}
+\subsection{\code{trans_rate_lp$trans_rates_t()}}{
+  trans_rates_t The solved rates as a \link{trans_rates_t} for the indicated \code{id_run}.
+Persistence and non-viable transitions are dropped.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{trans_rate_lp$trans_rates_t(id_run)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_run}}{Integerish id_run to attach to this table}
     }
     \if{html}{\out{</div>}}
   }
