@@ -175,7 +175,7 @@ expect_match(
 )
 
 # fit_full_models (direct mode): supply trans_preds restricted to id_trans == 1
-db$set_full_trans_preds()
+db$set_full_trans_preds(overwrite = TRUE)
 expect_message(
   full_direct_t1 <- db$fit_full_models(
     learner = test_learner,
@@ -294,7 +294,7 @@ expect_warning(
 expect_equal(partial_models_error$learner_id, "classif.featureless")
 
 # Test direct-learner mode: fit_full_models with a learner
-db$set_full_trans_preds()
+db$set_full_trans_preds(overwrite = TRUE)
 expect_message(
   db$trans_models_t <- full_models_direct <- db$fit_full_models(learner = test_learner),
   "Fitting full models for"

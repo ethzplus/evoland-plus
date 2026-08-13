@@ -73,7 +73,7 @@ expect_equal(importance_results, importance_expected, tol = 1e-6)
 
 # Test get_pred_filter_score with a manually supplied trans_preds argument
 # Restrict to id_trans == 1 only; expect exactly 1 transition processed
-db$set_full_trans_preds()
+db$set_full_trans_preds(overwrite = TRUE)
 trans_preds_t1 <- db$trans_preds_t[id_trans == 1L]
 
 set.seed(123)

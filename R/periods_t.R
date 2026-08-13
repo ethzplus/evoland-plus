@@ -131,16 +131,22 @@ validate.periods_t <- function(x, ...) {
         (data.table::shift(end_date, 1L, 0) - start_date) >= 0
     ]
 
+  # leap years may not deviate by more than 2 days
+  # exclude first extrapolated period because the last observed period may be irregular
+  # nonproblematic if only one period
+  extrap_lengths <- x[is_extrapolated == TRUE, period_length_d]
+  equal_lengths <- if (length(extrap_lengths) > 1) {
+    diff(range(tail(extrap_lengths, -1))) <= 2 # can only
+  } else {
+    TRUE
+  }
+
   stopifnot(
     "id_period should be an integer" = is.integer(x[["id_period"]]),
     "start_date should be a Date" = inherits(x[["start_date"]], "Date"),
     "end_date should be a Date" = inherits(x[["end_date"]], "Date"),
     "is_extrapolated should be bool" = is.logical(x[["is_extrapolated"]]),
-    "extrapolated periods must be regular (within leap-year tolerance)" = {
-      # leap years may not deviate by more than 2 days
-      # exclude first extrapolated period because the last observed period may be irregular
-      diff(range(tail(x[is_extrapolated == TRUE, period_length_d], -1))) <= 2
-    },
+    "extrapolated periods must be regular (within leap-year tolerance)" = equal_lengths,
     "periods must not overlap" = nrow(overlapping) == 0
   )
 
