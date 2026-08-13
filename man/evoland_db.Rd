@@ -599,7 +599,7 @@ database read.}
   Get cross-validation plots for stored predictions, see \code{\link[=get_crossval_plots]{get_crossval_plots()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$get_crossval_plots(id_run = NULL, id_trans = NULL)}
+    \preformatted{evoland_db$get_crossval_plots(id_run = NULL, id_trans = NULL, ...)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -607,6 +607,7 @@ database read.}
     \describe{
       \item{\code{id_run}}{Optional integer; filter by run ID.}
       \item{\code{id_trans}}{Optional integer; filter by transition ID.}
+      \item{\code{...}}{Passed to \code{\link[mlr3viz:autoplot.PredictionClassif]{mlr3viz::autoplot.PredictionClassif()}}}
     }
     \if{html}{\out{</div>}}
   }

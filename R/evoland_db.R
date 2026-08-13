@@ -279,7 +279,8 @@ evoland_db <- R6::R6Class(
     #' Get cross-validation plots for stored predictions, see [get_crossval_plots()]
     #' @param id_run Optional integer; filter by run ID.
     #' @param id_trans Optional integer; filter by transition ID.
-    get_crossval_plots = function(id_run = NULL, id_trans = NULL) {
+    #' @param ... Passed to [mlr3viz::autoplot.PredictionClassif()]
+    get_crossval_plots = function(id_run = NULL, id_trans = NULL, ...) {
       create_method_binding(get_crossval_plots)
     },
 

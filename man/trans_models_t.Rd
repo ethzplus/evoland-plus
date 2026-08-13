@@ -34,7 +34,7 @@ fit_full_models(
 
 \method{print}{trans_models_t}(x, ...)
 
-get_crossval_plots(self, id_run = NULL, id_trans = NULL)
+get_crossval_plots(self, id_run = NULL, id_trans = NULL, ...)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -74,7 +74,7 @@ rank partial models in score-select mode. Must be \code{NULL} when \code{learner
 \item{select_maximize}{Logical; if \code{TRUE} (default) the model with the highest
 \code{select_score} is selected; if \code{FALSE}, the lowest. Only used in score-select mode.}
 
-\item{...}{ignored}
+\item{...}{Passed to \code{\link[mlr3viz:autoplot.PredictionClassif]{mlr3viz::autoplot.PredictionClassif()}}}
 
 \item{id_run}{Optional integer; filter by run ID.}
 

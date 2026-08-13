@@ -612,7 +612,8 @@ print.trans_models_t <- function(x, ...) {
 #' @param self [evoland_db] instance
 #' @param id_run Optional integer; filter by run ID.
 #' @param id_trans Optional integer; filter by transition ID.
-get_crossval_plots <- function(self, id_run = NULL, id_trans = NULL) {
+#' @param ... Passed to [mlr3viz::autoplot.PredictionClassif()]
+get_crossval_plots <- function(self, id_run = NULL, id_trans = NULL, ...) {
   require_suggested("mlr3viz", "plot cross-validation predictions")
 
   where_clauses <- c()
@@ -636,7 +637,7 @@ get_crossval_plots <- function(self, id_run = NULL, id_trans = NULL) {
       return(NULL)
     }
     prediction <- qs2::qs_deserialize(pred_blob)
-    mlr3viz::autoplot(prediction)
+    mlr3viz::autoplot(prediction, ...)
   })
 
   names(plots) <- paste0(
