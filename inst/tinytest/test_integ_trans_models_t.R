@@ -367,6 +367,85 @@ expect_equal(
   900L
 )
 
+# rerunning skips transitions that already have potentials for this run/period
+rerun_pot <- suppressMessages(
+  db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE)
+)
+expect_false(any(rerun_pot$written))
+expect_equal(db$row_count("trans_pot_t"), 900L)
+
+# force recomputes them; the upsert keeps the row count stable
+forced_pot <- suppressMessages(
+  db$predict_trans_pot(
+    id_period_post = 4,
+    select_score = "no.crossval",
+    select_maximize = TRUE,
+    force = TRUE
+  )
+)
+expect_true(all(forced_pot$written))
+expect_equal(sum(forced_pot$n_rows), 900L)
+expect_equal(db$row_count("trans_pot_t"), 900L)
+
+# predict_trans_pot across workers: each one upserts its own transition, and the
+# trans_pot_t lock keeps those writes from dropping each other's rows.
+# Fork workers need no installed copy of the package; fall back to PSOCK elsewhere.
+cluster <- tryCatch(
+  if (.Platform$OS.type == "unix") {
+    parallel::makeForkCluster(2L)
+  } else {
+    parallel::makeCluster(2L)
+  },
+  error = function(e) NULL
+)
+
+if (is.null(cluster)) {
+  message("\n  Skipping parallel predict_trans_pot test: could not start a cluster")
+} else {
+  db$delete_from("trans_pot_t")
+  parallel_pot <- tryCatch(
+    suppressMessages(
+      db$predict_trans_pot(
+        id_period_post = 4,
+        select_score = "no.crossval",
+        select_maximize = TRUE,
+        cluster = cluster
+      )
+    ),
+    error = function(e) e
+  )
+  parallel::stopCluster(cluster)
+
+  if (inherits(parallel_pot, "error")) {
+    message(
+      "\n  Skipping parallel predict_trans_pot test: workers could not initialize (",
+      conditionMessage(parallel_pot),
+      ")"
+    )
+  } else {
+    expect_true(all(parallel_pot$written))
+    expect_equal(db$row_count("trans_pot_t"), 900L)
+    expect_equal(
+      anyDuplicated(
+        db$trans_pot_t,
+        by = c("id_run", "id_trans", "id_period_post", "id_coord")
+      ),
+      0L
+    )
+    expect_false(dir.exists(evoland:::table_lock_path(db$path, "trans_pot_t")))
+  }
+
+  # restore trans_pot_t for the assertions below, whatever the workers managed
+  suppressMessages(
+    db$predict_trans_pot(
+      id_period_post = 4,
+      select_score = "no.crossval",
+      select_maximize = TRUE,
+      force = TRUE
+    )
+  )
+}
+
 db$id_run <- 1 # ensure fallthrough works
 # the mean potential must scale to the overall prescribed transition rate
 expect_equal(

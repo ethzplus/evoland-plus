@@ -318,7 +318,16 @@ evoland_db <- R6::R6Class(
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    predict_trans_pot = function(id_period_post, select_score, select_maximize) {
+    #' @param force Logical; recompute transitions that already have potentials stored
+    #' for this run and period instead of skipping them.
+    #' @param cluster Optional cluster object for parallel processing
+    predict_trans_pot = function(
+      id_period_post,
+      select_score,
+      select_maximize,
+      force = FALSE,
+      cluster = NULL
+    ) {
       create_method_binding(predict_trans_pot)
     },
 

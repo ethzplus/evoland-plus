@@ -102,81 +102,143 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' @param id_period_post scalar integerish, passed to [pred_data_wide_v()]
 #' @param select_score character scalar, name of score/measure to identify best fitting model
 #' @param select_maximize logical scalar, whether to maximize or minimize `select_score`
-#' @return `predict_trans_pot()`: called for side effect; commit `trans_pot_t` to database
+#' @param force logical scalar, recompute transitions that already have potentials
+#' stored for this run and period instead of skipping them
+#' @param cluster An optional cluster object created by [parallel::makeCluster()] or
+#' [mirai::make_cluster()]. Each worker predicts one transition at a time and
+#' upserts the result itself; the upserts serialise on the `trans_pot_t` lock, so
+#' they stay idempotent and no worker can drop another's rows. See
+#' [parquet_db_lock].
+#' @return `predict_trans_pot()`: called for side effect; commit `trans_pot_t` to
+#' database. Invisibly returns a data.table with one row per transition reporting
+#' how many rows were written.
 predict_trans_pot <- function(
   self,
   id_period_post,
   select_score,
   select_maximize,
-  force = FALSE
+  force = FALSE,
+  cluster = NULL
 ) {
-  # TODO parallelize
   .check_viable_trans_models(self, select_score) # error on missing models
 
   viable_trans <- self$trans_meta_t[is_viable == TRUE, id_trans]
   message(glue::glue("Predicting transition potential for {length(viable_trans)} transitions"))
 
-  for (id_trans in viable_trans) {
-    has_predictions <- .has_predictions(self, id_trans, id_period_post)
+  # one item per transition; i/n only carry the progress message
+  items <- data.table::data.table(
+    id_run = self$id_run,
+    id_trans = viable_trans,
+    id_period_post = as.integer(id_period_post),
+    i = seq_along(viable_trans),
+    n = length(viable_trans)
+  )
 
-    if (has_predictions && !force) {
-      message(glue::glue(
-        "Found trans_pot_t for ",
-        "id_run={self$id_run}/id_trans={id_trans}/id_period={id_period_post}",
-        "; set force=TRUE to recompute"
-      ))
-      next
-    } else {
-      message(glue::glue(
-        "Predicting transition {which(viable_trans == id_trans)}/",
-        "{length(viable_trans)} (id_trans={id_trans})"
-      ))
-    }
+  items |>
+    split(by = "id_trans") |>
+    run_parallel_evoland(
+      items = _,
+      worker_fun = predict_trans_pot_worker,
+      parent_db = self,
+      cluster = cluster,
+      worker_writable = TRUE,
+      select_score = select_score,
+      select_maximize = select_maximize,
+      force = force
+    ) |>
+    data.table::rbindlist() |>
+    invisible()
+}
 
-    # Get model for this transition
-    model_blob <- self$get_query(glue::glue(
-      r"[
-      select learner_full
-      from {self$get_read_expr("trans_models_t")}
-      where id_trans = {id_trans}
-        and learner_full is not null
-      order by crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
-      limit 1
-      ]"
-    ))[[1]]
+# Worker function for transition potential prediction
+# Not exported; used internally by predict_trans_pot
+predict_trans_pot_worker <- function(
+  item,
+  db,
+  select_score,
+  select_maximize,
+  force = FALSE
+) {
+  id_run_orig <- db$id_run
+  on.exit(db$id_run <- id_run_orig, add = TRUE)
+  db$id_run <- item[["id_run"]]
 
-    if (length(model_blob) == 0L) {
-      stop(glue::glue("No model found for id_trans={id_trans}"))
-    }
+  id_trans <- item[["id_trans"]]
+  id_period_post <- item[["id_period_post"]]
 
-    learner_obj <- qs2::qs_deserialize(model_blob[[1]])
+  # a skipped transition still reports a row, so callers can tell the two apart
+  skipped <- data.table::data.table(
+    id_trans = id_trans,
+    id_period_post = id_period_post,
+    n_rows = 0L,
+    written = FALSE
+  )
 
-    # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
-    pred_data_post <- self$pred_data_wide_v(
-      id_trans = id_trans,
-      id_period_anterior = id_period_post - 1
-    )
-
-    if (nrow(pred_data_post) == 0L) {
-      warning(glue::glue(
-        "No predictor data for id_trans={id_trans}, id_period={id_period_post}"
-      ))
-      next
-    }
-
-    # Predict probabilities; probs keeps the pred_data_post ordering
-    probs <- learner_obj$predict_newdata(pred_data_post)$prob[, "TRUE"]
-
-    self$trans_pot_t <- as_trans_pot_t(
-      data.table::data.table(
-        id_run = self$id_run,
-        id_trans = id_trans,
-        id_period_post = id_period_post,
-        id_coord = pred_data_post$id_coord,
-        value = probs
-      )
-    )
+  if (!force && .has_predictions(db, id_trans, id_period_post)) {
+    message(glue::glue(
+      "Found trans_pot_t for ",
+      "id_run={db$id_run}/id_trans={id_trans}/id_period={id_period_post}",
+      "; set force=TRUE to recompute"
+    ))
+    return(skipped)
   }
+
+  message(glue::glue(
+    "Predicting transition {item[['i']]}/{item[['n']]} (id_trans={id_trans})"
+  ))
+
+  # Get model for this transition
+  model_blob <- db$get_query(glue::glue(
+    r"[
+    select learner_full
+    from {db$get_read_expr("trans_models_t")}
+    where id_trans = {id_trans}
+      and learner_full is not null
+    order by crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
+    limit 1
+    ]"
+  ))[[1]]
+
+  if (length(model_blob) == 0L) {
+    stop(glue::glue("No model found for id_trans={id_trans}"))
+  }
+
+  learner_obj <- qs2::qs_deserialize(model_blob[[1]])
+
+  # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
+  pred_data_post <- db$pred_data_wide_v(
+    id_trans = id_trans,
+    id_period_anterior = id_period_post - 1
+  )
+
+  if (nrow(pred_data_post) == 0L) {
+    warning(glue::glue(
+      "No predictor data for id_trans={id_trans}, id_period={id_period_post}"
+    ))
+    return(skipped)
+  }
+
+  # Predict probabilities; probs keeps the pred_data_post ordering
+  probs <- learner_obj$predict_newdata(pred_data_post)$prob[, "TRUE"]
+
+  db$trans_pot_t <- as_trans_pot_t(
+    data.table::data.table(
+      id_run = db$id_run,
+      id_trans = id_trans,
+      id_period_post = id_period_post,
+      id_coord = pred_data_post[["id_coord"]],
+      value = probs
+    )
+  )
+
+  # Only report what was written: the potentials are in the database already, and
+  # shipping them back through a cluster socket would be needlessly expensive.
+  data.table::data.table(
+    id_trans = id_trans,
+    id_period_post = id_period_post,
+    n_rows = nrow(pred_data_post),
+    written = TRUE
+  )
 }
 
 # called for side effect: error if a viable transition does either not have a full model available
@@ -240,18 +302,23 @@ predict_trans_pot <- function(
 .has_predictions <- function(self, id_trans, id_period_post) {
   # TODO DB internals leaking - maybe refactor? add method to check that any data are present for a
   # given slice?
-  file_exists <- self$get_table_path("trans_pot_t") |> file.exists()
-  if (!file_exists) {
-    return(FALSE)
-  }
 
-  self$get_query(glue::glue(
-    r"[
-      select exists (
-        select 1
-        from {self$get_read_expr("trans_pot_t")}
-        where id_trans = {id_trans} and id_period_post = {id_period_post}
-      )
-    ]"
-  ))[[1]] # returns scalar boolean
+  # Take the table lock for the read as well: a concurrent worker upserting into
+  # trans_pot_t deletes and rewrites whole partition folders, which a reader
+  # landing mid-write would see as missing or half-written files.
+  self$with_table_lock("trans_pot_t", {
+    if (!file.exists(self$get_table_path("trans_pot_t"))) {
+      FALSE
+    } else {
+      self$get_query(glue::glue(
+        r"[
+          select exists (
+            select 1
+            from {self$get_read_expr("trans_pot_t")}
+            where id_trans = {id_trans} and id_period_post = {id_period_post}
+          )
+        ]"
+      ))[[1]] # returns scalar boolean
+    }
+  })
 }

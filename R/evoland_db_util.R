@@ -154,6 +154,11 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
 #' passed directly to the worker for serial case.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
+#' @param worker_writable Logical; if `TRUE`, workers may commit to the database
+#' themselves instead of only reading from it. Writes stay parallel-safe because
+#' [parquet_db] `$commit()` serialises on a per-table lock, see [parquet_db_lock].
+#' Note that in the serial case (no `cluster`), it is `parent_db`'s own
+#' `read_only` field that governs whether the worker can write.
 #' @param ... Additional arguments passed to `worker_fun`.
 #'
 #' @return A list of results
@@ -163,6 +168,7 @@ run_parallel_evoland <- function(
   worker_fun,
   parent_db,
   cluster = NULL,
+  worker_writable = FALSE,
   ...
 ) {
   if (is.null(cluster)) {
@@ -177,7 +183,7 @@ run_parallel_evoland <- function(
   }
 
   # Wrapper function to manage DB connection inside the worker
-  wrapper <- function(item, worker_fun_inner, db_path, id_run, ...) {
+  wrapper <- function(item, worker_fun_inner, db_path, id_run, worker_writable, ...) {
     if (!exists("evoland_db")) {
       stop("evoland_db class not found on worker. Ensure package is installed.")
     }
@@ -188,6 +194,13 @@ run_parallel_evoland <- function(
       read_only = TRUE
     )
     worker_db$execute("set threads to 1")
+
+    # Initialization stays read-only either way, so that workers do not each
+    # rewrite runs_t and reporting_t on startup; only the writes the worker
+    # function makes itself are opted in here.
+    if (worker_writable) {
+      worker_db$read_only <- FALSE
+    }
 
     # Call the actual worker function
     worker_fun_inner(item = item, db = worker_db, ...)
@@ -201,6 +214,7 @@ run_parallel_evoland <- function(
     worker_fun_inner = worker_fun,
     db_path = parent_db$path,
     id_run = parent_db$id_run,
+    worker_writable = worker_writable,
     ...
   )
 }

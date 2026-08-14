@@ -25,6 +25,10 @@ parquet_db <- R6::R6Class(
     #' @field read_only If true, prevents writes that are not parallel-safe
     read_only = NULL,
 
+    #' @field lock_timeout Seconds to wait for another process to release a
+    #' table lock before erroring, see [parquet_db_lock]
+    lock_timeout = 3600,
+
     #' @description
     #' Initialize a new parquet_db object
     #' @param path Character string. Path to the data folder.
@@ -199,47 +203,33 @@ parquet_db <- R6::R6Class(
     },
 
     #' @description
+    #' Evaluate `expr` while holding an exclusive lock on `table_name`. Used
+    #' internally to serialise read-modify-write cycles on a table's parquet
+    #' file(s); call it directly to extend that guarantee over a read that must
+    #' not observe a table another process is halfway through rewriting.
+    #' Acquisition is reentrant within a process, so nesting is safe. See
+    #' [parquet_db_lock] for the mechanism.
+    #' @param table_name Character string. Name of the table to lock.
+    #' @param expr Expression, evaluated once the lock is held.
+    #' @return The value of `expr`
+    with_table_lock = function(table_name, expr) {
+      lock_path <- table_lock_path(self$path, table_name)
+      acquire_table_lock(lock_path, timeout = self$lock_timeout)
+      on.exit(release_table_lock(lock_path), add = TRUE)
+      expr
+    },
+
+    #' @description
     #' Delete rows from a table
     #' @param table_name Character string. Name of the table to delete from.
     #' @param where Character string. Optional WHERE clause; if NULL, deletes all rows.
     #' @return Number of rows deleted
     delete_from = function(table_name, where = NULL) {
       stopifnot(!self$read_only)
-      table_path <- self$get_table_path(table_name)
-
-      if (!file.exists(table_path)) {
-        return(0L)
-      }
-
-      count_before <- self$row_count(table_name)
-
-      if (is.null(where)) {
-        unlink(table_path, recursive = TRUE)
-        return(count_before)
-      }
-
-      # Preserve existing metadata
-      metadata_existing <- private$read_parquet_metadata(table_path)
-      partition_clause <- resolve_partition_clause(NULL, metadata_existing)
-      metadata_clause <- resolve_metadata_clause(NULL, metadata_existing)
-
-      self$execute(glue::glue(
-        r"{
-        copy (
-          select * from '{table_path}'
-          where not ({where})
-        )
-        to '{table_path}' (
-          {self$writeopts}
-          {metadata_clause}
-          {partition_clause}
-        )
-        }"
-      ))
-
-      count_after <- self$row_count(table_name)
-
-      return(count_before - count_after)
+      self$with_table_lock(
+        table_name,
+        private$delete_from_locked(table_name = table_name, where = where)
+      )
     },
 
     #' @description
@@ -262,61 +252,15 @@ parquet_db <- R6::R6Class(
     ) {
       method <- match.arg(method)
 
-      table_path <- self$get_table_path(table_name)
-      on.exit(private$cleanup_new_data_v(), add = TRUE)
-
-      if (method == "overwrite" || !file.exists(table_path)) {
-        stopifnot(!self$read_only)
-        # explicit overwrite or first write: only retrieve
-        private$register_new_data_v(x, map_cols = resolve_cols(x, attr = "map_cols"))
-
-        return(private$commit_overwrite(
-          table_path = table_path,
-          partition_clause = resolve_partition_clause(x),
-          metadata_clause = resolve_metadata_clause(x)
-        ))
-      }
-
-      # fmt: skip
-      {
-        # schema/pre-existing metadata takes precedence
-        metadata_existing  <- private$read_parquet_metadata(table_path)
-        map_cols           <- resolve_cols(x, metadata_existing, "map_cols")
-        key_cols           <- resolve_cols(x, metadata_existing, "key_cols")
-        alternate_key_cols <- resolve_cols(x, metadata_existing, "alternate_key_cols")
-        partition_cols     <- resolve_cols(x, metadata_existing, "partition_cols")
-        partition_clause   <- resolve_partition_clause(x, metadata_existing)
-        metadata_clause    <- resolve_metadata_clause(x, metadata_existing)
-        all_new_cols       <- private$register_new_data_v(x, map_cols)
-      }
-
-      if (method == "append" || length(key_cols) == 0L) {
-        # if there are no key columns to join on, upsert becomes append
-        if (length(key_cols) && getOption("evoland.parquet_db_append_warning", TRUE)) {
-          warning(
-            "!! No uniqueness checks are performed when appending.\n",
-            "  Only use if you need high speed _and_ know you're not introducing duplicates\n",
-            "  Use upsert to be safe.\n",
-            "  Set option 'evoland.parquet_db_append_warning' to FALSE to disable this warning."
-          )
-        }
-        private$commit_append(
-          table_path = table_path,
-          partition_clause = partition_clause,
-          metadata_clause = metadata_clause
-        )
-      } else {
-        stopifnot(!self$read_only)
-        private$commit_upsert(
-          table_path = table_path,
-          all_new_cols = all_new_cols,
-          key_cols = key_cols,
-          alternate_key_cols = alternate_key_cols,
-          partition_cols = partition_cols,
-          partition_clause = partition_clause,
-          metadata_clause = metadata_clause
-        )
-      }
+      # Hold the table lock across the whole read-modify-write cycle: upserts
+      # (and non-partitioned appends) rewrite the table from what they read, so
+      # uncoordinated writers would otherwise drop each other's rows. Waiting
+      # for the lock keeps the idempotency of an upsert available to workers
+      # that would otherwise have to fall back to blind appends.
+      self$with_table_lock(
+        table_name,
+        private$commit_locked(x = x, table_name = table_name, method = method)
+      )
     },
 
     #' @description
@@ -436,6 +380,104 @@ parquet_db <- R6::R6Class(
     },
 
     ### Commit Methods ----
+
+    # body of $commit(), run while the table lock is held
+    commit_locked = function(x, table_name, method) {
+      table_path <- self$get_table_path(table_name)
+      on.exit(private$cleanup_new_data_v(), add = TRUE)
+
+      if (method == "overwrite" || !file.exists(table_path)) {
+        stopifnot(!self$read_only)
+        # explicit overwrite or first write: only retrieve
+        private$register_new_data_v(x, map_cols = resolve_cols(x, attr = "map_cols"))
+
+        return(private$commit_overwrite(
+          table_path = table_path,
+          partition_clause = resolve_partition_clause(x),
+          metadata_clause = resolve_metadata_clause(x)
+        ))
+      }
+
+      # fmt: skip
+      {
+        # schema/pre-existing metadata takes precedence
+        metadata_existing  <- private$read_parquet_metadata(table_path)
+        map_cols           <- resolve_cols(x, metadata_existing, "map_cols")
+        key_cols           <- resolve_cols(x, metadata_existing, "key_cols")
+        alternate_key_cols <- resolve_cols(x, metadata_existing, "alternate_key_cols")
+        partition_cols     <- resolve_cols(x, metadata_existing, "partition_cols")
+        partition_clause   <- resolve_partition_clause(x, metadata_existing)
+        metadata_clause    <- resolve_metadata_clause(x, metadata_existing)
+        all_new_cols       <- private$register_new_data_v(x, map_cols)
+      }
+
+      if (method == "append" || length(key_cols) == 0L) {
+        # if there are no key columns to join on, upsert becomes append
+        if (length(key_cols) && getOption("evoland.parquet_db_append_warning", TRUE)) {
+          warning(
+            "!! No uniqueness checks are performed when appending.\n",
+            "  Only use if you need high speed _and_ know you're not introducing duplicates\n",
+            "  Use upsert to be safe.\n",
+            "  Set option 'evoland.parquet_db_append_warning' to FALSE to disable this warning."
+          )
+        }
+        private$commit_append(
+          table_path = table_path,
+          partition_clause = partition_clause,
+          metadata_clause = metadata_clause
+        )
+      } else {
+        stopifnot(!self$read_only)
+        private$commit_upsert(
+          table_path = table_path,
+          all_new_cols = all_new_cols,
+          key_cols = key_cols,
+          alternate_key_cols = alternate_key_cols,
+          partition_cols = partition_cols,
+          partition_clause = partition_clause,
+          metadata_clause = metadata_clause
+        )
+      }
+    },
+
+    # body of $delete_from(), run while the table lock is held
+    delete_from_locked = function(table_name, where) {
+      table_path <- self$get_table_path(table_name)
+
+      if (!file.exists(table_path)) {
+        return(0L)
+      }
+
+      count_before <- self$row_count(table_name)
+
+      if (is.null(where)) {
+        unlink(table_path, recursive = TRUE)
+        return(count_before)
+      }
+
+      # Preserve existing metadata
+      metadata_existing <- private$read_parquet_metadata(table_path)
+      partition_clause <- resolve_partition_clause(NULL, metadata_existing)
+      metadata_clause <- resolve_metadata_clause(NULL, metadata_existing)
+
+      self$execute(glue::glue(
+        r"{
+        copy (
+          select * from '{table_path}'
+          where not ({where})
+        )
+        to '{table_path}' (
+          {self$writeopts}
+          {metadata_clause}
+          {partition_clause}
+        )
+        }"
+      ))
+
+      count_after <- self$row_count(table_name)
+
+      return(count_before - count_after)
+    },
 
     # overwrites table_path with pre-registered data from new_data_v
     commit_overwrite = function(

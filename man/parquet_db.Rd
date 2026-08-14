@@ -19,6 +19,9 @@ domain-specific database classes.
     \item{\code{writeopts}}{Write options for DuckDB parquet output}
 
     \item{\code{read_only}}{If true, prevents writes that are not parallel-safe}
+
+    \item{\code{lock_timeout}}{Seconds to wait for another process to release a
+table lock before erroring, see \link{parquet_db_lock}}
   }
   \if{html}{\out{</div>}}
 }
@@ -33,6 +36,7 @@ domain-specific database classes.
     \item \href{#method-parquet_db-list_tables}{\code{parquet_db$list_tables()}}
     \item \href{#method-parquet_db-fetch}{\code{parquet_db$fetch()}}
     \item \href{#method-parquet_db-get_table_metadata}{\code{parquet_db$get_table_metadata()}}
+    \item \href{#method-parquet_db-with_table_lock}{\code{parquet_db$with_table_lock()}}
     \item \href{#method-parquet_db-delete_from}{\code{parquet_db$delete_from()}}
     \item \href{#method-parquet_db-commit}{\code{parquet_db$commit()}}
     \item \href{#method-parquet_db-print}{\code{parquet_db$print()}}
@@ -216,6 +220,34 @@ returns 0 if table does not exist
   }
   \subsection{Returns}{
     Named list
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-parquet_db-with_table_lock"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_db-with_table_lock}{}}}
+\subsection{\code{parquet_db$with_table_lock()}}{
+  Evaluate \code{expr} while holding an exclusive lock on \code{table_name}. Used
+internally to serialise read-modify-write cycles on a table's parquet
+file(s); call it directly to extend that guarantee over a read that must
+not observe a table another process is halfway through rewriting.
+Acquisition is reentrant within a process, so nesting is safe. See
+\link{parquet_db_lock} for the mechanism.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$with_table_lock(table_name, expr)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string. Name of the table to lock.}
+      \item{\code{expr}}{Expression, evaluated once the lock is held.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The value of \code{expr}
   }
 }
 

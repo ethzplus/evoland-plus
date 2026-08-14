@@ -8,7 +8,14 @@
 \usage{
 get_evoland_db_read_expr(self, super, table_name)
 
-run_parallel_evoland(items, worker_fun, parent_db, cluster = NULL, ...)
+run_parallel_evoland(
+  items,
+  worker_fun,
+  parent_db,
+  cluster = NULL,
+  worker_writable = FALSE,
+  ...
+)
 }
 \arguments{
 \item{self}{The \code{evoland_db} instance}
@@ -26,6 +33,12 @@ passed directly to the worker for serial case.}
 
 \item{cluster}{An optional cluster object created by \code{\link[parallel:makeCluster]{parallel::makeCluster()}} or
 \code{\link[mirai:make_cluster]{mirai::make_cluster()}}.}
+
+\item{worker_writable}{Logical; if \code{TRUE}, workers may commit to the database
+themselves instead of only reading from it. Writes stay parallel-safe because
+\link{parquet_db} \verb{$commit()} serialises on a per-table lock, see \link{parquet_db_lock}.
+Note that in the serial case (no \code{cluster}), it is \code{parent_db}'s own
+\code{read_only} field that governs whether the worker can write.}
 
 \item{...}{Additional arguments passed to \code{worker_fun}.}
 }

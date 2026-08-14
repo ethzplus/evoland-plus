@@ -64,6 +64,7 @@ Collate:
     'lulc_data_t.R'
     'lulc_meta_t.R'
     'neighbors_t.R'
+    'parquet_db_lock.R'
     'periods_t.R'
     'pred_data_t.R'
     'pred_meta_t.R'

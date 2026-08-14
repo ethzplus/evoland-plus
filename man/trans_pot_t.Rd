@@ -16,7 +16,8 @@ predict_trans_pot(
   id_period_post,
   select_score,
   select_maximize,
-  force = FALSE
+  force = FALSE,
+  cluster = NULL
 )
 }
 \arguments{
@@ -33,6 +34,15 @@ predict_trans_pot(
 \item{select_score}{character scalar, name of score/measure to identify best fitting model}
 
 \item{select_maximize}{logical scalar, whether to maximize or minimize \code{select_score}}
+
+\item{force}{logical scalar, recompute transitions that already have potentials
+stored for this run and period instead of skipping them}
+
+\item{cluster}{An optional cluster object created by \code{\link[parallel:makeCluster]{parallel::makeCluster()}} or
+\code{\link[mirai:make_cluster]{mirai::make_cluster()}}. Each worker predicts one transition at a time and
+upserts the result itself; the upserts serialise on the \code{trans_pot_t} lock, so
+they stay idempotent and no worker can drop another's rows. See
+\link{parquet_db_lock}.}
 }
 \value{
 A data.table of class "trans_pot_t" with columns:
@@ -43,7 +53,9 @@ A data.table of class "trans_pot_t" with columns:
 \item \code{value}: Map of model (hyper) parameters
 }
 
-\code{predict_trans_pot()}: called for side effect; commit \code{trans_pot_t} to database
+\code{predict_trans_pot()}: called for side effect; commit \code{trans_pot_t} to
+database. Invisibly returns a data.table with one row per transition reporting
+how many rows were written.
 }
 \description{
 Estimate transition potential at \code{id_period_post}. Based on the LULC at \code{id_period_anterior}
