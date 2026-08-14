@@ -164,6 +164,8 @@ predict_trans_pot <- function(
       next
     }
 
+    learner_obj$parallel_predict <- TRUE
+
     # Predict probabilities; probs keeps the pred_data_post ordering
     probs <- learner_obj$predict_newdata(pred_data_post)$prob[, "TRUE"]
 
@@ -188,7 +190,7 @@ predict_trans_pot <- function(
     r"[
     select distinct id_trans
     from {self$get_read_expr("trans_models_t")}
-    where 
+    where
       learner_full is not null
       and crossval_score['{select_score}'] is not null
     ]"
