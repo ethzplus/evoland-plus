@@ -47,9 +47,9 @@ parquet_db <- R6::R6Class(
       # Create in-memory connection for SQL operations.
       # `shared_home = TRUE` pins DuckDB's extension and secret storage to ~/.duckdb.
       # Stating the choice explicitly silences the storage-location message that duckdb
-      # emits whenever the location is resolved implicitly, and keeps the `spatial`
-      # extension cached across sessions instead of re-downloading it into a temporary
-      # directory on every instantiation.
+      # emits whenever the location is resolved implicitly, and keeps any extension
+      # requested via `extensions` cached across sessions instead of re-downloading it
+      # into a temporary directory on every instantiation.
       self$connection <- DBI::dbConnect(
         duckdb::duckdb(shared_home = TRUE),
         dbdir = ":memory:"

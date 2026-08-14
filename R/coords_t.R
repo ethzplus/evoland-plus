@@ -2,9 +2,27 @@
 #'
 #' Create and validate `coords_t` objects, describing the base set of coordinate points
 #' upon which your land use model is intended to run. Because the coordinates are
-#' declared as points, you can describe sparse domains (e.g. following polity
-#' boundaries) or with arbitrary distribution (e.g. square, hexagonal, voronoi, polygon
-#' tesselations).
+#' declared as points, you can describe sparse domains, e.g. following polity
+#' boundaries.
+#'
+#' @section Lattice regularity:
+#' The points are expected to sit on a **regular square lattice**. `geom_polygon`
+#' was introduced to attach per-cell polygons so that irregular tesselations
+#' (voronoi, arbitrary polygons) could be supported, but it is never populated and
+#' the DuckDB `spatial` extension it would have required is no longer loaded.
+#'
+#' That direction was abandoned because the allocation mathematics assumes cells of
+#' equal area and a uniform neighbourhood: [create_alloc_params_t()] asserts
+#' `cells must be square` and derives patch areas as counts of cells, and
+#' [alloc_clumpy]'s patch growth walks a rook (4-)adjacency built in
+#' `src/alloc_clumpy.cpp`. Nothing in the transition-potential modelling depends on
+#' the lattice — only allocation does.
+#'
+#' A hexagonal lattice is the plausible next step: it keeps equal areas while giving
+#' every cell six equidistant neighbours. See the TODO above `build_neighbors()` in
+#' `src/alloc_clumpy.cpp` for the open question that gates it, namely whether the
+#' elongation moments — assumed orthogonal today — can be summarised over 60 degree
+#' relationships (Mazy 3.I.2).
 #'
 #' @param x A table that can be coerced to a valid `coords_t` object.
 #' @param epsg An integerish scalar representing an EPSG CRS code
