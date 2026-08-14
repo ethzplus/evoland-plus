@@ -37,7 +37,7 @@ evoland_db <- R6::R6Class(
       read_only = FALSE,
       ...
     ) {
-      super$initialize(path = path, read_only = read_only, extensions = "spatial")
+      super$initialize(path = path, read_only = read_only)
       if (!read_only) {
         self$set_report(...)
         self$commit(as_runs_t(), "runs_t", method = "upsert")
@@ -321,12 +321,17 @@ evoland_db <- R6::R6Class(
     #' @param force Logical; recompute transitions that already have potentials stored
     #' for this run and period instead of skipping them.
     #' @param cluster Optional cluster object for parallel processing
+    #' @param parallel_predict Logical; split each transition's prediction across
+    #' workers via the mlr3 learner's `parallel_predict`. Requires an active
+    #' [future::plan()] and only pays off for expensive learners over many rows,
+    #' see [predict_trans_pot()].
     predict_trans_pot = function(
       id_period_post,
       select_score,
       select_maximize,
       force = FALSE,
-      cluster = NULL
+      cluster = NULL,
+      parallel_predict = FALSE
     ) {
       create_method_binding(predict_trans_pot)
     },

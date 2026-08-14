@@ -109,6 +109,20 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' upserts the result itself; the upserts serialise on the `trans_pot_t` lock, so
 #' they stay idempotent and no worker can drop another's rows. See
 #' [parquet_db_lock].
+#' @param parallel_predict Logical; split each transition's prediction across
+#' workers by setting `parallel_predict` on the mlr3 learner. This parallelises
+#' *within* a transition, which helps when there are fewer viable transitions
+#' than cores. It requires an active [future::plan()] — mlr3 dispatches
+#' `parallel_predict` through `future.apply` and gates it on
+#' [future::nbrOfWorkers()], so mirai daemons alone do not enable it; use
+#' `future::plan("multisession")`, or `future.mirai::mirai_multisession` to run
+#' that future backend on mirai.
+#'
+#' The split costs one model serialisation per chunk, so it only pays off for
+#' expensive learners over many rows. Measured on 4 workers: `classif.rpart` at
+#' 50k rows was 5x *slower*, `classif.ranger` (500 trees) at 50k rows 1.6x
+#' slower, and the same learner at 500k rows 2.6x faster. Benchmark before
+#' enabling it.
 #' @return `predict_trans_pot()`: called for side effect; commit `trans_pot_t` to
 #' database. Invisibly returns a data.table with one row per transition reporting
 #' how many rows were written.
@@ -118,8 +132,24 @@ predict_trans_pot <- function(
   select_score,
   select_maximize,
   force = FALSE,
-  cluster = NULL
+  cluster = NULL,
+  parallel_predict = FALSE
 ) {
+  stopifnot(
+    "parallel_predict must be TRUE or FALSE" = isTRUE(parallel_predict) ||
+      isFALSE(parallel_predict)
+  )
+
+  # A cluster worker starts with future's default sequential plan, so
+  # nbrOfWorkers() is 1 there and mlr3 silently skips the split. Combining the
+  # two is harmless but buys nothing unless the workers set a plan themselves.
+  if (parallel_predict && !is.null(cluster)) {
+    warning(glue::glue(
+      "parallel_predict has no effect inside cluster workers unless those workers ",
+      "set their own future::plan(); parallelising across transitions instead"
+    ))
+  }
+
   .check_viable_trans_models(self, select_score) # error on missing models
 
   viable_trans <- self$trans_meta_t[is_viable == TRUE, id_trans]
@@ -144,7 +174,8 @@ predict_trans_pot <- function(
       worker_writable = TRUE,
       select_score = select_score,
       select_maximize = select_maximize,
-      force = force
+      force = force,
+      parallel_predict = parallel_predict
     ) |>
     data.table::rbindlist() |>
     invisible()
@@ -157,7 +188,8 @@ predict_trans_pot_worker <- function(
   db,
   select_score,
   select_maximize,
-  force = FALSE
+  force = FALSE,
+  parallel_predict = FALSE
 ) {
   id_run_orig <- db$id_run
   on.exit(db$id_run <- id_run_orig, add = TRUE)
@@ -204,6 +236,7 @@ predict_trans_pot_worker <- function(
   }
 
   learner_obj <- qs2::qs_deserialize(model_blob[[1]])
+  learner_obj$parallel_predict <- parallel_predict
 
   # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
   pred_data_post <- db$pred_data_wide_v(

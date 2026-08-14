@@ -646,7 +646,8 @@ to obtain column-scaled, row-closed values.
   select_score,
   select_maximize,
   force = FALSE,
-  cluster = NULL
+  cluster = NULL,
+  parallel_predict = FALSE
 )}
     \if{html}{\out{</div>}}
   }
@@ -660,6 +661,10 @@ to select model for extrapolation}
       \item{\code{force}}{Logical; recompute transitions that already have potentials stored
 for this run and period instead of skipping them.}
       \item{\code{cluster}}{Optional cluster object for parallel processing}
+      \item{\code{parallel_predict}}{Logical; split each transition's prediction across
+workers via the mlr3 learner's \code{parallel_predict}. Requires an active
+\code{\link[future:plan]{future::plan()}} and only pays off for expensive learners over many rows,
+see \code{\link[=predict_trans_pot]{predict_trans_pot()}}.}
     }
     \if{html}{\out{</div>}}
   }

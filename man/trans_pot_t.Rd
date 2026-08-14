@@ -17,7 +17,8 @@ predict_trans_pot(
   select_score,
   select_maximize,
   force = FALSE,
-  cluster = NULL
+  cluster = NULL,
+  parallel_predict = FALSE
 )
 }
 \arguments{
@@ -43,6 +44,21 @@ stored for this run and period instead of skipping them}
 upserts the result itself; the upserts serialise on the \code{trans_pot_t} lock, so
 they stay idempotent and no worker can drop another's rows. See
 \link{parquet_db_lock}.}
+
+\item{parallel_predict}{Logical; split each transition's prediction across
+workers by setting \code{parallel_predict} on the mlr3 learner. This parallelises
+\emph{within} a transition, which helps when there are fewer viable transitions
+than cores. It requires an active \code{\link[future:plan]{future::plan()}} — mlr3 dispatches
+\code{parallel_predict} through \code{future.apply} and gates it on
+\code{\link[future:nbrOfWorkers]{future::nbrOfWorkers()}}, so mirai daemons alone do not enable it; use
+\code{future::plan("multisession")}, or \code{future.mirai::mirai_multisession} to run
+that future backend on mirai.
+
+The split costs one model serialisation per chunk, so it only pays off for
+expensive learners over many rows. Measured on 4 workers: \code{classif.rpart} at
+50k rows was 5x \emph{slower}, \code{classif.ranger} (500 trees) at 50k rows 1.6x
+slower, and the same learner at 500k rows 2.6x faster. Benchmark before
+enabling it.}
 }
 \value{
 A data.table of class "trans_pot_t" with columns:

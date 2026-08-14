@@ -387,6 +387,25 @@ expect_true(all(forced_pot$written))
 expect_equal(sum(forced_pot$n_rows), 900L)
 expect_equal(db$row_count("trans_pot_t"), 900L)
 
+# parallel_predict splits each transition's prediction across future workers.
+# mlr3 gates it on future::nbrOfWorkers(), so a plan must be active; results must
+# be identical to the serial path either way.
+serial_pot <- db$trans_pot_t[order(id_trans, id_coord)]
+future::plan("multisession", workers = 2)
+split_pot <- suppressMessages(
+  db$predict_trans_pot(
+    id_period_post = 4,
+    select_score = "no.crossval",
+    select_maximize = TRUE,
+    force = TRUE,
+    parallel_predict = TRUE
+  )
+)
+future::plan("sequential")
+expect_true(all(split_pot$written))
+expect_equal(db$row_count("trans_pot_t"), 900L)
+expect_equal(db$trans_pot_t[order(id_trans, id_coord)], serial_pot)
+
 # predict_trans_pot across workers: each one upserts its own transition, and the
 # trans_pot_t lock keeps those writes from dropping each other's rows.
 # Fork workers need no installed copy of the package; fall back to PSOCK elsewhere.
@@ -414,7 +433,6 @@ if (is.null(cluster)) {
     ),
     error = function(e) e
   )
-  parallel::stopCluster(cluster)
 
   if (inherits(parallel_pot, "error")) {
     message(
@@ -433,7 +451,24 @@ if (is.null(cluster)) {
       0L
     )
     expect_false(dir.exists(evoland:::table_lock_path(db$path, "trans_pot_t")))
+
+    # combining a cluster with parallel_predict is a no-op in the workers, and says so
+    expect_warning(
+      suppressMessages(
+        db$predict_trans_pot(
+          id_period_post = 4,
+          select_score = "no.crossval",
+          select_maximize = TRUE,
+          force = TRUE,
+          cluster = cluster,
+          parallel_predict = TRUE
+        )
+      ),
+      "parallel_predict has no effect inside cluster workers"
+    )
+    expect_equal(db$row_count("trans_pot_t"), 900L)
   }
+  parallel::stopCluster(cluster)
 
   # restore trans_pot_t for the assertions below, whatever the workers managed
   suppressMessages(
