@@ -177,19 +177,34 @@ pred_data_wide_v <- function(
     "id_run must be set" = !is.null(self$id_run)
   )
 
-  result <-
-    system.file("pred_data_wide.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
-      trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
-      trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
-      lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
-      pred_data_read_expr = self$get_read_expr("pred_data_t"),
-      id_trans = id_trans,
-      id_period_anterior = id_period_anterior
-    ) |>
-    self$get_query()
+  if (is.null(id_trans)) {
+    result <-
+      system.file("pred_data_wide_nofilter.sql", package = "evoland") |>
+      readLines() |>
+      paste(collapse = "\n") |>
+      glue::glue(
+        trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
+        trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
+        lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
+        pred_data_read_expr = self$get_read_expr("pred_data_t"),
+        id_period_anterior = id_period_anterior
+      ) |>
+      self$get_query()
+  } else {
+    result <-
+      system.file("pred_data_wide.sql", package = "evoland") |>
+      readLines() |>
+      paste(collapse = "\n") |>
+      glue::glue(
+        trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
+        trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
+        lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
+        pred_data_read_expr = self$get_read_expr("pred_data_t"),
+        id_trans = id_trans,
+        id_period_anterior = id_period_anterior
+      ) |>
+      self$get_query()
+  }
 
   set_pred_coltypes(result, self$pred_meta_t)
 

@@ -358,6 +358,16 @@ expect_message(
   db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE),
   "Predicting transition potential"
 )
+options("evoland.use_prefetch_predict" = TRUE)
+expect_message(
+  db$predict_trans_pot(
+    id_period_post = 4,
+    select_score = "no.crossval",
+    select_maximize = TRUE,
+    force = TRUE
+  ),
+  "Predicting transition potential"
+)
 db$trans_rates_t <-
   db$get_obs_trans_rates() |>
   extrapolate_trans_rates(db$periods_t)

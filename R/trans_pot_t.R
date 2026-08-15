@@ -113,10 +113,18 @@ predict_trans_pot <- function(
   # TODO parallelize
   .check_viable_trans_models(self, select_score) # error on missing models
 
-  viable_trans <- self$trans_meta_t[is_viable == TRUE, id_trans]
+  viable_trans <- self$trans_meta_t[is_viable == TRUE]
   message(glue::glue("Predicting transition potential for {length(viable_trans)} transitions"))
 
-  for (id_trans in viable_trans) {
+  use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
+
+  if (use_prefetch) {
+    # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
+    # This _will_ increase memory pressure
+    pred_data_all <- self$pred_data_wide_v(id_trans = NULL, id_period_anterior = id_period_post - 1)
+  }
+
+  for (id_trans in viable_trans[, id_trans]) {
     has_predictions <- .has_predictions(self, id_trans, id_period_post)
 
     if (has_predictions && !force) {
@@ -146,16 +154,26 @@ predict_trans_pot <- function(
     ))[[1]]
 
     if (length(model_blob) == 0L) {
-      stop(glue::glue("No model found for id_trans={id_trans}"))
+      warning(glue::glue("No model found for id_trans={id_trans}"))
+      next
     }
 
     learner_obj <- qs2::qs_deserialize(model_blob[[1]])
 
-    # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
-    pred_data_post <- self$pred_data_wide_v(
-      id_trans = id_trans,
-      id_period_anterior = id_period_post - 1
-    )
+    if (use_prefetch) {
+      id_lulc_anterior <- viable_trans[
+        id_trans == id_sel,
+        id_lulc_anterior,
+        env = list(id_sel = id_trans)
+      ]
+      pred_data_post <- pred_data_all[id_lulc == id_lulc_anterior, !"id_lulc"]
+    } else {
+      # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
+      pred_data_post <- self$pred_data_wide_v(
+        id_trans = id_trans,
+        id_period_anterior = id_period_post - 1
+      )
+    }
 
     if (nrow(pred_data_post) == 0L) {
       warning(glue::glue(
