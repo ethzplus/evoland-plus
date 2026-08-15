@@ -480,11 +480,11 @@ We loop over the run records: for each run we set the active `db$id_run` -- whic
 #| output: false
 for (i in seq_len(nrow(runs_out))) {
   db$id_run <- runs_out$id_run[i]
+  set.seed(runs_out$seed[i])
   db$alloc_clumpy(
     id_periods = 4, # first extrapolated period
     select_score = "classif.auc",
     select_maximize = TRUE,
-    seed = runs_out$seed[i]
   )
 }
 ```
