@@ -97,7 +97,9 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' transition potential for a given period and store it in `trans_pot_t` in the database. Raw
 #' potentials are per-transition MLR3 model probabilities; they are **not** yet allocation-ready
 #' (not column-scaled to target rates, not row-closed to max probability of 1). Use
-#' [adjusted_trans_pot_v()] to obtain allocation-ready values.
+#' [adjusted_trans_pot_v()] to obtain allocation-ready values. Set
+#' `options(evoland.use_prefetch_predict=TRUE)` to prefetch all predictors; this causes higher
+#' memory pressure but only needs to go to disk once.
 #' @param self an [evoland_db] instance
 #' @param id_period_post scalar integerish, passed to [pred_data_wide_v()]
 #' @param select_score character scalar, name of score/measure to identify best fitting model
@@ -119,9 +121,8 @@ predict_trans_pot <- function(
   use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
 
   if (use_prefetch) {
-    # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
-    # This _will_ increase memory pressure
-    pred_data_all <- self$pred_data_wide_v(id_trans = NULL, id_period_anterior = id_period_post - 1)
+    # This can increase memory pressure enormously
+    pred_data_all <- self$pred_data_wide_v(id_trans = NA, id_period_anterior = id_period_post - 1)
   }
 
   for (id_trans in viable_trans[, id_trans]) {
@@ -136,8 +137,8 @@ predict_trans_pot <- function(
       next
     } else {
       message(glue::glue(
-        "Predicting transition {which(viable_trans == id_trans)}/",
-        "{length(viable_trans)} (id_trans={id_trans})"
+        "Predicting transition {which(viable_trans[, id_trans] == id_trans)}/",
+        "{nrow(viable_trans)} (id_trans={id_trans})"
       ))
     }
 

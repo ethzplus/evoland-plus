@@ -80,7 +80,8 @@ alloc_clumpy_one_period <- function(
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
-  use_parent_trans_pot = FALSE
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 ) {
   id_period_ant <- id_period_post - 1L
   # TODO rework whole function into more idiomatic code
@@ -96,7 +97,8 @@ alloc_clumpy_one_period <- function(
   self$predict_trans_pot(
     id_period_post = id_period_post,
     select_score = select_score,
-    select_maximize = select_maximize
+    select_maximize = select_maximize,
+    force = force_predict_trans_pot
   )
   if (use_parent_trans_pot) {
     self$id_run <- id_run_init # immediately reset, cannot wait for on.exit
@@ -239,7 +241,8 @@ alloc_clumpy <- function(
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 0L
+  batch_size = 0L,
+  force_predict_trans_pot = FALSE
 ) {
   stopifnot(
     "id_periods must be a numeric vector" = is.numeric(id_periods),
@@ -267,7 +270,8 @@ alloc_clumpy <- function(
       select_maximize = select_maximize,
       area_dist = area_dist,
       avoid_aggregation = avoid_aggregation,
-      batch_size = batch_size
+      batch_size = batch_size,
+      force_predict_trans_pot = force_predict_trans_pot
     )
 
     self$commit(lulc_result, "lulc_data_t", method = "upsert")

@@ -168,8 +168,8 @@ pred_data_wide_v <- function(
   id_period_anterior
 ) {
   stopifnot(
-    "id_trans must be a single integer" = {
-      length(id_trans) == 1L && as.integer(id_trans) == id_trans
+    "id_trans must be a single integer or NA" = {
+      is.na(id_trans) || (length(id_trans) == 1L && as.integer(id_trans) == id_trans)
     },
     "id_period_anterior must be a single integer" = {
       length(id_period_anterior) == 1L && as.integer(id_period_anterior) == id_period_anterior
@@ -177,34 +177,19 @@ pred_data_wide_v <- function(
     "id_run must be set" = !is.null(self$id_run)
   )
 
-  if (is.null(id_trans)) {
-    result <-
-      system.file("pred_data_wide_nofilter.sql", package = "evoland") |>
-      readLines() |>
-      paste(collapse = "\n") |>
-      glue::glue(
-        trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
-        trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
-        lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
-        pred_data_read_expr = self$get_read_expr("pred_data_t"),
-        id_period_anterior = id_period_anterior
-      ) |>
-      self$get_query()
-  } else {
-    result <-
-      system.file("pred_data_wide.sql", package = "evoland") |>
-      readLines() |>
-      paste(collapse = "\n") |>
-      glue::glue(
-        trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
-        trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
-        lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
-        pred_data_read_expr = self$get_read_expr("pred_data_t"),
-        id_trans = id_trans,
-        id_period_anterior = id_period_anterior
-      ) |>
-      self$get_query()
-  }
+  result <-
+    system.file("pred_data_wide.sql", package = "evoland") |>
+    readLines() |>
+    paste(collapse = "\n") |>
+    glue::glue(
+      trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
+      trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
+      lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
+      pred_data_read_expr = self$get_read_expr("pred_data_t"),
+      id_trans = id_trans,
+      id_period_anterior = id_period_anterior
+    ) |>
+    self$get_query()
 
   set_pred_coltypes(result, self$pred_meta_t)
 
