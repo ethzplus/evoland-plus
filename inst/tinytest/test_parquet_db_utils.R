@@ -69,42 +69,26 @@ expect_error(
   "Column 'map_col' specified as map_cols must be a list of named lists with atomic values"
 )
 
-# ---- resolve_cols / resolve_partition_clause ----
-x_resolve <- as_parquet_db_t(
-  data.table::data.table(id = 1L, part = "p"),
-  key_cols = "id",
-  partition_cols = "part"
-)
+# ---- serialize_metadata / deserialize_metadata ----
 expect_identical(
-  evoland:::resolve_cols(x_resolve, metadata = list(), attr = "key_cols"),
-  "id"
+  evoland:::serialize_metadata(list(existing = "keep", custom_attr = c("a", "b"))),
+  'existing: "keep"\ncustom_attr: "a", "b"'
 )
-expect_warning(
-  id_alt <- evoland:::resolve_cols(
-    x_resolve,
-    metadata = list(key_cols = "id_alt"),
-    attr = "key_cols"
-  ),
-  "key_cols on disk (id_alt) takes precedence over attributes (id)",
-  fixed = TRUE
-)
-expect_identical(id_alt, "id_alt")
+expect_identical(evoland:::serialize_metadata(list()), "")
 
-expect_match(
-  evoland:::resolve_partition_clause(x_resolve),
-  ', partition_by ( "part" )',
-  fixed = TRUE
+# values are type-converted, so numbers do not come back as strings
+expect_identical(
+  evoland:::deserialize_metadata('existing: "keep"\nnum: "42"\nflag: "TRUE"'),
+  list(existing = "keep", num = 42L, flag = TRUE)
 )
+expect_identical(evoland:::deserialize_metadata(NA_character_), list())
+expect_identical(evoland:::deserialize_metadata(""), list())
 
-# ---- resolve_metadata_clause ----
-x_meta <- as_parquet_db_t(data.table::data.table(id = 1L))
-data.table::setattr(x_meta, "custom_attr", c("a", "b"))
-expect_match(
-  evoland:::resolve_metadata_clause(x_meta, metadata = list(existing = "keep")),
-  r"[existing: '"keep"',
-  custom_attr: '"a", "b"',
-  parquet_db_t_class: '"parquet_db_t"']",
-  fixed = TRUE
+# a metadata list survives the round-trip unchanged
+roundtrip <- list(epsg = 2056L, resolution = 100.5, key_cols = c("id_run", "id_coord"))
+expect_identical(
+  evoland:::deserialize_metadata(evoland:::serialize_metadata(roundtrip)),
+  roundtrip
 )
 
 # ---- convert_list_cols ----

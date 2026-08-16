@@ -2,9 +2,8 @@
 #'
 #' @description
 #' An R6 class that provides an interface to a folder-based data storage system
-#' for the evoland package. Each table is stored as a parquet (or JSON) file.
-#' This class uses DuckDB for in-memory SQL operations while persisting data
-#' to disk in parquet format for better compression.
+#' for the evoland package. This class uses DuckDB for in-memory SQL operations
+#' while persisting data to a DuckLake catalog on disk.
 #'
 #' Inherits from [parquet_db] for generic database operations.
 #'
@@ -37,7 +36,7 @@ evoland_db <- R6::R6Class(
       read_only = FALSE,
       ...
     ) {
-      super$initialize(path = path, read_only = read_only, extensions = "spatial")
+      super$initialize(path = path, read_only = read_only)
       if (!read_only) {
         self$set_report(...)
         self$commit(as_runs_t(), "runs_t", method = "upsert")

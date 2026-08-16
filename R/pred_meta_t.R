@@ -215,10 +215,8 @@ validate.pred_meta_t <- function(x, ...) {
     is.list(x[["factor_levels"]]),
     "name cannot be empty" = !any(x[["name"]] == ""),
     "single URL with multiple checksums present" = !anyDuplicated(sources_dt[["url"]]),
-    "sources must hold exactly a url and an md5sum field" = setequal(
-      names(sources_dt),
-      c("url", "md5sum")
-    )
+    "sources must hold exactly a url and an md5sum field" = length(sources_dt) == 0L ||
+      setequal(names(sources_dt), c("url", "md5sum"))
   )
 
   return(x)

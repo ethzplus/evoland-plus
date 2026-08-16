@@ -167,20 +167,15 @@ expect_equal(deleted_count, 0L)
 expect_equal(db$row_count("test_table_5"), initial_count)
 
 # Test 31: Extension loading
-# Gate: skip during R CMD check; run with build_install_test()
-if (at_home()) {
-  test_dir_ext <- tempfile("parquet_db_ext_")
-  db_ext <- parquet_db$new(
-    path = test_dir_ext,
-    extensions = "spatial"
-  )
-  # Verify spatial extension is loaded by using a spatial function
-  expect_match(
-    db_ext$get_query("SELECT ST_AsText(ST_Point(0, 0)) as geom")[[1]],
-    "POINT (0 0)",
-    fixed = TRUE
-  )
-}
+test_dir_ext <- tempfile("parquet_db_ext_")
+db_ext <- parquet_db$new(
+  path = test_dir_ext,
+  extensions = "json"
+)
+expect_equal(
+  db_ext$get_query('select json_extract_string(\'{"a": "loaded"}\', \'$.a\') as v')[[1]],
+  "loaded"
+)
 
 # Test 32: Persistence across connections
 db$commit(
@@ -311,12 +306,6 @@ expect_silent(
   )
 )
 
-expect_true(dir.exists(file.path(test_dir, "test_partitioned.parquet")))
-# Check partition directories exist (standard hive partitioning)
-expect_true(
-  length(list.files(file.path(test_dir, "test_partitioned.parquet"), pattern = "group=")) == 2
-)
-
 retrieved <- db$fetch("test_partitioned")
 data.table::setorder(retrieved, id)
 data.table::setcolorder(retrieved, c("id", "value", "group"))
@@ -338,11 +327,6 @@ expect_silent(
   )
 )
 
-# New partition created
-expect_length(
-  list.files(file.path(test_dir, "test_partitioned.parquet"), pattern = "group="),
-  3
-)
 expect_equal(db$row_count("test_partitioned"), 8L)
 
 retrieved <- db$fetch("test_partitioned")
@@ -359,14 +343,14 @@ data.table::setattr(test_part_3, "partition_cols", "group")
 data.table::setattr(test_part_3, "key_cols", "id")
 
 expect_equal(db$row_count("test_partitioned"), 8L)
-# 1 updated + 1 inserted + 6 unchanged but touched by partition overwrite = 8 total
-expect_equal(db$commit(test_part_3, "test_partitioned", method = "upsert"), 8L)
+# only the rows actually touched are written: 1 updated + 1 inserted
+expect_equal(db$commit(test_part_3, "test_partitioned", method = "upsert"), 2L)
 expect_equal(db$row_count("test_partitioned"), 9L)
-# 2 updated + 0 inserted + 6 unchanged but touched by partition overwrite = 8 total
-expect_equal(db$commit(test_part_3, "test_partitioned", method = "upsert"), 8L)
+# 2 updated + 0 inserted
+expect_equal(db$commit(test_part_3, "test_partitioned", method = "upsert"), 2L)
 expect_equal(db$row_count("test_partitioned"), 9L)
 # repeat to ensure idempotency
-expect_equal(db$commit(test_part_3, "test_partitioned", method = "upsert"), 8L)
+expect_equal(db$commit(test_part_3, "test_partitioned", method = "upsert"), 2L)
 expect_equal(db$row_count("test_partitioned"), 9L)
 
 retrieved <- db$fetch("test_partitioned")
@@ -375,9 +359,23 @@ data.table::setorder(retrieved, id)
 expect_equal(retrieved[id == 1]$value, 99.9)
 expect_equal(retrieved[id == 9]$value, 88.8)
 
-expect_length(
-  list.files(file.path(test_dir, "test_partitioned.parquet"), recursive = TRUE),
-  3L
+# Test 43b: partition columns become hive directories once past the row limit
+# below which DuckLake inlines data into the catalog
+test_part_big <- data.table::data.table(
+  id = 1:100,
+  group = rep(c("A", "B"), each = 50),
+  value = 1
+)
+data.table::setattr(test_part_big, "partition_cols", "group")
+db$commit(test_part_big, "test_partition_files", method = "overwrite")
+
+expect_equal(
+  sort(list.dirs(
+    file.path(test_dir, "data", "main", "test_partition_files"),
+    full.names = FALSE,
+    recursive = FALSE
+  )),
+  c("group=A", "group=B")
 )
 
 # Test 44: Metadata with partitioning
@@ -424,7 +422,7 @@ expect_error(
     "test_alt_key",
     method = "upsert"
   ),
-  "Constraint Error: Duplicate key"
+  "Duplicate key found in data to commit to `test_alt_key`"
 )
 expect_equal(
   db$commit(
@@ -432,9 +430,98 @@ expect_equal(
     "test_alt_key",
     method = "upsert"
   ),
-  5L # 1 updated + 2 inserted + 2 unchanged but touched and written = 5 total
+  3L # 1 updated + 2 inserted
 )
 expect_equal(
   db$fetch("test_alt_key")[order(id), value],
   c(10, 20, 30.3, 40.4, 50.5)
 )
+
+# Test 46: duplicate keys in the source are caught rather than silently merged,
+# for both the data.table and the in-DuckDB view forms of `x`
+expect_error(
+  db$commit(
+    data.table::data.table(id = c(7L, 7L), name = c("g", "h"), value = 1),
+    "test_alt_key",
+    method = "upsert"
+  ),
+  "columns: id"
+)
+db$execute("create or replace temp view dup_source_v as
+  select 8 as id, 'i' as name, 1.0 as value
+  union all select 9, 'i', 1.0")
+expect_error(
+  db$commit("dup_source_v", "test_alt_key", method = "upsert"),
+  "columns: name"
+)
+expect_equal(db$row_count("test_alt_key"), 5L)
+
+# Test 47: an alternate key already held by a different primary key would be
+# inserted as a duplicate, since the merge joins on the primary key only
+expect_error(
+  db$commit(
+    data.table::data.table(id = 99L, name = "a", value = 1),
+    "test_alt_key",
+    method = "upsert"
+  ),
+  "reuse an existing name"
+)
+
+# Test 48: MAP and BLOB columns survive the round-trip through the catalog
+test_types <- data.table::data.table(
+  id = 1:2,
+  params = list(list(alpha = 1L, beta = "two"), list()),
+  payload = list(as.raw(1:3), as.raw(4:5))
+)
+data.table::setattr(test_types, "key_cols", "id")
+data.table::setattr(test_types, "map_cols", "params")
+db$commit(test_types, "test_types", method = "overwrite")
+
+retrieved <- db$fetch("test_types")
+expect_equal(retrieved[["params"]][[1]], list(alpha = 1L, beta = "two"))
+expect_null(retrieved[["params"]][[2]])
+expect_equal(retrieved[["payload"]], list(as.raw(1:3), as.raw(4:5)))
+
+db$commit(
+  data.table::data.table(
+    id = 2L,
+    params = list(list(gamma = 3.5)),
+    payload = list(as.raw(9L))
+  ),
+  "test_types",
+  method = "upsert"
+)
+retrieved <- db$fetch("test_types")[order(id)]
+expect_equal(retrieved[["params"]][[2]], list(gamma = 3.5))
+expect_equal(retrieved[["payload"]][[2]], as.raw(9L))
+
+# Test 49: a reader on its own connection keeps a consistent snapshot while
+# another writer is midway through replacing the table, rather than observing
+# the partially rewritten state
+iso_dir <- tempfile("parquet_db_iso_")
+db_writer <- parquet_db$new(iso_dir)
+db_writer$commit(
+  data.table::data.table(id = 1:300, value = 1),
+  "iso_t",
+  method = "overwrite"
+)
+
+db_reader <- parquet_db$new(iso_dir)
+expect_equal(db_reader$row_count("iso_t"), 300L)
+
+duckdb::duckdb_register(
+  db_writer$connection,
+  "iso_new_v",
+  data.table::data.table(id = 1:50, value = 2)
+)
+db_writer$execute("begin transaction")
+db_writer$execute('create or replace table "db"."iso_t" as from iso_new_v limit 0')
+db_writer$execute('insert into "db"."iso_t" by name (from iso_new_v)')
+
+expect_equal(db_writer$row_count("iso_t"), 50L) # writer sees its own changes
+expect_equal(db_reader$row_count("iso_t"), 300L) # reader still sees the old snapshot
+
+db_writer$execute("commit")
+expect_equal(db_reader$row_count("iso_t"), 50L)
+
+unlink(iso_dir, recursive = TRUE)

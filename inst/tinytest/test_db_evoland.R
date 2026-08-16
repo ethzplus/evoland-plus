@@ -83,13 +83,13 @@ expect_equivalent(
 
 # fetch back as rast
 expect_equal(
-  db$lulc_data_as_rast()["id_period_1_id_run_0"],
+  db$lulc_data_as_rast()["id_run_0_id_period_1"],
   m <- db$lulc_data_as_rast(id_period = 1L)
 )
-expect_length(as.vector(m["id_period_1"]), 900L)
+expect_length(as.vector(m["id_run_0_id_period_1"]), 900L)
 expect_equal(
   unique(db$lulc_data_t$id_lulc),
-  unique(as.vector(m["id_period_1"]))
+  unique(as.vector(m["id_run_0_id_period_1"]))
 )
 
 # add predictor via sugar add_predictor()

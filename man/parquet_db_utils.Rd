@@ -3,9 +3,8 @@
 \name{parquet_db_utils}
 \alias{parquet_db_utils}
 \alias{as_parquet_db_t}
-\alias{resolve_cols}
-\alias{resolve_partition_clause}
-\alias{resolve_metadata_clause}
+\alias{serialize_metadata}
+\alias{deserialize_metadata}
 \alias{convert_list_cols}
 \alias{list_to_kv_df}
 \alias{kv_df_to_list}
@@ -23,11 +22,9 @@ as_parquet_db_t(
   partition_cols = NULL
 )
 
-resolve_cols(x, metadata = list(), attr = character(1))
+serialize_metadata(metadata)
 
-resolve_partition_clause(x, metadata = list())
-
-resolve_metadata_clause(x, metadata = list())
+deserialize_metadata(comment)
 
 convert_list_cols(x, cols, fn)
 
@@ -45,8 +42,6 @@ create_method_binding(fun, with_private = FALSE, with_super = FALSE)
 cols_to_select_expr(cols, table_name)
 }
 \arguments{
-\item{x}{The data to be committed.}
-
 \item{class_name}{Optional class name to prepend before "parquet_db_t". Used
 to create more specific subclasses.}
 
@@ -68,9 +63,9 @@ MAP type, used to store named unnested lists from R.}
 \item{partition_cols}{Optional character vector. Used to specify columns for
 hive style parquet file partitioning.}
 
-\item{metadata}{The metadata to be committed, as returned by \link{parquet_db} \verb{$get_table_metadata()}}
+\item{metadata}{Named list of atomic vectors.}
 
-\item{attr}{The column function to resolve, e.g. "alternate_key_cols", "map_cols", "key_cols".}
+\item{comment}{Character scalar, or NA for a table without metadata.}
 
 \item{cols}{The columns to select.}
 
@@ -97,18 +92,13 @@ A set of utility functions for working with \link{parquet_db}.
 data.table and adds attributes that \link{parquet_db} relies on for database-like
 operations. See the paramaters for details.
 
-\item \code{resolve_cols()}: Resolves which columns to use for key, map,
-partition, etc.; pre-existing schema takes precedence.
+\item \code{serialize_metadata()}: Serialize a named list of atomic vectors into the
+single string that \link{parquet_db} stores as a comment on the catalog table. Each
+entry becomes one line, \verb{key: "value1", "value2"}.
 
-\item \code{resolve_partition_clause()}: Compose partitioning clause.
-
-\item \code{resolve_metadata_clause()}: Compose metadata clause, which includes any new
-metadata from the data's attributes, as well as any existing metadata from
-the database; existing metadata cannot be safely overwritten. New metadata
-takes precedence over existing metadata for this commit. Any atomic vector is
-coerced to a quoted comma separated list of values, which are recovered in
-\link{parquet_db} \verb{$get_table_metadata()}. Non-atomic metadata values are dropped
-with a warning.
+\item \code{deserialize_metadata()}: Recover the named list written by
+\code{\link[=serialize_metadata]{serialize_metadata()}}. Values are type-converted, so that a numeric
+attribute survives the round-trip as a number rather than as a string.
 
 \item \code{convert_list_cols()}: Convert list columns by applying \code{fn}
 

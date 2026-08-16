@@ -11,10 +11,8 @@
 #' @export
 as_reporting_t <- function(x) {
   if (missing(x)) {
-    x <- data.table::data.table(
-      key = character(),
-      value = character()
-    )
+    # cannot name a column "key" in data.table(), which takes a `key` argument
+    x <- list(key = character(), value = character())
   }
 
   data.table::setDT(x) |>
