@@ -316,10 +316,10 @@ db$pred_data_t <-
       id_run = 0L,
       id_period = substr(layer, nchar(layer), nchar(layer)) |> as.integer(),
       id_pred = fcase(
-        grepl("urban_pressure", layer)     , 1L ,
-        grepl("forest_suitability", layer) , 2L ,
-        grepl("arable_yield", layer)       , 3L ,
-        grepl("random_nuisance", layer)    , 4L
+        grepl("urban_pressure", layer), 1L,
+        grepl("forest_suitability", layer), 2L,
+        grepl("arable_yield", layer), 3L,
+        grepl("random_nuisance", layer), 4L
       ),
       value
     )
@@ -420,12 +420,12 @@ db$trans_rates_t <-
   # fmt: skip
   rowwiseDT(
     id_trans = , rate = ,
-    1,           0.3,
-    2,           0.2,
-    3,           0.1,
-    4,           0,
-    5,           0,
-    6,           0.2
+    1, 0.3,
+    2, 0.2,
+    3, 0.1,
+    4, 0,
+    5, 0,
+    6, 0.2
   )[, `:=`(
     id_run = 0L,
     id_period = 4L,
@@ -483,8 +483,9 @@ for (i in seq_len(nrow(runs_out))) {
   set.seed(runs_out$seed[i])
   db$alloc_clumpy(
     id_periods = 4, # first extrapolated period
-    select_score = "classif.auc",
+    select_score = "no.crossval",
     select_maximize = TRUE,
+    use_parent_trans_pot = TRUE
   )
 }
 ```
@@ -595,7 +596,7 @@ The previous heatmap asked only whether a cell changes at all. You can build mor
 urban_frequency <-
   simulated_extrap[,
     .(
-      p_urban = mean(id_lulc_simulated == 3L) #urban id
+      p_urban = mean(id_lulc_simulated == 3L) # urban id
     ),
     by = .(id_coord)
   ] |>
