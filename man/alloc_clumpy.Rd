@@ -13,7 +13,8 @@ alloc_clumpy_one_period(
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
-  use_parent_trans_pot = FALSE
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )
 
 alloc_clumpy(
@@ -23,7 +24,8 @@ alloc_clumpy(
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 0L
+  batch_size = 0L,
+  force_predict_trans_pot = FALSE
 )
 }
 \arguments{
