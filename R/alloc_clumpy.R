@@ -242,6 +242,7 @@ alloc_clumpy <- function(
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
+  use_parent_trans_pot = FALSE,
   force_predict_trans_pot = FALSE
 ) {
   stopifnot(
@@ -271,6 +272,7 @@ alloc_clumpy <- function(
       area_dist = area_dist,
       avoid_aggregation = avoid_aggregation,
       batch_size = batch_size,
+      use_parent_trans_pot = use_parent_trans_pot,
       force_predict_trans_pot = force_predict_trans_pot
     )
 

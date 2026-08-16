@@ -134,6 +134,24 @@ expect_message(
   fixed = TRUE
 )
 
+db$runs_t <- as_runs_t(rbind(
+  db$runs_t,
+  list(id_run = 4, parent_id_run = 3, description = "stochastic alloc")
+))
+db$id_run <- 4
+
+expect_message(
+  db$alloc_clumpy(
+    id_periods = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    avoid_aggregation = FALSE,
+    use_parent_trans_pot = TRUE
+  ),
+  "Found trans_pot_t for all; set force=TRUE to recompute",
+  fixed = TRUE
+)
+
 # --------------------------------------------------------------------------
 # Test error handling
 # --------------------------------------------------------------------------

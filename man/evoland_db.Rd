@@ -423,6 +423,7 @@ uSAM, otherwise uPAM.
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
+  use_parent_trans_pot = FALSE,
   force_predict_trans_pot = FALSE
 )}
     \if{html}{\out{</div>}}
@@ -441,6 +442,8 @@ would merge fail and allocate nothing. Ignored for uSAM.}
       \item{\code{batch_size}}{Integer; uPAM pivots attempted per MuST re-draw. \code{0}
 (default) auto-scales with the source pool; \verb{> 0} is an explicit cap
 (\code{1} = strict uPAM); \verb{< 0} = all candidates in one pass. Ignored for uSAM.}
+      \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials
+(useful for repeated allocation)}
       \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
 values already exist}
     }

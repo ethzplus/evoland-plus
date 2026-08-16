@@ -179,6 +179,8 @@ evoland_db <- R6::R6Class(
     #' @param batch_size Integer; uPAM pivots attempted per MuST re-draw. `0`
     #' (default) auto-scales with the source pool; `> 0` is an explicit cap
     #' (`1` = strict uPAM); `< 0` = all candidates in one pass. Ignored for uSAM.
+    #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
+    #' (useful for repeated allocation)
     #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
     #' values already exist
     alloc_clumpy = function(
@@ -188,6 +190,7 @@ evoland_db <- R6::R6Class(
       area_dist = "lognormal",
       avoid_aggregation = TRUE,
       batch_size = 0L,
+      use_parent_trans_pot = FALSE,
       force_predict_trans_pot = FALSE
     ) {
       create_method_binding(alloc_clumpy)

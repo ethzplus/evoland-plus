@@ -25,6 +25,7 @@ alloc_clumpy(
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
+  use_parent_trans_pot = FALSE,
   force_predict_trans_pot = FALSE
 )
 }
