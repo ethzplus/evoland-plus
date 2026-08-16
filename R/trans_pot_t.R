@@ -121,19 +121,7 @@ predict_trans_pot <- function(
 
   use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
 
-  if (use_prefetch) {
-    # This can increase memory pressure enormously
-    has_all_predictions <- all(vapply(
-      viable_trans[, id_trans],
-      \(id) .has_predictions(self, id, id_period_post),
-      logical(1)
-    ))
-    if (has_all_predictions && !force) {
-      message("  Found trans_pot_t for all; set force=TRUE to recompute")
-      return(NULL)
-    }
-    pred_data_all <- self$pred_data_wide_v(id_trans = NA, id_period_anterior = id_period_post - 1)
-  }
+  pred_data_all <- NULL
 
   for (id_trans in viable_trans[, id_trans]) {
     has_predictions <- .has_predictions(self, id_trans, id_period_post)
@@ -150,6 +138,27 @@ predict_trans_pot <- function(
         "Predicting transition {which(viable_trans[, id_trans] == id_trans)}/",
         "{nrow(viable_trans)} (id_trans={id_trans})"
       ))
+    }
+
+    if (use_prefetch) {
+      if (is.null(pred_data_all)) {
+        pred_data_all <- self$pred_data_wide_v(
+          id_trans = NA,
+          id_period_anterior = id_period_post - 1
+        )
+      }
+      id_lulc_anterior <- viable_trans[
+        id_trans == id_sel,
+        id_lulc_anterior,
+        env = list(id_sel = id_trans)
+      ]
+      pred_data_post <- pred_data_all[id_lulc == id_lulc_anterior, !"id_lulc"]
+    } else {
+      # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
+      pred_data_post <- self$pred_data_wide_v(
+        id_trans = id_trans,
+        id_period_anterior = id_period_post - 1
+      )
     }
 
     # Get model for this transition
@@ -170,21 +179,6 @@ predict_trans_pot <- function(
     }
 
     learner_obj <- qs2::qs_deserialize(model_blob[[1]])
-
-    if (use_prefetch) {
-      id_lulc_anterior <- viable_trans[
-        id_trans == id_sel,
-        id_lulc_anterior,
-        env = list(id_sel = id_trans)
-      ]
-      pred_data_post <- pred_data_all[id_lulc == id_lulc_anterior, !"id_lulc"]
-    } else {
-      # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
-      pred_data_post <- self$pred_data_wide_v(
-        id_trans = id_trans,
-        id_period_anterior = id_period_post - 1
-      )
-    }
 
     if (nrow(pred_data_post) == 0L) {
       warning(glue::glue(

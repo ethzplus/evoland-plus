@@ -91,6 +91,7 @@ alloc_clumpy_one_period <- function(
     on.exit(self$id_run <- id_run_init, add = TRUE)
     parent_run <- self$run_lineage[2]
     if (!is.na(parent_run)) {
+      # cannot go up from a root run
       self$id_run <- parent_run
     }
   }

@@ -148,7 +148,7 @@ expect_message(
     avoid_aggregation = FALSE,
     use_parent_trans_pot = TRUE
   ),
-  "Found trans_pot_t for all; set force=TRUE to recompute",
+  "Found trans_pot_t for id_run=3/id_trans=2/id_period=4; set force=TRUE to recompute",
   fixed = TRUE
 )
 
