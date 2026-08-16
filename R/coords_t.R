@@ -21,25 +21,20 @@ NULL
 #'   - `id_coord`: Unique ID for each coordinate pair
 #'   - `lon`: Longitude/x coordinate
 #'   - `lat`: Latitude/y coordinate
-#'   - `elevation`: Elevation (initially NULL)
-#'   - `geom_polygon`: Geometry polygon object (for grid cells)
 #' @export
 as_coords_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
       id_coord = integer(0),
       lon = numeric(0),
-      lat = numeric(0),
-      elevation = numeric(0),
-      geom_polygon = list()
+      lat = numeric(0)
     )
   }
 
   data.table::setDT(x) |>
     cast_dt_col("id_coord", "int") |>
     cast_dt_col("lon", "float") |>
-    cast_dt_col("lat", "float") |>
-    cast_dt_col("elevation", "float")
+    cast_dt_col("lat", "float")
 
   as_parquet_db_t(
     x,
@@ -57,9 +52,7 @@ validate.coords_t <- function(x, ...) {
     c(
       "id_coord",
       "lon",
-      "lat",
-      "elevation",
-      "geom_polygon"
+      "lat"
     )
   )
 
@@ -121,12 +114,6 @@ create_coords_t_square <- function(epsg, extent, resolution, ...) {
   names(base_grid_dt) <- c("lon", "lat")
 
   data.table::set(base_grid_dt, j = "id_coord", value = seq_len(nrow(base_grid_dt)))
-
-  # populate later coords-agnostically with point sampling
-  data.table::set(base_grid_dt, j = "elevation", value = NA_real_)
-
-  # skipping geom_polygon for the square case
-  data.table::set(base_grid_dt, j = "geom_polygon", value = list())
 
   # TODO make this part of constructor
   data.table::setattr(base_grid_dt, "epsg", epsg)

@@ -70,15 +70,17 @@ Only write Rcpp-free headers when the code should also compile as a standalone p
 
 ## Database
 
-- Storage is done in parquet files written and read via an in-memory DuckDB instance.
-- `R/parquet_db.R` specifies an R6 class that provides database operations to write and retrieve `data.table` objects to parquet files.
+- Storage is a DuckLake catalog held in SQLite, attached to an in-memory DuckDB instance. A database is one self-contained folder: catalog at `<path>/catalog.sqlite`, data files under `<path>/data/`. The `ducklake` and `sqlite` extensions are required to open a database at all.
+- `R/parquet_db.R` specifies an R6 class that provides database operations to write and retrieve `data.table` objects. Writes are atomic and readers get snapshot isolation, so several processes may write to one database concurrently; `$with_retry()` absorbs catalog lock contention, which DuckLake's own `ducklake_max_retry_count` does not cover.
   - `parquet_db_t` is a subclass of the `data.table` S3 class, see `R/parquet_db_utils.R`
   - `parquet_db_t` objects can hold attributes used to define
     - key columns, i.e. uniqueness columns
-    - hive partitioning columns
+    - hive partitioning columns, which are a pruning hint only
     - map columns, i.e. R list columns of named lists translated to DuckDB MAP columns
+  - Which columns serve which purpose is read from the table's `as_<table>_t()` prototype, so every constructor must return a valid empty instance when called with no arguments.
+  - DuckLake supports no constraints, keys or indexes, and `MERGE` silently inserts duplicates from a source with duplicate keys, so `$commit()` checks uniqueness explicitly before merging. It has no ENUM type either; factors are stored as strings and cast back by the `as_*_t()` constructors.
 - Domain specific database elements are in `R/evoland_db.R`; `evoland_db` inherits from `parquet_db`.
   - The schema for this database is (for now) distributed across the class definitions: all `R/*_t.R` files contain `as_*_t` class constructors using `as_parquet_db_t`.
-  - Because the parquet files may be written to from external tools, they should be considered part of the API. Schema changes should be avoided as much as possible.
+  - Because the catalog may be read and written from external tools, it should be considered part of the API. Schema changes should be avoided as much as possible.
   - Ad-hoc views are suffixed `_v` and generally exposed as active bindings, or as methods if they are parameterized.
   - Every new method must be added in `R/evoland_db.R` and _not_ with `$set`. This is because the roxygen documentation routine for R6 objects relies on all documentation being available in a single file.

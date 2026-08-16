@@ -143,7 +143,7 @@ This nicely mirrors our persistent database on disk.
 
 [^r6]: Specifically, we're creating an R6 object instead of an S3 or S4 one. This is called "encapsulated object oriented programming" (cf. [Advanced R](https://adv-r.hadley.nz/r6.html)) and you might know it from Python (e.g. `pandas_df.drop_duplicates()`).
 
-If there is no directory at `path`, we'll create a new DB: a set of parquet files following clearly defined parquet files.
+If there is no directory at `path`, we'll create a new DB: a self-contained folder holding a catalog and its data files, with clearly defined tables.
 If there _is_ a directory, we resume from where we left off.
 
 ```{r}

@@ -238,10 +238,7 @@ predict_trans_pot <- function(
 
 # check that if we already have predictions for given id_run/id_trans/id_period_post
 .has_predictions <- function(self, id_trans, id_period_post) {
-  # TODO DB internals leaking - maybe refactor? add method to check that any data are present for a
-  # given slice?
-  file_exists <- self$get_table_path("trans_pot_t") |> file.exists()
-  if (!file_exists) {
+  if (!"trans_pot_t" %in% self$list_tables()) {
     return(FALSE)
   }
 

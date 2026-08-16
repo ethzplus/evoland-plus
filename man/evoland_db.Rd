@@ -5,9 +5,8 @@
 \title{\code{evoland_db} - R6 Class for lulc data management}
 \description{
 An R6 class that provides an interface to a folder-based data storage system
-for the evoland package. Each table is stored as a parquet (or JSON) file.
-This class uses DuckDB for in-memory SQL operations while persisting data
-to disk in parquet format for better compression.
+for the evoland package. This class uses DuckDB for in-memory SQL operations
+while persisting data to a DuckLake catalog on disk.
 
 Inherits from \link{parquet_db} for generic database operations.
 }
@@ -68,9 +67,6 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
 \section{Methods}{
 \subsection{Public methods}{
   \itemize{
-    \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
-    \item \href{#method-evoland_db-adjusted_trans_pot_v}{\code{evoland_db$adjusted_trans_pot_v()}}
-    \item \href{#method-evoland_db-alloc_params_clumpy_v}{\code{evoland_db$alloc_params_clumpy_v()}}
     \item \href{#method-evoland_db-initialize}{\code{evoland_db$new()}}
     \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
     \item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
@@ -93,6 +89,9 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-get_pred_filter_score}{\code{evoland_db$get_pred_filter_score()}}
     \item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
     \item \href{#method-evoland_db-get_obs_trans_rates}{\code{evoland_db$get_obs_trans_rates()}}
+    \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
+    \item \href{#method-evoland_db-adjusted_trans_pot_v}{\code{evoland_db$adjusted_trans_pot_v()}}
+    \item \href{#method-evoland_db-alloc_params_clumpy_v}{\code{evoland_db$alloc_params_clumpy_v()}}
     \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
   }
 }
@@ -105,44 +104,11 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="fetch"><a href='../../evoland/html/parquet_db.html#method-parquet_db-fetch'><code>parquet_db$fetch()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_query"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_query'><code>parquet_db$get_query()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_metadata"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_metadata'><code>parquet_db$get_table_metadata()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_path"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_path'><code>parquet_db$get_table_path()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="list_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-list_tables'><code>parquet_db$list_tables()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="row_count"><a href='../../evoland/html/parquet_db.html#method-parquet_db-row_count'><code>parquet_db$row_count()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="with_retry"><a href='../../evoland/html/parquet_db.html#method-parquet_db-with_retry'><code>parquet_db$with_retry()</code></a></span></li>
 </ul>
 </details>}}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
-\subsection{\code{evoland_db$trans_rates_dinamica_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$trans_rates_dinamica_v(id_period)}
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-adjusted_trans_pot_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-adjusted_trans_pot_v}{}}}
-\subsection{\code{evoland_db$adjusted_trans_pot_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$adjusted_trans_pot_v(id_period_post)}
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-alloc_params_clumpy_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-alloc_params_clumpy_v}{}}}
-\subsection{\code{evoland_db$alloc_params_clumpy_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$alloc_params_clumpy_v()}
-    \if{html}{\out{</div>}}
-  }
-}
-
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-initialize"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-initialize}{}}}
@@ -696,6 +662,39 @@ to select model for extrapolation}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$get_obs_trans_rates()}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
+\subsection{\code{evoland_db$trans_rates_dinamica_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$trans_rates_dinamica_v(id_period)}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-adjusted_trans_pot_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-adjusted_trans_pot_v}{}}}
+\subsection{\code{evoland_db$adjusted_trans_pot_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$adjusted_trans_pot_v(id_period_post)}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-alloc_params_clumpy_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-alloc_params_clumpy_v}{}}}
+\subsection{\code{evoland_db$alloc_params_clumpy_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$alloc_params_clumpy_v()}
     \if{html}{\out{</div>}}
   }
 }

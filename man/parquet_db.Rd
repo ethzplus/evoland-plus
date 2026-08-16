@@ -2,12 +2,16 @@
 % Please edit documentation in R/parquet_db.R
 \name{parquet_db}
 \alias{parquet_db}
-\title{R6 Base Class for Parquet-Backed DuckDB Storage}
+\title{R6 Base Class for DuckLake-Backed Storage}
 \description{
 A domain-agnostic R6 class that provides an interface to a folder-based data
-storage system using DuckDB for in-memory SQL operations and parquet files
-for efficient on-disk persistence. This class can be inherited by
+storage system. An in-memory DuckDB instance attaches a DuckLake catalog held
+in SQLite, so that writes are atomic and readers see snapshot-isolated data
+even while other processes are writing. This class can be inherited by
 domain-specific database classes.
+
+A database is one self-contained folder: the catalog lives at
+\verb{<path>/catalog.sqlite} and the data files at \verb{<path>/data/}.
 }
 \section{Public fields}{
   \if{html}{\out{<div class="r6-fields">}}
@@ -16,9 +20,13 @@ domain-specific database classes.
 
     \item{\code{path}}{Character string path to the data folder}
 
-    \item{\code{writeopts}}{Write options for DuckDB parquet output}
+    \item{\code{catalog}}{Character string naming the attached DuckLake catalog}
 
-    \item{\code{read_only}}{If true, prevents writes that are not parallel-safe}
+    \item{\code{read_only}}{If true, the catalog is attached read-only}
+
+    \item{\code{retry_max}}{Integer, how often \code{with_retry()} retries a contended write}
+
+    \item{\code{retry_wait}}{Numeric, base wait in seconds for \code{with_retry()}'s backoff}
   }
   \if{html}{\out{</div>}}
 }
@@ -28,6 +36,7 @@ domain-specific database classes.
     \item \href{#method-parquet_db-initialize}{\code{parquet_db$new()}}
     \item \href{#method-parquet_db-execute}{\code{parquet_db$execute()}}
     \item \href{#method-parquet_db-get_query}{\code{parquet_db$get_query()}}
+    \item \href{#method-parquet_db-with_retry}{\code{parquet_db$with_retry()}}
     \item \href{#method-parquet_db-row_count}{\code{parquet_db$row_count()}}
     \item \href{#method-parquet_db-column_max}{\code{parquet_db$column_max()}}
     \item \href{#method-parquet_db-list_tables}{\code{parquet_db$list_tables()}}
@@ -36,7 +45,6 @@ domain-specific database classes.
     \item \href{#method-parquet_db-delete_from}{\code{parquet_db$delete_from()}}
     \item \href{#method-parquet_db-commit}{\code{parquet_db$commit()}}
     \item \href{#method-parquet_db-print}{\code{parquet_db$print()}}
-    \item \href{#method-parquet_db-get_table_path}{\code{parquet_db$get_table_path()}}
     \item \href{#method-parquet_db-get_read_expr}{\code{parquet_db$get_read_expr()}}
     \item \href{#method-parquet_db-clone}{\code{parquet_db$clone()}}
   }
@@ -48,15 +56,21 @@ domain-specific database classes.
   Initialize a new parquet_db object
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{parquet_db$new(path, read_only = FALSE, extensions = character(0))}
+    \preformatted{parquet_db$new(
+  path,
+  read_only = FALSE,
+  extensions = character(0),
+  catalog = "db"
+)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{path}}{Character string. Path to the data folder.}
-      \item{\code{read_only}}{Logical. If true, prevents writes that are not parallel-safe.}
-      \item{\code{extensions}}{Character vector of DuckDB extensions to load (e.g., "spatial")}
+      \item{\code{read_only}}{Logical. If true, the catalog is attached read-only.}
+      \item{\code{extensions}}{Character vector of additional DuckDB extensions to load}
+      \item{\code{catalog}}{Character string naming the attached catalog}
     }
     \if{html}{\out{</div>}}
   }
@@ -91,7 +105,8 @@ domain-specific database classes.
 \if{html}{\out{<a id="method-parquet_db-get_query"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-get_query}{}}}
 \subsection{\code{parquet_db$get_query()}}{
-  Execute a SQL query and return results
+  Execute a SQL query and return results. Reads contend for the catalog
+lock just as writes do, so they are retried on the same terms.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{parquet_db$get_query(statement)}
@@ -106,6 +121,33 @@ domain-specific database classes.
   }
   \subsection{Returns}{
     A data.table with query results
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-parquet_db-with_retry"></a>}}
+\if{latex}{\out{\hypertarget{method-parquet_db-with_retry}{}}}
+\subsection{\code{parquet_db$with_retry()}}{
+  Retry a write in the face of catalog lock contention. DuckLake's own
+\code{ducklake_max_retry_count} covers logical snapshot conflicts, but not
+contention on the SQLite catalog file itself; uncoordinated writers need
+this wrapper to all get through. Only transient locking errors are
+retried, with exponential backoff and jitter; anything else is re-raised
+immediately.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{parquet_db$with_retry(fn)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{fn}}{A zero-argument function performing the write}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The value of \code{fn()}
   }
 }
 
@@ -160,7 +202,7 @@ returns 0 if table does not exist
 \if{html}{\out{<a id="method-parquet_db-list_tables"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-list_tables}{}}}
 \subsection{\code{parquet_db$list_tables()}}{
-  List all tables (files and folders) in storage
+  List all tables in storage
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{parquet_db$list_tables()}
@@ -188,7 +230,6 @@ returns 0 if table does not exist
       \item{\code{cols}}{SQL column selection string (e.g., "col1, col2" or "*")}
       \item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
       \item{\code{limit}}{Integer. Optional limit on number of rows to return.}
-      \item{\code{map_cols}}{Vector of columns to be converted from key/value structs to R lists}
     }
     \if{html}{\out{</div>}}
   }
@@ -201,7 +242,7 @@ returns 0 if table does not exist
 \if{html}{\out{<a id="method-parquet_db-get_table_metadata"></a>}}
 \if{latex}{\out{\hypertarget{method-parquet_db-get_table_metadata}{}}}
 \subsection{\code{parquet_db$get_table_metadata()}}{
-  Get table metadata
+  Get table metadata, stored as a comment on the catalog table
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{parquet_db$get_table_metadata(table_name)}
@@ -247,10 +288,9 @@ returns 0 if table does not exist
 \if{latex}{\out{\hypertarget{method-parquet_db-commit}{}}}
 \subsection{\code{parquet_db$commit()}}{
   Commit data using overwrite, append, or upsert modes. Handles partitioning,
-key identity columns, and list-to-MAP conversion. These four
-special column types may be passed as attributes to the \code{x} argument. If the
-table has previously been written to, these settings are recovered from the
-parquet metadata.
+key identity columns, and list-to-MAP conversion. Which columns serve which
+purpose is read from the table's \verb{as_<table_name>()} prototype where one
+exists, and otherwise from \code{x}'s attributes or the stored table metadata.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{parquet_db$commit(x, table_name, method = c("overwrite", "append", "upsert"))}
@@ -263,8 +303,7 @@ parquet metadata.
 in-DuckDB-memory table or view name.}
       \item{\code{table_name}}{Target table name to commit to.}
       \item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
-update for existing rows, and insert for new rows; this necessitates loading the
-full data into memory to know what to update. This may be expensive.}
+update for existing rows, and insert for new rows).}
     }
     \if{html}{\out{</div>}}
   }
@@ -293,28 +332,6 @@ full data into memory to know what to update. This may be expensive.}
   }
   \subsection{Returns}{
     self (invisibly)
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-parquet_db-get_table_path"></a>}}
-\if{latex}{\out{\hypertarget{method-parquet_db-get_table_path}{}}}
-\subsection{\code{parquet_db$get_table_path()}}{
-  Get file path (or directory path) for a table
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{parquet_db$get_table_path(table_name)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{table_name}}{Character string table name}
-    }
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Returns}{
-    Character path
   }
 }
 

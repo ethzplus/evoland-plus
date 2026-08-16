@@ -5,9 +5,7 @@ coords <-
   data.table::data.table(
     id_coord = 1:5,
     lon = c(0, 0, 0, 100, 200),
-    lat = c(0, 10, 20, 0, 0),
-    elevation = 0,
-    geom_polygon = list()
+    lat = c(0, 10, 20, 0, 0)
   ) |>
   as_coords_t()
 
@@ -61,9 +59,7 @@ coords_dense <-
   data.table::data.table(
     id_coord = 1:3,
     lon = c(0, 0.1, 0.2),
-    lat = c(0, 0.1, 0.2),
-    elevation = 0,
-    geom_polygon = list()
+    lat = c(0, 0.1, 0.2)
   ) |>
   as_coords_t()
 
@@ -82,9 +78,7 @@ coords_bound <-
   data.table::data.table(
     id_coord = 1:2,
     lon = c(99, 101),
-    lat = c(0, 0),
-    elevation = 0,
-    geom_polygon = list()
+    lat = c(0, 0)
   ) |>
   as_coords_t()
 

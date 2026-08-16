@@ -1,10 +1,14 @@
-#' R6 Base Class for Parquet-Backed DuckDB Storage
+#' R6 Base Class for DuckLake-Backed Storage
 #'
 #' @description
 #' A domain-agnostic R6 class that provides an interface to a folder-based data
-#' storage system using DuckDB for in-memory SQL operations and parquet files
-#' for efficient on-disk persistence. This class can be inherited by
+#' storage system. An in-memory DuckDB instance attaches a DuckLake catalog held
+#' in SQLite, so that writes are atomic and readers see snapshot-isolated data
+#' even while other processes are writing. This class can be inherited by
 #' domain-specific database classes.
+#'
+#' A database is one self-contained folder: the catalog lives at
+#' `<path>/catalog.sqlite` and the data files at `<path>/data/`.
 #'
 #' @export
 
@@ -19,43 +23,70 @@ parquet_db <- R6::R6Class(
     #' @field path Character string path to the data folder
     path = NULL,
 
-    #' @field writeopts Write options for DuckDB parquet output
-    writeopts = "format parquet, compression zstd",
+    #' @field catalog Character string naming the attached DuckLake catalog
+    catalog = NULL,
 
-    #' @field read_only If true, prevents writes that are not parallel-safe
+    #' @field read_only If true, the catalog is attached read-only
     read_only = NULL,
+
+    #' @field retry_max Integer, how often `with_retry()` retries a contended write
+    retry_max = 20L,
+
+    #' @field retry_wait Numeric, base wait in seconds for `with_retry()`'s backoff
+    retry_wait = 0.1,
 
     #' @description
     #' Initialize a new parquet_db object
     #' @param path Character string. Path to the data folder.
-    #' @param read_only Logical. If true, prevents writes that are not parallel-safe.
-    #' @param extensions Character vector of DuckDB extensions to load (e.g., "spatial")
+    #' @param read_only Logical. If true, the catalog is attached read-only.
+    #' @param extensions Character vector of additional DuckDB extensions to load
+    #' @param catalog Character string naming the attached catalog
     #'
     #' @return A new `parquet_db` object
     initialize = function(
       path,
       read_only = FALSE,
-      extensions = character(0)
+      extensions = character(0),
+      catalog = "db"
     ) {
-      # Create folder if it doesn't exist
       self$path <- ensure_dir(path)
+      self$catalog <- catalog
+      self$read_only <- read_only
 
-      # Create in-memory connection for SQL operations.
       # `shared_home = TRUE` pins DuckDB's extension and secret storage to ~/.duckdb.
       # Stating the choice explicitly silences the storage-location message that duckdb
-      # emits whenever the location is resolved implicitly, and keeps the `spatial`
-      # extension cached across sessions instead of re-downloading it into a temporary
-      # directory on every instantiation.
+      # emits whenever the location is resolved implicitly, and keeps extensions cached
+      # across sessions instead of re-downloading them on every instantiation.
       self$connection <- DBI::dbConnect(
         duckdb::duckdb(shared_home = TRUE),
         dbdir = ":memory:"
       )
-      self$read_only <- read_only
 
-      # load extensions
-      for (ext in extensions) {
+      # ducklake and sqlite are on the critical path for opening the database at all
+      for (ext in unique(c("ducklake", "sqlite", extensions))) {
         self$execute(glue::glue("install {ext}; load {ext};"))
       }
+
+      data_path <- ensure_dir(file.path(self$path, "data"))
+      catalog_path <- file.path(self$path, "catalog.sqlite")
+
+      # DuckLake resolves logical snapshot conflicts itself; catalog lock contention
+      # is handled by with_retry()
+      self$execute("set ducklake_max_retry_count = 40")
+
+      self$with_retry(function() {
+        self$execute(glue::glue(
+          "attach '{attach_str}' as \"{self$catalog}\" ({options_str})",
+          attach_str = glue::glue("ducklake:sqlite:{catalog_path}"),
+          options_str = glue::glue_collapse(
+            c(
+              glue::glue("DATA_PATH '{data_path}/'"),
+              if (read_only) "READ_ONLY"
+            ),
+            sep = ", "
+          )
+        ))
+      })
 
       invisible(self)
     },
@@ -71,12 +102,14 @@ parquet_db <- R6::R6Class(
     },
 
     #' @description
-    #' Execute a SQL query and return results
+    #' Execute a SQL query and return results. Reads contend for the catalog
+    #' lock just as writes do, so they are retried on the same terms.
     #' @param statement A SQL query statement
     #' @return A data.table with query results
     get_query = function(statement) {
-      result <-
+      result <- self$with_retry(function() {
         DBI::dbGetQuery(self$connection, statement)
+      })
       # set in place
       data.table::setDT(result)
 
@@ -96,17 +129,54 @@ parquet_db <- R6::R6Class(
     },
 
     #' @description
+    #' Retry a write in the face of catalog lock contention. DuckLake's own
+    #' `ducklake_max_retry_count` covers logical snapshot conflicts, but not
+    #' contention on the SQLite catalog file itself; uncoordinated writers need
+    #' this wrapper to all get through. Only transient locking errors are
+    #' retried, with exponential backoff and jitter; anything else is re-raised
+    #' immediately.
+    #' @param fn A zero-argument function performing the write
+    #' @return The value of `fn()`
+    with_retry = function(fn) {
+      transient <- paste(
+        "database is locked",
+        "Could not set lock on file",
+        "Failed to commit DuckLake transaction",
+        sep = "|"
+      )
+
+      for (attempt in seq_len(self$retry_max)) {
+        result <- try(fn(), silent = TRUE)
+
+        if (!inherits(result, "try-error")) {
+          return(result)
+        }
+
+        condition <- attr(result, "condition")
+        if (
+          !grepl(transient, conditionMessage(condition)) ||
+            attempt == self$retry_max
+        ) {
+          stop(condition)
+        }
+
+        Sys.sleep(stats::runif(1L, 0, self$retry_wait * 2^(attempt - 1L)))
+      }
+    },
+
+    #' @description
     #' Get row count for a table (without applying id_run subsetting); returns 0
     #' if table does not exist
     #' @param table_name Character string. Name of the table to query.
     #' @return Integer number of rows
     row_count = function(table_name) {
-      table_path <- self$get_table_path(table_name)
-      if (!file.exists(table_path)) {
+      if (!table_name %in% self$list_tables()) {
         return(0L)
       }
 
-      self$get_query(glue::glue("select count(*) from '{table_path}'"))[[1]]
+      self$get_query(glue::glue(
+        "select count(*) from {private$table_ref(table_name)}"
+      ))[[1]]
     },
 
     #' @description
@@ -116,21 +186,24 @@ parquet_db <- R6::R6Class(
     #' @param column_name Character string. Name of the column to get the maximum value for.
     #' @return Maximum value of the column
     column_max = function(table_name, column_name) {
-      table_path <- self$get_table_path(table_name)
-      if (!file.exists(table_path)) {
+      if (!table_name %in% self$list_tables()) {
         return(0L)
       }
 
-      self$get_query(glue::glue('select max("{column_name}") from "{table_path}"'))[[1]]
+      self$get_query(glue::glue(
+        'select max("{column_name}") from {private$table_ref(table_name)}'
+      ))[[1]]
     },
 
     #' @description
-    #' List all tables (files and folders) in storage
+    #' List all tables in storage
     #' @return Character vector of table names
     list_tables = function() {
-      list.files(self$path, pattern = "\\.parquet$", full.names = FALSE) |>
-        tools::file_path_sans_ext() |>
-        sort()
+      self$get_query(glue::glue(
+        "select table_name from information_schema.tables
+         where table_catalog = '{self$catalog}'
+         order by table_name"
+      ))[[1]]
     },
 
     #' @description
@@ -139,7 +212,6 @@ parquet_db <- R6::R6Class(
     #' @param cols SQL column selection string (e.g., "col1, col2" or "*")
     #' @param where Character string. Optional WHERE clause for the SQL query.
     #' @param limit Integer. Optional limit on number of rows to return.
-    #' @param map_cols Vector of columns to be converted from key/value structs to R lists
     #'
     #' @return A data.table
     fetch = function(
@@ -148,12 +220,12 @@ parquet_db <- R6::R6Class(
       where = NULL,
       limit = NULL
     ) {
-      if (!file.exists(table_path <- self$get_table_path(table_name))) {
-        stop("Table `", table_name, "` does not exist at `", table_path, "`")
+      if (!table_name %in% self$list_tables()) {
+        stop("Table `", table_name, "` does not exist in `", self$path, "`")
       }
 
-      metadata <- private$read_parquet_metadata(table_path)
-      map_cols <- resolve_cols(NULL, metadata, "map_cols")
+      metadata <- self$get_table_metadata(table_name)
+      map_cols <- private$col_specs(table_name)[["map_cols"]]
       if (!is.null(cols)) {
         map_cols <- intersect(cols, map_cols)
       }
@@ -175,7 +247,7 @@ parquet_db <- R6::R6Class(
       res <- self$get_query(sql)
 
       # convert MAP columns back to list-columns if needed
-      if (!is.null(map_cols) && nrow(res) > 0) {
+      if (length(map_cols) > 0 && nrow(res) > 0) {
         res <- convert_list_cols(res, map_cols, kv_df_to_list)
       }
 
@@ -187,15 +259,20 @@ parquet_db <- R6::R6Class(
     },
 
     #' @description
-    #' Get table metadata
+    #' Get table metadata, stored as a comment on the catalog table
     #' @param table_name Character string. Name of the table to query.
     #' @return Named list
     get_table_metadata = function(table_name) {
-      table_path <- self$get_table_path(table_name)
-      if (!file.exists(table_path)) {
+      if (!table_name %in% self$list_tables()) {
         stop("Table `", table_name, "` does not exist")
       }
-      private$read_parquet_metadata(table_path)
+
+      comment <- self$get_query(glue::glue(
+        "select comment from duckdb_tables()
+         where database_name = '{self$catalog}' and table_name = '{table_name}'"
+      ))[[1]]
+
+      deserialize_metadata(comment)
     },
 
     #' @description
@@ -205,55 +282,30 @@ parquet_db <- R6::R6Class(
     #' @return Number of rows deleted
     delete_from = function(table_name, where = NULL) {
       stopifnot(!self$read_only)
-      table_path <- self$get_table_path(table_name)
 
-      if (!file.exists(table_path)) {
+      if (!table_name %in% self$list_tables()) {
         return(0L)
       }
 
-      count_before <- self$row_count(table_name)
+      where_clause <- if (is.null(where)) "" else glue::glue("where {where}")
 
-      if (is.null(where)) {
-        unlink(table_path, recursive = TRUE)
-        return(count_before)
-      }
-
-      # Preserve existing metadata
-      metadata_existing <- private$read_parquet_metadata(table_path)
-      partition_clause <- resolve_partition_clause(NULL, metadata_existing)
-      metadata_clause <- resolve_metadata_clause(NULL, metadata_existing)
-
-      self$execute(glue::glue(
-        r"{
-        copy (
-          select * from '{table_path}'
-          where not ({where})
-        )
-        to '{table_path}' (
-          {self$writeopts}
-          {metadata_clause}
-          {partition_clause}
-        )
-        }"
-      ))
-
-      count_after <- self$row_count(table_name)
-
-      return(count_before - count_after)
+      self$with_retry(function() {
+        self$execute(glue::glue(
+          "delete from {private$table_ref(table_name)} {where_clause}"
+        ))
+      })
     },
 
     #' @description
     #' Commit data using overwrite, append, or upsert modes. Handles partitioning,
-    #' key identity columns, and list-to-MAP conversion. These four
-    #' special column types may be passed as attributes to the `x` argument. If the
-    #' table has previously been written to, these settings are recovered from the
-    #' parquet metadata.
+    #' key identity columns, and list-to-MAP conversion. Which columns serve which
+    #' purpose is read from the table's `as_<table_name>()` prototype where one
+    #' exists, and otherwise from `x`'s attributes or the stored table metadata.
     #' @param x If data.table, the data to commit. If character, treated as an
     #' in-DuckDB-memory table or view name.
     #' @param table_name Target table name to commit to.
     #' @param method Character, one of "overwrite", "append", "upsert" (upsert being an
-    #' update for existing rows, and insert for new rows; this necessitates loading the
-    #' full data into memory to know what to update. This may be expensive.
+    #' update for existing rows, and insert for new rows).
     #' @return Number of rows written
     commit = function(
       x,
@@ -262,37 +314,27 @@ parquet_db <- R6::R6Class(
     ) {
       method <- match.arg(method)
 
-      table_path <- self$get_table_path(table_name)
+      specs <- private$col_specs(table_name, x)
       on.exit(private$cleanup_new_data_v(), add = TRUE)
+      all_new_cols <- private$register_new_data_v(x, specs[["map_cols"]])
 
-      if (method == "overwrite" || !file.exists(table_path)) {
+      table_exists <- table_name %in% self$list_tables()
+      metadata <- private$resolve_metadata(
+        x,
+        if (table_exists) self$get_table_metadata(table_name) else list()
+      )
+
+      if (method == "overwrite" || !table_exists) {
         stopifnot(!self$read_only)
-        # explicit overwrite or first write: only retrieve
-        private$register_new_data_v(x, map_cols = resolve_cols(x, attr = "map_cols"))
-
-        return(private$commit_overwrite(
-          table_path = table_path,
-          partition_clause = resolve_partition_clause(x),
-          metadata_clause = resolve_metadata_clause(x)
-        ))
+        return(private$commit_overwrite(table_name, specs, metadata))
       }
 
-      # fmt: skip
-      {
-        # schema/pre-existing metadata takes precedence
-        metadata_existing  <- private$read_parquet_metadata(table_path)
-        map_cols           <- resolve_cols(x, metadata_existing, "map_cols")
-        key_cols           <- resolve_cols(x, metadata_existing, "key_cols")
-        alternate_key_cols <- resolve_cols(x, metadata_existing, "alternate_key_cols")
-        partition_cols     <- resolve_cols(x, metadata_existing, "partition_cols")
-        partition_clause   <- resolve_partition_clause(x, metadata_existing)
-        metadata_clause    <- resolve_metadata_clause(x, metadata_existing)
-        all_new_cols       <- private$register_new_data_v(x, map_cols)
-      }
-
-      if (method == "append" || length(key_cols) == 0L) {
+      if (method == "append" || length(specs[["key_cols"]]) == 0L) {
         # if there are no key columns to join on, upsert becomes append
-        if (length(key_cols) && getOption("evoland.parquet_db_append_warning", TRUE)) {
+        if (
+          length(specs[["key_cols"]]) &&
+            getOption("evoland.parquet_db_append_warning", TRUE)
+        ) {
           warning(
             "!! No uniqueness checks are performed when appending.\n",
             "  Only use if you need high speed _and_ know you're not introducing duplicates\n",
@@ -300,23 +342,11 @@ parquet_db <- R6::R6Class(
             "  Set option 'evoland.parquet_db_append_warning' to FALSE to disable this warning."
           )
         }
-        private$commit_append(
-          table_path = table_path,
-          partition_clause = partition_clause,
-          metadata_clause = metadata_clause
-        )
-      } else {
-        stopifnot(!self$read_only)
-        private$commit_upsert(
-          table_path = table_path,
-          all_new_cols = all_new_cols,
-          key_cols = key_cols,
-          alternate_key_cols = alternate_key_cols,
-          partition_cols = partition_cols,
-          partition_clause = partition_clause,
-          metadata_clause = metadata_clause
-        )
+        return(private$commit_append(table_name, metadata))
       }
+
+      stopifnot(!self$read_only)
+      private$commit_upsert(table_name, all_new_cols, specs, metadata)
     },
 
     #' @description
@@ -375,7 +405,7 @@ parquet_db <- R6::R6Class(
 
       # Basic DB descriptors
       cat("\n | Database:", self$path)
-      cat("\n | Write Options:", self$writeopts)
+      cat("\n | Read Only:", self$read_only)
       if (length(subheaders) > 0) {
         cat("\n |", paste(subheaders, collapse = "\n | "))
       }
@@ -410,18 +440,11 @@ parquet_db <- R6::R6Class(
       invisible(self)
     },
 
-    #' @description Get file path (or directory path) for a table
-    #' @param table_name Character string table name
-    #' @return Character path
-    get_table_path = function(table_name) {
-      file.path(self$path, paste0(table_name, ".parquet"))
-    },
-
     #' @description Get SQL expression to read a table
     #' @param table_name Character string table name
     #' @return Character string SQL expression
     get_read_expr = function(table_name) {
-      paste0("'", self$get_table_path(table_name), "'")
+      private$table_ref(table_name)
     }
   ),
 
@@ -435,118 +458,146 @@ parquet_db <- R6::R6Class(
       }
     },
 
+    # fully qualified, quoted reference to a table in the attached catalog
+    table_ref = function(table_name) {
+      glue::glue('"{self$catalog}"."{table_name}"')
+    },
+
     ### Commit Methods ----
 
-    # overwrites table_path with pre-registered data from new_data_v
-    commit_overwrite = function(
-      table_path,
-      partition_clause,
-      metadata_clause
-    ) {
-      if (nzchar(partition_clause)) {
-        # duckdb overwrite leaves empty partition folders in place, do it cleanly
-        unlink(table_path, recursive = TRUE)
-      }
+    # replace table_name wholesale with pre-registered data from new_data_v
+    commit_overwrite = function(table_name, specs, metadata) {
+      table_ref <- private$table_ref(table_name)
 
-      self$execute(glue::glue(
-        r"{
-        copy ( from new_data_v ) to '{table_path}' (
-          {self$writeopts}
-          {metadata_clause}
-          {partition_clause}
-        )
-        }"
-      ))
+      # one transaction, so that a concurrent reader never observes the table
+      # in its intermediate, empty state
+      rows <- self$with_retry(function() {
+        self$execute("begin transaction")
+        on.exit(try(self$execute("rollback"), silent = TRUE), add = TRUE)
+
+        # create the table empty first, so that partitioning is already in
+        # effect for the initial batch of rows
+        self$execute(glue::glue(
+          "create or replace table {table_ref} as from new_data_v limit 0"
+        ))
+
+        # partitioning is a pruning hint only; set it once, at table creation
+        if (length(specs[["partition_cols"]])) {
+          self$execute(glue::glue(
+            "alter table {table_ref}
+             set partitioned by ({cols_to_select_expr(specs[['partition_cols']])})"
+          ))
+        }
+
+        inserted <- self$execute(glue::glue(
+          "insert into {table_ref} by name (from new_data_v)"
+        ))
+
+        self$execute("commit")
+        on.exit(NULL)
+
+        inserted
+      })
+
+      # create or replace drops the comment carrying the metadata
+      private$write_metadata(table_name, metadata)
+
+      rows
     },
 
-    # append new_data_v to table_path; if partitioned, simply use duckdb APPEND;
-    # if not partitioned, union and rewrite whole file
-    commit_append = function(
-      table_path,
-      partition_clause,
-      metadata_clause
-    ) {
-      if (nzchar(partition_clause)) {
-        # partitioned append: simply write new data to same path with append
+    # append new_data_v to table_name; "by name" tolerates missing columns
+    commit_append = function(table_name, metadata) {
+      rows <- self$with_retry(function() {
         self$execute(glue::glue(
-          r"{
-          copy new_data_v
-          to '{table_path}' ({self$writeopts} {metadata_clause} {partition_clause}, append)
-          }"
+          "insert into {private$table_ref(table_name)} by name (from new_data_v)"
         ))
-      } else {
-        stopifnot(!self$read_only)
-        # standard append: union and rewrite file; "by name" handles missing columns
-        self$execute(glue::glue(
-          r"{
-          copy (
-            from '{table_path}'
-            union all by name
-            from new_data_v
-          )
-          to '{table_path}' ({self$writeopts} {metadata_clause})
-          }"
-        ))
-      }
+      })
+
+      private$write_metadata(table_name, metadata)
+
+      rows
     },
 
-    commit_upsert = function(
-      all_new_cols,
-      key_cols,
-      alternate_key_cols,
-      table_path,
-      partition_cols,
-      partition_clause,
-      metadata_clause
-    ) {
-      private$create_old_data_t(table_path, key_cols, alternate_key_cols)
-      on.exit(self$execute("drop table old_data_t"), add = TRUE)
+    commit_upsert = function(table_name, all_new_cols, specs, metadata) {
+      key_cols <- specs[["key_cols"]]
+      alternate_key_cols <- specs[["alternate_key_cols"]]
 
-      # Load entire table or touched partitions into memory
-      semi_join <- if (length(partition_cols)) {
-        glue::glue(
-          "semi join (",
-          "  select distinct {cols_to_select_expr(partition_cols)} from new_data_v",
-          ") using ({cols_to_select_expr(partition_cols)})"
-        )
-      } else {
-        ""
-      }
-      self$execute(glue::glue(
-        "insert into old_data_t from (from '{table_path}' {semi_join})"
-      ))
+      private$check_source_uniqueness(table_name, key_cols, alternate_key_cols)
 
-      # Exclude key columns; because of unique constraint, this will correctly
-      # error out on duplicates
+      # Alternate keys identify the same rows as the primary key, so they are
+      # never updated; excluding them keeps the mapping between the two intact.
       ordinary_cols <- setdiff(all_new_cols, c(key_cols, alternate_key_cols))
       update_assign_expr <- glue::glue_collapse(
         glue::glue('"{ordinary_cols}" = new_data_v."{ordinary_cols}"'),
         sep = ",\n "
       )
 
-      # Merge new_data_v into old_data_t using key_cols
-      self$execute(glue::glue(
-        r"{
-        merge into old_data_t
-        using new_data_v
-        using ({cols_to_select_expr(c(key_cols, alternate_key_cols))}) -- natural join
-        when matched then update set {update_assign_expr}
-        when not matched then insert by name
-        }"
-      ))
+      rows <- self$with_retry(function() {
+        self$execute(glue::glue(
+          r"{
+          merge into {private$table_ref(table_name)}
+          using new_data_v
+          using ({cols_to_select_expr(key_cols)}) -- natural join
+          when matched then update set {update_assign_expr}
+          when not matched then insert by name
+          }"
+        ))
+      })
 
-      if (length(partition_cols)) {
-        private$cleanup_affected_partitions(table_path, partition_cols)
+      private$write_metadata(table_name, metadata)
+
+      rows
+    },
+
+    # DuckLake supports no constraints, keys or indexes, and MERGE silently
+    # inserts duplicates when the source itself has duplicate keys. Both gaps
+    # have to be closed before the merge runs.
+    check_source_uniqueness = function(table_name, key_cols, alternate_key_cols) {
+      for (cols in list(key_cols, alternate_key_cols)) {
+        if (length(cols) == 0L) {
+          next
+        }
+        select_expr <- cols_to_select_expr(cols)
+        duplicates <- self$get_query(glue::glue(
+          "select count(*) - count(distinct ({select_expr})) from new_data_v"
+        ))[[1]]
+        if (duplicates > 0) {
+          stop(glue::glue(
+            "Duplicate key found in data to commit to `{table_name}`\n",
+            "  columns: {toString(cols)}\n",
+            "  duplicate rows: {duplicates}"
+          ))
+        }
       }
 
-      self$execute(glue::glue(
-        "copy old_data_t to '{table_path}' (
-          {self$writeopts}
-          {metadata_clause}
-          {partition_clause},
-          overwrite_or_ignore
-        )"
-      ))
+      if (length(alternate_key_cols) == 0L || length(key_cols) == 0L) {
+        return(invisible(NULL))
+      }
+
+      # An alternate key already held by a different primary key would be
+      # inserted as a duplicate, because the merge joins on the primary key only
+      key_differs <- glue::glue_collapse(
+        glue::glue('t."{key_cols}" is distinct from n."{key_cols}"'),
+        sep = " or "
+      )
+      stolen_keys <- self$get_query(glue::glue(
+        r"{
+        select count(*)
+        from {private$table_ref(table_name)} t
+        join new_data_v n using ({cols_to_select_expr(alternate_key_cols)})
+        where {key_differs}
+        }"
+      ))[[1]]
+
+      if (stolen_keys > 0) {
+        stop(glue::glue(
+          "Duplicate key found in data to commit to `{table_name}`\n",
+          "  {stolen_keys} row(s) reuse an existing {toString(alternate_key_cols)} ",
+          "under a different {toString(key_cols)}"
+        ))
+      }
+
+      invisible(NULL)
     },
 
     # register new_data_v view. If x is string, simply alias an in-memory DB object. If
@@ -558,16 +609,28 @@ parquet_db <- R6::R6Class(
         return(names)
       }
 
+      # DuckLake has no ENUM type, so factors are stored as strings; the
+      # as_<table>_t() constructors cast them back on the way out
+      factor_cols <- names(x)[vapply(x, is.factor, logical(1))]
+
+      if (length(map_cols) == 0 && length(factor_cols) == 0) {
+        # No conversion needed - register directly
+        duckdb::duckdb_register(self$connection, "new_data_v", x)
+        return(names(x))
+      }
+
+      x <- data.table::copy(x)
+      for (col in factor_cols) {
+        data.table::set(x, j = col, value = as.character(x[[col]]))
+      }
+
       if (length(map_cols) == 0) {
-        # No MAP conversion needed - register directly
         duckdb::duckdb_register(self$connection, "new_data_v", x)
         return(names(x))
       }
 
       # Convert list columns to key-value dataframes
-      x <-
-        data.table::copy(x) |>
-        convert_list_cols(map_cols, list_to_kv_df)
+      x <- convert_list_cols(x, map_cols, list_to_kv_df)
 
       # Register as intermediate table
       duckdb::duckdb_register(self$connection, "new_data_raw", x)
@@ -596,81 +659,87 @@ parquet_db <- R6::R6Class(
       invisible(NULL)
     },
 
-    # creates an old_table_t with constraints that could not be applied using CTAS syntax
-    create_old_data_t = function(table_path, key_cols, alternate_key_cols) {
-      unique_key <- if (length(key_cols)) {
-        glue::glue(", unique ({cols_to_select_expr(key_cols)})")
-      } else {
-        ""
-      }
-      unique_alt <- if (length(alternate_key_cols)) {
-        glue::glue(", unique ({cols_to_select_expr(alternate_key_cols)})")
-      } else {
-        ""
+    ### Column and Metadata Resolution ----
+
+    # Which columns are keys, maps or partitions is declared in the as_<table>_t()
+    # constructor, so an empty prototype answers the question without a round-trip
+    # through storage. Data committed to a table without a constructor falls back
+    # to attributes on the data, or to what the table was created with.
+    col_specs = function(table_name, x = NULL) {
+      prototype_fn <- paste0("as_", table_name)
+      prototype <- if (exists(prototype_fn, mode = "function")) {
+        get(prototype_fn, mode = "function")()
       }
 
-      colspecs <- self$get_query(glue::glue(
-        "select '\"' || column_name || '\" ' || column_type from (describe '{table_path}')"
-      ))[[1]]
+      stored <- if (is.null(prototype) && table_name %in% self$list_tables()) {
+        self$get_table_metadata(table_name)
+      } else {
+        list()
+      }
 
-      self$execute(glue::glue(
-        r"{
-        create table old_data_t (
-          {toString(colspecs)}
-          {unique_key}
-          {unique_alt}
+      lapply(
+        stats::setNames(
+          nm = c("key_cols", "alternate_key_cols", "map_cols", "partition_cols")
+        ),
+        function(spec) {
+          cols <-
+            attr(prototype, spec) %||%
+            attr(x, spec) %||%
+            stored[[spec]]
+          if (is.null(cols)) character(0) else cols
+        }
+      )
+    },
+
+    # Merge the atomic attributes of `x` into the metadata a table already
+    # carries. Existing metadata wins, because it cannot be safely overwritten
+    # by a partial commit; non-atomic values are dropped with a warning.
+    resolve_metadata = function(x, existing = list()) {
+      new_metadata <- attributes(x)
+
+      names_to_add <- setdiff(
+        names(new_metadata),
+        c(
+          names(existing),
+          # exclude data.table attributes
+          "class",
+          "names",
+          ".internal.selfref",
+          "row.names",
+          "sorted",
+          "index"
         )
-        }"
-      ))
+      )
+
+      out <- c(existing, new_metadata[names_to_add])
+
+      for (key in names(out)[!vapply(out, is.atomic, logical(1))]) {
+        warning(glue::glue(
+          "Metadata key '{key}' has non-atomic value; dropping metadata"
+        ))
+      }
+      out <- Filter(is.atomic, out)
+
+      if (inherits(x, "parquet_db_t")) {
+        out[["parquet_db_t_class"]] <- class(x)[1L]
+      }
+
+      out
     },
 
-    # read parquet metadata as named list; if no metadata or no file, return empty list
-    read_parquet_metadata = function(table_path) {
-      if (!file.exists(table_path)) {
-        return(list())
-      }
+    write_metadata = function(table_name, metadata) {
+      comment <- serialize_metadata(metadata)
 
-      if (dir.exists(table_path)) {
-        # need to glob if partitioned
-        path <- glue::glue("{table_path}/**/*.parquet")
-      } else {
-        path <- table_path
-      }
-
-      x <- self$get_query(glue::glue(
-        "select distinct key, value from parquet_kv_metadata('{path}')"
-      ))
-
-      read_raw <- function(y) {
-        y |>
-          rawToChar() |>
-          strsplit(", ") |>
-          (\(z) z[[1]])() |>
-          gsub('\\"', "", x = _) |>
-          utils::type.convert(as.is = TRUE)
-      }
-      result <- lapply(x[["value"]], read_raw)
-      names(result) <- vapply(x[["key"]], read_raw, character(1))
-
-      result
-    },
-
-    # clean up partitions folders affected by a pending upsert
-    cleanup_affected_partitions = function(table_path, partition_cols) {
-      # manually delete all files in affected partition folders
-      # overwrite_or_ignore does not reliably delete full partitions:
-      # https://github.com/duckdb/duckdb/issues/10282 might fix this
-      # overwrite deletes everything and only rewrites touched partitions.
-      affected_partitions <- self$get_query(glue::glue(
-        "select distinct {cols_to_select_expr(partition_cols)} from new_data_v",
-        partition_cols = partition_cols
-      ))
-
-      apply(affected_partitions, 1, function(row) {
-        paste0(names(row), "=", row, collapse = .Platform$file.sep)
-      }) |>
-        file.path(table_path, partition_dir = _) |>
-        unlink(recursive = TRUE)
+      self$with_retry(function() {
+        self$execute(glue::glue(
+          "comment on table {private$table_ref(table_name)} is {quoted}",
+          quoted = if (nzchar(comment)) {
+            paste0("'", gsub("'", "''", comment), "'")
+          } else {
+            "NULL"
+          }
+        ))
+      })
     }
   )
 )

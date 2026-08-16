@@ -477,7 +477,7 @@ fit_full_models <- function(
       "select_score must be a character string" = is.character(select_score) &&
         length(select_score) == 1L,
       "select_maximize must be TRUE or FALSE" = isTRUE(select_maximize) || isFALSE(select_maximize),
-      "trans_models_t is missing" = file.exists(self$get_table_path("trans_models_t"))
+      "trans_models_t is missing" = self$row_count("trans_models_t") > 0L
     )
 
     # Identify the best partial model per transition (using QUALIFY window function)

@@ -195,35 +195,19 @@ set_neighbors <- function(
   n_neighbors <- nrow(neighbors)
   chunksize <- min(chunksize, n_neighbors)
 
-  if (n_neighbors > 0) {
-    # Use a temporary prefix for the chunked files
-    temp_prefix <- "neighbors_t_temp"
-    n_chunks <- ceiling(n_neighbors / chunksize)
+  # chunks are disjoint slices of a table that is unique by construction
+  previous_warning_option <- options(evoland.parquet_db_append_warning = FALSE)
+  on.exit(options(previous_warning_option), add = TRUE)
 
-    for (i in seq_len(n_chunks)) {
-      slice_start <- (i - 1) * chunksize + 1
-      slice_end <- min(i * chunksize, n_neighbors)
+  for (i in seq_len(ceiling(n_neighbors / chunksize))) {
+    slice_start <- (i - 1) * chunksize + 1
+    slice_end <- min(i * chunksize, n_neighbors)
 
-      # Write each chunk to a separate parquet file using overwrite
-      self$commit(
-        as_neighbors_t(neighbors[slice_start:slice_end, ]),
-        table_name = paste0(temp_prefix, "_", i),
-        method = "overwrite"
-      )
-    }
-
-    # Remove the large object from memory and collect garbage
-    rm(neighbors)
-    gc()
-
-    # Gather all temporary parquet files into the final large file using DuckDB
-    self$execute(glue::glue(
-      "copy (
-        select * from read_parquet('{self$path}/{temp_prefix}_*.parquet')
-      ) to '{self$path}/neighbors_t.parquet' ({self$writeopts})"
-    ))
-
-    unlink(list.files(self$path, pattern = temp_prefix, full.names = TRUE))
+    self$commit(
+      as_neighbors_t(neighbors[slice_start:slice_end, ]),
+      table_name = "neighbors_t",
+      method = if (i == 1L) "overwrite" else "append"
+    )
   }
 
   message(glue::glue("Computed {n_neighbors} neighbor relationships"))

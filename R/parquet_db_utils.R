@@ -157,98 +157,46 @@ validate.parquet_db_t <- function(x, ...) {
 }
 
 
-#' @describeIn parquet_db_utils Resolves which columns to use for key, map,
-#' partition, etc.; pre-existing schema takes precedence.
-#' @param x The data to be committed.
-#' @param metadata The metadata to be committed, as returned by [parquet_db] `$get_table_metadata()`
-#' @param attr The column function to resolve, e.g. "alternate_key_cols", "map_cols", "key_cols".
+#' @describeIn parquet_db_utils Serialize a named list of atomic vectors into the
+#' single string that [parquet_db] stores as a comment on the catalog table. Each
+#' entry becomes one line, `key: "value1", "value2"`.
+#' @param metadata Named list of atomic vectors.
 #' @keywords internal
-resolve_cols <- function(x, metadata = list(), attr = character(1)) {
-  cols_metadata <- metadata[[attr]] # comes as joint csv string
-  cols_attr <- attr(x, attr)
-
-  if (!is.null(cols_metadata)) {
-    if (!is.null(cols_attr) && !setequal(cols_metadata, cols_attr)) {
-      warning(glue::glue(
-        "{attr} on disk ({toString(cols_metadata)}) takes precedence over ",
-        "attributes ({toString(cols_attr)}) for this commit"
-      ))
-    }
-    return(cols_metadata)
-  } else if (!is.null(cols_attr)) {
-    return(cols_attr)
-  }
-
-  character(0)
-}
-
-#' @describeIn parquet_db_utils Compose partitioning clause.
-#' @keywords internal
-resolve_partition_clause <- function(x, metadata = list()) {
-  cols <- resolve_cols(x, metadata, "partition_cols")
-
-  if (length(cols) == 0) {
+serialize_metadata <- function(metadata) {
+  if (length(metadata) == 0L) {
     return("")
   }
 
-  paste(", partition_by (", cols_to_select_expr(cols), ")")
+  values <- vapply(
+    metadata,
+    function(value) paste0('"', value, '"', collapse = ", "),
+    character(1)
+  )
+
+  paste0(names(metadata), ": ", values, collapse = "\n")
 }
 
-#' @describeIn parquet_db_utils Compose metadata clause, which includes any new
-#' metadata from the data's attributes, as well as any existing metadata from
-#' the database; existing metadata cannot be safely overwritten. New metadata
-#' takes precedence over existing metadata for this commit. Any atomic vector is
-#' coerced to a quoted comma separated list of values, which are recovered in
-#' [parquet_db] `$get_table_metadata()`. Non-atomic metadata values are dropped
-#' with a warning.
+#' @describeIn parquet_db_utils Recover the named list written by
+#' [serialize_metadata()]. Values are type-converted, so that a numeric
+#' attribute survives the round-trip as a number rather than as a string.
+#' @param comment Character scalar, or NA for a table without metadata.
 #' @keywords internal
-resolve_metadata_clause <- function(x, metadata = list()) {
-  new_metadata <- attributes(x)
-
-  names_to_add <- setdiff(
-    names(new_metadata),
-    c(
-      names(metadata),
-      # exclude data.table attributes
-      "class",
-      "names",
-      ".internal.selfref",
-      "row.names",
-      "sorted",
-      "index"
-    )
-  )
-
-  # nothing to do
-  if (length(names_to_add) == 0 && length(metadata) == 0L) {
-    return("")
+deserialize_metadata <- function(comment) {
+  if (length(comment) == 0L || is.na(comment) || !nzchar(comment)) {
+    return(list())
   }
 
-  # Filter to atomic only and serialize e.g. c("a", "b") -> "\"a\", \"b\""
-  out <- c(metadata, new_metadata[names_to_add])
+  entries <- strsplit(comment, "\n", fixed = TRUE)[[1]]
+  keys <- sub(": .*$", "", entries)
+  values <- sub("^[^:]*: ", "", entries)
 
-  for (key in names(out)) {
-    val <- out[[key]]
-    if (is.atomic(val)) {
-      out[[key]] <- paste0('"', val, '"', collapse = ", ")
-    } else {
-      warning(glue::glue(
-        "Metadata key '{key}' has non-atomic value; dropping metadata"
-      ))
-      out[[key]] <- NULL
-    }
-  }
+  parsed <- lapply(values, function(value) {
+    strsplit(value, ", ", fixed = TRUE)[[1]] |>
+      gsub('^"|"$', "", x = _) |>
+      utils::type.convert(as.is = TRUE)
+  })
 
-  if (inherits(x, "parquet_db_t")) {
-    out[["parquet_db_t_class"]] <- paste0('"', class(x)[1L], '"')
-  }
-
-  kv_str <- glue::glue_collapse(
-    glue::glue("{names(out)}: '{out}'"),
-    sep = ",\n  "
-  )
-
-  glue::glue(", kv_metadata {\n  <kv_str>\n}", .open = "<", .close = ">")
+  stats::setNames(parsed, keys)
 }
 
 #' @describeIn parquet_db_utils Convert list columns by applying `fn`
@@ -331,7 +279,7 @@ create_table_binding <- function(
 
       stopifnot(inherits(x, tbl))
 
-      if (md == "overwrite" && interactive() && file.exists(self$get_table_path(tbl))) {
+      if (md == "overwrite" && interactive() && tbl %in% self$list_tables()) {
         confirm_overwrite <- utils::menu(
           c("Yes", "No"),
           title = glue::glue(
@@ -344,7 +292,7 @@ create_table_binding <- function(
       }
 
       if (md == "write_once") {
-        if (file.exists(self$get_table_path(tbl))) {
+        if (tbl %in% self$list_tables()) {
           warning(
             glue::glue(
               "Table '{tbl}' is write-once! Delete manually and write ",
