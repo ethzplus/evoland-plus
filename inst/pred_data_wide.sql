@@ -27,7 +27,7 @@ with
   anterior_coords as (
     -- we only infer the transition potential where id_coord had the anterior land cover
     -- in the previous period
-    select
+    select distinct
       id_coord,
       id_lulc
     from
