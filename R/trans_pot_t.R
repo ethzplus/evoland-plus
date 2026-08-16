@@ -99,7 +99,9 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' (not column-scaled to target rates, not row-closed to max probability of 1). Use
 #' [adjusted_trans_pot_v()] to obtain allocation-ready values. Set
 #' `options(evoland.use_prefetch_predict=TRUE)` to prefetch all predictors; this causes higher
-#' memory pressure but only needs to go to disk once.
+#' memory pressure but only needs to go to disk once. The learners have
+#' `parallel_predict` enabled, see [mlr3::Learner]: the prediction task is automatically
+#' chunked out to any [future](https://future.futureverse.org/) workers available.
 #' @param self an [evoland_db] instance
 #' @param id_period_post scalar integerish, passed to [pred_data_wide_v()]
 #' @param select_score character scalar, name of score/measure to identify best fitting model
@@ -112,7 +114,6 @@ predict_trans_pot <- function(
   select_maximize,
   force = FALSE
 ) {
-  # TODO parallelize
   .check_viable_trans_models(self, select_score) # error on missing models
 
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
@@ -122,6 +123,15 @@ predict_trans_pot <- function(
 
   if (use_prefetch) {
     # This can increase memory pressure enormously
+    has_all_predictions <- all(vapply(
+      viable_trans[, id_trans],
+      \(id) .has_predictions(self, id, id_period_post),
+      logical(1)
+    ))
+    if (has_all_predictions && !force) {
+      message("  Found trans_pot_t for all; set force=TRUE to recompute")
+      return(NULL)
+    }
     pred_data_all <- self$pred_data_wide_v(id_trans = NA, id_period_anterior = id_period_post - 1)
   }
 
