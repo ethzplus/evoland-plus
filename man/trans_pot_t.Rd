@@ -33,6 +33,8 @@ predict_trans_pot(
 \item{select_score}{character scalar, name of score/measure to identify best fitting model}
 
 \item{select_maximize}{logical scalar, whether to maximize or minimize \code{select_score}}
+
+\item{force}{logical, Force prediction even if a prediction is found}
 }
 \value{
 A data.table of class "trans_pot_t" with columns:

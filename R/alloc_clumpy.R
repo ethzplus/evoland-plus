@@ -55,7 +55,6 @@ NULL
 #' (useful when forking runs for Monte-Carlo) or read pre-written trans_pot_t values
 #'
 #' @param self An [evoland_db] instance.
-#' @param id_period_ant Integer anterior period ID.
 #' @param id_period_post Integer posterior period ID.
 #' @param select_score Character; mlr3 measure ID for model selection.
 #' @param select_maximize Logical; whether to maximise `select_score`.

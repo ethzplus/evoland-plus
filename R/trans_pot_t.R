@@ -106,6 +106,7 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' @param id_period_post scalar integerish, passed to [pred_data_wide_v()]
 #' @param select_score character scalar, name of score/measure to identify best fitting model
 #' @param select_maximize logical scalar, whether to maximize or minimize `select_score`
+#' @param force logical, Force prediction even if a prediction is found
 #' @return `predict_trans_pot()`: called for side effect; commit `trans_pot_t` to database
 predict_trans_pot <- function(
   self,

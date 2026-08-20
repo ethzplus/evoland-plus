@@ -136,7 +136,7 @@ validate.periods_t <- function(x, ...) {
   # nonproblematic if only one period
   extrap_lengths <- x[is_extrapolated == TRUE, period_length_d]
   equal_lengths <- if (length(extrap_lengths) > 1) {
-    diff(range(tail(extrap_lengths, -1))) <= 2 # can only
+    diff(range(utils::tail(extrap_lengths, -1))) <= 2 # can only
   } else {
     TRUE
   }
