@@ -187,6 +187,7 @@ predict_trans_pot <- function(
       next
     }
 
+    # if future workers are available, chunk out prediction to them
     learner_obj$parallel_predict <- TRUE
 
     # Predict probabilities; probs keeps the pred_data_post ordering

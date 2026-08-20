@@ -14,5 +14,5 @@ dependencies = [
   "httpgd",
   "languageserver",
   "profvis",
-    "qs2",
+  "qs2",
 ]
