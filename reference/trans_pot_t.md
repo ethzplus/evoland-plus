@@ -11,7 +11,13 @@ as_trans_pot_t(x)
 # S3 method for class 'trans_pot_t'
 print(x, nrow = 10, ...)
 
-predict_trans_pot(self, id_period_post, select_score, select_maximize)
+predict_trans_pot(
+  self,
+  id_period_post,
+  select_score,
+  select_maximize,
+  force = FALSE
+)
 ```
 
 ## Arguments
@@ -38,7 +44,8 @@ predict_trans_pot(self, id_period_post, select_score, select_maximize)
 
 - id_period_post:
 
-  scalar integerish, passed to `self$pred_data_wide_v()`
+  scalar integerish, passed to
+  [`pred_data_wide_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
 
 - select_score:
 
@@ -47,6 +54,10 @@ predict_trans_pot(self, id_period_post, select_score, select_maximize)
 - select_maximize:
 
   logical scalar, whether to maximize or minimize `select_score`
+
+- force:
+
+  logical, Force prediction even if a prediction is found
 
 ## Value
 
@@ -63,8 +74,8 @@ A data.table of class "trans_pot_t" with columns:
 
 - `value`: Map of model (hyper) parameters
 
-A `trans_pot_t` object (invisibly); the same data are committed to the
-DB.
+`predict_trans_pot()`: called for side effect; commit `trans_pot_t` to
+database
 
 ## Methods (by generic)
 
@@ -73,10 +84,17 @@ DB.
 
 ## Functions
 
-- `predict_trans_pot()`: For each viable transition, predict the raw
-  transition potential for a given period and store it in `trans_pot_t`
-  in the database. Raw potentials are per-transition MLR3 model
-  probabilities; they are **not** yet allocation-ready (not
-  column-scaled to target rates, not row-closed). Use
+- `predict_trans_pot()`: For each viable transition in current `id_run`,
+  predict the raw transition potential for a given period and store it
+  in `trans_pot_t` in the database. Raw potentials are per-transition
+  MLR3 model probabilities; they are **not** yet allocation-ready (not
+  column-scaled to target rates, not row-closed to max probability of
+  1). Use
   [`adjusted_trans_pot_v()`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
-  to obtain allocation-ready values.
+  to obtain allocation-ready values. Set
+  `options(evoland.use_prefetch_predict=TRUE)` to prefetch all
+  predictors; this causes higher memory pressure but only needs to go to
+  disk once. The learners have `parallel_predict` enabled, see
+  [mlr3::Learner](https://mlr3.mlr-org.com/reference/Learner.html): the
+  prediction task is automatically chunked out to any
+  [future](https://future.futureverse.org/) workers available.

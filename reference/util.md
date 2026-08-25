@@ -13,6 +13,8 @@ pluck_wildcard(lst, ...)
 
 ensure_dir(dir)
 
+require_suggested(package, purpose)
+
 print_rowwise_yaml(df)
 
 cast_dt_col(x, colname, type, levels = NULL)
@@ -39,6 +41,14 @@ cast_dt_col(x, colname, type, levels = NULL)
 - dir:
 
   Directory path to ensure exists
+
+- package:
+
+  Name of the suggested package
+
+- purpose:
+
+  What the package is needed for, completing "is required to ..."
 
 - df:
 
@@ -71,6 +81,10 @@ The indexed result, which may be a single element or a list of elements
 
 - `ensure_dir()`: Ensure that a directory exists; return its argument
   for pipeability
+
+- `require_suggested()`: Require a package that evoland only suggests,
+  failing with an actionable message rather than with the one R gives
+  for a missing namespace
 
 - `print_rowwise_yaml()`: Print a dataframe in a row-wise yaml style
 

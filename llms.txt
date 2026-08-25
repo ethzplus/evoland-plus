@@ -158,6 +158,9 @@ implementation.
   [`print(`*`<intrv_meta_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/intrv_meta_t.md)
   : Create Intervention Metadata Table / Entries
 
+- [`lp_problem`](https://ethzplus.github.io/evoland-plus/reference/lp_problem.md)
+  : R6 Class for Sparse Linear Programs
+
 - [`as_lulc_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.md)
   [`create_lulc_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.md)
   [`print(`*`<lulc_meta_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/lulc_meta_t.md)
@@ -213,10 +216,19 @@ implementation.
   [`get_pred_filter_score()`](https://ethzplus.github.io/evoland-plus/reference/trans_preds_t.md)
   : Create Transition-Predictor Relationship Table
 
+- [`trans_rate_lp`](https://ethzplus.github.io/evoland-plus/reference/trans_rate_lp.md)
+  : R6 Class for the Demand-Driven Transition Rate Program
+
+- [`trans_rate_bounds()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_solver.md)
+  [`trans_rate_reachability()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_solver.md)
+  [`solve_trans_rates()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_solver.md)
+  : Demand-driven transition rate solver
+
 - [`validate()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`` `%||%` ``](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`pluck_wildcard()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`ensure_dir()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
+  [`require_suggested()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`print_rowwise_yaml()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   [`cast_dt_col()`](https://ethzplus.github.io/evoland-plus/reference/util.md)
   : evoland utility functions

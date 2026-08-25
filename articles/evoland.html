@@ -23,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,7 @@
 <code>evoland-plus</code> tutorial</h1>
 
       <p class="author">Jan Hartman</p>
-      <p class="date">2026-07-31</p>
+      <p class="date">2026-08-25</p>
 
       <small class="dont-index">Source: <a href="https://github.com/ethzplus/evoland-plus/blob/main/vignettes/evoland.qmd" class="external-link"><code>vignettes/evoland.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
@@ -167,18 +167,7 @@ flowchart TD
 <div class="sourceCode cell-code" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/evoland_db.html">evoland_db</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>path <span class="op">=</span> <span class="st">"firstmodel.evolanddb"</span><span class="op">)</span></span></code></pre></div>
 </div>
-<details><summary>
-Messages
-</summary><pre>duckdb keeps downloaded extensions and secrets in a temporary directory:
-ℹ /tmp/RtmpwJk7bb/duckdb
-This is removed when the R session ends.
-• Extensions are re-downloaded each session.
-• Secrets are lost.
-ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-ℹ See ?duckdb_storage for details and alternatives.
-</pre>
-</details><p>Go ahead and print the <code>db</code> object. There are already a <code>runs_t</code> and a <code>reporting_t</code> table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
+<p>Go ahead and print the <code>db</code> object. There are already a <code>runs_t</code> and a <code>reporting_t</code> table, which are bare-bones for now but will be used to track our <a href="../reference/runs_t.html">modelling runs</a> and metadata for producing graphs and tables.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">db</span></span></code></pre></div>
@@ -564,8 +553,7 @@ Successfully computed 6 allocation parameter sets (6 transitions x (0 perturbati
 <code class="sourceCode R"><span><span class="va">db</span><span class="op">$</span><span class="fu">alloc_clumpy</span><span class="op">(</span></span>
 <span>  id_period <span class="op">=</span> <span class="va">db</span><span class="op">$</span><span class="va">periods_t</span><span class="op">[</span><span class="va">is_extrapolated</span> <span class="op">==</span> <span class="cn">TRUE</span>, <span class="va">id_period</span><span class="op">]</span>, <span class="co"># select all extrapolation periods</span></span>
 <span>  select_score <span class="op">=</span> <span class="st">"classif.auc"</span>,</span>
-<span>  select_maximize <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  seed <span class="op">=</span> <span class="fl">42L</span> <span class="co"># optional: reproducibility</span></span>
+<span>  select_maximize <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <details><summary>
@@ -573,18 +561,17 @@ Messages
 </summary><pre>Starting CLUMPY allocation simulation
 Periods: 4
 Run: 0
-=== Iteration 1/1 ===
-Predicting transition potential for 6 transitions
-Predicting trans 1/6 (id_trans 5)
-Predicting trans 2/6 (id_trans 7)
-Predicting trans 3/6 (id_trans 2)
-Predicting trans 4/6 (id_trans 1)
-Predicting trans 5/6 (id_trans 6)
-Predicting trans 6/6 (id_trans 3)
+=== Period 1/1 ===
+Predicting transition potential for 7 transitions
+Predicting transition 1/6 (id_trans=1)
+Predicting transition 2/6 (id_trans=3)
+Predicting transition 3/6 (id_trans=4)
+Predicting transition 4/6 (id_trans=6)
+Predicting transition 5/6 (id_trans=7)
+Predicting transition 6/6 (id_trans=10)
 Running CLUMPY allocation (uPAM): period 3 -&gt; 4
   Converting posterior vector to lulc_data_t...
   Allocated 900 cells
-Iteration 1 complete
 CLUMPY allocation complete!
 </pre>
 </details><section class="level2" data-number="4.1"><h3 data-number="4.1" id="visualization">

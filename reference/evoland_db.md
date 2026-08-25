@@ -541,7 +541,8 @@ uSAM, otherwise uPAM.
       area_dist = "lognormal",
       avoid_aggregation = TRUE,
       batch_size = 0L,
-      seed = NULL
+      use_parent_trans_pot = FALSE,
+      force_predict_trans_pot = FALSE
     )
 
 #### Arguments
@@ -576,9 +577,15 @@ uSAM, otherwise uPAM.
   auto-scales with the source pool; `> 0` is an explicit cap (`1` =
   strict uPAM); `< 0` = all candidates in one pass. Ignored for uSAM.
 
-- `seed`:
+- `use_parent_trans_pot`:
 
-  Optional integer random seed for reproducibility.
+  Logical; use the direct parent run's transition potentials (useful for
+  repeated allocation)
+
+- `force_predict_trans_pot`:
+
+  Logical; re-run prediction for trans_pot_t even if those values
+  already exist
 
 ------------------------------------------------------------------------
 
@@ -778,7 +785,7 @@ Get cross-validation plots for stored predictions, see
 
 #### Usage
 
-    evoland_db$get_crossval_plots(id_run = NULL, id_trans = NULL)
+    evoland_db$get_crossval_plots(id_run = NULL, id_trans = NULL, ...)
 
 #### Arguments
 
@@ -789,6 +796,11 @@ Get cross-validation plots for stored predictions, see
 - `id_trans`:
 
   Optional integer; filter by transition ID.
+
+- `...`:
+
+  Passed to
+  [`mlr3viz::autoplot.PredictionClassif()`](https://mlr3viz.mlr-org.com/reference/autoplot.PredictionClassif.html)
 
 ------------------------------------------------------------------------
 
@@ -863,7 +875,12 @@ to obtain column-scaled, row-closed values.
 
 #### Usage
 
-    evoland_db$predict_trans_pot(id_period_post, select_score, select_maximize)
+    evoland_db$predict_trans_pot(
+      id_period_post,
+      select_score,
+      select_maximize,
+      force = FALSE
+    )
 
 #### Arguments
 

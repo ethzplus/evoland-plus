@@ -11,7 +11,7 @@ structure for storing fitted models via the mlr3 interface."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,7 +77,7 @@ structure for storing fitted models via the mlr3 interface.</p>
 <span><span class="co"># S3 method for class 'trans_models_t'</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">get_crossval_plots</span><span class="op">(</span><span class="va">self</span>, id_run <span class="op">=</span> <span class="cn">NULL</span>, id_trans <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">get_crossval_plots</span><span class="op">(</span><span class="va">self</span>, id_run <span class="op">=</span> <span class="cn">NULL</span>, id_trans <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -144,7 +144,7 @@ rank partial models in score-select mode. Must be <code>NULL</code> when <code>l
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>ignored</p></dd>
+<dd><p>Passed to <code><a href="https://mlr3viz.mlr-org.com/reference/autoplot.PredictionClassif.html" class="external-link">mlr3viz::autoplot.PredictionClassif()</a></code></p></dd>
 
 
 <dt id="arg-id-run">id_run<a class="anchor" aria-label="anchor" href="#arg-id-run"></a></dt>
@@ -162,7 +162,9 @@ rank partial models in score-select mode. Must be <code>NULL</code> when <code>l
 <li><p><code>learner_id</code>: mlr3 twoclass <a href="https://mlr3.mlr-org.com/reference/LearnerClassif.html" class="external-link">LearnerClassif</a>
 key, e.g. <code>"classif.ranger"</code></p></li>
 <li><p><code>learner_params</code>: MAP of atomic scalar learner hyperparameters for
-querying; complete hyperparameters are captured by <code>learner_spec</code></p></li>
+querying; complete hyperparameters are captured by <code>learner_spec</code>.
+A fit that failed is recorded as a sentinel row whose <code>learner_params</code>
+holds a single <code>error_message</code> entry, and whose <code>learner_full</code> is <code>NULL</code></p></li>
 <li><p><code>learner_spec</code>: BLOB of serialized untrained mlr3 <code>Learner</code>; for
 AutoTuners, this is the optimal inner learner after tuning</p></li>
 <li><p><code>crossval_score</code>: MAP of cross-validation performance scores

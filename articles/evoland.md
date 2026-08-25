@@ -105,17 +105,6 @@ directory, we resume from where we left off.
 db <- evoland_db$new(path = "firstmodel.evolanddb")
 ```
 
-Messages
-
-    duckdb keeps downloaded extensions and secrets in a temporary directory:
-    ℹ /tmp/RtmpwJk7bb/duckdb
-    This is removed when the R session ends.
-    • Extensions are re-downloaded each session.
-    • Secrets are lost.
-    ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-    ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-    ℹ See ?duckdb_storage for details and alternatives.
-
 Go ahead and print the `db` object. There are already a `runs_t` and a
 `reporting_t` table, which are bare-bones for now but will be used to
 track our [modelling
@@ -620,8 +609,7 @@ as an external solver.
 db$alloc_clumpy(
   id_period = db$periods_t[is_extrapolated == TRUE, id_period], # select all extrapolation periods
   select_score = "classif.auc",
-  select_maximize = TRUE,
-  seed = 42L # optional: reproducibility
+  select_maximize = TRUE
 )
 ```
 
@@ -630,18 +618,17 @@ Messages
     Starting CLUMPY allocation simulation
     Periods: 4
     Run: 0
-    === Iteration 1/1 ===
-    Predicting transition potential for 6 transitions
-    Predicting trans 1/6 (id_trans 5)
-    Predicting trans 2/6 (id_trans 7)
-    Predicting trans 3/6 (id_trans 2)
-    Predicting trans 4/6 (id_trans 1)
-    Predicting trans 5/6 (id_trans 6)
-    Predicting trans 6/6 (id_trans 3)
+    === Period 1/1 ===
+    Predicting transition potential for 7 transitions
+    Predicting transition 1/6 (id_trans=1)
+    Predicting transition 2/6 (id_trans=3)
+    Predicting transition 3/6 (id_trans=4)
+    Predicting transition 4/6 (id_trans=6)
+    Predicting transition 5/6 (id_trans=7)
+    Predicting transition 6/6 (id_trans=10)
     Running CLUMPY allocation (uPAM): period 3 -> 4
       Converting posterior vector to lulc_data_t...
       Allocated 900 cells
-    Iteration 1 complete
     CLUMPY allocation complete!
 
 ### 4.1 Visualization

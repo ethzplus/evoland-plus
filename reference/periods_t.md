@@ -68,6 +68,9 @@ A data.table of class "periods_t" with columns:
 
 - `end_date`: End date for period
 
+- `period_length_d`: Days between this and the preceding period's
+  midpoints, derived from start and end date.
+
 - `is_extrapolated`: bool, are observations matched to this period, or
   is it used for extrapolation?
 
@@ -78,4 +81,5 @@ A data.table of class "periods_t" with columns:
 
 ## Functions
 
-- `create_periods_t()`: Creates a `periods_t` table from specifications.
+- `create_periods_t()`: Creates a regular `periods_t` table from
+  specifications.

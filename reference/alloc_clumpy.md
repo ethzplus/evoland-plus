@@ -44,14 +44,14 @@ three stages per period:
 ``` r
 alloc_clumpy_one_period(
   self,
-  id_period_ant,
   id_period_post,
-  anterior_rast,
   select_score,
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 0L
+  batch_size = 0L,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )
 
 alloc_clumpy(
@@ -62,7 +62,8 @@ alloc_clumpy(
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
-  seed = NULL
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )
 ```
 
@@ -74,18 +75,9 @@ alloc_clumpy(
   [evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
   instance.
 
-- id_period_ant:
-
-  Integer anterior period ID.
-
 - id_period_post:
 
   Integer posterior period ID.
-
-- anterior_rast:
-
-  [terra::SpatRaster](https://rspatial.github.io/terra/reference/SpatRaster-class.html)
-  of the anterior LULC state.
 
 - select_score:
 
@@ -109,13 +101,14 @@ alloc_clumpy(
   Integer; uPAM pivots attempted per MuST re-draw. `0` (default)
   auto-scales with the source pool; see `alloc_clumpy_one_period()`.
 
+- use_parent_trans_pot:
+
+  Logical; if TRUE, use the parent run's transition potentials. Useful
+  if a run branches off from parent.
+
 - id_periods:
 
   Integer vector of posterior period IDs to simulate.
-
-- seed:
-
-  Optional integer random seed for reproducibility.
 
 ## Value
 
@@ -126,7 +119,10 @@ with the simulated posterior LULC.
 ## Functions
 
 - `alloc_clumpy_one_period()`: Allocate LULC changes for a single period
-  using the CLUMPY algorithm.
+  using the CLUMPY algorithm. Can either independently compute
+  transition potential, use the parent run's transition potential
+  (useful when forking runs for Monte-Carlo) or read pre-written
+  trans_pot_t values
 
 - `alloc_clumpy()`: Run CLUMPY-style allocation over multiple periods.
 

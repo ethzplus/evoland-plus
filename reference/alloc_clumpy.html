@@ -67,7 +67,7 @@ roughly the mean patch size.
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -131,14 +131,14 @@ roughly the mean patch size.</p></li>
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">alloc_clumpy_one_period</span><span class="op">(</span></span>
 <span>  <span class="va">self</span>,</span>
-<span>  <span class="va">id_period_ant</span>,</span>
 <span>  <span class="va">id_period_post</span>,</span>
-<span>  <span class="va">anterior_rast</span>,</span>
 <span>  <span class="va">select_score</span>,</span>
 <span>  <span class="va">select_maximize</span>,</span>
 <span>  area_dist <span class="op">=</span> <span class="st">"lognormal"</span>,</span>
 <span>  avoid_aggregation <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  batch_size <span class="op">=</span> <span class="fl">0L</span></span>
+<span>  batch_size <span class="op">=</span> <span class="fl">0L</span>,</span>
+<span>  use_parent_trans_pot <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  force_predict_trans_pot <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">alloc_clumpy</span><span class="op">(</span></span>
@@ -149,7 +149,8 @@ roughly the mean patch size.</p></li>
 <span>  area_dist <span class="op">=</span> <span class="st">"lognormal"</span>,</span>
 <span>  avoid_aggregation <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  batch_size <span class="op">=</span> <span class="fl">0L</span>,</span>
-<span>  seed <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  use_parent_trans_pot <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  force_predict_trans_pot <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -161,16 +162,8 @@ roughly the mean patch size.</p></li>
 <dd><p>An <a href="evoland_db.html">evoland_db</a> instance.</p></dd>
 
 
-<dt id="arg-id-period-ant">id_period_ant<a class="anchor" aria-label="anchor" href="#arg-id-period-ant"></a></dt>
-<dd><p>Integer anterior period ID.</p></dd>
-
-
 <dt id="arg-id-period-post">id_period_post<a class="anchor" aria-label="anchor" href="#arg-id-period-post"></a></dt>
 <dd><p>Integer posterior period ID.</p></dd>
-
-
-<dt id="arg-anterior-rast">anterior_rast<a class="anchor" aria-label="anchor" href="#arg-anterior-rast"></a></dt>
-<dd><p><a href="https://rspatial.github.io/terra/reference/SpatRaster-class.html" class="external-link">terra::SpatRaster</a> of the anterior LULC state.</p></dd>
 
 
 <dt id="arg-select-score">select_score<a class="anchor" aria-label="anchor" href="#arg-select-score"></a></dt>
@@ -195,12 +188,13 @@ or <code>"normal"</code>.</p></dd>
 (default) auto-scales with the source pool; see <code>alloc_clumpy_one_period()</code>.</p></dd>
 
 
+<dt id="arg-use-parent-trans-pot">use_parent_trans_pot<a class="anchor" aria-label="anchor" href="#arg-use-parent-trans-pot"></a></dt>
+<dd><p>Logical; if TRUE, use the parent run's transition
+potentials. Useful if a run branches off from parent.</p></dd>
+
+
 <dt id="arg-id-periods">id_periods<a class="anchor" aria-label="anchor" href="#arg-id-periods"></a></dt>
 <dd><p>Integer vector of posterior period IDs to simulate.</p></dd>
-
-
-<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>Optional integer random seed for reproducibility.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -210,7 +204,9 @@ or <code>"normal"</code>.</p></dd>
     <div class="section level2">
     <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a></h2>
 
-<ul><li><p><code>alloc_clumpy_one_period()</code>: Allocate LULC changes for a single period using the CLUMPY algorithm.</p></li>
+<ul><li><p><code>alloc_clumpy_one_period()</code>: Allocate LULC changes for a single period using the CLUMPY algorithm.
+Can either independently compute transition potential, use the parent run's transition potential
+(useful when forking runs for Monte-Carlo) or read pre-written trans_pot_t values</p></li>
 <li><p><code>alloc_clumpy()</code>: Run CLUMPY-style allocation over multiple periods.</p></li>
 </ul></div>
     <div class="section level2">

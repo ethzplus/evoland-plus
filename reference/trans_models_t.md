@@ -33,7 +33,7 @@ fit_full_models(
 # S3 method for class 'trans_models_t'
 print(x, ...)
 
-get_crossval_plots(self, id_run = NULL, id_trans = NULL)
+get_crossval_plots(self, id_run = NULL, id_trans = NULL, ...)
 ```
 
 ## Arguments
@@ -110,7 +110,8 @@ get_crossval_plots(self, id_run = NULL, id_trans = NULL)
 
 - ...:
 
-  ignored
+  Passed to
+  [`mlr3viz::autoplot.PredictionClassif()`](https://mlr3viz.mlr-org.com/reference/autoplot.PredictionClassif.html)
 
 - id_run:
 
@@ -133,7 +134,10 @@ A data.table of class "trans_models_t" with columns:
   key, e.g. `"classif.ranger"`
 
 - `learner_params`: MAP of atomic scalar learner hyperparameters for
-  querying; complete hyperparameters are captured by `learner_spec`
+  querying; complete hyperparameters are captured by `learner_spec`. A
+  fit that failed is recorded as a sentinel row whose `learner_params`
+  holds a single `error_message` entry, and whose `learner_full` is
+  `NULL`
 
 - `learner_spec`: BLOB of serialized untrained mlr3 `Learner`; for
   AutoTuners, this is the optimal inner learner after tuning

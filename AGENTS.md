@@ -73,12 +73,9 @@ Use markdown roxygen for function and class documentation. Use
 ## Rcpp components
 
 C++ code is in the `src/` folder. This code interfaces with R using
-Rcpp. Build binaries using
-[`pkgbuild::build()`](https://pkgbuild.r-lib.org/reference/build.html).
-Clean build objects using
-[`pkgbuild::clean_dll()`](https://pkgbuild.r-lib.org/reference/clean_dll.html).
-Prefer `Rcpp` types. Only write Rcpp-free headers when the code should
-also compile as a standalone program.
+Rcpp. Build binaries using `pkgbuild::build()`. Clean build objects
+using `pkgbuild::clean_dll()`. Prefer `Rcpp` types. Only write Rcpp-free
+headers when the code should also compile as a standalone program.
 
 ## Database
 

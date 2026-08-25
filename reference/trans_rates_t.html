@@ -11,7 +11,7 @@ transitions, and future rates are extrapolated using linear regression."></head>
 
     <a class="navbar-brand me-2" href="../index.html">evoland</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -58,7 +58,9 @@ transitions, and future rates are extrapolated using linear regression.</p>
 <span><span class="fu">extrapolate_trans_rates</span><span class="op">(</span><span class="va">obs_rates</span>, <span class="va">periods</span>, coord_count <span class="op">=</span> <span class="cn">NA_integer_</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'trans_rates_t'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">x</span>, nrow <span class="op">=</span> <span class="fl">10</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">trans_rate_areas</span><span class="op">(</span><span class="va">lulc_data</span>, <span class="va">rates</span>, <span class="va">trans_meta</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -93,15 +95,32 @@ transitions, and future rates are extrapolated using linear regression.</p>
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>passed to <a href="https://rdrr.io/pkg/data.table/man/print.data.table.html" class="external-link">data.table::print.data.table</a></p></dd>
 
+
+<dt id="arg-lulc-data">lulc_data<a class="anchor" aria-label="anchor" href="#arg-lulc-data"></a></dt>
+<dd><p>A <a href="lulc_data_t.html">lulc_data_t</a> for a single <code>id_run</code>; the areas of its last period are
+the state the replay starts from.</p></dd>
+
+
+<dt id="arg-rates">rates<a class="anchor" aria-label="anchor" href="#arg-rates"></a></dt>
+<dd><p>A trans_rates_t table for a single <code>id_run</code>.</p></dd>
+
+
+<dt id="arg-trans-meta">trans_meta<a class="anchor" aria-label="anchor" href="#arg-trans-meta"></a></dt>
+<dd><p>A <a href="trans_meta_t.html">trans_meta_t</a> table, resolving <code>id_trans</code> to a pair of classes.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data.table of class "trans_rates_t" with columns:</p><ul><li><p><code>id_run</code>: Foreign key to runs_t</p></li>
 <li><p><code>id_period</code>: Foreign key to periods_t</p></li>
 <li><p><code>id_trans</code>: Foreign key to trans_meta_t</p></li>
-<li><p><code>count</code>: Absolute count of transitions</p></li>
-<li><p><code>rate</code>: Transition rate: count of transitions in (id_trans, id_period) over (id_period)</p></li>
-</ul></div>
+<li><p><code>count</code>: Absolute number of transitioning cells for (id_trans, id_period)</p></li>
+<li><p><code>rate</code>: Transition rate: count of transitions in (id_trans, id_period)
+over count of cells of id_lulc_anterior in id_period</p></li>
+</ul><p><code>trans_rate_areas()</code> returns a data.table with <code>id_lulc</code>, <code>id_period</code> and
+<code>area</code>; <code>id_period</code> is the period whose <em>state</em> the area describes, so the initial state
+carries the last period of <code>lulc_data</code>.</p>
+    </div>
     <div class="section level2">
     <h2 id="methods-by-generic-">Methods (by generic)<a class="anchor" aria-label="anchor" href="#methods-by-generic-"></a></h2>
 
@@ -116,6 +135,11 @@ id_lulc_anterior cells that transitioned to id_lulc_posterior.</p></li>
 <li><p><code>extrapolate_trans_rates()</code>: Return future transition rates using linear regression. For
 each id_run + id_trans, fits a linear model of rate vs period number and extrapolates
 to future periods. Negative predicted rates are set to 0.</p></li>
+<li><p><code>trans_rate_areas()</code>: Replay a rate table forward from an observed state to recover
+the class areas it implies. Transitions not recorded in <code>rates</code> are implied to be zero,
+so the residual <code>1 - sum(rate)</code> of each class persists. This is what makes a solved
+trajectory recoverable from a trans_rates_t alone, and therefore comparable against
+the areas an allocation run actually realised.</p></li>
 </ul></div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -81,17 +81,6 @@ db$periods_t <- create_periods_t(
 )
 ```
 
-Messages
-
-    ## duckdb keeps downloaded extensions and secrets in a temporary directory:
-    ## ℹ /tmp/RtmpS7km4o/duckdb
-    ## This is removed when the R session ends.
-    ## • Extensions are re-downloaded each session.
-    ## • Secrets are lost.
-    ## ℹ Run duckdb(shared_home = TRUE) (or create ~/.duckdb) to keep them (suitable for most users).
-    ## ℹ Run duckdb(shared_home = FALSE) to accept the temporary directory (and silence this message).
-    ## ℹ See ?duckdb_storage for details and alternatives.
-
 ## 3 Synthetic observed data
 
 As in the introductory vignette, we create a small autoregressive
@@ -536,11 +525,12 @@ resulting maps differ purely through allocation stochasticity.
 
 for (i in seq_len(nrow(runs_out))) {
   db$id_run <- runs_out$id_run[i]
+  set.seed(runs_out$seed[i])
   db$alloc_clumpy(
     id_periods = 4, # first extrapolated period
-    select_score = "classif.auc",
+    select_score = "no.crossval",
     select_maximize = TRUE,
-    seed = runs_out$seed[i]
+    use_parent_trans_pot = TRUE
   )
 }
 ```
@@ -669,7 +659,7 @@ chunk computes the frequency with which a cell becomes `urban`.
 urban_frequency <-
   simulated_extrap[,
     .(
-      p_urban = mean(id_lulc_simulated == 3L) #urban id
+      p_urban = mean(id_lulc_simulated == 3L) # urban id
     ),
     by = .(id_coord)
   ] |>
