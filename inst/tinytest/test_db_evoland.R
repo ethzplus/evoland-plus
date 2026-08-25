@@ -63,7 +63,11 @@ db$pred_data_t <- added_run_2 <- db$pred_data_t[
 ]
 
 pred_run_2 <- db$pred_data_t
-
+# check that the total number of rows across all pred_data_t is increased by added_run_2
+expect_equal(
+  nrow(pred_run_2) + nrow(added_run_2),
+  db$row_count("pred_data_t")
+)
 expect_equal(nrow(pred_run_0), nrow(pred_run_2))
 
 # cannot check equality because of weird class/attribute changes due to
@@ -142,4 +146,93 @@ expect_equivalent(
     id_coord,
     value = as.numeric(value)
   )])
+)
+
+# pred_data_wide_v and trans_pred_data_v both should return timed (selected
+# id_period) data, if it is available for that id_pred id_period slice.
+# otherwise, fall back to static (id_period=0)
+
+precedence_db <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
+
+expect_equal(
+  nrow(precedence_db$pred_data_wide_v(
+    id_trans = 1L,
+    id_period_anterior = 1L
+  )[is.na(id_pred_1)]),
+  0L # there should not be any rows with missing id_pred_1 in fixture
+)
+expect_equal(
+  nrow(precedence_db$trans_pred_data_v(
+    id_trans = 1L,
+    id_pred = 1:2
+  )[is.na(id_pred_1)]),
+  0L # there should not be any rows with missing id_pred_1 in fixture
+)
+
+
+n_lulc_ant <-
+  precedence_db$lulc_data_t[
+    id_period == 1L
+  ][
+    precedence_db$trans_meta_t,
+    .(id_trans, id_lulc),
+    on = c(id_lulc = "id_lulc_anterior")
+  ][,
+    .N,
+    by = "id_trans"
+  ]
+
+
+# elevation (id_pred=1) is static-only in the fixture; we only overwrite it for
+# one coordinate point in period 1. all other locations should come back NA.
+precedence_db$pred_data_t <- as_pred_data_t(data.table::data.table(
+  id_run = 0L,
+  id_period = 1L,
+  id_pred = 1L,
+  id_coord = 333L, # a coordinate with id_lulc=1 at id_period=1
+  value = -999
+))
+
+# get predictor data for the transition starting at id_lulc=1
+expect_equal(
+  precedence_db$pred_data_wide_v(
+    id_trans = 1L,
+    id_period_anterior = 1L
+  )[
+    is.na(id_pred_1),
+    .N
+  ],
+  n_lulc_ant[id_trans == 1L, N] - 1L # all rows but 1 should be NA
+)
+expect_equal(
+  precedence_db$trans_pred_data_v(
+    id_trans = 1L,
+    id_pred = 1L
+  )[
+    is.na(id_pred_1),
+    .N
+  ],
+  n_lulc_ant[id_trans == 1L, N] - 1L # all rows but 1 should be NA
+)
+
+# get predictor data for the transition starting at id_lulc=2
+expect_equal(
+  precedence_db$pred_data_wide_v(
+    id_trans = 2L,
+    id_period_anterior = 1L
+  )[
+    is.na(id_pred_1),
+    .N
+  ],
+  n_lulc_ant[id_trans == 2L, N] # all rows should be NA
+)
+expect_equal(
+  precedence_db$trans_pred_data_v(
+    id_trans = 2L,
+    id_pred = 1L
+  )[
+    is.na(id_pred_1),
+    .N
+  ],
+  n_lulc_ant[id_trans == 2L, N] # all rows should be NA
 )

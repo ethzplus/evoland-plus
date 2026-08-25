@@ -12,8 +12,9 @@
 #'   - `id_run`: Foreign key to runs_t
 #'   - `id_period`: Foreign key to periods_t
 #'   - `id_trans`: Foreign key to trans_meta_t
-#'   - `count`: Absolute count of transitions
-#'   - `rate`: Transition rate: count of transitions in (id_trans, id_period) over (id_period)
+#'   - `count`: Absolute number of transitioning cells for (id_trans, id_period)
+#'   - `rate`: Transition rate: count of transitions in (id_trans, id_period)
+#'     over count of cells of id_lulc_anterior in id_period
 #' @export
 as_trans_rates_t <- function(x) {
   if (missing(x)) {
@@ -119,30 +120,29 @@ get_obs_trans_rates <- function(self) {
 extrapolate_trans_rates <- function(obs_rates, periods, coord_count = NA_integer_) {
   stopifnot(
     inherits(obs_rates, "trans_rates_t"),
-    inherits(periods, "periods_t")
+    inherits(periods, "periods_t"),
+    "no extrapolation periods in periods_t" = {
+      nrow(periods[is_extrapolated == TRUE]) > 0
+    }
   )
 
-  future_periods <- periods[is_extrapolated == TRUE][["id_period"]]
-
-  if (length(future_periods) == 0L) {
-    # No future periods to extrapolate
-    return(as_trans_rates_t())
-  }
+  extrap_mean_dates <- periods[is_extrapolated == TRUE, mean_date]
+  extrap_id_periods <- periods[is_extrapolated == TRUE, id_period]
 
   # split into list of subtables
   # fit model for each (id_trans) combination
   # extrapolate
   obs_rates |>
+    merge(periods, by = "id_period") |>
     split(by = c("id_run", "id_trans")) |>
     lapply(FUN = \(subtable) {
-      # TODO maybe fit on count instead of rate? easier to reason about
-      mod <- lm(rate ~ id_period, data = subtable)
+      mod <- stats::lm(rate ~ mean_date, data = subtable)
 
       predictions <-
-        suppressWarnings(predict(
+        suppressWarnings(stats::predict(
           # suppress warnings (e.g. if model is rank-deficient, i.e. fit using one observed rate)
           mod,
-          newdata = data.table::data.table(id_period = future_periods)
+          newdata = data.table::data.table(mean_date = extrap_mean_dates)
         )) |>
         unname() |> # drop names
         c() # concatenation drops attrs (e.g. `non-estim` from predict)
@@ -155,7 +155,7 @@ extrapolate_trans_rates <- function(obs_rates, periods, coord_count = NA_integer
         # run and trans are constants
         id_run = subtable$id_run[1],
         id_trans = subtable$id_trans[1],
-        id_period = future_periods,
+        id_period = extrap_id_periods,
         count = as.integer(round(coord_count * predictions)), # convert back to counts for storage
         rate = predictions
       )
@@ -211,4 +211,81 @@ print.trans_rates_t <- function(x, nrow = 10, ...) {
   }
   NextMethod(nrow = nrow, ...)
   invisible(x)
+}
+
+#' @describeIn trans_rates_t Replay a rate table forward from an observed state to recover
+#' the class areas it implies. Transitions not recorded in `rates` are implied to be zero,
+#' so the residual `1 - sum(rate)` of each class persists. This is what makes a solved
+#' trajectory recoverable from a [trans_rates_t] alone, and therefore comparable against
+#' the areas an allocation run actually realised.
+#'
+#' @param lulc_data A [lulc_data_t] for a single `id_run`; the areas of its last period are
+#' the state the replay starts from.
+#' @param rates A [trans_rates_t] table for a single `id_run`.
+#' @param trans_meta A [trans_meta_t] table, resolving `id_trans` to a pair of classes.
+#' @return `trans_rate_areas()` returns a data.table with `id_lulc`, `id_period` and
+#' `area`; `id_period` is the period whose *state* the area describes, so the initial state
+#' carries the last period of `lulc_data`.
+#' @export
+trans_rate_areas <- function(lulc_data, rates, trans_meta) {
+  stopifnot(
+    inherits(lulc_data, "lulc_data_t"),
+    inherits(rates, "trans_rates_t"),
+    inherits(trans_meta, "trans_meta_t"),
+    "lulc_data must contain exactly one id_run" = {
+      data.table::uniqueN(lulc_data[["id_run"]]) == 1L
+    },
+    "rates must contain exactly one id_run" = {
+      data.table::uniqueN(rates[["id_run"]]) == 1L
+    }
+  )
+
+  transitions <-
+    rates[
+      trans_meta,
+      .(id_period, id_lulc_anterior, id_lulc_posterior, rate),
+      on = "id_trans",
+      nomatch = NULL
+    ]
+  stopifnot(
+    "outflow rates sum above 1 for some class and period" = {
+      transitions[, all(sum(rate) <= 1 + 1e-9), by = .(id_lulc_anterior, id_period)][, all(V1)]
+    }
+  )
+
+  state <-
+    lulc_data[
+      id_period == max(id_period),
+      .(area = as.numeric(.N)),
+      by = .(id_lulc, id_period)
+    ][order(id_lulc)]
+
+  step_periods <- sort(unique(transitions[["id_period"]]))
+  trajectory <- vector("list", length(step_periods) + 1L)
+  trajectory[[1L]] <- state
+
+  for (i in seq_along(step_periods)) {
+    moved <-
+      transitions[id_period == step_periods[i]][
+        state,
+        .(id_lulc_anterior, id_lulc_posterior, cells = rate * i.area),
+        on = .(id_lulc_anterior = id_lulc),
+        nomatch = NULL
+      ]
+
+    state <- data.table::copy(state)[, id_period := step_periods[i]]
+    state[
+      moved[, .(loss = sum(cells)), by = id_lulc_anterior],
+      area := area - i.loss,
+      on = .(id_lulc = id_lulc_anterior)
+    ]
+    state[
+      moved[, .(gain = sum(cells)), by = id_lulc_posterior],
+      area := area + i.gain,
+      on = .(id_lulc = id_lulc_posterior)
+    ]
+    trajectory[[i + 1L]] <- state
+  }
+
+  data.table::rbindlist(trajectory)
 }

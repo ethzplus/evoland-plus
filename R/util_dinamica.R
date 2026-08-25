@@ -26,13 +26,7 @@ exec_dinamica <- function(
   write_logfile = TRUE,
   echo = FALSE
 ) {
-  if (!requireNamespace("processx", quietly = TRUE)) {
-    stop(
-      "Package 'processx' is required for this function. ",
-      "Please install it with: install.packages('processx')",
-      call. = FALSE
-    )
-  }
+  require_suggested("processx", "run Dinamica EGO")
 
   if (Sys.which("DinamicaConsole") == "") {
     stop(
@@ -180,13 +174,7 @@ run_alloc_dinamica <- function(
 #' @param check Default TRUE, simple check to ensure that you're handling what you're expecting
 
 process_dinamica_script <- function(infile, outfile, mode = "encode", check = TRUE) {
-  if (!requireNamespace("base64enc", quietly = TRUE)) {
-    stop(
-      "Package 'base64enc' is required for this function. ",
-      "Please install it with: install.packages('base64enc')",
-      call. = FALSE
-    )
-  }
+  require_suggested("base64enc", "encode and decode Dinamica script chunks")
 
   mode <- match.arg(mode, c("encode", "decode"))
   if (inherits(infile, "AsIs")) {

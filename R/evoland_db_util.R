@@ -33,7 +33,13 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
   # for a given distinctness tuple, the corresponding slice of data will be used. This
   # is a tradeoff: we could also choose to fall through on each coordinate point, but
   # that would blow up the query time.
-  theoretical_distinctness_cols <- c("id_run", "id_period", "id_pred")
+  theoretical_distinctness_cols <- c(
+    "id_run",
+    "id_period",
+    "id_period_post",
+    "id_trans",
+    "id_pred"
+  )
   distinctness_cols <- intersect(all_cols, theoretical_distinctness_cols)
   inheritance_key_cols <- setdiff(distinctness_cols, "id_run")
 

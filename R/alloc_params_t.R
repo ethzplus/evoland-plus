@@ -134,7 +134,7 @@ isometry_from_elongation <- function(
 
   # Clamping behavior outside the observed e range
   rule <- if (clamp) 2 else 1 # 2 => clamp to endpoints, 1 => NA outside
-  approx(
+  stats::approx(
     x = e_x,
     y = iso_y,
     xout = elongation,
@@ -370,7 +370,7 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
 
   for (i in seq_len(n_perturbations)) {
     # Add random perturbation to frac_expander
-    frac_exp_perturbed <- agg_dt[["frac_expander"]] + rnorm(nrow(agg_dt), mean = 0, sd = sd)
+    frac_exp_perturbed <- agg_dt[["frac_expander"]] + stats::rnorm(nrow(agg_dt), mean = 0, sd = sd)
 
     # Clamp expanded / patched to [0, 1]
     frac_exp_perturbed <- pmax(0, pmin(1, frac_exp_perturbed))

@@ -7,14 +7,14 @@
 \usage{
 alloc_clumpy_one_period(
   self,
-  id_period_ant,
   id_period_post,
-  anterior_rast,
   select_score,
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 0L
+  batch_size = 0L,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )
 
 alloc_clumpy(
@@ -25,17 +25,14 @@ alloc_clumpy(
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
-  seed = NULL
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )
 }
 \arguments{
 \item{self}{An \link{evoland_db} instance.}
 
-\item{id_period_ant}{Integer anterior period ID.}
-
 \item{id_period_post}{Integer posterior period ID.}
-
-\item{anterior_rast}{\link[terra:SpatRaster]{terra::SpatRaster} of the anterior LULC state.}
 
 \item{select_score}{Character; mlr3 measure ID for model selection.}
 
@@ -49,9 +46,10 @@ or \code{"normal"}.}
 \item{batch_size}{Integer; uPAM pivots attempted per MuST re-draw. \code{0}
 (default) auto-scales with the source pool; see \code{\link[=alloc_clumpy_one_period]{alloc_clumpy_one_period()}}.}
 
-\item{id_periods}{Integer vector of posterior period IDs to simulate.}
+\item{use_parent_trans_pot}{Logical; if TRUE, use the parent run's transition
+potentials. Useful if a run branches off from parent.}
 
-\item{seed}{Optional integer random seed for reproducibility.}
+\item{id_periods}{Integer vector of posterior period IDs to simulate.}
 }
 \value{
 An \link{lulc_data_t} with the simulated posterior LULC.
@@ -94,6 +92,8 @@ roughly the mean patch size.
 \section{Functions}{
 \itemize{
 \item \code{alloc_clumpy_one_period()}: Allocate LULC changes for a single period using the CLUMPY algorithm.
+Can either independently compute transition potential, use the parent run's transition potential
+(useful when forking runs for Monte-Carlo) or read pre-written trans_pot_t values
 
 \item \code{alloc_clumpy()}: Run CLUMPY-style allocation over multiple periods.
 

@@ -39,10 +39,13 @@ source(file.path(
 ))
 db <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
 
-# Use a simple featureless learner for fast, dependency-free testing
+# simple featureless learner for fast, dependency-free testing
 test_learner <- mlr3::lrn("classif.featureless", predict_type = "prob")
-# measures can be passed as a character vector of IDs (convenience) or as a list of Measure objects
+# measures passed as a character vector of IDs (instead of list of Measure obj)
 test_measures <- c("classif.auc", "classif.acc")
+# learner that fails with probability=1
+error_learner <- mlr3::lrn("classif.debug", error_predict = 1)
+
 # Test fit_partial_models
 expect_message(
   db$trans_models_t <- partial_models <- db$fit_partial_models(
@@ -56,8 +59,8 @@ expect_message(
 expect_equal(
   partial_models[["crossval_score"]],
   list(
-    list(classif.auc = 0.5, classif.acc = 0.55),
-    list(classif.auc = 0.5, classif.acc = 0.5358255)
+    list(classif.auc = 0.5, classif.acc = 0.5358255),
+    list(classif.auc = 0.5, classif.acc = 0.55)
   ),
   tolerance = 1e-7
 )
@@ -125,7 +128,6 @@ expect_message(
   ),
   "Fitting partial models for 1 transitions"
 )
-expect_equal(nrow(partial_t1), 1L)
 expect_equal(partial_t1$id_trans, 1L)
 
 # fit_partial_models: supply trans_meta restricted to id_trans == 1
@@ -140,7 +142,6 @@ expect_message(
   ),
   "Fitting partial models for 1 transitions"
 )
-expect_equal(nrow(partial_meta_t1), 1L)
 expect_equal(partial_meta_t1$id_trans, 1L)
 
 # fit_partial_models: wrong type for trans_preds should error
@@ -163,8 +164,18 @@ expect_error(
   "trans_meta must be a trans_meta_t"
 )
 
+# model crashes during execution
+expect_warning(
+  err_model_t1 <- db$fit_partial_models(learner = error_learner, measures = test_measures),
+  "Error from classif.debug->predict()"
+)
+expect_match(
+  err_model_t1[["learner_params"]][[1]][["error_message"]],
+  "Error from classif.debug->predict()"
+)
+
 # fit_full_models (direct mode): supply trans_preds restricted to id_trans == 1
-db$set_full_trans_preds()
+db$set_full_trans_preds(overwrite = TRUE)
 expect_message(
   full_direct_t1 <- db$fit_full_models(
     learner = test_learner,
@@ -278,25 +289,12 @@ expect_warning(
       measures = test_measures,
       sample_frac = 0.7
     ),
-  "No predictor columns|No data"
+  "No predictor columns for transition 1, skipping"
 )
-expect_equal(partial_models_error$learner_id, "error")
+expect_equal(partial_models_error$learner_id, "classif.featureless")
 
 # Test direct-learner mode: fit_full_models with a learner
-db$set_full_trans_preds()
-expect_message(
-  db$trans_models_t <- full_models_direct <- db$fit_full_models(learner = test_learner),
-  "Fitting full models for"
-)
-# direct mode: crossval_predictions is empty, crossval_score carries the no.crossval
-# sentinel so predict_trans_pot() can still select the model
-expect_true(all(vapply(full_models_direct$crossval_score, names, character(1)) == "no.crossval"))
-expect_true(all(vapply(full_models_direct$crossval_predictions, length, integer(1)) == 0L))
-# learner_full should be populated
-expect_true(all(vapply(full_models_direct$learner_full, is.raw, logical(1))))
-deserialized_direct <- qs2::qs_deserialize(full_models_direct$learner_full[[1]])$reset()
-expect_equal(deserialized_direct, test_learner)
-
+db$set_full_trans_preds(overwrite = TRUE)
 expect_message(
   db$trans_models_t <- full_models_direct <- db$fit_full_models(learner = test_learner),
   "Fitting full models for"
@@ -315,34 +313,26 @@ if (!requireNamespace("mlr3viz", quietly = TRUE)) {
   exit_file("mlr3viz not available; skipping get_crossval_plots tests")
 }
 
-expect_message(
-  db$trans_models_t <- db$fit_partial_models(
-    learner = test_learner,
-    measures = test_measures,
-    seed = 42
-  ),
-  "Fitting partial models for 2 transitions..."
-)
-
+db$trans_models_t <- partial_models # overwrite learner_full
 plots <- db$get_crossval_plots()
 expect_true(is.list(plots))
 expect_equal(length(plots), nrow(db$trans_models_t))
 expect_true(all(vapply(plots, inherits, logical(1), "gg")))
 
 # Filter by id_trans
-plots_filtered <- db$get_crossval_plots(id_trans = 1)
+plots_filtered <- db$get_crossval_plots(id_trans = 2L)
 expect_equal(length(plots_filtered), 1L)
-plot_trans_1 <- plots_filtered[[1]]
-expect_true(inherits(plot_trans_1, "gg"))
+plot_trans <- plots_filtered[[1]]
+expect_true(inherits(plot_trans, "gg"))
 expect_equal(
-  plot_trans_1$data$variable,
+  plot_trans$data$variable,
   factor(
     c(rep("truth", 220), rep("response", 220)),
     levels = c("truth", "response")
   )
 )
 expect_equal(
-  plot_trans_1$data$value |> as.character(),
+  plot_trans$data$value |> as.character(),
   c(
     rep("FALSE", 121),
     rep("TRUE", 99),
@@ -355,22 +345,47 @@ expect_error(
   db$predict_trans_pot(id_period_post = 4, select_score = "classif.auc", select_maximize = TRUE),
   "No fitted model for viable transition"
 )
+db$trans_models_t <- err_model_t1 # insert faulty models
+expect_error(
+  db$predict_trans_pot(id_period_post = 4, select_score = "classif.auc", select_maximize = TRUE),
+  "Class: Mlr3ErrorLearnerPredict" # relay captured error
+)
 expect_message(
   db$trans_models_t <- db$fit_full_models(learner = mlr3::lrn("classif.rpart")),
   "Fitting full"
 )
+options("evoland.use_prefetch_predict" = FALSE)
 expect_message(
   db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE),
-  "Predicting transition potential"
+  "Predicting transition 2/2 (id_trans=2)",
+  fixed = TRUE
+)
+expect_message(
+  db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE),
+  "Found trans_pot_t for id_run=0/id_trans=2/id_period=4; set force=TRUE to recompute",
+  fixed = TRUE
+)
+options("evoland.use_prefetch_predict" = TRUE)
+expect_message(
+  db$predict_trans_pot(
+    id_period_post = 4,
+    select_score = "no.crossval",
+    select_maximize = TRUE,
+    force = TRUE
+  ),
+  "Predicting transition 2/2 (id_trans=2)",
+  fixed = TRUE
 )
 db$trans_rates_t <-
   db$get_obs_trans_rates() |>
-  extrapolate_trans_rates(db$periods_t[is_extrapolated == TRUE])
+  extrapolate_trans_rates(db$periods_t)
+expect_equal(db$row_count("trans_rates_t"), 2L)
 expect_equal(
   db$row_count("trans_pot_t"),
   900L
 )
 
+db$id_run <- 1 # ensure fallthrough works
 # the mean potential must scale to the overall prescribed transition rate
 expect_equal(
   data.table::as.data.table(

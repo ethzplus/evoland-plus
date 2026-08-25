@@ -16,6 +16,7 @@
 as_trans_pot_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
+      id_run = integer(0),
       id_trans = integer(0),
       id_period_post = integer(0),
       id_coord = integer(0),
@@ -24,14 +25,16 @@ as_trans_pot_t <- function(x) {
   }
 
   data.table::setDT(x) |>
+    cast_dt_col("id_run", "int") |>
     cast_dt_col("id_trans", "int") |>
     cast_dt_col("id_period_post", "int") |>
     cast_dt_col("id_coord", "int")
 
   as_parquet_db_t(
     x,
-    "trans_pot_t",
-    c("id_trans", "id_period_post", "id_coord")
+    class_name = "trans_pot_t",
+    key_cols = c("id_trans", "id_period_post", "id_coord"),
+    partition_cols = "id_run"
   )
 }
 
@@ -42,6 +45,7 @@ validate.trans_pot_t <- function(x, ...) {
   data.table::setcolorder(
     x,
     c(
+      "id_run",
       "id_trans",
       "id_period_post",
       "id_coord",
@@ -55,6 +59,7 @@ validate.trans_pot_t <- function(x, ...) {
   }
 
   stopifnot(
+    is.integer(x[["id_run"]]),
     is.integer(x[["id_trans"]]),
     is.integer(x[["id_period_post"]]),
     is.integer(x[["id_coord"]]),
@@ -73,11 +78,12 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
   if (nrow(x) > 0) {
     n_trans <- data.table::uniqueN(x[["id_trans"]])
     n_periods <- data.table::uniqueN(x[["id_period_post"]])
+    n_runs <- data.table::uniqueN(x[["id_run"]])
 
     cat(glue::glue(
       "Transition Potential Table\n",
       "Rows: {nrow(x)}\n",
-      "Transitions: {n_trans}, Periods: {n_periods}\n\n"
+      "Transitions: {n_trans}, Periods: {n_periods}, Runs: {n_runs}\n\n"
     ))
   } else {
     cat("Transition Potential Table (empty)\n")
@@ -87,54 +93,77 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 }
 
 
-#' @describeIn trans_pot_t For each viable transition, predict the raw transition
-#' potential for a given period and store it in `trans_pot_t` in the database.
-#' Raw potentials are per-transition MLR3 model probabilities; they are **not**
-#' yet allocation-ready (not column-scaled to target rates, not row-closed).
-#' Use [adjusted_trans_pot_v()] to obtain allocation-ready values.
+#' @describeIn trans_pot_t For each viable transition in current `id_run`, predict the raw
+#' transition potential for a given period and store it in `trans_pot_t` in the database. Raw
+#' potentials are per-transition MLR3 model probabilities; they are **not** yet allocation-ready
+#' (not column-scaled to target rates, not row-closed to max probability of 1). Use
+#' [adjusted_trans_pot_v()] to obtain allocation-ready values. Set
+#' `options(evoland.use_prefetch_predict=TRUE)` to prefetch all predictors; this causes higher
+#' memory pressure but only needs to go to disk once. The learners have
+#' `parallel_predict` enabled, see [mlr3::Learner]: the prediction task is automatically
+#' chunked out to any [future](https://future.futureverse.org/) workers available.
 #' @param self an [evoland_db] instance
-#' @param id_period_post scalar integerish, passed to `self$pred_data_wide_v()`
+#' @param id_period_post scalar integerish, passed to [pred_data_wide_v()]
 #' @param select_score character scalar, name of score/measure to identify best fitting model
 #' @param select_maximize logical scalar, whether to maximize or minimize `select_score`
-#' @return A `trans_pot_t` object (invisibly); the same data are committed to the DB.
+#' @param force logical, Force prediction even if a prediction is found
+#' @return `predict_trans_pot()`: called for side effect; commit `trans_pot_t` to database
 predict_trans_pot <- function(
   self,
   id_period_post,
   select_score,
-  select_maximize
+  select_maximize,
+  force = FALSE
 ) {
-  # TODO parallelize
+  .check_viable_trans_models(self, select_score) # error on missing models
+
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
+  message(glue::glue("Predicting transition potential for {length(viable_trans)} transitions"))
 
-  # Fail early with an actionable message naming missing models
-  modeled_ids <- self$get_query(glue::glue(
-    r"[
-    select distinct id_trans
-    from {self$get_read_expr("trans_models_t")}
-    where learner_full is not null
-    ]"
-  ))$id_trans
+  use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
 
-  missing_models <- setdiff(viable_trans$id_trans, modeled_ids)
-  if (length(missing_models) > 0L) {
-    stop(glue::glue(
-      "No fitted model for viable transition(s): {toString(sort(missing_models))}. ",
-      "Every transition with is_viable == TRUE must have a non-null learner_full in ",
-      "trans_models_t."
-    ))
-  }
+  pred_data_all <- NULL
 
-  gather <- list()
-  message(glue::glue("Predicting transition potential for {nrow(viable_trans)} transitions"))
+  for (id_trans in viable_trans[, id_trans]) {
+    has_predictions <- .has_predictions(self, id_trans, id_period_post)
 
-  for (id_trans in viable_trans$id_trans) {
-    message(glue::glue(
-      "Predicting trans {which(viable_trans$id_trans == id_trans)}/",
-      "{nrow(viable_trans)} (id_trans {id_trans})"
-    ))
+    if (has_predictions && !force) {
+      message(glue::glue(
+        "Found trans_pot_t for ",
+        "id_run={self$id_run}/id_trans={id_trans}/id_period={id_period_post}",
+        "; set force=TRUE to recompute"
+      ))
+      next
+    } else {
+      message(glue::glue(
+        "Predicting transition {which(viable_trans[, id_trans] == id_trans)}/",
+        "{nrow(viable_trans)} (id_trans={id_trans})"
+      ))
+    }
+
+    if (use_prefetch) {
+      if (is.null(pred_data_all)) {
+        pred_data_all <- self$pred_data_wide_v(
+          id_trans = NA,
+          id_period_anterior = id_period_post - 1
+        )
+      }
+      id_lulc_anterior <- viable_trans[
+        id_trans == id_sel,
+        id_lulc_anterior,
+        env = list(id_sel = id_trans)
+      ]
+      pred_data_post <- pred_data_all[id_lulc == id_lulc_anterior, !"id_lulc"]
+    } else {
+      # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
+      pred_data_post <- self$pred_data_wide_v(
+        id_trans = id_trans,
+        id_period_anterior = id_period_post - 1
+      )
+    }
 
     # Get model for this transition
-    model_row <- self$get_query(glue::glue(
+    model_blob <- self$get_query(glue::glue(
       r"[
       select learner_full
       from {self$get_read_expr("trans_models_t")}
@@ -143,22 +172,14 @@ predict_trans_pot <- function(
       order by crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
       limit 1
       ]"
-    ))
+    ))[[1]]
 
-    if (nrow(model_row) > 1L) {
-      stop(glue::glue("Several models found for id_trans={id_trans}"))
-    } else if (nrow(model_row) == 0L) {
-      stop(glue::glue("No model found for id_trans={id_trans}"))
+    if (length(model_blob) == 0L) {
+      warning(glue::glue("No model found for id_trans={id_trans}"))
+      next
     }
 
-    # Deserialize full learner
-    learner_obj <- qs2::qs_deserialize(model_row$learner_full[[1]])
-
-    # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
-    pred_data_post <- self$pred_data_wide_v(
-      id_trans = id_trans,
-      id_period_anterior = id_period_post - 1
-    )
+    learner_obj <- qs2::qs_deserialize(model_blob[[1]])
 
     if (nrow(pred_data_post) == 0L) {
       warning(glue::glue(
@@ -167,25 +188,97 @@ predict_trans_pot <- function(
       next
     }
 
-    # Predict probabilities using mlr3 predict_newdata; id_coord is dropped automatically
-    probs <- learner_obj$predict_newdata(pred_data_post)$prob[, "TRUE"]
-    # Ensure probabilities are in [0, 1]
-    probs <- pmax(0, pmin(1, probs))
+    # if future workers are available, chunk out prediction to them
+    learner_obj$parallel_predict <- TRUE
 
-    gather[[id_trans]] <- data.table::data.table(
-      id_trans = id_trans,
-      id_coord = pred_data_post$id_coord,
-      value = probs
+    # Predict probabilities; probs keeps the pred_data_post ordering
+    probs <- learner_obj$predict_newdata(pred_data_post)$prob[, "TRUE"]
+
+    self$trans_pot_t <- as_trans_pot_t(
+      data.table::data.table(
+        id_run = self$id_run,
+        id_trans = id_trans,
+        id_period_post = id_period_post,
+        id_coord = pred_data_post$id_coord,
+        value = probs
+      )
     )
   }
+}
 
-  result <- data.table::rbindlist(gather)[, id_period_post := id_period_post]
+# called for side effect: error if a viable transition does either not have a full model available
+# OR it does not have the required crossvalidation score
+.check_viable_trans_models <- function(self, select_score) {
+  viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
-  trans_pot <- as_trans_pot_t(result)
+  modeled_ids <- self$get_query(glue::glue(
+    r"[
+    select distinct id_trans
+    from {self$get_read_expr("trans_models_t")}
+    where
+      learner_full is not null
+      and crossval_score['{select_score}'] is not null
+    ]"
+  ))[[1]]
 
-  # Store raw potentials in the DB so that adjusted_trans_pot_v() and allocation
-  # backends can retrieve them without re-running the models.
-  self$commit(trans_pot, "trans_pot_t", method = "upsert")
+  missing_models <- sort(setdiff(viable_trans$id_trans, modeled_ids))
 
-  invisible(trans_pot)
+  if (length(missing_models) == 0L) {
+    return()
+  }
+
+  # If a transition has no valid model but _has_ an error row, print that
+  err_messages <-
+    self$get_query(glue::glue(
+      r"[
+        select id_trans, learner_id, learner_params.error_message
+        from {self$get_read_expr("trans_models_t")}
+        where id_trans in ({toString(missing_models)})
+          and learner_params.error_message is not null
+        ]"
+    )) |>
+    split(by = c("id_trans", "learner_id"), keep.by = TRUE) |>
+    sapply(function(df) {
+      glue::glue(
+        "id_trans: {df[,id_trans]}, learner_id: {df[,learner_id]}",
+        df[, error_message],
+        "\n"
+      )
+    }) |>
+    gsub(pattern = "\\x1b\\[[0-9;]*m", replacement = "") # drop color codes
+
+  err_messages <- if (length(err_messages) > 0) {
+    c("\nFound following failed models:", err_messages)
+  } else {
+    character()
+  }
+
+  stop(glue::glue_collapse(
+    sep = "\n",
+    c(
+      "No fitted model for viable transition(s): {toString(missing_models)}.",
+      "  Check that trans_models_t has a learner_full for each viable trans",
+      err_messages
+    )
+  ))
+}
+
+# check that if we already have predictions for given id_run/id_trans/id_period_post
+.has_predictions <- function(self, id_trans, id_period_post) {
+  # TODO DB internals leaking - maybe refactor? add method to check that any data are present for a
+  # given slice?
+  file_exists <- self$get_table_path("trans_pot_t") |> file.exists()
+  if (!file_exists) {
+    return(FALSE)
+  }
+
+  self$get_query(glue::glue(
+    r"[
+      select exists (
+        select 1
+        from {self$get_read_expr("trans_pot_t")}
+        where id_trans = {id_trans} and id_period_post = {id_period_post}
+      )
+    ]"
+  ))[[1]] # returns scalar boolean
 }

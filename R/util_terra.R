@@ -40,7 +40,7 @@ extract_using_coords_t.SpatRaster <- function(x, coords, na_omit = TRUE) {
     )
 
   if (na_omit) {
-    return(na.omit(out, cols = "value"))
+    return(stats::na.omit(out, cols = "value"))
   }
 
   out
@@ -85,7 +85,7 @@ extract_using_coords_t.SpatVector <- function(x, coords, na_omit = TRUE) {
   )
 
   if (na_omit) {
-    return(na.omit(out, cols = "value"))
+    return(stats::na.omit(out, cols = "value"))
   }
 
   out
@@ -122,7 +122,7 @@ tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = 
       # estimate from first 1000 points
       resolution <-
         coords[seq_len(min(1000L, nrow(coords))), .(lon, lat)] |>
-        dist() |> # lower triangular distance matrix
+        stats::dist() |> # lower triangular distance matrix
         min() # minimum distance
     }
   }
@@ -152,7 +152,7 @@ tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = 
     formula_str <- paste("id_coord ~", paste(grouping_cols, collapse = " + "))
     data <- data.table::dcast(
       data = data,
-      formula = as.formula(formula_str),
+      formula = stats::as.formula(formula_str),
       value.var = value_col
     )
     # splice in grouping cols into names - will become layer names
@@ -184,5 +184,5 @@ tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = 
     }
   ) |>
     terra::rast() |>
-    setNames(layernames)
+    stats::setNames(layernames)
 }

@@ -6,6 +6,7 @@
 \alias{\%||\%}
 \alias{pluck_wildcard}
 \alias{ensure_dir}
+\alias{require_suggested}
 \alias{print_rowwise_yaml}
 \alias{cast_dt_col}
 \title{evoland utility functions}
@@ -17,6 +18,8 @@ x \%||\% y
 pluck_wildcard(lst, ...)
 
 ensure_dir(dir)
+
+require_suggested(package, purpose)
 
 print_rowwise_yaml(df)
 
@@ -32,6 +35,10 @@ cast_dt_col(x, colname, type, levels = NULL)
 \item{lst}{The list to index into}
 
 \item{dir}{Directory path to ensure exists}
+
+\item{package}{Name of the suggested package}
+
+\item{purpose}{What the package is needed for, completing "is required to ..."}
 
 \item{df}{A data.frame or data.table to print}
 
@@ -56,6 +63,9 @@ These are mostly used to validate evoland S3 objects.
 \item \code{pluck_wildcard()}: Pluck with wildcard support
 
 \item \code{ensure_dir()}: Ensure that a directory exists; return its argument for pipeability
+
+\item \code{require_suggested()}: Require a package that evoland only suggests, failing with an
+actionable message rather than with the one R gives for a missing namespace
 
 \item \code{print_rowwise_yaml()}: Print a dataframe in a row-wise yaml style
 

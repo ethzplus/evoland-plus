@@ -34,7 +34,7 @@ fit_full_models(
 
 \method{print}{trans_models_t}(x, ...)
 
-get_crossval_plots(self, id_run = NULL, id_trans = NULL)
+get_crossval_plots(self, id_run = NULL, id_trans = NULL, ...)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -74,7 +74,7 @@ rank partial models in score-select mode. Must be \code{NULL} when \code{learner
 \item{select_maximize}{Logical; if \code{TRUE} (default) the model with the highest
 \code{select_score} is selected; if \code{FALSE}, the lowest. Only used in score-select mode.}
 
-\item{...}{ignored}
+\item{...}{Passed to \code{\link[mlr3viz:autoplot.PredictionClassif]{mlr3viz::autoplot.PredictionClassif()}}}
 
 \item{id_run}{Optional integer; filter by run ID.}
 
@@ -88,7 +88,9 @@ A data.table of class "trans_models_t" with columns:
 \item \code{learner_id}: mlr3 twoclass \href{https://mlr3.mlr-org.com/reference/LearnerClassif.html}{LearnerClassif}
 key, e.g. \code{"classif.ranger"}
 \item \code{learner_params}: MAP of atomic scalar learner hyperparameters for
-querying; complete hyperparameters are captured by \code{learner_spec}
+querying; complete hyperparameters are captured by \code{learner_spec}.
+A fit that failed is recorded as a sentinel row whose \code{learner_params}
+holds a single \code{error_message} entry, and whose \code{learner_full} is \code{NULL}
 \item \code{learner_spec}: BLOB of serialized untrained mlr3 \code{Learner}; for
 AutoTuners, this is the optimal inner learner after tuning
 \item \code{crossval_score}: MAP of cross-validation performance scores

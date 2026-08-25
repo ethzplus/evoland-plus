@@ -423,7 +423,8 @@ uSAM, otherwise uPAM.
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
-  seed = NULL
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )}
     \if{html}{\out{</div>}}
   }
@@ -441,7 +442,10 @@ would merge fail and allocate nothing. Ignored for uSAM.}
       \item{\code{batch_size}}{Integer; uPAM pivots attempted per MuST re-draw. \code{0}
 (default) auto-scales with the source pool; \verb{> 0} is an explicit cap
 (\code{1} = strict uPAM); \verb{< 0} = all candidates in one pass. Ignored for uSAM.}
-      \item{\code{seed}}{Optional integer random seed for reproducibility.}
+      \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials
+(useful for repeated allocation)}
+      \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
+values already exist}
     }
     \if{html}{\out{</div>}}
   }
@@ -599,7 +603,7 @@ database read.}
   Get cross-validation plots for stored predictions, see \code{\link[=get_crossval_plots]{get_crossval_plots()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$get_crossval_plots(id_run = NULL, id_trans = NULL)}
+    \preformatted{evoland_db$get_crossval_plots(id_run = NULL, id_trans = NULL, ...)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -607,6 +611,7 @@ database read.}
     \describe{
       \item{\code{id_run}}{Optional integer; filter by run ID.}
       \item{\code{id_trans}}{Optional integer; filter by transition ID.}
+      \item{\code{...}}{Passed to \code{\link[mlr3viz:autoplot.PredictionClassif]{mlr3viz::autoplot.PredictionClassif()}}}
     }
     \if{html}{\out{</div>}}
   }
@@ -672,7 +677,12 @@ model probabilities (not yet allocation-ready); use \code{\link[=adjusted_trans_
 to obtain column-scaled, row-closed values.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$predict_trans_pot(id_period_post, select_score, select_maximize)}
+    \preformatted{evoland_db$predict_trans_pot(
+  id_period_post,
+  select_score,
+  select_maximize,
+  force = FALSE
+)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
