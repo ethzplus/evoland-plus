@@ -97,11 +97,16 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' transition potential for a given period and store it in `trans_pot_t` in the database. Raw
 #' potentials are per-transition MLR3 model probabilities; they are **not** yet allocation-ready
 #' (not column-scaled to target rates, not row-closed to max probability of 1). Use
-#' [adjusted_trans_pot_v()] to obtain allocation-ready values.
+#' [adjusted_trans_pot_v()] to obtain allocation-ready values. Set
+#' `options(evoland.use_prefetch_predict=TRUE)` to prefetch all predictors; this causes higher
+#' memory pressure but only needs to go to disk once. The learners have
+#' `parallel_predict` enabled, see [mlr3::Learner]: the prediction task is automatically
+#' chunked out to any [future](https://future.futureverse.org/) workers available.
 #' @param self an [evoland_db] instance
 #' @param id_period_post scalar integerish, passed to [pred_data_wide_v()]
 #' @param select_score character scalar, name of score/measure to identify best fitting model
 #' @param select_maximize logical scalar, whether to maximize or minimize `select_score`
+#' @param force logical, Force prediction even if a prediction is found
 #' @return `predict_trans_pot()`: called for side effect; commit `trans_pot_t` to database
 predict_trans_pot <- function(
   self,
@@ -110,13 +115,16 @@ predict_trans_pot <- function(
   select_maximize,
   force = FALSE
 ) {
-  # TODO parallelize
   .check_viable_trans_models(self, select_score) # error on missing models
 
-  viable_trans <- self$trans_meta_t[is_viable == TRUE, id_trans]
+  viable_trans <- self$trans_meta_t[is_viable == TRUE]
   message(glue::glue("Predicting transition potential for {length(viable_trans)} transitions"))
 
-  for (id_trans in viable_trans) {
+  use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
+
+  pred_data_all <- NULL
+
+  for (id_trans in viable_trans[, id_trans]) {
     has_predictions <- .has_predictions(self, id_trans, id_period_post)
 
     if (has_predictions && !force) {
@@ -128,9 +136,30 @@ predict_trans_pot <- function(
       next
     } else {
       message(glue::glue(
-        "Predicting transition {which(viable_trans == id_trans)}/",
-        "{length(viable_trans)} (id_trans={id_trans})"
+        "Predicting transition {which(viable_trans[, id_trans] == id_trans)}/",
+        "{nrow(viable_trans)} (id_trans={id_trans})"
       ))
+    }
+
+    if (use_prefetch) {
+      if (is.null(pred_data_all)) {
+        pred_data_all <- self$pred_data_wide_v(
+          id_trans = NA,
+          id_period_anterior = id_period_post - 1
+        )
+      }
+      id_lulc_anterior <- viable_trans[
+        id_trans == id_sel,
+        id_lulc_anterior,
+        env = list(id_sel = id_trans)
+      ]
+      pred_data_post <- pred_data_all[id_lulc == id_lulc_anterior, !"id_lulc"]
+    } else {
+      # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
+      pred_data_post <- self$pred_data_wide_v(
+        id_trans = id_trans,
+        id_period_anterior = id_period_post - 1
+      )
     }
 
     # Get model for this transition
@@ -146,16 +175,11 @@ predict_trans_pot <- function(
     ))[[1]]
 
     if (length(model_blob) == 0L) {
-      stop(glue::glue("No model found for id_trans={id_trans}"))
+      warning(glue::glue("No model found for id_trans={id_trans}"))
+      next
     }
 
     learner_obj <- qs2::qs_deserialize(model_blob[[1]])
-
-    # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
-    pred_data_post <- self$pred_data_wide_v(
-      id_trans = id_trans,
-      id_period_anterior = id_period_post - 1
-    )
 
     if (nrow(pred_data_post) == 0L) {
       warning(glue::glue(
@@ -163,6 +187,9 @@ predict_trans_pot <- function(
       ))
       next
     }
+
+    # if future workers are available, chunk out prediction to them
+    learner_obj$parallel_predict <- TRUE
 
     # Predict probabilities; probs keeps the pred_data_post ordering
     probs <- learner_obj$predict_newdata(pred_data_post)$prob[, "TRUE"]
@@ -188,7 +215,7 @@ predict_trans_pot <- function(
     r"[
     select distinct id_trans
     from {self$get_read_expr("trans_models_t")}
-    where 
+    where
       learner_full is not null
       and crossval_score['{select_score}'] is not null
     ]"

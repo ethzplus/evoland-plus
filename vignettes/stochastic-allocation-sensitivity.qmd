@@ -480,11 +480,12 @@ We loop over the run records: for each run we set the active `db$id_run` -- whic
 #| output: false
 for (i in seq_len(nrow(runs_out))) {
   db$id_run <- runs_out$id_run[i]
+  set.seed(runs_out$seed[i])
   db$alloc_clumpy(
     id_periods = 4, # first extrapolated period
-    select_score = "classif.auc",
+    select_score = "no.crossval",
     select_maximize = TRUE,
-    seed = runs_out$seed[i]
+    use_parent_trans_pot = TRUE
   )
 }
 ```
@@ -595,7 +596,7 @@ The previous heatmap asked only whether a cell changes at all. You can build mor
 urban_frequency <-
   simulated_extrap[,
     .(
-      p_urban = mean(id_lulc_simulated == 3L) #urban id
+      p_urban = mean(id_lulc_simulated == 3L) # urban id
     ),
     by = .(id_coord)
   ] |>

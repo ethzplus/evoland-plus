@@ -22,30 +22,31 @@ with
     from
       {trans_meta_read_expr}
     where
-      id_trans = {id_trans}
+      {
+        if (is.na (id_trans)) "is_viable = TRUE" else paste ("id_trans =", id_trans)
+      }
   ),
   anterior_coords as (
     -- we only infer the transition potential where id_coord had the anterior land cover
     -- in the previous period
-    select
-      id_coord
+    select distinct
+      id_coord,
+      id_lulc
     from
-      {lulc_data_read_expr}
+      {lulc_data_read_expr} d,
+      trans_select s
     where
-      id_period = {id_period_anterior}
-      and id_lulc = (
-        from
-          trans_select
-      )
+      d.id_period = {id_period_anterior}
+      and d.id_lulc = s.id_lulc_anterior
   ),
   preds_select as (
     -- we only fetch the predictors that are of relevance to the transition
-    select
+    select distinct
       id_pred
     from
-      {trans_preds_read_expr}
-    where
-      id_trans = {id_trans}
+      {trans_preds_read_expr} {
+        if (is.na (id_trans)) "" else paste ("where id_trans =", id_trans)
+      }
   ),
   -- a predictor may carry both a period-specific value and an id_period = 0
   -- fallback (e.g. a climate baseline overridden by a scenario projection).
@@ -119,8 +120,7 @@ with
           ps.id_pred
         from
           pred_slice ps
-        anti join
-          pred_data_long l on l.id_pred = ps.id_pred
+          anti join pred_data_long l on l.id_pred = ps.id_pred
       ) as missing
       cross join anterior_coords ac
   ),
@@ -129,10 +129,11 @@ with
     group by
       id_coord
   )
--- left join, so that a coordinate none of the resolved slices cover is still returned,
--- with NULL predictors, rather than going missing from the design matrix
+  -- left join, so that a coordinate none of the resolved slices cover is still returned,
+  -- with NULL predictors, rather than going missing from the design matrix
 select
   ac.id_coord,
+  ac.id_lulc,
   pdata.* exclude (id_coord)
 from
   anterior_coords ac

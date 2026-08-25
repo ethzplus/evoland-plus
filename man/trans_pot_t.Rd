@@ -33,6 +33,8 @@ predict_trans_pot(
 \item{select_score}{character scalar, name of score/measure to identify best fitting model}
 
 \item{select_maximize}{logical scalar, whether to maximize or minimize \code{select_score}}
+
+\item{force}{logical, Force prediction even if a prediction is found}
 }
 \value{
 A data.table of class "trans_pot_t" with columns:
@@ -59,6 +61,10 @@ Estimate transition potential at \code{id_period_post}. Based on the LULC at \co
 transition potential for a given period and store it in \code{trans_pot_t} in the database. Raw
 potentials are per-transition MLR3 model probabilities; they are \strong{not} yet allocation-ready
 (not column-scaled to target rates, not row-closed to max probability of 1). Use
-\code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} to obtain allocation-ready values.
+\code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} to obtain allocation-ready values. Set
+\code{options(evoland.use_prefetch_predict=TRUE)} to prefetch all predictors; this causes higher
+memory pressure but only needs to go to disk once. The learners have
+\code{parallel_predict} enabled, see \link[mlr3:Learner]{mlr3::Learner}: the prediction task is automatically
+chunked out to any \href{https://future.futureverse.org/}{future} workers available.
 
 }}

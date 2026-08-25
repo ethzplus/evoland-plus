@@ -3,7 +3,7 @@ name = "evoland-plus"
 r_version = "4.6"
 
 repositories = [
-  { alias = "CRAN", url = "https://packagemanager.posit.co/cran/latest" },
+  { alias = "CRAN", url = "https://stat.ethz.ch/CRAN/" },
 ]
 
 dependencies = [
@@ -14,4 +14,5 @@ dependencies = [
   "httpgd",
   "languageserver",
   "profvis",
+  "qs2",
 ]

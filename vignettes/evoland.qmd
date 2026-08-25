@@ -462,8 +462,7 @@ does not require the presence of [DinamicaEGO](install-dinamica.html) as an exte
 db$alloc_clumpy(
   id_period = db$periods_t[is_extrapolated == TRUE, id_period], # select all extrapolation periods
   select_score = "classif.auc",
-  select_maximize = TRUE,
-  seed = 42L # optional: reproducibility
+  select_maximize = TRUE
 )
 ```
 

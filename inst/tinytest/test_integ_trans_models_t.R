@@ -354,9 +354,27 @@ expect_message(
   db$trans_models_t <- db$fit_full_models(learner = mlr3::lrn("classif.rpart")),
   "Fitting full"
 )
+options("evoland.use_prefetch_predict" = FALSE)
 expect_message(
   db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE),
-  "Predicting transition potential"
+  "Predicting transition 2/2 (id_trans=2)",
+  fixed = TRUE
+)
+expect_message(
+  db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE),
+  "Found trans_pot_t for id_run=0/id_trans=2/id_period=4; set force=TRUE to recompute",
+  fixed = TRUE
+)
+options("evoland.use_prefetch_predict" = TRUE)
+expect_message(
+  db$predict_trans_pot(
+    id_period_post = 4,
+    select_score = "no.crossval",
+    select_maximize = TRUE,
+    force = TRUE
+  ),
+  "Predicting transition 2/2 (id_trans=2)",
+  fixed = TRUE
 )
 db$trans_rates_t <-
   db$get_obs_trans_rates() |>

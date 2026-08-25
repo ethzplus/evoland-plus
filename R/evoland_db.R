@@ -179,7 +179,10 @@ evoland_db <- R6::R6Class(
     #' @param batch_size Integer; uPAM pivots attempted per MuST re-draw. `0`
     #' (default) auto-scales with the source pool; `> 0` is an explicit cap
     #' (`1` = strict uPAM); `< 0` = all candidates in one pass. Ignored for uSAM.
-    #' @param seed Optional integer random seed for reproducibility.
+    #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
+    #' (useful for repeated allocation)
+    #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
+    #' values already exist
     alloc_clumpy = function(
       id_periods,
       select_score,
@@ -187,7 +190,8 @@ evoland_db <- R6::R6Class(
       area_dist = "lognormal",
       avoid_aggregation = TRUE,
       batch_size = 0L,
-      seed = NULL
+      use_parent_trans_pot = FALSE,
+      force_predict_trans_pot = FALSE
     ) {
       create_method_binding(alloc_clumpy)
     },
@@ -318,7 +322,7 @@ evoland_db <- R6::R6Class(
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    predict_trans_pot = function(id_period_post, select_score, select_maximize) {
+    predict_trans_pot = function(id_period_post, select_score, select_maximize, force = FALSE) {
       create_method_binding(predict_trans_pot)
     },
 

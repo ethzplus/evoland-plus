@@ -13,7 +13,8 @@ alloc_clumpy_one_period(
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
-  use_parent_trans_pot = FALSE
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )
 
 alloc_clumpy(
@@ -23,7 +24,9 @@ alloc_clumpy(
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 0L
+  batch_size = 0L,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )
 }
 \arguments{
@@ -47,8 +50,6 @@ or \code{"normal"}.}
 potentials. Useful if a run branches off from parent.}
 
 \item{id_periods}{Integer vector of posterior period IDs to simulate.}
-
-\item{id_period_ant}{Integer anterior period ID.}
 }
 \value{
 An \link{lulc_data_t} with the simulated posterior LULC.

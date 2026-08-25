@@ -168,8 +168,8 @@ pred_data_wide_v <- function(
   id_period_anterior
 ) {
   stopifnot(
-    "id_trans must be a single integer" = {
-      length(id_trans) == 1L && as.integer(id_trans) == id_trans
+    "id_trans must be a single integer or NA" = {
+      is.na(id_trans) || (length(id_trans) == 1L && as.integer(id_trans) == id_trans)
     },
     "id_period_anterior must be a single integer" = {
       length(id_period_anterior) == 1L && as.integer(id_period_anterior) == id_period_anterior

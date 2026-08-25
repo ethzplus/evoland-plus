@@ -115,11 +115,42 @@ expect_message(
     select_maximize = TRUE,
     avoid_aggregation = FALSE
   ),
-  "CLUMPY allocation"
+  "CLUMPY allocation complete"
 )
 
 # Period 4 should now be populated
 expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
+
+options("evoland.use_prefetch_predict" = TRUE)
+expect_message(
+  db$alloc_clumpy(
+    id_periods = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    avoid_aggregation = FALSE,
+    force_predict_trans_pot = TRUE
+  ),
+  "Running CLUMPY allocation (uPAM): period 3 -> 4",
+  fixed = TRUE
+)
+
+db$runs_t <- as_runs_t(rbind(
+  db$runs_t,
+  list(id_run = 4, parent_id_run = 3, description = "stochastic alloc")
+))
+db$id_run <- 4
+
+expect_message(
+  db$alloc_clumpy(
+    id_periods = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    avoid_aggregation = FALSE,
+    use_parent_trans_pot = TRUE
+  ),
+  "Found trans_pot_t for id_run=3/id_trans=2/id_period=4; set force=TRUE to recompute",
+  fixed = TRUE
+)
 
 # --------------------------------------------------------------------------
 # Test error handling

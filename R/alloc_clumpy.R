@@ -55,7 +55,6 @@ NULL
 #' (useful when forking runs for Monte-Carlo) or read pre-written trans_pot_t values
 #'
 #' @param self An [evoland_db] instance.
-#' @param id_period_ant Integer anterior period ID.
 #' @param id_period_post Integer posterior period ID.
 #' @param select_score Character; mlr3 measure ID for model selection.
 #' @param select_maximize Logical; whether to maximise `select_score`.
@@ -80,7 +79,8 @@ alloc_clumpy_one_period <- function(
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
   batch_size = 0L,
-  use_parent_trans_pot = FALSE
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 ) {
   id_period_ant <- id_period_post - 1L
   # TODO rework whole function into more idiomatic code
@@ -90,13 +90,15 @@ alloc_clumpy_one_period <- function(
     on.exit(self$id_run <- id_run_init, add = TRUE)
     parent_run <- self$run_lineage[2]
     if (!is.na(parent_run)) {
+      # cannot go up from a root run
       self$id_run <- parent_run
     }
   }
   self$predict_trans_pot(
     id_period_post = id_period_post,
     select_score = select_score,
-    select_maximize = select_maximize
+    select_maximize = select_maximize,
+    force = force_predict_trans_pot
   )
   if (use_parent_trans_pot) {
     self$id_run <- id_run_init # immediately reset, cannot wait for on.exit
@@ -239,7 +241,9 @@ alloc_clumpy <- function(
   select_maximize,
   area_dist = "lognormal",
   avoid_aggregation = TRUE,
-  batch_size = 0L
+  batch_size = 0L,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 ) {
   stopifnot(
     "id_periods must be a numeric vector" = is.numeric(id_periods),
@@ -267,7 +271,9 @@ alloc_clumpy <- function(
       select_maximize = select_maximize,
       area_dist = area_dist,
       avoid_aggregation = avoid_aggregation,
-      batch_size = batch_size
+      batch_size = batch_size,
+      use_parent_trans_pot = use_parent_trans_pot,
+      force_predict_trans_pot = force_predict_trans_pot
     )
 
     self$commit(lulc_result, "lulc_data_t", method = "upsert")
