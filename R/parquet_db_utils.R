@@ -1,18 +1,18 @@
 #' Parquet database utility functions
 #'
 #' @description
-#' A set of utility functions for working with [parquet_db].
+#' A set of utility functions for working with [ducklake_db].
 #'
 #' @name parquet_db_utils
 NULL
 
 #' @describeIn parquet_db_utils Coerce to parquet_db_t subclass. It coerces an object to a
-#' data.table and adds attributes that [parquet_db] relies on for database-like
+#' data.table and adds attributes that [ducklake_db] relies on for database-like
 #' operations. See the paramaters for details.
 #' @param class_name Optional class name to prepend before "parquet_db_t". Used
 #'        to create more specific subclasses.
 #' @param key_cols Optional character vector. Used for data.table's [data.table::setkey]
-#'        and used by [parquet_db] to determine which columns to use for upsert
+#'        and used by [ducklake_db] to determine which columns to use for upsert
 #'        operations. Together with `alternate_key_cols`, these are used to define
 #'        uniqueness constraints.
 #' @param alternate_key_cols Optional character vector. These are used in
@@ -158,7 +158,7 @@ validate.parquet_db_t <- function(x, ...) {
 
 
 #' @describeIn parquet_db_utils Serialize a named list of atomic vectors into the
-#' single string that [parquet_db] stores as a comment on the catalog table. Each
+#' single string that [ducklake_db] stores as a comment on the catalog table. Each
 #' entry becomes one line, `key: "value1", "value2"`.
 #' @param metadata Named list of atomic vectors.
 #' @keywords internal

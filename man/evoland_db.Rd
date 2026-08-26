@@ -8,7 +8,7 @@ An R6 class that provides an interface to a folder-based data storage system
 for the evoland package. This class uses DuckDB for in-memory SQL operations
 while persisting data to a DuckLake catalog on disk.
 
-Inherits from \link{parquet_db} for generic database operations.
+Inherits from \link{ducklake_db} for generic database operations.
 }
 \seealso{
 Additional methods and active bindings are added to this class in separate files:
@@ -17,7 +17,7 @@ Additional methods and active bindings are added to this class in separate files
 }
 }
 \section{Super class}{
-\code{\link[evoland:parquet_db]{parquet_db}} -> \code{evoland_db}
+\code{\link[evoland:ducklake_db]{ducklake_db}} -> \code{evoland_db}
 }
 \section{Active bindings}{
   \if{html}{\out{<div class="r6-active-bindings">}}
@@ -97,16 +97,15 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
 }
 \if{html}{\out{<details><summary>Inherited methods</summary>
 <ul>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="column_max"><a href='../../evoland/html/parquet_db.html#method-parquet_db-column_max'><code>parquet_db$column_max()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="commit"><a href='../../evoland/html/parquet_db.html#method-parquet_db-commit'><code>parquet_db$commit()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="delete_from"><a href='../../evoland/html/parquet_db.html#method-parquet_db-delete_from'><code>parquet_db$delete_from()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="execute"><a href='../../evoland/html/parquet_db.html#method-parquet_db-execute'><code>parquet_db$execute()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="fetch"><a href='../../evoland/html/parquet_db.html#method-parquet_db-fetch'><code>parquet_db$fetch()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_query"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_query'><code>parquet_db$get_query()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_metadata"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_metadata'><code>parquet_db$get_table_metadata()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="list_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-list_tables'><code>parquet_db$list_tables()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="row_count"><a href='../../evoland/html/parquet_db.html#method-parquet_db-row_count'><code>parquet_db$row_count()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="with_retry"><a href='../../evoland/html/parquet_db.html#method-parquet_db-with_retry'><code>parquet_db$with_retry()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="column_max"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-column_max'><code>ducklake_db$column_max()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="commit"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-commit'><code>ducklake_db$commit()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="delete_from"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-delete_from'><code>ducklake_db$delete_from()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="execute"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-execute'><code>ducklake_db$execute()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="fetch"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-fetch'><code>ducklake_db$fetch()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_query"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_query'><code>ducklake_db$get_query()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_table_metadata"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_table_metadata'><code>ducklake_db$get_table_metadata()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="list_tables"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-list_tables'><code>ducklake_db$list_tables()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="row_count"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-row_count'><code>ducklake_db$row_count()</code></a></span></li>
 </ul>
 </details>}}
 \if{html}{\out{<hr>}}
@@ -116,7 +115,14 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   Initialize a new evoland_db object
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$new(path, id_run = 0L, read_only = FALSE, ...)}
+    \preformatted{evoland_db$new(
+  path,
+  id_run = 0L,
+  read_only = FALSE,
+  catalog = NULL,
+  data_path = NULL,
+  ...
+)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -125,7 +131,9 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
       \item{\code{path}}{Character string. Path to the data folder.}
       \item{\code{id_run}}{Atomic integer run ID, defaults to 0. Can be set to NULL}
       \item{\code{read_only}}{Logical. Whether to update the reporting table upon
-initialization; if TRUE, only parallel-safe appends are allowed.}
+initialization; if TRUE, the catalog is attached read-only.}
+      \item{\code{catalog}}{Character string. DuckLake catalog connection, see \link{ducklake_db}.}
+      \item{\code{data_path}}{Character string. DuckLake data files location, see \link{ducklake_db}.}
       \item{\code{...}}{passed on to \code{set_report}}
     }
     \if{html}{\out{</div>}}

@@ -5,19 +5,19 @@
 #' for the evoland package. This class uses DuckDB for in-memory SQL operations
 #' while persisting data to a DuckLake catalog on disk.
 #'
-#' Inherits from [parquet_db] for generic database operations.
+#' Inherits from [ducklake_db] for generic database operations.
 #'
 #' @seealso
 #' Additional methods and active bindings are added to this class in separate files:
 #'
 #' - [evoland_db_views] - View active bindings (lulc_meta_long_v, etc.) and methods
 #'
-#' @include parquet_db.R parquet_db_utils.R
+#' @include ducklake_db.R parquet_db_utils.R
 #' @export
 
 evoland_db <- R6::R6Class(
   classname = "evoland_db",
-  inherit = parquet_db,
+  inherit = ducklake_db,
 
   ## Public Methods ----
   public = list(
@@ -26,7 +26,9 @@ evoland_db <- R6::R6Class(
     #' @param path Character string. Path to the data folder.
     #' @param id_run Atomic integer run ID, defaults to 0. Can be set to NULL
     #' @param read_only Logical. Whether to update the reporting table upon
-    #' initialization; if TRUE, only parallel-safe appends are allowed.
+    #' initialization; if TRUE, the catalog is attached read-only.
+    #' @param catalog Character string. DuckLake catalog connection, see [ducklake_db].
+    #' @param data_path Character string. DuckLake data files location, see [ducklake_db].
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
@@ -34,9 +36,16 @@ evoland_db <- R6::R6Class(
       path,
       id_run = 0L,
       read_only = FALSE,
+      catalog = NULL,
+      data_path = NULL,
       ...
     ) {
-      super$initialize(path = path, read_only = read_only)
+      super$initialize(
+        path = path,
+        read_only = read_only,
+        catalog = catalog,
+        data_path = data_path
+      )
       if (!read_only) {
         self$set_report(...)
         self$commit(as_runs_t(), "runs_t", method = "upsert")

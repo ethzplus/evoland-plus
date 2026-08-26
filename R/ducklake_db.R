@@ -1,19 +1,43 @@
+# Only ever one DuckLake catalog is attached per connection, so its alias is an
+# internal detail rather than something a caller needs to pick.
+CATALOG_ALIAS <- "ducklake_db"
+
+# Contention shows up differently per catalog backend: the first two come from
+# SQLite and DuckDB-file catalogs, the last from DuckLake's own commit path.
+# A server-backed catalog reports its own; add them here when one is adopted.
+TRANSIENT_CATALOG_ERRORS <- paste(
+  "database is locked",
+  "Could not set lock on file",
+  "Failed to commit DuckLake transaction",
+  sep = "|"
+)
+
 #' R6 Base Class for DuckLake-Backed Storage
 #'
 #' @description
 #' A domain-agnostic R6 class that provides an interface to a folder-based data
-#' storage system. An in-memory DuckDB instance attaches a DuckLake catalog held
-#' in SQLite, so that writes are atomic and readers see snapshot-isolated data
-#' even while other processes are writing. This class can be inherited by
-#' domain-specific database classes.
+#' storage system. An in-memory DuckDB instance attaches a DuckLake catalog, so
+#' that writes are atomic and readers see snapshot-isolated data even while
+#' other processes are writing. This class can be inherited by domain-specific
+#' database classes.
 #'
-#' A database is one self-contained folder: the catalog lives at
-#' `<path>/catalog.sqlite` and the data files at `<path>/data/`.
+#' By default a database is one self-contained folder: the catalog lives in
+#' SQLite at `<path>/catalog.sqlite` and the data files at `<path>/data/`.
+#' Passing `catalog` and/or `data_path` puts either half somewhere else, for
+#' instance a shared PostgreSQL catalog or a bucket:
+#'
+#' ```r
+#' ducklake_db$new(
+#'   path = "scratch",
+#'   catalog = "postgres:dbname=evoland host=catalog.example.org",
+#'   data_path = "s3://evoland/lake/"
+#' )
+#' ```
 #'
 #' @export
 
-parquet_db <- R6::R6Class(
-  classname = "parquet_db",
+ducklake_db <- R6::R6Class(
+  classname = "ducklake_db",
 
   ## Public Methods ----
   public = list(
@@ -23,34 +47,45 @@ parquet_db <- R6::R6Class(
     #' @field path Character string path to the data folder
     path = NULL,
 
-    #' @field catalog Character string naming the attached DuckLake catalog
+    #' @field catalog Character string, the DuckLake catalog connection, e.g.
+    #' `"sqlite:<path>/catalog.sqlite"`
     catalog = NULL,
+
+    #' @field data_path Character string, where DuckLake writes its data files
+    data_path = NULL,
 
     #' @field read_only If true, the catalog is attached read-only
     read_only = NULL,
 
-    #' @field retry_max Integer, how often `with_retry()` retries a contended write
+    #' @field retry_max Integer, how often a contended catalog write is retried
     retry_max = 20L,
 
-    #' @field retry_wait Numeric, base wait in seconds for `with_retry()`'s backoff
+    #' @field retry_wait Numeric, base wait in seconds for the retry backoff
     retry_wait = 0.1,
 
     #' @description
-    #' Initialize a new parquet_db object
+    #' Initialize a new ducklake_db object
     #' @param path Character string. Path to the data folder.
     #' @param read_only Logical. If true, the catalog is attached read-only.
     #' @param extensions Character vector of additional DuckDB extensions to load
-    #' @param catalog Character string naming the attached catalog
+    #' @param catalog Character string. DuckLake catalog connection; defaults to
+    #' SQLite at `<path>/catalog.sqlite`. Anything DuckLake accepts works, e.g.
+    #' `"postgres:dbname=evoland host=..."` or `"mysql:..."`.
+    #' @param data_path Character string. Where DuckLake writes its data files;
+    #' defaults to `<path>/data/`. May be remote, e.g. `"s3://bucket/prefix/"`.
     #'
-    #' @return A new `parquet_db` object
+    #' @return A new `ducklake_db` object
     initialize = function(
       path,
       read_only = FALSE,
       extensions = character(0),
-      catalog = "db"
+      catalog = NULL,
+      data_path = NULL
     ) {
-      self$path <- ensure_dir(path)
-      self$catalog <- catalog
+      # the local folder is only needed for the halves that actually live in it
+      self$path <- if (is.null(catalog) || is.null(data_path)) ensure_dir(path) else path
+      self$catalog <- catalog %||% glue::glue("sqlite:{file.path(path, 'catalog.sqlite')}")
+      self$data_path <- data_path %||% paste0(ensure_dir(file.path(path, "data")), "/")
       self$read_only <- read_only
 
       # `shared_home = TRUE` pins DuckDB's extension and secret storage to ~/.duckdb.
@@ -62,31 +97,37 @@ parquet_db <- R6::R6Class(
         dbdir = ":memory:"
       )
 
-      # ducklake and sqlite are on the critical path for opening the database at all
-      for (ext in unique(c("ducklake", "sqlite", extensions))) {
+      # ducklake plus whatever backs the catalog and the data files are on the
+      # critical path for opening the database at all
+      for (ext in unique(c("ducklake", private$backend_extensions(), extensions))) {
         self$execute(glue::glue("install {ext}; load {ext};"))
       }
 
-      data_path <- ensure_dir(file.path(self$path, "data"))
-      catalog_path <- file.path(self$path, "catalog.sqlite")
-
       # DuckLake resolves logical snapshot conflicts itself; catalog lock contention
-      # is handled by with_retry()
+      # is handled by private$with_retry()
       self$execute("set ducklake_max_retry_count = 40")
 
-      self$with_retry(function() {
+      private$with_retry(function() {
         self$execute(glue::glue(
-          "attach '{attach_str}' as \"{self$catalog}\" ({options_str})",
-          attach_str = glue::glue("ducklake:sqlite:{catalog_path}"),
+          "attach 'ducklake:{self$catalog}' as {CATALOG_ALIAS} ({options_str})",
           options_str = glue::glue_collapse(
             c(
-              glue::glue("DATA_PATH '{data_path}/'"),
+              glue::glue("DATA_PATH '{self$data_path}'"),
               if (read_only) "READ_ONLY"
             ),
             sep = ", "
           )
         ))
       })
+
+      if (!read_only) {
+        # persisted in the catalog, so this only does work on first open
+        private$with_retry(function() {
+          self$execute(
+            glue::glue("call {CATALOG_ALIAS}.set_option('parquet_compression', 'zstd')")
+          )
+        })
+      }
 
       invisible(self)
     },
@@ -107,7 +148,7 @@ parquet_db <- R6::R6Class(
     #' @param statement A SQL query statement
     #' @return A data.table with query results
     get_query = function(statement) {
-      result <- self$with_retry(function() {
+      result <- private$with_retry(function() {
         DBI::dbGetQuery(self$connection, statement)
       })
       # set in place
@@ -126,42 +167,6 @@ parquet_db <- R6::R6Class(
       }
 
       result
-    },
-
-    #' @description
-    #' Retry a write in the face of catalog lock contention. DuckLake's own
-    #' `ducklake_max_retry_count` covers logical snapshot conflicts, but not
-    #' contention on the SQLite catalog file itself; uncoordinated writers need
-    #' this wrapper to all get through. Only transient locking errors are
-    #' retried, with exponential backoff and jitter; anything else is re-raised
-    #' immediately.
-    #' @param fn A zero-argument function performing the write
-    #' @return The value of `fn()`
-    with_retry = function(fn) {
-      transient <- paste(
-        "database is locked",
-        "Could not set lock on file",
-        "Failed to commit DuckLake transaction",
-        sep = "|"
-      )
-
-      for (attempt in seq_len(self$retry_max)) {
-        result <- try(fn(), silent = TRUE)
-
-        if (!inherits(result, "try-error")) {
-          return(result)
-        }
-
-        condition <- attr(result, "condition")
-        if (
-          !grepl(transient, conditionMessage(condition)) ||
-            attempt == self$retry_max
-        ) {
-          stop(condition)
-        }
-
-        Sys.sleep(stats::runif(1L, 0, self$retry_wait * 2^(attempt - 1L)))
-      }
     },
 
     #' @description
@@ -201,7 +206,7 @@ parquet_db <- R6::R6Class(
     list_tables = function() {
       self$get_query(glue::glue(
         "select table_name from information_schema.tables
-         where table_catalog = '{self$catalog}'
+         where table_catalog = '{CATALOG_ALIAS}'
          order by table_name"
       ))[[1]]
     },
@@ -269,7 +274,7 @@ parquet_db <- R6::R6Class(
 
       comment <- self$get_query(glue::glue(
         "select comment from duckdb_tables()
-         where database_name = '{self$catalog}' and table_name = '{table_name}'"
+         where database_name = '{CATALOG_ALIAS}' and table_name = '{table_name}'"
       ))[[1]]
 
       deserialize_metadata(comment)
@@ -289,7 +294,7 @@ parquet_db <- R6::R6Class(
 
       where_clause <- if (is.null(where)) "" else glue::glue("where {where}")
 
-      self$with_retry(function() {
+      private$with_retry(function() {
         self$execute(glue::glue(
           "delete from {private$table_ref(table_name)} {where_clause}"
         ))
@@ -350,7 +355,7 @@ parquet_db <- R6::R6Class(
     },
 
     #' @description
-    #' Print method for parquet_db
+    #' Print method for ducklake_db
     #' @param subheaders optional character vector; insert as subheaders lines
     #' @param ... Not used
     #' @return self (invisibly)
@@ -405,6 +410,8 @@ parquet_db <- R6::R6Class(
 
       # Basic DB descriptors
       cat("\n | Database:", self$path)
+      cat("\n | Catalog:", self$catalog)
+      cat("\n | Data Path:", self$data_path)
       cat("\n | Read Only:", self$read_only)
       if (length(subheaders) > 0) {
         cat("\n |", paste(subheaders, collapse = "\n | "))
@@ -458,9 +465,52 @@ parquet_db <- R6::R6Class(
       }
     },
 
-    # fully qualified, quoted reference to a table in the attached catalog
+    # fully qualified reference to a table in the attached catalog
     table_ref = function(table_name) {
-      glue::glue('"{self$catalog}"."{table_name}"')
+      glue::glue('{CATALOG_ALIAS}."{table_name}"')
+    },
+
+    # DuckLake itself does not pull in the extensions that back the catalog and
+    # the data files, so derive them from where those were pointed
+    backend_extensions = function() {
+      catalog_ext <- switch(
+        sub(":.*$", "", self$catalog),
+        sqlite = "sqlite",
+        postgres = ,
+        postgresql = "postgres",
+        mysql = "mysql",
+        # duckdb-file catalogs and anything unrecognised need nothing extra
+        NULL
+      )
+
+      remote_data <- grepl("^(s3|gcs|r2|az|abfss?|https?)://", self$data_path)
+
+      c(catalog_ext, if (remote_data) "httpfs")
+    },
+
+    # Retry a catalog operation in the face of lock contention. DuckLake's own
+    # `ducklake_max_retry_count` covers logical snapshot conflicts, but not
+    # contention on the catalog itself; uncoordinated writers need this wrapper
+    # to all get through. Only transient errors are retried, with exponential
+    # backoff and jitter; anything else is re-raised immediately.
+    with_retry = function(fn) {
+      for (attempt in seq_len(self$retry_max)) {
+        result <- try(fn(), silent = TRUE)
+
+        if (!inherits(result, "try-error")) {
+          return(result)
+        }
+
+        condition <- attr(result, "condition")
+        if (
+          !grepl(TRANSIENT_CATALOG_ERRORS, conditionMessage(condition)) ||
+            attempt == self$retry_max
+        ) {
+          stop(condition)
+        }
+
+        Sys.sleep(stats::runif(1L, 0, self$retry_wait * 2^(attempt - 1L)))
+      }
     },
 
     ### Commit Methods ----
@@ -471,7 +521,7 @@ parquet_db <- R6::R6Class(
 
       # one transaction, so that a concurrent reader never observes the table
       # in its intermediate, empty state
-      rows <- self$with_retry(function() {
+      rows <- private$with_retry(function() {
         self$execute("begin transaction")
         on.exit(try(self$execute("rollback"), silent = TRUE), add = TRUE)
 
@@ -507,7 +557,7 @@ parquet_db <- R6::R6Class(
 
     # append new_data_v to table_name; "by name" tolerates missing columns
     commit_append = function(table_name, metadata) {
-      rows <- self$with_retry(function() {
+      rows <- private$with_retry(function() {
         self$execute(glue::glue(
           "insert into {private$table_ref(table_name)} by name (from new_data_v)"
         ))
@@ -532,7 +582,7 @@ parquet_db <- R6::R6Class(
         sep = ",\n "
       )
 
-      rows <- self$with_retry(function() {
+      rows <- private$with_retry(function() {
         self$execute(glue::glue(
           r"{
           merge into {private$table_ref(table_name)}
@@ -730,7 +780,7 @@ parquet_db <- R6::R6Class(
     write_metadata = function(table_name, metadata) {
       comment <- serialize_metadata(metadata)
 
-      self$with_retry(function() {
+      private$with_retry(function() {
         self$execute(glue::glue(
           "comment on table {private$table_ref(table_name)} is {quoted}",
           quoted = if (nzchar(comment)) {

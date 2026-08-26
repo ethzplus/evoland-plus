@@ -177,7 +177,7 @@ run_parallel_evoland <- function(
   }
 
   # Wrapper function to manage DB connection inside the worker
-  wrapper <- function(item, worker_fun_inner, db_path, id_run, ...) {
+  wrapper <- function(item, worker_fun_inner, db_path, id_run, catalog, data_path, ...) {
     if (!exists("evoland_db")) {
       stop("evoland_db class not found on worker. Ensure package is installed.")
     }
@@ -185,7 +185,9 @@ run_parallel_evoland <- function(
     worker_db <- evoland_db$new(
       path = db_path,
       id_run = id_run,
-      read_only = TRUE
+      read_only = TRUE,
+      catalog = catalog,
+      data_path = data_path
     )
     worker_db$execute("set threads to 1")
 
@@ -201,6 +203,9 @@ run_parallel_evoland <- function(
     worker_fun_inner = worker_fun,
     db_path = parent_db$path,
     id_run = parent_db$id_run,
+    # workers must reach the same catalog and data files as the parent
+    catalog = parent_db$catalog,
+    data_path = parent_db$data_path,
     ...
   )
 }
