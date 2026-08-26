@@ -46,7 +46,7 @@ cols_to_select_expr(cols, table_name)
 to create more specific subclasses.}
 
 \item{key_cols}{Optional character vector. Used for data.table's \link[data.table:setkey]{data.table::setkey}
-and used by \link{parquet_db} to determine which columns to use for upsert
+and used by \link{ducklake_db} to determine which columns to use for upsert
 operations. Together with \code{alternate_key_cols}, these are used to define
 uniqueness constraints.}
 
@@ -84,16 +84,16 @@ table doesn't exist), "upsert", "append", and "overwrite".}
 \item{with_super}{Whether to also pass the R6 reference to \code{super} as an argument}
 }
 \description{
-A set of utility functions for working with \link{parquet_db}.
+A set of utility functions for working with \link{ducklake_db}.
 }
 \section{Functions}{
 \itemize{
 \item \code{as_parquet_db_t()}: Coerce to parquet_db_t subclass. It coerces an object to a
-data.table and adds attributes that \link{parquet_db} relies on for database-like
+data.table and adds attributes that \link{ducklake_db} relies on for database-like
 operations. See the paramaters for details.
 
 \item \code{serialize_metadata()}: Serialize a named list of atomic vectors into the
-single string that \link{parquet_db} stores as a comment on the catalog table. Each
+single string that \link{ducklake_db} stores as a comment on the catalog table. Each
 entry becomes one line, \verb{key: "value1", "value2"}.
 
 \item \code{deserialize_metadata()}: Recover the named list written by

@@ -9,8 +9,8 @@ It builds on the approaches of [lulcc](https://github.com/simonmoulds/lulcc), [c
 
 ## Project layout
 
-- `R/parquet_db.R`, `R/parquet_db_utils.R`: generic parquet-backed DB layer
-- `R/evoland_db.R`, `R/evoland_db_util.R`, `R/evoland_db_views.R`: domain DB and views (inherits parquet_db); register new methods using `create_method_binding` in `evoland_db` constructor
+- `R/ducklake_db.R`, `R/parquet_db_utils.R`: generic parquet-backed DB layer
+- `R/evoland_db.R`, `R/evoland_db_util.R`, `R/evoland_db_views.R`: domain DB and views (inherits ducklake_db); register new methods using `create_method_binding` in `evoland_db` constructor
 - `R/*_t.R`: table type definitions (`as_*_t` constructors)
 - `R/util*.R`: internal helpers
 - `R/*.R` (remaining): domain logic (allocation, filtering, modelling)
@@ -70,8 +70,8 @@ Only write Rcpp-free headers when the code should also compile as a standalone p
 
 ## Database
 
-- Storage is a DuckLake catalog held in SQLite, attached to an in-memory DuckDB instance. A database is one self-contained folder: catalog at `<path>/catalog.sqlite`, data files under `<path>/data/`. The `ducklake` and `sqlite` extensions are required to open a database at all.
-- `R/parquet_db.R` specifies an R6 class that provides database operations to write and retrieve `data.table` objects. Writes are atomic and readers get snapshot isolation, so several processes may write to one database concurrently; `$with_retry()` absorbs catalog lock contention, which DuckLake's own `ducklake_max_retry_count` does not cover.
+- Storage is a DuckLake catalog attached to an in-memory DuckDB instance. By default a database is one self-contained folder: SQLite catalog at `<path>/catalog.sqlite`, data files under `<path>/data/`. `catalog` and `data_path` move either half elsewhere (PostgreSQL, S3); the extensions needed to open a database are derived from them.
+- `R/ducklake_db.R` specifies an R6 class that provides database operations to write and retrieve `data.table` objects. Writes are atomic and readers get snapshot isolation, so several processes may write to one database concurrently; a private retry wrapper absorbs catalog lock contention, which DuckLake's own `ducklake_max_retry_count` does not cover. The errors it treats as transient are catalog-backend specific -- see `TRANSIENT_CATALOG_ERRORS`.
   - `parquet_db_t` is a subclass of the `data.table` S3 class, see `R/parquet_db_utils.R`
   - `parquet_db_t` objects can hold attributes used to define
     - key columns, i.e. uniqueness columns
@@ -79,7 +79,7 @@ Only write Rcpp-free headers when the code should also compile as a standalone p
     - map columns, i.e. R list columns of named lists translated to DuckDB MAP columns
   - Which columns serve which purpose is read from the table's `as_<table>_t()` prototype, so every constructor must return a valid empty instance when called with no arguments.
   - DuckLake supports no constraints, keys or indexes, and `MERGE` silently inserts duplicates from a source with duplicate keys, so `$commit()` checks uniqueness explicitly before merging. It has no ENUM type either; factors are stored as strings and cast back by the `as_*_t()` constructors.
-- Domain specific database elements are in `R/evoland_db.R`; `evoland_db` inherits from `parquet_db`.
+- Domain specific database elements are in `R/evoland_db.R`; `evoland_db` inherits from `ducklake_db`.
   - The schema for this database is (for now) distributed across the class definitions: all `R/*_t.R` files contain `as_*_t` class constructors using `as_parquet_db_t`.
   - Because the catalog may be read and written from external tools, it should be considered part of the API. Schema changes should be avoided as much as possible.
   - Ad-hoc views are suffixed `_v` and generally exposed as active bindings, or as methods if they are parameterized.

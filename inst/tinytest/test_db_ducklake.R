@@ -1,4 +1,4 @@
-# Test generic parquet_db functionality
+# Test generic ducklake_db functionality
 library(tinytest)
 
 # Create temporary directory for testing
@@ -6,11 +6,11 @@ test_dir <- tempfile("parquet_db_test_")
 
 # Test 1: Initialization
 expect_silent(
-  db <- parquet_db$new(
+  db <- ducklake_db$new(
     path = test_dir
   )
 )
-expect_inherits(db, "parquet_db")
+expect_inherits(db, "ducklake_db")
 expect_true(dir.exists(test_dir))
 expect_true(!is.null(db$connection))
 expect_inherits(db$connection, "duckdb_connection")
@@ -168,7 +168,7 @@ expect_equal(db$row_count("test_table_5"), initial_count)
 
 # Test 31: Extension loading
 test_dir_ext <- tempfile("parquet_db_ext_")
-db_ext <- parquet_db$new(
+db_ext <- ducklake_db$new(
   path = test_dir_ext,
   extensions = "json"
 )
@@ -187,7 +187,7 @@ rm(db)
 gc()
 
 # Reconnect to same path
-db <- parquet_db$new(path = test_dir)
+db <- ducklake_db$new(path = test_dir)
 expect_true("persist_test" %in% db$list_tables())
 retrieved <- db$fetch("persist_test")
 expect_equal(retrieved, test_data_1)
@@ -499,14 +499,14 @@ expect_equal(retrieved[["payload"]][[2]], as.raw(9L))
 # another writer is midway through replacing the table, rather than observing
 # the partially rewritten state
 iso_dir <- tempfile("parquet_db_iso_")
-db_writer <- parquet_db$new(iso_dir)
+db_writer <- ducklake_db$new(iso_dir)
 db_writer$commit(
   data.table::data.table(id = 1:300, value = 1),
   "iso_t",
   method = "overwrite"
 )
 
-db_reader <- parquet_db$new(iso_dir)
+db_reader <- ducklake_db$new(iso_dir)
 expect_equal(db_reader$row_count("iso_t"), 300L)
 
 duckdb::duckdb_register(
@@ -514,9 +514,10 @@ duckdb::duckdb_register(
   "iso_new_v",
   data.table::data.table(id = 1:50, value = 2)
 )
+iso_ref <- glue::glue('{evoland:::CATALOG_ALIAS}."iso_t"')
 db_writer$execute("begin transaction")
-db_writer$execute('create or replace table "db"."iso_t" as from iso_new_v limit 0')
-db_writer$execute('insert into "db"."iso_t" by name (from iso_new_v)')
+db_writer$execute(glue::glue("create or replace table {iso_ref} as from iso_new_v limit 0"))
+db_writer$execute(glue::glue("insert into {iso_ref} by name (from iso_new_v)"))
 
 expect_equal(db_writer$row_count("iso_t"), 50L) # writer sees its own changes
 expect_equal(db_reader$row_count("iso_t"), 300L) # reader still sees the old snapshot
@@ -525,3 +526,64 @@ db_writer$execute("commit")
 expect_equal(db_reader$row_count("iso_t"), 50L)
 
 unlink(iso_dir, recursive = TRUE)
+
+# Test 50: data files are written with zstd compression. The option is stored
+# in the catalog, so it also governs writes from a later connection.
+zstd_dir <- tempfile("ducklake_db_zstd_")
+db_zstd <- ducklake_db$new(zstd_dir)
+# comfortably past the row limit below which DuckLake inlines into the catalog
+db_zstd$commit(
+  data.table::data.table(id = 1:5000, value = 1),
+  "zstd_t",
+  method = "overwrite"
+)
+zstd_files <- list.files(file.path(zstd_dir, "data"), recursive = TRUE, full.names = TRUE)
+expect_true(length(zstd_files) > 0)
+expect_equal(
+  db_zstd$get_query(glue::glue(
+    "select distinct compression from parquet_metadata('{zstd_files[[1]]}')"
+  ))[[1]],
+  "ZSTD"
+)
+
+# Test 51: catalog and data files can be pointed somewhere other than `path`
+split_dir <- tempfile("ducklake_db_split_")
+alt_catalog <- tempfile("ducklake_db_catalog_", fileext = ".sqlite")
+alt_data <- paste0(evoland:::ensure_dir(tempfile("ducklake_db_data_")), "/")
+
+db_split <- ducklake_db$new(
+  split_dir,
+  catalog = paste0("sqlite:", alt_catalog),
+  data_path = alt_data
+)
+db_split$commit(
+  data.table::data.table(id = 1:5000, value = 1),
+  "split_t",
+  method = "overwrite"
+)
+
+expect_true(file.exists(alt_catalog))
+expect_true(length(list.files(alt_data, recursive = TRUE)) > 0)
+# nothing was written into `path` itself
+expect_false(dir.exists(file.path(split_dir, "data")))
+expect_equal(ducklake_db$new(
+  split_dir,
+  catalog = paste0("sqlite:", alt_catalog),
+  data_path = alt_data
+)$row_count("split_t"), 5000L)
+
+# Test 52: the extensions needed to open a database follow from where the
+# catalog and the data files were pointed
+backend_extensions <- db_split$.__enclos_env__$private$backend_extensions
+expect_equal(backend_extensions(), "sqlite")
+
+db_split$catalog <- "postgres:dbname=evoland host=catalog.example.org"
+db_split$data_path <- "s3://evoland/lake/"
+expect_equal(backend_extensions(), c("postgres", "httpfs"))
+
+db_split$catalog <- "mysql:db=evoland"
+db_split$data_path <- "/local/lake/"
+expect_equal(backend_extensions(), "mysql")
+
+unlink(c(zstd_dir, split_dir, alt_data), recursive = TRUE)
+unlink(alt_catalog)

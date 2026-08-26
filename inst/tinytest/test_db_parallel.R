@@ -97,12 +97,12 @@ unlink(temp_dir, recursive = TRUE)
 
 # 3. Uncoordinated concurrent upserts into a single table.
 # Each worker is its own process with its own connection and no knowledge of the
-# others; the DuckLake catalog plus parquet_db's retry wrapper have to get all of
+# others; the DuckLake catalog plus ducklake_db's retry wrapper have to get all of
 # them through without losing rows or duplicating keys.
 conc_dir <- tempfile("evoland_conc_")
 conc_seed <- data.table::data.table(id_worker = 0L, value = 0)
 data.table::setattr(conc_seed, "key_cols", "id_worker")
-parquet_db$new(conc_dir)$commit(conc_seed, "conc_t", method = "overwrite")
+ducklake_db$new(conc_dir)$commit(conc_seed, "conc_t", method = "overwrite")
 
 n_workers <- 8L
 conc_cluster <- parallel::makeCluster(n_workers)
@@ -112,7 +112,7 @@ conc_results <- parallel::parLapply(
   X = seq_len(n_workers),
   fun = function(id_worker, path) {
     library(evoland)
-    db <- parquet_db$new(path = path)
+    db <- ducklake_db$new(path = path)
     row <- data.table::data.table(id_worker = as.integer(id_worker), value = id_worker * 1.0)
     data.table::setattr(row, "key_cols", "id_worker")
     tryCatch(
@@ -130,7 +130,7 @@ parallel::stopCluster(conc_cluster)
 
 expect_equal(unique(unlist(conc_results)), "ok")
 
-conc_final <- parquet_db$new(conc_dir)$fetch("conc_t")
+conc_final <- ducklake_db$new(conc_dir)$fetch("conc_t")
 # every writer's row survived exactly once
 expect_equal(sort(conc_final[["id_worker"]]), 0:n_workers)
 expect_equal(conc_final[["value"]][order(conc_final[["id_worker"]])], as.numeric(0:n_workers))
