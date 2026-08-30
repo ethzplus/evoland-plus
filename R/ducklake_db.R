@@ -1,5 +1,5 @@
-# Only ever one DuckLake catalog is attached per connection, so its alias is an
-# internal detail rather than something a caller needs to pick.
+# Only ever one DuckLake catalog is attached per connection, so its alias is a constant
+# rather than something a caller should set.
 CATALOG_ALIAS <- "ducklake_db"
 
 # Contention shows up differently per catalog backend: the first two come from
@@ -26,13 +26,12 @@ TRANSIENT_CATALOG_ERRORS <- paste(
 #' Passing `catalog` and/or `data_path` puts either half somewhere else, for
 #' instance a shared PostgreSQL catalog or a bucket:
 #'
-#' ```r
+#' @examples
 #' ducklake_db$new(
 #'   path = "scratch",
 #'   catalog = "postgres:dbname=evoland host=catalog.example.org",
 #'   data_path = "s3://evoland/lake/"
 #' )
-#' ```
 #'
 #' @export
 
@@ -82,7 +81,7 @@ ducklake_db <- R6::R6Class(
       catalog = NULL,
       data_path = NULL
     ) {
-      # the local folder is only needed for the halves that actually live in it
+      # the local folder is only needed if either catalog or data get stored there
       self$path <- if (is.null(catalog) || is.null(data_path)) ensure_dir(path) else path
       self$catalog <- catalog %||% glue::glue("sqlite:{file.path(path, 'catalog.sqlite')}")
       self$data_path <- data_path %||% paste0(ensure_dir(file.path(path, "data")), "/")
@@ -139,6 +138,7 @@ ducklake_db <- R6::R6Class(
     #' @param statement A SQL statement
     #' @return Number of rows affected by statement
     execute = function(statement) {
+      # TODO why not with_retry each dbExecute to handle lock contention, is the overhead so great?
       DBI::dbExecute(self$connection, statement)
     },
 
@@ -148,6 +148,7 @@ ducklake_db <- R6::R6Class(
     #' @param statement A SQL query statement
     #' @return A data.table with query results
     get_query = function(statement) {
+      # TODO check if reading actually causes lock contention (try on sqlite and duckdb)
       result <- private$with_retry(function() {
         DBI::dbGetQuery(self$connection, statement)
       })
@@ -447,6 +448,7 @@ ducklake_db <- R6::R6Class(
       invisible(self)
     },
 
+    # TODO can we move this to be a private function? or can children (evoland_db) not overwrite the method then?
     #' @description Get SQL expression to read a table
     #' @param table_name Character string table name
     #' @return Character string SQL expression
@@ -459,8 +461,12 @@ ducklake_db <- R6::R6Class(
   private = list(
     # R6 hook called on gc(); Close the database connection
     finalize = function() {
+      # TODO do we want to flush inlined data on cleanup? use ducklake_flush_inlined_data
+      # TODO do we need to hedge against connection being null?
       if (!is.null(self$connection)) {
+        # TODO why not use duckdb_shutdown?
         DBI::dbDisconnect(self$connection)
+        # why do we need to assign null, does that help the GC?
         self$connection <- NULL
       }
     },
@@ -476,7 +482,7 @@ ducklake_db <- R6::R6Class(
       catalog_ext <- switch(
         sub(":.*$", "", self$catalog),
         sqlite = "sqlite",
-        postgres = ,
+        postgres = , # fallthrough
         postgresql = "postgres",
         mysql = "mysql",
         # duckdb-file catalogs and anything unrecognised need nothing extra
