@@ -14,13 +14,14 @@ By default a database is one self-contained folder: the catalog lives in
 SQLite at \verb{<path>/catalog.sqlite} and the data files at \verb{<path>/data/}.
 Passing \code{catalog} and/or \code{data_path} puts either half somewhere else, for
 instance a shared PostgreSQL catalog or a bucket:
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{ducklake_db$new(
+}
+\examples{
+ducklake_db$new(
   path = "scratch",
   catalog = "postgres:dbname=evoland host=catalog.example.org",
   data_path = "s3://evoland/lake/"
 )
-}\if{html}{\out{</div>}}
+
 }
 \section{Public fields}{
   \if{html}{\out{<div class="r6-fields">}}
