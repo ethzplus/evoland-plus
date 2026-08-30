@@ -16,11 +16,14 @@ Passing \code{catalog} and/or \code{data_path} puts either half somewhere else, 
 instance a shared PostgreSQL catalog or a bucket:
 }
 \examples{
+# needs a reachable PostgreSQL catalog and bucket credentials, so not run
+\dontrun{
 ducklake_db$new(
   path = "scratch",
   catalog = "postgres:dbname=evoland host=catalog.example.org",
   data_path = "s3://evoland/lake/"
 )
+}
 
 }
 \section{Public fields}{
@@ -40,6 +43,8 @@ ducklake_db$new(
     \item{\code{retry_max}}{Integer, how often a contended catalog write is retried}
 
     \item{\code{retry_wait}}{Numeric, base wait in seconds for the retry backoff}
+
+    \item{\code{retry_wait_max}}{Numeric, seconds the backoff is capped at}
   }
   \if{html}{\out{</div>}}
 }
@@ -100,7 +105,9 @@ defaults to \verb{<path>/data/}. May be remote, e.g. \code{"s3://bucket/prefix/"
 \if{html}{\out{<a id="method-ducklake_db-execute"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-execute}{}}}
 \subsection{\code{ducklake_db$execute()}}{
-  Execute a SQL statement
+  Execute a SQL statement. Retried on catalog lock contention, except when
+it is one statement of an enclosing multi-statement block, which is
+retried as a whole instead.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$execute(statement)}
@@ -122,8 +129,10 @@ defaults to \verb{<path>/data/}. May be remote, e.g. \code{"s3://bucket/prefix/"
 \if{html}{\out{<a id="method-ducklake_db-get_query"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-get_query}{}}}
 \subsection{\code{ducklake_db$get_query()}}{
-  Execute a SQL query and return results. Reads contend for the catalog
-lock just as writes do, so they are retried on the same terms.
+  Execute a SQL query and return results. Reading contends for the catalog
+lock too -- a read landing on a SQLite catalog mid-commit fails with
+"Failed to query most recent snapshot for DuckLake: ... database is
+locked" -- so queries are retried on the same terms as writes.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$get_query(statement)}
@@ -329,7 +338,9 @@ update for existing rows, and insert for new rows).}
 \if{html}{\out{<a id="method-ducklake_db-get_read_expr"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-get_read_expr}{}}}
 \subsection{\code{ducklake_db$get_read_expr()}}{
-  Get SQL expression to read a table
+  Get SQL expression to read a table. Public because the
+domain functions compose their own SQL around it; they are bound with
+\code{create_method_binding()} and only receive \code{self}.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$get_read_expr(table_name)}
