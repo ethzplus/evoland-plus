@@ -27,11 +27,14 @@ TRANSIENT_CATALOG_ERRORS <- paste(
 #' instance a shared PostgreSQL catalog or a bucket:
 #'
 #' @examples
+#' # needs a reachable PostgreSQL catalog and bucket credentials, so not run
+#' \dontrun{
 #' ducklake_db$new(
 #'   path = "scratch",
 #'   catalog = "postgres:dbname=evoland host=catalog.example.org",
 #'   data_path = "s3://evoland/lake/"
 #' )
+#' }
 #'
 #' @export
 
@@ -61,6 +64,9 @@ ducklake_db <- R6::R6Class(
 
     #' @field retry_wait Numeric, base wait in seconds for the retry backoff
     retry_wait = 0.1,
+
+    #' @field retry_wait_max Numeric, seconds the backoff is capped at
+    retry_wait_max = 1,
 
     #' @description
     #' Initialize a new ducklake_db object
@@ -98,13 +104,21 @@ ducklake_db <- R6::R6Class(
 
       # ducklake plus whatever backs the catalog and the data files are on the
       # critical path for opening the database at all
-      for (ext in unique(c("ducklake", private$backend_extensions(), extensions))) {
-        self$execute(glue::glue("install {ext}; load {ext};"))
+      needed <- unique(c("ducklake", private$backend_extensions(), extensions))
+      already_installed <- self$get_query(
+        "select extension_name from duckdb_extensions() where installed"
+      )[[1]]
+      for (ext in setdiff(needed, already_installed)) {
+        self$execute(glue::glue("install {ext}"))
       }
+      self$execute(glue::glue_collapse(glue::glue("load {needed}"), sep = "; "))
 
-      # DuckLake resolves logical snapshot conflicts itself; catalog lock contention
-      # is handled by private$with_retry()
-      self$execute("set ducklake_max_retry_count = 40")
+      # Deliberately leaving ducklake_max_retry_count at its default. Raising it
+      # does not fix catalog lock contention -- that is what private$with_retry()
+      # is for -- and DuckLake's internal backoff sleeps inside a single
+      # statement, so a high count just makes a contended write take seconds.
+      catalog_file <- sub("^(sqlite|duckdb):", "", self$catalog)
+      catalog_is_new <- !file.exists(catalog_file)
 
       private$with_retry(function() {
         self$execute(glue::glue(
@@ -119,8 +133,10 @@ ducklake_db <- R6::R6Class(
         ))
       })
 
-      if (!read_only) {
-        # persisted in the catalog, so this only does work on first open
+      # The option is persisted in the catalog, so setting it once is enough.
+      # Skipping it on later opens keeps a catalog *write* off the path every
+      # process takes to merely open the database.
+      if (!read_only && catalog_is_new) {
         private$with_retry(function() {
           self$execute(
             glue::glue("call {CATALOG_ALIAS}.set_option('parquet_compression', 'zstd')")
@@ -134,21 +150,25 @@ ducklake_db <- R6::R6Class(
     ### Core Database Methods ----
 
     #' @description
-    #' Execute a SQL statement
+    #' Execute a SQL statement. Retried on catalog lock contention, except when
+    #' it is one statement of an enclosing multi-statement block, which is
+    #' retried as a whole instead.
     #' @param statement A SQL statement
     #' @return Number of rows affected by statement
     execute = function(statement) {
-      # TODO why not with_retry each dbExecute to handle lock contention, is the overhead so great?
-      DBI::dbExecute(self$connection, statement)
+      private$with_retry(function() {
+        DBI::dbExecute(self$connection, statement)
+      })
     },
 
     #' @description
-    #' Execute a SQL query and return results. Reads contend for the catalog
-    #' lock just as writes do, so they are retried on the same terms.
+    #' Execute a SQL query and return results. Reading contends for the catalog
+    #' lock too -- a read landing on a SQLite catalog mid-commit fails with
+    #' "Failed to query most recent snapshot for DuckLake: ... database is
+    #' locked" -- so queries are retried on the same terms as writes.
     #' @param statement A SQL query statement
     #' @return A data.table with query results
     get_query = function(statement) {
-      # TODO check if reading actually causes lock contention (try on sqlite and duckdb)
       result <- private$with_retry(function() {
         DBI::dbGetQuery(self$connection, statement)
       })
@@ -448,8 +468,9 @@ ducklake_db <- R6::R6Class(
       invisible(self)
     },
 
-    # TODO can we move this to be a private function? or can children (evoland_db) not overwrite the method then?
-    #' @description Get SQL expression to read a table
+    #' @description Get SQL expression to read a table. Public because the
+    #' domain functions compose their own SQL around it; they are bound with
+    #' `create_method_binding()` and only receive `self`.
     #' @param table_name Character string table name
     #' @return Character string SQL expression
     get_read_expr = function(table_name) {
@@ -494,12 +515,28 @@ ducklake_db <- R6::R6Class(
       c(catalog_ext, if (remote_data) "httpfs")
     },
 
+    # depth > 0 means an enclosing with_retry() is already responsible for
+    # retrying whatever is running, see below
+    retry_depth = 0L,
+
     # Retry a catalog operation in the face of lock contention. DuckLake's own
     # `ducklake_max_retry_count` covers logical snapshot conflicts, but not
     # contention on the catalog itself; uncoordinated writers need this wrapper
     # to all get through. Only transient errors are retried, with exponential
     # backoff and jitter; anything else is re-raised immediately.
+    #
+    # Re-entrant: a statement inside a multi-statement block (a transaction,
+    # say) must not be retried on its own, because replaying one statement of
+    # an aborted transaction would not redo the rest. Nested calls therefore
+    # run bare and leave retrying to the outermost block.
     with_retry = function(fn) {
+      if (private$retry_depth > 0L) {
+        return(fn())
+      }
+
+      private$retry_depth <- private$retry_depth + 1L
+      on.exit(private$retry_depth <- private$retry_depth - 1L, add = TRUE)
+
       for (attempt in seq_len(self$retry_max)) {
         result <- try(fn(), silent = TRUE)
 
@@ -515,7 +552,9 @@ ducklake_db <- R6::R6Class(
           stop(condition)
         }
 
-        Sys.sleep(stats::runif(1L, 0, self$retry_wait * 2^(attempt - 1L)))
+        # capped, because doubling unchecked over retry_max attempts would put
+        # the last waits hours apart
+        Sys.sleep(stats::runif(1L, 0, min(self$retry_wait * 2^(attempt - 1L), self$retry_wait_max)))
       }
     },
 
