@@ -98,13 +98,15 @@ unlink(temp_dir, recursive = TRUE)
 # 3. Uncoordinated concurrent upserts into a single table.
 # Each worker is its own process with its own connection and no knowledge of the
 # others; the DuckLake catalog plus ducklake_db's retry wrapper have to get all of
-# them through without losing rows or duplicating keys.
+# them through without losing rows or duplicating keys. Four writers is enough to
+# lose rows without the retry -- even two do -- and the retry logic itself is
+# covered deterministically in test_db_ducklake.R.
 conc_dir <- tempfile("evoland_conc_")
 conc_seed <- data.table::data.table(id_worker = 0L, value = 0)
 data.table::setattr(conc_seed, "key_cols", "id_worker")
 ducklake_db$new(conc_dir)$commit(conc_seed, "conc_t", method = "overwrite")
 
-n_workers <- 8L
+n_workers <- 4L
 conc_cluster <- parallel::makeCluster(n_workers)
 
 conc_results <- parallel::parLapply(

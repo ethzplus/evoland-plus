@@ -23,8 +23,8 @@ TRANSIENT_CATALOG_ERRORS <- paste(
 #'
 #' By default a database is one self-contained folder: the catalog lives in
 #' SQLite at `<path>/catalog.sqlite` and the data files at `<path>/data/`.
-#' Passing `catalog` and/or `data_path` puts either half somewhere else, for
-#' instance a shared PostgreSQL catalog or a bucket:
+#' Passing `catalog` and/or `data_path` puts either half somewhere else, such
+#' as a shared PostgreSQL catalog or a bucket.
 #'
 #' @examples
 #' # needs a reachable PostgreSQL catalog and bucket credentials, so not run
@@ -62,11 +62,9 @@ ducklake_db <- R6::R6Class(
     #' @field retry_max Integer, how often a contended catalog write is retried
     retry_max = 20L,
 
-    #' @field retry_wait Numeric, base wait in seconds for the retry backoff
+    #' @field retry_wait Numeric, base wait in seconds for the retry backoff,
+    #' which doubles per attempt up to 64 times this
     retry_wait = 0.1,
-
-    #' @field retry_wait_max Numeric, seconds the backoff is capped at
-    retry_wait_max = 1,
 
     #' @description
     #' Initialize a new ducklake_db object
@@ -75,7 +73,7 @@ ducklake_db <- R6::R6Class(
     #' @param extensions Character vector of additional DuckDB extensions to load
     #' @param catalog Character string. DuckLake catalog connection; defaults to
     #' SQLite at `<path>/catalog.sqlite`. Anything DuckLake accepts works, e.g.
-    #' `"postgres:dbname=evoland host=..."` or `"mysql:..."`.
+    #' `"postgres:dbname=evoland host=..."`.
     #' @param data_path Character string. Where DuckLake writes its data files;
     #' defaults to `<path>/data/`. May be remote, e.g. `"s3://bucket/prefix/"`.
     #'
@@ -87,8 +85,11 @@ ducklake_db <- R6::R6Class(
       catalog = NULL,
       data_path = NULL
     ) {
-      # the local folder is only needed if either catalog or data get stored there
-      self$path <- if (is.null(catalog) || is.null(data_path)) ensure_dir(path) else path
+      self$path <- path
+      if (is.null(catalog) || is.null(data_path)) {
+        # only needed for the halves that actually get stored there
+        ensure_dir(path)
+      }
       self$catalog <- catalog %||% glue::glue("sqlite:{file.path(path, 'catalog.sqlite')}")
       self$data_path <- data_path %||% paste0(ensure_dir(file.path(path, "data")), "/")
       self$read_only <- read_only
@@ -104,44 +105,31 @@ ducklake_db <- R6::R6Class(
 
       # ducklake plus whatever backs the catalog and the data files are on the
       # critical path for opening the database at all
-      needed <- unique(c("ducklake", private$backend_extensions(), extensions))
-      already_installed <- self$get_query(
-        "select extension_name from duckdb_extensions() where installed"
-      )[[1]]
-      for (ext in setdiff(needed, already_installed)) {
-        self$execute(glue::glue("install {ext}"))
+      for (ext in unique(c("ducklake", private$backend_extensions(), extensions))) {
+        self$execute(glue::glue("install {ext}; load {ext};"))
       }
-      self$execute(glue::glue_collapse(glue::glue("load {needed}"), sep = "; "))
 
-      # Deliberately leaving ducklake_max_retry_count at its default. Raising it
-      # does not fix catalog lock contention -- that is what private$with_retry()
-      # is for -- and DuckLake's internal backoff sleeps inside a single
-      # statement, so a high count just makes a contended write take seconds.
-      catalog_file <- sub("^(sqlite|duckdb):", "", self$catalog)
-      catalog_is_new <- !file.exists(catalog_file)
+      # A catalog that does not exist yet has no options set on it
+      catalog_is_new <- !file.exists(sub("^(sqlite|duckdb):", "", self$catalog))
 
-      private$with_retry(function() {
-        self$execute(glue::glue(
-          "attach 'ducklake:{self$catalog}' as {CATALOG_ALIAS} ({options_str})",
-          options_str = glue::glue_collapse(
-            c(
-              glue::glue("DATA_PATH '{self$data_path}'"),
-              if (read_only) "READ_ONLY"
-            ),
-            sep = ", "
-          )
-        ))
-      })
+      self$execute(glue::glue(
+        "attach 'ducklake:{self$catalog}' as {CATALOG_ALIAS} ({options_str})",
+        options_str = glue::glue_collapse(
+          c(
+            glue::glue("DATA_PATH '{self$data_path}'"),
+            if (read_only) "READ_ONLY"
+          ),
+          sep = ", "
+        )
+      ))
 
       # The option is persisted in the catalog, so setting it once is enough.
       # Skipping it on later opens keeps a catalog *write* off the path every
       # process takes to merely open the database.
       if (!read_only && catalog_is_new) {
-        private$with_retry(function() {
-          self$execute(
-            glue::glue("call {CATALOG_ALIAS}.set_option('parquet_compression', 'zstd')")
-          )
-        })
+        self$execute(
+          glue::glue("call {CATALOG_ALIAS}.set_option('parquet_compression', 'zstd')")
+        )
       }
 
       invisible(self)
@@ -315,11 +303,9 @@ ducklake_db <- R6::R6Class(
 
       where_clause <- if (is.null(where)) "" else glue::glue("where {where}")
 
-      private$with_retry(function() {
-        self$execute(glue::glue(
-          "delete from {private$table_ref(table_name)} {where_clause}"
-        ))
-      })
+      self$execute(glue::glue(
+        "delete from {private$table_ref(table_name)} {where_clause}"
+      ))
     },
 
     #' @description
@@ -339,6 +325,7 @@ ducklake_db <- R6::R6Class(
       method = c("overwrite", "append", "upsert")
     ) {
       method <- match.arg(method)
+      stopifnot("database is attached read-only" = !self$read_only)
 
       specs <- private$col_specs(table_name, x)
       on.exit(private$cleanup_new_data_v(), add = TRUE)
@@ -350,12 +337,9 @@ ducklake_db <- R6::R6Class(
         if (table_exists) self$get_table_metadata(table_name) else list()
       )
 
-      if (method == "overwrite" || !table_exists) {
-        stopifnot(!self$read_only)
-        return(private$commit_overwrite(table_name, specs, metadata))
-      }
-
-      if (method == "append" || length(specs[["key_cols"]]) == 0L) {
+      rows <- if (method == "overwrite" || !table_exists) {
+        private$commit_overwrite(table_name, specs)
+      } else if (method == "append" || length(specs[["key_cols"]]) == 0L) {
         # if there are no key columns to join on, upsert becomes append
         if (
           length(specs[["key_cols"]]) &&
@@ -368,11 +352,17 @@ ducklake_db <- R6::R6Class(
             "  Set option 'evoland.parquet_db_append_warning' to FALSE to disable this warning."
           )
         }
-        return(private$commit_append(table_name, metadata))
+        # "by name" tolerates columns missing from the new data
+        self$execute(glue::glue(
+          "insert into {private$table_ref(table_name)} by name (from new_data_v)"
+        ))
+      } else {
+        private$commit_upsert(table_name, all_new_cols, specs)
       }
 
-      stopifnot(!self$read_only)
-      private$commit_upsert(table_name, all_new_cols, specs, metadata)
+      private$write_metadata(table_name, metadata)
+
+      rows
     },
 
     #' @description
@@ -505,8 +495,8 @@ ducklake_db <- R6::R6Class(
         sqlite = "sqlite",
         postgres = , # fallthrough
         postgresql = "postgres",
-        mysql = "mysql",
-        # duckdb-file catalogs and anything unrecognised need nothing extra
+        # duckdb-file catalogs and anything unrecognised need nothing extra;
+        # a caller wanting one of those can name it in `extensions`
         NULL
       )
 
@@ -552,21 +542,23 @@ ducklake_db <- R6::R6Class(
           stop(condition)
         }
 
-        # capped, because doubling unchecked over retry_max attempts would put
-        # the last waits hours apart
-        Sys.sleep(stats::runif(1L, 0, min(self$retry_wait * 2^(attempt - 1L), self$retry_wait_max)))
+        # The doubling stops at 64x the base wait: unchecked, the last of
+        # retry_max attempts would be hours apart, but the wait still has to
+        # grow enough to sit out a large commit holding the catalog lock.
+        Sys.sleep(stats::runif(1L, 0, self$retry_wait * 2^min(attempt - 1L, 6L)))
       }
     },
 
     ### Commit Methods ----
 
     # replace table_name wholesale with pre-registered data from new_data_v
-    commit_overwrite = function(table_name, specs, metadata) {
+    commit_overwrite = function(table_name, specs) {
       table_ref <- private$table_ref(table_name)
 
       # one transaction, so that a concurrent reader never observes the table
-      # in its intermediate, empty state
-      rows <- private$with_retry(function() {
+      # in its intermediate, empty state, and the only place that still needs
+      # an explicit with_retry(): execute() must not retry these individually
+      private$with_retry(function() {
         self$execute("begin transaction")
         on.exit(try(self$execute("rollback"), silent = TRUE), add = TRUE)
 
@@ -593,27 +585,9 @@ ducklake_db <- R6::R6Class(
 
         inserted
       })
-
-      # create or replace drops the comment carrying the metadata
-      private$write_metadata(table_name, metadata)
-
-      rows
     },
 
-    # append new_data_v to table_name; "by name" tolerates missing columns
-    commit_append = function(table_name, metadata) {
-      rows <- private$with_retry(function() {
-        self$execute(glue::glue(
-          "insert into {private$table_ref(table_name)} by name (from new_data_v)"
-        ))
-      })
-
-      private$write_metadata(table_name, metadata)
-
-      rows
-    },
-
-    commit_upsert = function(table_name, all_new_cols, specs, metadata) {
+    commit_upsert = function(table_name, all_new_cols, specs) {
       key_cols <- specs[["key_cols"]]
       alternate_key_cols <- specs[["alternate_key_cols"]]
 
@@ -627,21 +601,15 @@ ducklake_db <- R6::R6Class(
         sep = ",\n "
       )
 
-      rows <- private$with_retry(function() {
-        self$execute(glue::glue(
-          r"{
-          merge into {private$table_ref(table_name)}
-          using new_data_v
-          using ({cols_to_select_expr(key_cols)}) -- natural join
-          when matched then update set {update_assign_expr}
-          when not matched then insert by name
-          }"
-        ))
-      })
-
-      private$write_metadata(table_name, metadata)
-
-      rows
+      self$execute(glue::glue(
+        r"{
+        merge into {private$table_ref(table_name)}
+        using new_data_v
+        using ({cols_to_select_expr(key_cols)}) -- natural join
+        when matched then update set {update_assign_expr}
+        when not matched then insert by name
+        }"
+      ))
     },
 
     # DuckLake supports no constraints, keys or indexes, and MERGE silently
@@ -700,23 +668,18 @@ ducklake_db <- R6::R6Class(
     register_new_data_v = function(x, map_cols = character(0)) {
       if (is.character(x)) {
         self$execute(glue::glue("create view new_data_v as from {x}"))
-        names <- self$get_query(glue::glue("select column_name from (describe {x})"))[[1]]
-        return(names)
+        return(self$get_query(glue::glue("select column_name from (describe {x})"))[[1]])
       }
 
       # DuckLake has no ENUM type, so factors are stored as strings; the
       # as_<table>_t() constructors cast them back on the way out
       factor_cols <- names(x)[vapply(x, is.factor, logical(1))]
 
-      if (length(map_cols) == 0 && length(factor_cols) == 0) {
-        # No conversion needed - register directly
-        duckdb::duckdb_register(self$connection, "new_data_v", x)
-        return(names(x))
-      }
-
-      x <- data.table::copy(x)
-      for (col in factor_cols) {
-        data.table::set(x, j = col, value = as.character(x[[col]]))
+      if (length(factor_cols) || length(map_cols)) {
+        x <- data.table::copy(x)
+        for (col in factor_cols) {
+          data.table::set(x, j = col, value = as.character(x[[col]]))
+        }
       }
 
       if (length(map_cols) == 0) {
@@ -724,24 +687,23 @@ ducklake_db <- R6::R6Class(
         return(names(x))
       }
 
-      # Convert list columns to key-value dataframes
+      # duckdb_register() cannot turn an R named list into a MAP, so pass it
+      # through a key/value intermediate and rebuild the MAP in SQL
       x <- convert_list_cols(x, map_cols, list_to_kv_df)
-
-      # Register as intermediate table
       duckdb::duckdb_register(self$connection, "new_data_raw", x)
 
-      # Build SELECT expression with map_from_entries for MAP columns
-      map_exprs <- glue::glue("map_from_entries({map_cols}) as {map_cols}")
-      other_cols <- setdiff(names(x), map_cols)
-      all_exprs <- c(other_cols, map_exprs)
-      select_expr <- glue::glue_collapse(all_exprs, sep = ", ")
-
-      # Create new_data_v from new_data_raw
+      select_expr <- glue::glue_collapse(
+        c(
+          setdiff(names(x), map_cols),
+          glue::glue("map_from_entries({map_cols}) as {map_cols}")
+        ),
+        sep = ", "
+      )
       self$execute(glue::glue(
         "create temp table new_data_v as select {select_expr} from new_data_raw"
       ))
 
-      return(names(x))
+      names(x)
     },
 
     # cleanup new_data_v and related tables
@@ -825,16 +787,14 @@ ducklake_db <- R6::R6Class(
     write_metadata = function(table_name, metadata) {
       comment <- serialize_metadata(metadata)
 
-      private$with_retry(function() {
-        self$execute(glue::glue(
-          "comment on table {private$table_ref(table_name)} is {quoted}",
-          quoted = if (nzchar(comment)) {
-            paste0("'", gsub("'", "''", comment), "'")
-          } else {
-            "NULL"
-          }
-        ))
-      })
+      self$execute(glue::glue(
+        "comment on table {private$table_ref(table_name)} is {quoted}",
+        quoted = if (nzchar(comment)) {
+          paste0("'", gsub("'", "''", comment), "'")
+        } else {
+          "NULL"
+        }
+      ))
     }
   )
 )

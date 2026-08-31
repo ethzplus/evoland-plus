@@ -12,8 +12,8 @@ database classes.
 
 By default a database is one self-contained folder: the catalog lives in
 SQLite at \verb{<path>/catalog.sqlite} and the data files at \verb{<path>/data/}.
-Passing \code{catalog} and/or \code{data_path} puts either half somewhere else, for
-instance a shared PostgreSQL catalog or a bucket:
+Passing \code{catalog} and/or \code{data_path} puts either half somewhere else, such
+as a shared PostgreSQL catalog or a bucket.
 }
 \examples{
 # needs a reachable PostgreSQL catalog and bucket credentials, so not run
@@ -42,9 +42,8 @@ ducklake_db$new(
 
     \item{\code{retry_max}}{Integer, how often a contended catalog write is retried}
 
-    \item{\code{retry_wait}}{Numeric, base wait in seconds for the retry backoff}
-
-    \item{\code{retry_wait_max}}{Numeric, seconds the backoff is capped at}
+    \item{\code{retry_wait}}{Numeric, base wait in seconds for the retry backoff,
+which doubles per attempt up to 64 times this}
   }
   \if{html}{\out{</div>}}
 }
@@ -90,7 +89,7 @@ ducklake_db$new(
       \item{\code{extensions}}{Character vector of additional DuckDB extensions to load}
       \item{\code{catalog}}{Character string. DuckLake catalog connection; defaults to
 SQLite at \verb{<path>/catalog.sqlite}. Anything DuckLake accepts works, e.g.
-\code{"postgres:dbname=evoland host=..."} or \code{"mysql:..."}.}
+\code{"postgres:dbname=evoland host=..."}.}
       \item{\code{data_path}}{Character string. Where DuckLake writes its data files;
 defaults to \verb{<path>/data/}. May be remote, e.g. \code{"s3://bucket/prefix/"}.}
     }

@@ -581,9 +581,70 @@ db_split$catalog <- "postgres:dbname=evoland host=catalog.example.org"
 db_split$data_path <- "s3://evoland/lake/"
 expect_equal(backend_extensions(), c("postgres", "httpfs"))
 
-db_split$catalog <- "mysql:db=evoland"
+# an unrecognised catalog backend pulls in nothing extra; naming it is left to
+# the caller's `extensions`
+db_split$catalog <- "duckdb:/local/catalog.ddb"
 db_split$data_path <- "/local/lake/"
-expect_equal(backend_extensions(), "mysql")
+expect_null(backend_extensions())
 
 unlink(c(zstd_dir, split_dir, alt_data), recursive = TRUE)
 unlink(alt_catalog)
+
+# Test 53: the retry wrapper itself. Contention is awkward to provoke on
+# demand, so drive it directly: a transient catalog error is retried, anything
+# else is re-raised on the spot, and retry_max bounds the attempts.
+retry_db <- ducklake_db$new(tempfile("ducklake_db_retry_"))
+retry_db$retry_wait <- 0 # no point sleeping in a test
+with_retry <- retry_db$.__enclos_env__$private$with_retry
+
+attempts <- 0L
+expect_equal(
+  with_retry(function() {
+    attempts <<- attempts + 1L
+    if (attempts < 3L) stop("Failed to flush changes into DuckLake: database is locked")
+    "committed"
+  }),
+  "committed"
+)
+expect_equal(attempts, 3L)
+
+# a schema error is not contention and must not be retried 20 times
+attempts <- 0L
+expect_error(
+  with_retry(function() {
+    attempts <<- attempts + 1L
+    stop("Binder Error: Referenced column \"nope\" not found")
+  }),
+  "Referenced column"
+)
+expect_equal(attempts, 1L)
+
+# persistent contention gives up after retry_max and reports the real error
+retry_db$retry_max <- 3L
+attempts <- 0L
+expect_error(
+  with_retry(function() {
+    attempts <<- attempts + 1L
+    stop("Could not set lock on file")
+  }),
+  "Could not set lock on file"
+)
+expect_equal(attempts, 3L)
+
+# a statement inside an enclosing block is left to that block to retry, so that
+# one statement of an aborted transaction is never replayed on its own
+inner_attempts <- 0L
+outer_attempts <- 0L
+retry_db$retry_max <- 5L
+expect_error(
+  with_retry(function() {
+    outer_attempts <<- outer_attempts + 1L
+    with_retry(function() {
+      inner_attempts <<- inner_attempts + 1L
+      stop("database is locked")
+    })
+  }),
+  "database is locked"
+)
+expect_equal(outer_attempts, 5L)
+expect_equal(inner_attempts, 5L) # once per outer attempt, not 5 times each
