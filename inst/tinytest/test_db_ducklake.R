@@ -447,9 +447,11 @@ expect_error(
   ),
   "columns: id"
 )
-db$execute("create or replace temp view dup_source_v as
+db$execute(
+  "create or replace temp view dup_source_v as
   select 8 as id, 'i' as name, 1.0 as value
-  union all select 9, 'i', 1.0")
+  union all select 9, 'i', 1.0"
+)
 expect_error(
   db$commit("dup_source_v", "test_alt_key", method = "upsert"),
   "columns: name"
@@ -566,11 +568,14 @@ expect_true(file.exists(alt_catalog))
 expect_true(length(list.files(alt_data, recursive = TRUE)) > 0)
 # nothing was written into `path` itself
 expect_false(dir.exists(file.path(split_dir, "data")))
-expect_equal(ducklake_db$new(
-  split_dir,
-  catalog = paste0("sqlite:", alt_catalog),
-  data_path = alt_data
-)$row_count("split_t"), 5000L)
+expect_equal(
+  ducklake_db$new(
+    split_dir,
+    catalog = paste0("sqlite:", alt_catalog),
+    data_path = alt_data
+  )$row_count("split_t"),
+  5000L
+)
 
 # Test 52: the extensions needed to open a database follow from where the
 # catalog and the data files were pointed
@@ -601,7 +606,9 @@ attempts <- 0L
 expect_equal(
   with_retry(function() {
     attempts <<- attempts + 1L
-    if (attempts < 3L) stop("Failed to flush changes into DuckLake: database is locked")
+    if (attempts < 3L) {
+      stop("Failed to flush changes into DuckLake: database is locked")
+    }
     "committed"
   }),
   "committed"
