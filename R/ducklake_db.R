@@ -317,7 +317,9 @@ ducklake_db <- R6::R6Class(
     #' in-DuckDB-memory table or view name.
     #' @param table_name Target table name to commit to.
     #' @param method Character, one of "overwrite", "append", "upsert" (upsert being an
-    #' update for existing rows, and insert for new rows).
+    #' update for existing rows, and insert for new rows). Only "overwrite"
+    #' changes an existing table's schema; the others reject columns the table
+    #' does not have.
     #' @return Number of rows written
     commit = function(
       x,
@@ -336,6 +338,10 @@ ducklake_db <- R6::R6Class(
         x,
         if (table_exists) self$get_table_metadata(table_name) else list()
       )
+
+      if (table_exists && method != "overwrite") {
+        private$check_target_columns(table_name, all_new_cols)
+      }
 
       rows <- if (method == "overwrite" || !table_exists) {
         private$commit_overwrite(table_name, specs)
@@ -609,6 +615,28 @@ ducklake_db <- R6::R6Class(
         when matched then update set {update_assign_expr}
         when not matched then insert by name
         }"
+      ))
+    },
+
+    # A table's schema is fixed once created. Deleting every row no longer
+    # drops the table, so the old "delete, then insert with an extra column"
+    # route to a schema change is gone; say so rather than letting the insert
+    # fail on a column the caller has to spot for themselves.
+    check_target_columns = function(table_name, all_new_cols) {
+      target_cols <- self$get_query(glue::glue(
+        "select column_name from (describe {private$table_ref(table_name)})"
+      ))[[1]]
+
+      unknown_cols <- setdiff(all_new_cols, target_cols)
+      if (length(unknown_cols) == 0L) {
+        return(invisible(NULL))
+      }
+
+      stop(glue::glue(
+        "Cannot commit columns that `{table_name}` does not have: ",
+        "{toString(unknown_cols)}\n",
+        "  table has: {toString(target_cols)}\n",
+        '  use method = "overwrite" to replace the table and its schema'
       ))
     },
 

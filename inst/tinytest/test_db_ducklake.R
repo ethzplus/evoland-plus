@@ -655,3 +655,39 @@ expect_error(
 )
 expect_equal(outer_attempts, 5L)
 expect_equal(inner_attempts, 5L) # once per outer attempt, not 5 times each
+
+# Test 54: a table's schema is fixed once created. Emptying it no longer drops
+# it, so "delete, then insert with an extra column" has to go through overwrite.
+schema_dir <- tempfile("ducklake_db_schema_")
+db_schema <- ducklake_db$new(schema_dir)
+narrow <- data.table::data.table(id_run = 1:2, descr = c("a", "b"))
+data.table::setattr(narrow, "key_cols", "id_run")
+db_schema$commit(narrow, "t", method = "overwrite")
+
+wider <- data.table::data.table(id_run = 1:3, descr = c("a", "b", "c"), extra = 9)
+data.table::setattr(wider, "key_cols", "id_run")
+
+db_schema$delete_from("t")
+expect_equal(db_schema$row_count("t"), 0L)
+expect_error(
+  db_schema$commit(wider, "t", method = "upsert"),
+  "Cannot commit columns that `t` does not have: extra"
+)
+expect_error(
+  db_schema$commit(wider, "t", method = "append"),
+  'use method = "overwrite"'
+)
+
+# overwrite replaces the schema along with the data, in one step
+expect_equal(db_schema$commit(wider, "t", method = "overwrite"), 3L)
+expect_equal(sort(names(db_schema$fetch("t"))), c("descr", "extra", "id_run"))
+
+# a source missing one of the table's columns is still fine; it comes back NULL
+db_schema$commit(
+  data.table::data.table(id_run = 4L, descr = "d"),
+  "t",
+  method = "upsert"
+)
+expect_true(is.na(db_schema$fetch("t", where = "id_run = 4")[["extra"]]))
+
+unlink(schema_dir, recursive = TRUE)

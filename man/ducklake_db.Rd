@@ -301,7 +301,9 @@ exists, and otherwise from \code{x}'s attributes or the stored table metadata.
 in-DuckDB-memory table or view name.}
       \item{\code{table_name}}{Target table name to commit to.}
       \item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
-update for existing rows, and insert for new rows).}
+update for existing rows, and insert for new rows). Only "overwrite"
+changes an existing table's schema; the others reject columns the table
+does not have.}
     }
     \if{html}{\out{</div>}}
   }
