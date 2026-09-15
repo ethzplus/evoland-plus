@@ -2,7 +2,7 @@
 library(tinytest)
 
 # Create temporary directory for testing
-test_dir <- tempfile("parquet_db_test_")
+test_dir <- tempfile("ducklake_db_test_")
 
 # Test 1: Initialization
 expect_silent(
@@ -167,7 +167,7 @@ expect_equal(deleted_count, 0L)
 expect_equal(db$row_count("test_table_5"), initial_count)
 
 # Test 31: Extension loading
-test_dir_ext <- tempfile("parquet_db_ext_")
+test_dir_ext <- tempfile("ducklake_db_ext_")
 db_ext <- ducklake_db$new(
   path = test_dir_ext,
   extensions = "json"
@@ -500,7 +500,7 @@ expect_equal(retrieved[["payload"]][[2]], as.raw(9L))
 # Test 49: a reader on its own connection keeps a consistent snapshot while
 # another writer is midway through replacing the table, rather than observing
 # the partially rewritten state
-iso_dir <- tempfile("parquet_db_iso_")
+iso_dir <- tempfile("ducklake_db_iso_")
 db_writer <- ducklake_db$new(iso_dir)
 db_writer$commit(
   data.table::data.table(id = 1:300, value = 1),

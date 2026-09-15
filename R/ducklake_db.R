@@ -343,13 +343,13 @@ ducklake_db <- R6::R6Class(
         # if there are no key columns to join on, upsert becomes append
         if (
           length(specs[["key_cols"]]) &&
-            getOption("evoland.parquet_db_append_warning", TRUE)
+            getOption("evoland.ducklake_db_append_warning", TRUE)
         ) {
           warning(
             "!! No uniqueness checks are performed when appending.\n",
             "  Only use if you need high speed _and_ know you're not introducing duplicates\n",
             "  Use upsert to be safe.\n",
-            "  Set option 'evoland.parquet_db_append_warning' to FALSE to disable this warning."
+            "  Set option 'evoland.ducklake_db_append_warning' to FALSE to disable this warning."
           )
         }
         # "by name" tolerates columns missing from the new data
@@ -777,8 +777,8 @@ ducklake_db <- R6::R6Class(
       }
       out <- Filter(is.atomic, out)
 
-      if (inherits(x, "parquet_db_t")) {
-        out[["parquet_db_t_class"]] <- class(x)[1L]
+      if (inherits(x, "ducklake_db_t")) {
+        out[["ducklake_db_t_class"]] <- class(x)[1L]
       }
 
       out

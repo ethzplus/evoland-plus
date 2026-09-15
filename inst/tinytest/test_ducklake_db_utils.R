@@ -1,9 +1,9 @@
 library(tinytest)
 
-# ---- as_parquet_db_t: minimal usage (defaults only) ----
-x_min <- as_parquet_db_t(data.frame(id = 1:3, val = letters[1:3]))
+# ---- as_ducklake_db_t: minimal usage (defaults only) ----
+x_min <- as_ducklake_db_t(data.frame(id = 1:3, val = letters[1:3]))
 expect_true(data.table::is.data.table(x_min))
-expect_inherits(x_min, "parquet_db_t")
+expect_inherits(x_min, "ducklake_db_t")
 expect_identical(attr(x_min, "key_cols"), NULL)
 expect_identical(attr(x_min, "alternate_key_cols"), NULL)
 expect_identical(attr(x_min, "map_cols"), NULL)
@@ -11,21 +11,21 @@ expect_identical(attr(x_min, "partition_cols"), NULL)
 
 # validator error (false input) for minimal usage: mixed classes in list column
 expect_error(
-  as_parquet_db_t(data.table::data.table(id = 1:2, bad_list = list(1L, "x"))),
+  as_ducklake_db_t(data.table::data.table(id = 1:2, bad_list = list(1L, "x"))),
   "must have the same class"
 )
 
-# ---- as_parquet_db_t: class_name only ----
-x_class <- as_parquet_db_t(data.frame(id = 1:2), class_name = "demo_t")
-expect_inherits(x_class, c("demo_t", "parquet_db_t"))
+# ---- as_ducklake_db_t: class_name only ----
+x_class <- as_ducklake_db_t(data.frame(id = 1:2), class_name = "demo_t")
+expect_inherits(x_class, c("demo_t", "ducklake_db_t"))
 
 # validator error (false input) for class_name-only object: non-atomic attribute
-x_class_bad <- as_parquet_db_t(data.frame(id = 1:2), class_name = "demo_t")
+x_class_bad <- as_ducklake_db_t(data.frame(id = 1:2), class_name = "demo_t")
 data.table::setattr(x_class_bad, "bad_attr", list(1))
 expect_error(validate(x_class_bad), "all attributes need to be atomic")
 
-# ---- as_parquet_db_t: all optional attrs set ----
-x_all <- as_parquet_db_t(
+# ---- as_ducklake_db_t: all optional attrs set ----
+x_all <- as_ducklake_db_t(
   data.table::data.table(
     id = c("a", "b"),
     alt_id = c(10L, 20L),
@@ -50,7 +50,7 @@ expect_identical(data.table::key(x_all), "id")
 
 # validator error (false input) for all-attrs case: invalid map_cols payload
 expect_error(
-  as_parquet_db_t(
+  as_ducklake_db_t(
     data.table::data.table(
       id = c("a", "b"),
       alt_id = c(1L, 2L),

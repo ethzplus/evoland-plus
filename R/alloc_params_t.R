@@ -49,7 +49,7 @@ as_alloc_params_t <- function(x) {
     cast_dt_col("frac_patcher", "float") |>
     cast_dt_col("similarity", "float")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "alloc_params_t",
     key_cols = c("id_run", "id_trans")

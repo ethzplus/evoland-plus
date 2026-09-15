@@ -30,7 +30,7 @@ as_trans_pot_t <- function(x) {
     cast_dt_col("id_period_post", "int") |>
     cast_dt_col("id_coord", "int")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "trans_pot_t",
     key_cols = c("id_trans", "id_period_post", "id_coord"),

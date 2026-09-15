@@ -1,15 +1,15 @@
-#' Parquet database utility functions
+#' DuckLake database utility functions
 #'
 #' @description
 #' A set of utility functions for working with [ducklake_db].
 #'
-#' @name parquet_db_utils
+#' @name ducklake_db_utils
 NULL
 
-#' @describeIn parquet_db_utils Coerce to parquet_db_t subclass. It coerces an object to a
+#' @describeIn ducklake_db_utils Coerce to ducklake_db_t subclass. It coerces an object to a
 #' data.table and adds attributes that [ducklake_db] relies on for database-like
 #' operations. See the paramaters for details.
-#' @param class_name Optional class name to prepend before "parquet_db_t". Used
+#' @param class_name Optional class name to prepend before "ducklake_db_t". Used
 #'        to create more specific subclasses.
 #' @param key_cols Optional character vector. Used for data.table's [data.table::setkey]
 #'        and used by [ducklake_db] to determine which columns to use for upsert
@@ -24,9 +24,9 @@ NULL
 #' @param map_cols Optional character vector. Used to coerce columns to DuckDB's
 #'        MAP type, used to store named unnested lists from R.
 #' @param partition_cols Optional character vector. Used to specify columns for
-#'        hive style parquet file partitioning.
+#'        hive style partitioning of the data files.
 #' @export
-as_parquet_db_t <- function(
+as_ducklake_db_t <- function(
   x,
   class_name = character(),
   key_cols = NULL,
@@ -37,7 +37,7 @@ as_parquet_db_t <- function(
   data.table::setDT(x)
 
   # subclassses for more specific validation methods
-  distinct_classes <- unique(c(class_name, "parquet_db_t", class(x)))
+  distinct_classes <- unique(c(class_name, "ducklake_db_t", class(x)))
   data.table::setattr(x, "class", distinct_classes)
 
   # uniqueness, matching, distinctness can be derived from key cols
@@ -55,11 +55,11 @@ as_parquet_db_t <- function(
 }
 
 #' @export
-validate.parquet_db_t <- function(x, ...) {
+validate.ducklake_db_t <- function(x, ...) {
   attrs_to_check <- setdiff(
     names(attributes(x)),
     c(
-      # data.table internal attrs, not committed to parquet kv metadata
+      # data.table internal attrs, not committed to the table metadata
       "names",
       "row.names",
       "class",
@@ -157,7 +157,7 @@ validate.parquet_db_t <- function(x, ...) {
 }
 
 
-#' @describeIn parquet_db_utils Serialize a named list of atomic vectors into the
+#' @describeIn ducklake_db_utils Serialize a named list of atomic vectors into the
 #' single string that [ducklake_db] stores as a comment on the catalog table. Each
 #' entry becomes one line, `key: "value1", "value2"`.
 #' @param metadata Named list of atomic vectors.
@@ -176,7 +176,7 @@ serialize_metadata <- function(metadata) {
   paste0(names(metadata), ": ", values, collapse = "\n")
 }
 
-#' @describeIn parquet_db_utils Recover the named list written by
+#' @describeIn ducklake_db_utils Recover the named list written by
 #' [serialize_metadata()]. Values are type-converted, so that a numeric
 #' attribute survives the round-trip as a number rather than as a string.
 #' @param comment Character scalar, or NA for a table without metadata.
@@ -199,7 +199,7 @@ deserialize_metadata <- function(comment) {
   stats::setNames(parsed, keys)
 }
 
-#' @describeIn parquet_db_utils Convert list columns by applying `fn`
+#' @describeIn ducklake_db_utils Convert list columns by applying `fn`
 #' @param cols The list columns to convert.
 #' @param fn The function to apply to each element of the list columns
 #' @keywords internal
@@ -214,7 +214,7 @@ convert_list_cols <- function(x, cols, fn) {
   x
 }
 
-#' @describeIn parquet_db_utils Convert a named list to a data.frame with "key" and
+#' @describeIn ducklake_db_utils Convert a named list to a data.frame with "key" and
 #' "value" columns.
 #' @keywords internal
 list_to_kv_df <- function(x) {
@@ -232,7 +232,7 @@ list_to_kv_df <- function(x) {
   )
 }
 
-#' @describeIn parquet_db_utils Convert a data.frame with "key" and "value" columns to a
+#' @describeIn ducklake_db_utils Convert a data.frame with "key" and "value" columns to a
 #' named list.
 #' @keywords internal
 kv_df_to_list <- function(x) {
@@ -251,7 +251,7 @@ kv_df_to_list <- function(x) {
   out
 }
 
-#' @describeIn parquet_db_utils Create a binding function for a table, which can be used
+#' @describeIn ducklake_db_utils Create a binding function for a table, which can be used
 #' to fetch or commit data to that table. The active binding either returns the table
 #' (missing argument), or upserts to it (assignment operation)
 #' @param table_name The name of the table to bind to.
@@ -312,7 +312,7 @@ create_table_binding <- function(
   fn
 }
 
-#' @describeIn parquet_db_utils Helper function to bind a function as a method to an R6
+#' @describeIn ducklake_db_utils Helper function to bind a function as a method to an R6
 #' generator. Simply passes the R6 method's arguments as-is to the underlying "pure"
 #' function, passing the R6 reference to `self`, but not to `private`.
 #' @keywords internal
@@ -339,7 +339,7 @@ create_method_binding <- function(fun, with_private = FALSE, with_super = FALSE)
   eval(cl, envir = parent.frame(2))
 }
 
-#' @describeIn parquet_db_utils Paste vector of escaped column names into a SQL
+#' @describeIn ducklake_db_utils Paste vector of escaped column names into a SQL
 #' select statement, with optional table name prefix.
 #' @param cols The columns to select.
 cols_to_select_expr <- function(cols, table_name) {

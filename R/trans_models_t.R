@@ -44,7 +44,7 @@ as_trans_models_t <- function(x) {
     cast_dt_col("id_run", "int") |>
     cast_dt_col("id_trans", "int")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     "trans_models_t",
     key_cols = c("id_run", "id_trans", "learner_id"),

@@ -12,7 +12,7 @@
 #'
 #' - [evoland_db_views] - View active bindings (lulc_meta_long_v, etc.) and methods
 #'
-#' @include ducklake_db.R parquet_db_utils.R
+#' @include ducklake_db.R ducklake_db_utils.R
 #' @export
 
 evoland_db <- R6::R6Class(

@@ -33,7 +33,7 @@ as_pred_data_t <- function(x) {
     cast_dt_col("id_coord", "int") |>
     cast_dt_col("value", "float")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "pred_data_t",
     key_cols = c("id_run", "id_period", "id_pred", "id_coord"),

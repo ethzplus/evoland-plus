@@ -6,14 +6,14 @@ expect_error(
   "No validate method defined for class list"
 )
 
-# Test validate.parquet_db_t dispatch
+# Test validate.ducklake_db_t dispatch
 dt <- data.table::data.table(x = 1:3, y = letters[1:3])
-class(dt) <- c("test_class", "parquet_db_t", class(dt))
+class(dt) <- c("test_class", "ducklake_db_t", class(dt))
 expect_silent(validate(dt))
 
 # Test with non-data.table object
 non_dt <- data.frame(x = 1:3)
-class(non_dt) <- c("test_class", "parquet_db_t", class(non_dt))
+class(non_dt) <- c("test_class", "ducklake_db_t", class(non_dt))
 expect_error(validate(non_dt), "needs to be a data.table")
 
 # Test evoland:::`%||%`() operator

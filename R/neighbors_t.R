@@ -30,7 +30,7 @@ as_neighbors_t <- function(x) {
     cast_dt_col(x, "distance_class", "factor")
   }
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "neighbors_t",
     key_cols = c("id_coord_origin", "id_coord_neighbor")
@@ -196,7 +196,7 @@ set_neighbors <- function(
   chunksize <- min(chunksize, n_neighbors)
 
   # chunks are disjoint slices of a table that is unique by construction
-  previous_warning_option <- options(evoland.parquet_db_append_warning = FALSE)
+  previous_warning_option <- options(evoland.ducklake_db_append_warning = FALSE)
   on.exit(options(previous_warning_option), add = TRUE)
 
   for (i in seq_len(ceiling(n_neighbors / chunksize))) {

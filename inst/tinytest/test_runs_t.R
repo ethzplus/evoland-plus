@@ -5,7 +5,7 @@ x <- data.table::data.table(
   description = "Base"
 )
 
-data.table::setattr(x, "class", c("runs_t", "parquet_db_t", "data.table", "data.frame"))
+data.table::setattr(x, "class", c("runs_t", "ducklake_db_t", "data.table", "data.frame"))
 data.table::setattr(x, "key_cols", "id_run")
 data.table::setkeyv(x, "id_run")
 expect_equal(as_runs_t(), x)

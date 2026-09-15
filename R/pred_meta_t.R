@@ -73,7 +73,7 @@ as_pred_meta_t <- function(x) {
     )
   ]
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "pred_meta_t",
     key_cols = "name",

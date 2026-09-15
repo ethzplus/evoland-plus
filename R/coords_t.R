@@ -36,7 +36,7 @@ as_coords_t <- function(x) {
     cast_dt_col("lon", "float") |>
     cast_dt_col("lat", "float")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "coords_t",
     key_cols = "id_coord"

@@ -46,7 +46,7 @@ as_periods_t <- function(x) {
     ))
   ]
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "periods_t",
     key_cols = c("start_date", "end_date"),

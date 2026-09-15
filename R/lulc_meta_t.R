@@ -26,7 +26,7 @@ as_lulc_meta_t <- function(x) {
   data.table::setDT(x) |>
     cast_dt_col("id_lulc", "int")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "lulc_meta_t",
     key_cols = "name",

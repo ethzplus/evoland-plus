@@ -32,7 +32,7 @@ as_intrv_meta_t <- function(x) {
       params = list()
     )
   }
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "intrv_meta_t",
     key_cols = c("id_run", "id_intrv"),

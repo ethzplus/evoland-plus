@@ -92,7 +92,7 @@ expect_message(
 # Test DB round trip
 expect_equal(nrow(full_models), 2L)
 full_mods_roundtrip <- db$trans_models_t[id_trans == 2L & learner_id == "classif.featureless"]
-data.table::setattr(full_mods_roundtrip, "parquet_db_t_class", NULL)
+data.table::setattr(full_mods_roundtrip, "ducklake_db_t_class", NULL)
 expect_identical(
   full_mods_roundtrip,
   full_models[id_trans == 2L & learner_id == "classif.featureless"]
