@@ -330,10 +330,8 @@ ducklake_db <- R6::R6Class(
       on.exit(private$cleanup_new_data_v(), add = TRUE)
       all_new_cols <- private$register_new_data_v(x, specs[["map_cols"]])
 
-      metadata <- private$resolve_metadata(
-        x,
-        if (table_exists) private$read_metadata(table_name) else list()
-      )
+      stored <- if (table_exists) private$read_metadata(table_name) else list()
+      metadata <- private$resolve_metadata(x, stored)
 
       if (table_exists && method != "overwrite") {
         private$check_target_columns(table_name, all_new_cols)
@@ -362,9 +360,65 @@ ducklake_db <- R6::R6Class(
         private$commit_upsert(table_name, all_new_cols, specs)
       }
 
-      private$write_metadata(table_name, metadata)
+      # `create or replace` drops the comment, so overwrite always rewrites it;
+      # otherwise it is still whatever we just read
+      private$write_metadata(
+        table_name,
+        metadata,
+        current = if (method == "overwrite" || !table_exists) list() else stored
+      )
 
       rows
+    },
+
+    #' @description
+    #' Expire old snapshots and delete the data files only those snapshots still
+    #' referenced. Every commit adds a snapshot and leaves the files it
+    #' superseded in place, so a long run accumulates both without bound;
+    #' DuckLake never reclaims them on its own.
+    #'
+    #' Expiring a snapshot gives up time travel to it, and anything still
+    #' reading at one loses the files under it, so run this when no other
+    #' process is using the database. Do not lean on `older_than` to protect
+    #' concurrent readers: a cutoff a day back was measured to expire nothing,
+    #' but an hour back expired snapshots only seconds old, so DuckLake honours
+    #' it coarsely at best.
+    #'
+    #' Compaction of the many small files a run leaves behind is not included:
+    #' `ducklake_merge_adjacent_files` had no effect on them at the time of
+    #' writing, whatever file-size bounds it was given.
+    #' @param older_than POSIXct or a string DuckDB reads as a timestamp.
+    #' Bounds which snapshots are expired, coarsely -- see above. Defaults to
+    #' expiring every snapshot but the current one.
+    #' @return Named integer vector: snapshots before and after, and how many
+    #' files were deleted, invisibly
+    maintain = function(older_than = Sys.time()) {
+      stopifnot("database is attached read-only" = !self$read_only)
+
+      count_snapshots <- function() {
+        self$get_query(glue::glue(
+          "select count(*) from ducklake_snapshots({CATALOG_ALIAS})"
+        ))[[1]]
+      }
+
+      snapshots_before <- count_snapshots()
+
+      timestamp <- format(as.POSIXct(older_than), "%Y-%m-%d %H:%M:%S", tz = "UTC")
+      self$execute(glue::glue(
+        "call ducklake_expire_snapshots(
+           {CATALOG_ALIAS}, older_than => timestamp '{timestamp}'
+         )"
+      ))
+      # returns one row per file it removed
+      deleted <- self$get_query(glue::glue(
+        "call ducklake_cleanup_old_files({CATALOG_ALIAS}, cleanup_all => true)"
+      ))
+
+      invisible(c(
+        snapshots_before = snapshots_before,
+        snapshots_after = count_snapshots(),
+        files_deleted = nrow(deleted)
+      ))
     },
 
     #' @description
@@ -819,8 +873,15 @@ ducklake_db <- R6::R6Class(
       out
     },
 
-    write_metadata = function(table_name, metadata) {
+    # Writing the comment is a catalog change, and so costs a snapshot. Most
+    # commits do not touch the metadata at all, so only write when it differs
+    # from what the table already carries.
+    write_metadata = function(table_name, metadata, current = list()) {
       comment <- serialize_metadata(metadata)
+
+      if (identical(comment, serialize_metadata(current))) {
+        return(invisible(NULL))
+      }
 
       self$execute(glue::glue(
         "comment on table {private$table_ref(table_name)} is {quoted}",

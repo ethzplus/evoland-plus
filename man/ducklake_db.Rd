@@ -60,6 +60,7 @@ which doubles per attempt up to 64 times this}
     \item \href{#method-ducklake_db-get_table_metadata}{\code{ducklake_db$get_table_metadata()}}
     \item \href{#method-ducklake_db-delete_from}{\code{ducklake_db$delete_from()}}
     \item \href{#method-ducklake_db-commit}{\code{ducklake_db$commit()}}
+    \item \href{#method-ducklake_db-maintain}{\code{ducklake_db$maintain()}}
     \item \href{#method-ducklake_db-print}{\code{ducklake_db$print()}}
     \item \href{#method-ducklake_db-get_read_expr}{\code{ducklake_db$get_read_expr()}}
     \item \href{#method-ducklake_db-clone}{\code{ducklake_db$clone()}}
@@ -309,6 +310,45 @@ does not have.}
   }
   \subsection{Returns}{
     Number of rows written
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-ducklake_db-maintain"></a>}}
+\if{latex}{\out{\hypertarget{method-ducklake_db-maintain}{}}}
+\subsection{\code{ducklake_db$maintain()}}{
+  Expire old snapshots and delete the data files only those snapshots still
+referenced. Every commit adds a snapshot and leaves the files it
+superseded in place, so a long run accumulates both without bound;
+DuckLake never reclaims them on its own.
+
+Expiring a snapshot gives up time travel to it, and anything still
+reading at one loses the files under it, so run this when no other
+process is using the database. Do not lean on \code{older_than} to protect
+concurrent readers: a cutoff a day back was measured to expire nothing,
+but an hour back expired snapshots only seconds old, so DuckLake honours
+it coarsely at best.
+
+Compaction of the many small files a run leaves behind is not included:
+\code{ducklake_merge_adjacent_files} had no effect on them at the time of
+writing, whatever file-size bounds it was given.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{ducklake_db$maintain(older_than = Sys.time())}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{older_than}}{POSIXct or a string DuckDB reads as a timestamp.
+Bounds which snapshots are expired, coarsely -- see above. Defaults to
+expiring every snapshot but the current one.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Named integer vector: snapshots before and after, and how many
+files were deleted, invisibly
   }
 }
 

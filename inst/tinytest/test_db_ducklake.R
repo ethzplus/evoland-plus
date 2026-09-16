@@ -691,3 +691,64 @@ db$commit(
   method = "upsert"
 )
 expect_true(is.na(db$fetch("schema_t", where = "id_run = 4")[["extra"]]))
+
+# Test 55: committing does not rewrite metadata that has not changed. Every
+# catalog change costs a snapshot, and most commits touch no metadata at all.
+upkeep_dir <- tempfile("ducklake_db_upkeep_")
+db_upkeep <- ducklake_db$new(upkeep_dir)
+snapshots <- function() {
+  db_upkeep$get_query(glue::glue(
+    "select count(*) from ducklake_snapshots({evoland:::CATALOG_ALIAS})"
+  ))[[1]]
+}
+
+# past the row limit below which DuckLake inlines into the catalog, so that
+# there are real files for maintain() to reclaim
+upkeep_row <- function(ids, ...) {
+  row <- data.table::data.table(id = ids, value = seq_along(ids) * 1.0)
+  data.table::setattr(row, "key_cols", "id")
+  for (attribute in names(list(...))) {
+    data.table::setattr(row, attribute, list(...)[[attribute]])
+  }
+  row
+}
+
+db_upkeep$commit(upkeep_row(1:200), "upkeep_t", method = "overwrite")
+before <- snapshots()
+db_upkeep$commit(upkeep_row(50:250), "upkeep_t", method = "upsert")
+expect_equal(snapshots() - before, 1) # the merge only, no comment rewrite
+expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["key_cols"]], "id")
+
+# a commit that does bring new metadata still writes it
+db_upkeep$commit(upkeep_row(251:300, epsg = 2056L), "upkeep_t", method = "upsert")
+expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["epsg"]], 2056L)
+
+# Test 56: maintain() expires snapshots and deletes the files only they held
+for (i in 1:10) {
+  db_upkeep$commit(upkeep_row(sample(1:300, 100)), "upkeep_t", method = "upsert")
+}
+expect_true(snapshots() > 10)
+
+upkeep_result <- db_upkeep$maintain()
+expect_equal(upkeep_result[["snapshots_after"]], 1)
+expect_true(upkeep_result[["snapshots_before"]] > upkeep_result[["snapshots_after"]])
+expect_true(upkeep_result[["files_deleted"]] > 0)
+
+# the surviving data and its metadata are untouched
+expect_equal(db_upkeep$row_count("upkeep_t"), 300L)
+expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["epsg"]], 2056L)
+
+# older_than does bound the expiry, though only coarsely: a cutoff a day back
+# leaves every snapshot in place
+db_upkeep$commit(upkeep_row(301:305), "upkeep_t", method = "upsert")
+before_cutoff <- db_upkeep$maintain(older_than = Sys.time() - 86400)
+expect_equal(before_cutoff[["snapshots_before"]], before_cutoff[["snapshots_after"]])
+expect_equal(before_cutoff[["files_deleted"]], 0L)
+
+# a read-only database refuses to maintain
+expect_error(
+  ducklake_db$new(upkeep_dir, read_only = TRUE)$maintain(),
+  "read-only"
+)
+
+unlink(upkeep_dir, recursive = TRUE)
