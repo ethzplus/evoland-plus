@@ -238,8 +238,8 @@ ducklake_db <- R6::R6Class(
         stop("Table `", table_name, "` does not exist in `", self$path, "`")
       }
 
-      metadata <- self$get_table_metadata(table_name)
-      map_cols <- private$col_specs(table_name)[["map_cols"]]
+      metadata <- private$read_metadata(table_name)
+      map_cols <- private$col_specs(table_name, table_exists = TRUE)[["map_cols"]]
       if (!is.null(cols)) {
         map_cols <- intersect(cols, map_cols)
       }
@@ -281,12 +281,7 @@ ducklake_db <- R6::R6Class(
         stop("Table `", table_name, "` does not exist")
       }
 
-      comment <- self$get_query(glue::glue(
-        "select comment from duckdb_tables()
-         where database_name = '{CATALOG_ALIAS}' and table_name = '{table_name}'"
-      ))[[1]]
-
-      deserialize_metadata(comment)
+      private$read_metadata(table_name)
     },
 
     #' @description
@@ -329,14 +324,15 @@ ducklake_db <- R6::R6Class(
       method <- match.arg(method)
       stopifnot("database is attached read-only" = !self$read_only)
 
-      specs <- private$col_specs(table_name, x)
+      table_exists <- table_name %in% self$list_tables()
+
+      specs <- private$col_specs(table_name, x, table_exists)
       on.exit(private$cleanup_new_data_v(), add = TRUE)
       all_new_cols <- private$register_new_data_v(x, specs[["map_cols"]])
 
-      table_exists <- table_name %in% self$list_tables()
       metadata <- private$resolve_metadata(
         x,
-        if (table_exists) self$get_table_metadata(table_name) else list()
+        if (table_exists) private$read_metadata(table_name) else list()
       )
 
       if (table_exists && method != "overwrite") {
@@ -750,14 +746,14 @@ ducklake_db <- R6::R6Class(
     # constructor, so an empty prototype answers the question without a round-trip
     # through storage. Data committed to a table without a constructor falls back
     # to attributes on the data, or to what the table was created with.
-    col_specs = function(table_name, x = NULL) {
+    col_specs = function(table_name, x = NULL, table_exists) {
       prototype_fn <- paste0("as_", table_name)
       prototype <- if (exists(prototype_fn, mode = "function")) {
         get(prototype_fn, mode = "function")()
       }
 
-      stored <- if (is.null(prototype) && table_name %in% self$list_tables()) {
-        self$get_table_metadata(table_name)
+      stored <- if (is.null(prototype) && table_exists) {
+        private$read_metadata(table_name)
       } else {
         list()
       }
@@ -774,6 +770,17 @@ ducklake_db <- R6::R6Class(
           if (is.null(cols)) character(0) else cols
         }
       )
+    },
+
+    # The stored metadata, without get_table_metadata()'s existence check, for
+    # callers that have already established that the table is there
+    read_metadata = function(table_name) {
+      comment <- self$get_query(glue::glue(
+        "select comment from duckdb_tables()
+         where database_name = '{CATALOG_ALIAS}' and table_name = '{table_name}'"
+      ))[[1]]
+
+      deserialize_metadata(comment)
     },
 
     # Merge the atomic attributes of `x` into the metadata a table already

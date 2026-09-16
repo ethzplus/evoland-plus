@@ -166,10 +166,10 @@ deleted_count <- db$delete_from("test_table_5", where = "id = 999")
 expect_equal(deleted_count, 0L)
 expect_equal(db$row_count("test_table_5"), initial_count)
 
-# Test 31: Extension loading
-test_dir_ext <- tempfile("ducklake_db_ext_")
+# Test 31: Extension loading. Extensions are set at construction, so this needs
+# its own connection, but not its own catalog.
 db_ext <- ducklake_db$new(
-  path = test_dir_ext,
+  path = test_dir,
   extensions = "json"
 )
 expect_equal(
@@ -499,50 +499,48 @@ expect_equal(retrieved[["payload"]][[2]], as.raw(9L))
 
 # Test 49: a reader on its own connection keeps a consistent snapshot while
 # another writer is midway through replacing the table, rather than observing
-# the partially rewritten state
-iso_dir <- tempfile("ducklake_db_iso_")
-db_writer <- ducklake_db$new(iso_dir)
-db_writer$commit(
+# the partially rewritten state. Two connections is the point here, so the
+# reader gets its own; the writer can be the database already open above.
+db$commit(
   data.table::data.table(id = 1:300, value = 1),
   "iso_t",
   method = "overwrite"
 )
 
-db_reader <- ducklake_db$new(iso_dir)
+db_reader <- ducklake_db$new(test_dir)
 expect_equal(db_reader$row_count("iso_t"), 300L)
 
 duckdb::duckdb_register(
-  db_writer$connection,
+  db$connection,
   "iso_new_v",
   data.table::data.table(id = 1:50, value = 2)
 )
 iso_ref <- glue::glue('{evoland:::CATALOG_ALIAS}."iso_t"')
-db_writer$execute("begin transaction")
-db_writer$execute(glue::glue("create or replace table {iso_ref} as from iso_new_v limit 0"))
-db_writer$execute(glue::glue("insert into {iso_ref} by name (from iso_new_v)"))
+db$execute("begin transaction")
+db$execute(glue::glue("create or replace table {iso_ref} as from iso_new_v limit 0"))
+db$execute(glue::glue("insert into {iso_ref} by name (from iso_new_v)"))
 
-expect_equal(db_writer$row_count("iso_t"), 50L) # writer sees its own changes
+expect_equal(db$row_count("iso_t"), 50L) # writer sees its own changes
 expect_equal(db_reader$row_count("iso_t"), 300L) # reader still sees the old snapshot
 
-db_writer$execute("commit")
+db$execute("commit")
 expect_equal(db_reader$row_count("iso_t"), 50L)
 
-unlink(iso_dir, recursive = TRUE)
-
-# Test 50: data files are written with zstd compression. The option is stored
-# in the catalog, so it also governs writes from a later connection.
-zstd_dir <- tempfile("ducklake_db_zstd_")
-db_zstd <- ducklake_db$new(zstd_dir)
-# comfortably past the row limit below which DuckLake inlines into the catalog
-db_zstd$commit(
-  data.table::data.table(id = 1:5000, value = 1),
+# Test 50: data files are written with zstd compression
+db$commit(
+  # past the row limit below which DuckLake inlines into the catalog
+  data.table::data.table(id = 1:50, value = 1),
   "zstd_t",
   method = "overwrite"
 )
-zstd_files <- list.files(file.path(zstd_dir, "data"), recursive = TRUE, full.names = TRUE)
+zstd_files <- list.files(
+  file.path(test_dir, "data", "main", "zstd_t"),
+  recursive = TRUE,
+  full.names = TRUE
+)
 expect_true(length(zstd_files) > 0)
 expect_equal(
-  db_zstd$get_query(glue::glue(
+  db$get_query(glue::glue(
     "select distinct compression from parquet_metadata('{zstd_files[[1]]}')"
   ))[[1]],
   "ZSTD"
@@ -559,7 +557,7 @@ db_split <- ducklake_db$new(
   data_path = alt_data
 )
 db_split$commit(
-  data.table::data.table(id = 1:5000, value = 1),
+  data.table::data.table(id = 1:50, value = 1),
   "split_t",
   method = "overwrite"
 )
@@ -568,13 +566,14 @@ expect_true(file.exists(alt_catalog))
 expect_true(length(list.files(alt_data, recursive = TRUE)) > 0)
 # nothing was written into `path` itself
 expect_false(dir.exists(file.path(split_dir, "data")))
+# reopening with the same pair finds the data again
 expect_equal(
   ducklake_db$new(
     split_dir,
     catalog = paste0("sqlite:", alt_catalog),
     data_path = alt_data
   )$row_count("split_t"),
-  5000L
+  50L
 )
 
 # Test 52: the extensions needed to open a database follow from where the
@@ -592,15 +591,16 @@ db_split$catalog <- "duckdb:/local/catalog.ddb"
 db_split$data_path <- "/local/lake/"
 expect_null(backend_extensions())
 
-unlink(c(zstd_dir, split_dir, alt_data), recursive = TRUE)
+unlink(c(split_dir, alt_data), recursive = TRUE)
 unlink(alt_catalog)
 
 # Test 53: the retry wrapper itself. Contention is awkward to provoke on
 # demand, so drive it directly: a transient catalog error is retried, anything
-# else is re-raised on the spot, and retry_max bounds the attempts.
-retry_db <- ducklake_db$new(tempfile("ducklake_db_retry_"))
-retry_db$retry_wait <- 0 # no point sleeping in a test
-with_retry <- retry_db$.__enclos_env__$private$with_retry
+# else is re-raised on the spot, and retry_max bounds the attempts. Nothing
+# here touches storage, so it runs against the database already open above.
+retry_defaults <- list(retry_max = db$retry_max, retry_wait = db$retry_wait)
+db$retry_wait <- 0 # no point sleeping in a test
+with_retry <- db$.__enclos_env__$private$with_retry
 
 attempts <- 0L
 expect_equal(
@@ -627,7 +627,7 @@ expect_error(
 expect_equal(attempts, 1L)
 
 # persistent contention gives up after retry_max and reports the real error
-retry_db$retry_max <- 3L
+db$retry_max <- 3L
 attempts <- 0L
 expect_error(
   with_retry(function() {
@@ -642,7 +642,7 @@ expect_equal(attempts, 3L)
 # one statement of an aborted transaction is never replayed on its own
 inner_attempts <- 0L
 outer_attempts <- 0L
-retry_db$retry_max <- 5L
+db$retry_max <- 5L
 expect_error(
   with_retry(function() {
     outer_attempts <<- outer_attempts + 1L
@@ -656,38 +656,38 @@ expect_error(
 expect_equal(outer_attempts, 5L)
 expect_equal(inner_attempts, 5L) # once per outer attempt, not 5 times each
 
+# leave the shared db as the later tests expect to find it
+db$retry_max <- retry_defaults[["retry_max"]]
+db$retry_wait <- retry_defaults[["retry_wait"]]
+
 # Test 54: a table's schema is fixed once created. Emptying it no longer drops
 # it, so "delete, then insert with an extra column" has to go through overwrite.
-schema_dir <- tempfile("ducklake_db_schema_")
-db_schema <- ducklake_db$new(schema_dir)
 narrow <- data.table::data.table(id_run = 1:2, descr = c("a", "b"))
 data.table::setattr(narrow, "key_cols", "id_run")
-db_schema$commit(narrow, "t", method = "overwrite")
+db$commit(narrow, "schema_t", method = "overwrite")
 
 wider <- data.table::data.table(id_run = 1:3, descr = c("a", "b", "c"), extra = 9)
 data.table::setattr(wider, "key_cols", "id_run")
 
-db_schema$delete_from("t")
-expect_equal(db_schema$row_count("t"), 0L)
+db$delete_from("schema_t")
+expect_equal(db$row_count("schema_t"), 0L)
 expect_error(
-  db_schema$commit(wider, "t", method = "upsert"),
-  "Cannot commit columns that `t` does not have: extra"
+  db$commit(wider, "schema_t", method = "upsert"),
+  "Cannot commit columns that `schema_t` does not have: extra"
 )
 expect_error(
-  db_schema$commit(wider, "t", method = "append"),
+  db$commit(wider, "schema_t", method = "append"),
   'use method = "overwrite"'
 )
 
 # overwrite replaces the schema along with the data, in one step
-expect_equal(db_schema$commit(wider, "t", method = "overwrite"), 3L)
-expect_equal(sort(names(db_schema$fetch("t"))), c("descr", "extra", "id_run"))
+expect_equal(db$commit(wider, "schema_t", method = "overwrite"), 3L)
+expect_equal(sort(names(db$fetch("schema_t"))), c("descr", "extra", "id_run"))
 
 # a source missing one of the table's columns is still fine; it comes back NULL
-db_schema$commit(
+db$commit(
   data.table::data.table(id_run = 4L, descr = "d"),
-  "t",
+  "schema_t",
   method = "upsert"
 )
-expect_true(is.na(db_schema$fetch("t", where = "id_run = 4")[["extra"]]))
-
-unlink(schema_dir, recursive = TRUE)
+expect_true(is.na(db$fetch("schema_t", where = "id_run = 4")[["extra"]]))
