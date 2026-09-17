@@ -393,6 +393,44 @@ ducklake_db <- R6::R6Class(
     },
 
     #' @description
+    #' Evaluate `expr` as a single DuckLake transaction, so that several writes
+    #' either all land or none do. Without one, a failure part-way through
+    #' leaves the database holding half of the change.
+    #'
+    #' Contention is retried by re-evaluating the whole block, so `expr` must be
+    #' safe to run more than once -- it re-reads whatever it derived its writes
+    #' from, which is the point. Calls nest: an inner `transaction()` joins the
+    #' one already open rather than starting its own.
+    #' @param expr Code to evaluate inside the transaction
+    #' @return The value of `expr`
+    transaction = function(expr) {
+      stopifnot("database is attached read-only" = !self$read_only)
+
+      code <- substitute(expr)
+      envir <- parent.frame()
+
+      if (private$in_transaction) {
+        return(eval(code, envir))
+      }
+
+      private$with_retry(function() {
+        self$execute("begin transaction")
+        private$in_transaction <- TRUE
+        on.exit({
+          private$in_transaction <- FALSE
+          try(self$execute("rollback"), silent = TRUE)
+        })
+
+        result <- eval(code, envir)
+
+        self$execute("commit")
+        on.exit(private$in_transaction <- FALSE)
+
+        result
+      })
+    },
+
+    #' @description
     #' Run DuckLake's `CHECKPOINT`, which flushes inlined data, expires
     #' snapshots, merges adjacent files, rewrites files with many deletes, and
     #' removes the files left unreferenced.
@@ -570,6 +608,10 @@ ducklake_db <- R6::R6Class(
     # retrying whatever is running, see below
     retry_depth = 0L,
 
+    # a transaction() is open, so a nested one joins it instead of starting
+    # another -- DuckDB has no nested transactions
+    in_transaction = FALSE,
+
     # Retry a catalog operation in the face of lock contention. DuckLake's own
     # `ducklake_max_retry_count` covers logical snapshot conflicts, but not
     # contention on the catalog itself; uncoordinated writers need this wrapper
@@ -617,12 +659,8 @@ ducklake_db <- R6::R6Class(
       table_ref <- private$table_ref(table_name)
 
       # one transaction, so that a concurrent reader never observes the table
-      # in its intermediate, empty state, and the only place that still needs
-      # an explicit with_retry(): execute() must not retry these individually
-      private$with_retry(function() {
-        self$execute("begin transaction")
-        on.exit(try(self$execute("rollback"), silent = TRUE), add = TRUE)
-
+      # in its intermediate, empty state
+      self$transaction({
         # create the table empty first, so that partitioning is already in
         # effect for the initial batch of rows
         self$execute(glue::glue(
@@ -637,14 +675,9 @@ ducklake_db <- R6::R6Class(
           ))
         }
 
-        inserted <- self$execute(glue::glue(
+        self$execute(glue::glue(
           "insert into {table_ref} by name (from new_data_v)"
         ))
-
-        self$execute("commit")
-        on.exit(NULL)
-
-        inserted
       })
     },
 
@@ -750,7 +783,9 @@ ducklake_db <- R6::R6Class(
     # x is data.table, optionally convert to MAP columns
     register_new_data_v = function(x, map_cols = character(0)) {
       if (is.character(x)) {
-        self$execute(glue::glue("create view new_data_v as from {x}"))
+        # temp, because a transaction that has written to the catalog may not
+        # also write to `memory`, and a plain view would land there
+        self$execute(glue::glue("create or replace temp view new_data_v as from {x}"))
         return(self$get_query(glue::glue("select column_name from (describe {x})"))[[1]])
       }
 
@@ -783,7 +818,7 @@ ducklake_db <- R6::R6Class(
         sep = ", "
       )
       self$execute(glue::glue(
-        "create temp table new_data_v as select {select_expr} from new_data_raw"
+        "create or replace temp table new_data_v as select {select_expr} from new_data_raw"
       ))
 
       names(x)

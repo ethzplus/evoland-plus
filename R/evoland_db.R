@@ -52,8 +52,12 @@ evoland_db <- R6::R6Class(
         delete_older_than = delete_older_than
       )
       if (!read_only) {
-        self$set_report(...)
-        self$commit(as_runs_t(), "runs_t", method = "upsert")
+        # one transaction, so that opening a database either bootstraps both
+        # tables or neither -- and costs one snapshot rather than two
+        self$transaction({
+          self$set_report(...)
+          self$commit(as_runs_t(), "runs_t", method = "upsert")
+        })
       }
       # ensure there is a minimal runs_t with base case
       self$id_run <- id_run

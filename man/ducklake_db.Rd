@@ -60,6 +60,7 @@ which doubles per attempt up to 64 times this}
     \item \href{#method-ducklake_db-get_table_metadata}{\code{ducklake_db$get_table_metadata()}}
     \item \href{#method-ducklake_db-delete_from}{\code{ducklake_db$delete_from()}}
     \item \href{#method-ducklake_db-commit}{\code{ducklake_db$commit()}}
+    \item \href{#method-ducklake_db-transaction}{\code{ducklake_db$transaction()}}
     \item \href{#method-ducklake_db-maintain}{\code{ducklake_db$maintain()}}
     \item \href{#method-ducklake_db-print}{\code{ducklake_db$print()}}
     \item \href{#method-ducklake_db-get_read_expr}{\code{ducklake_db$get_read_expr()}}
@@ -318,6 +319,35 @@ does not have.}
   }
   \subsection{Returns}{
     Number of rows written
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-ducklake_db-transaction"></a>}}
+\if{latex}{\out{\hypertarget{method-ducklake_db-transaction}{}}}
+\subsection{\code{ducklake_db$transaction()}}{
+  Evaluate \code{expr} as a single DuckLake transaction, so that several writes
+either all land or none do. Without one, a failure part-way through
+leaves the database holding half of the change.
+
+Contention is retried by re-evaluating the whole block, so \code{expr} must be
+safe to run more than once -- it re-reads whatever it derived its writes
+from, which is the point. Calls nest: an inner \code{transaction()} joins the
+one already open rather than starting its own.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{ducklake_db$transaction(expr)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{expr}}{Code to evaluate inside the transaction}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The value of \code{expr}
   }
 }
 
