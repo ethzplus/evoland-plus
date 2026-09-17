@@ -159,9 +159,8 @@ ducklake_db <- R6::R6Class(
     ### Core Database Methods ----
 
     #' @description
-    #' Execute a SQL statement. Retried on catalog lock contention, except when
-    #' it is one statement of an enclosing multi-statement block, which is
-    #' retried as a whole instead.
+    #' Execute a SQL statement. Retried on catalog lock contention, except
+    #' inside a `$transaction()`, which is retried as a whole instead.
     #' @param statement A SQL statement
     #' @return Number of rows affected by statement
     execute = function(statement) {
@@ -416,13 +415,18 @@ ducklake_db <- R6::R6Class(
       private$with_retry(function() {
         self$execute("begin transaction")
         private$in_transaction <- TRUE
+
+        # unwinds on error and on interrupt, so that a retry -- which
+        # re-enters this function -- starts from a clean connection
         on.exit({
-          private$in_transaction <- FALSE
           try(self$execute("rollback"), silent = TRUE)
+          private$in_transaction <- FALSE
         })
 
         result <- eval(code, envir)
 
+        # the commit is the statement that actually contends for the catalog;
+        # it runs bare, and a failure sends the whole block round again
         self$execute("commit")
         on.exit(private$in_transaction <- FALSE)
 
@@ -604,12 +608,11 @@ ducklake_db <- R6::R6Class(
       c(catalog_ext, if (remote_data) "httpfs")
     },
 
-    # depth > 0 means an enclosing with_retry() is already responsible for
-    # retrying whatever is running, see below
-    retry_depth = 0L,
-
-    # a transaction() is open, so a nested one joins it instead of starting
-    # another -- DuckDB has no nested transactions
+    # whether a transaction() is open on this connection. Both of the things
+    # that have to know are downstream of this one fact: a nested transaction()
+    # joins the open one rather than starting another, since DuckDB has no
+    # nested transactions, and a statement is retried alone only when it is not
+    # part of one.
     in_transaction = FALSE,
 
     # Retry a catalog operation in the face of lock contention. DuckLake's own
@@ -617,18 +620,13 @@ ducklake_db <- R6::R6Class(
     # contention on the catalog itself; uncoordinated writers need this wrapper
     # to all get through. Only transient errors are retried, with exponential
     # backoff and jitter; anything else is re-raised immediately.
-    #
-    # Re-entrant: a statement inside a multi-statement block (a transaction,
-    # say) must not be retried on its own, because replaying one statement of
-    # an aborted transaction would not redo the rest. Nested calls therefore
-    # run bare and leave retrying to the outermost block.
     with_retry = function(fn) {
-      if (private$retry_depth > 0L) {
+      # A statement of an open transaction must not be retried on its own,
+      # because replaying one statement of an aborted transaction would not
+      # redo the rest. It runs bare and transaction() replays the whole block.
+      if (private$in_transaction) {
         return(fn())
       }
-
-      private$retry_depth <- private$retry_depth + 1L
-      on.exit(private$retry_depth <- private$retry_depth - 1L, add = TRUE)
 
       for (attempt in seq_len(self$retry_max)) {
         result <- try(fn(), silent = TRUE)

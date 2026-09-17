@@ -638,23 +638,46 @@ expect_error(
 )
 expect_equal(attempts, 3L)
 
-# a statement inside an enclosing block is left to that block to retry, so that
-# one statement of an aborted transaction is never replayed on its own
-inner_attempts <- 0L
-outer_attempts <- 0L
+# a statement of an open transaction is left to the transaction to retry, so
+# that one statement of an aborted one is never replayed on its own
 db$retry_max <- 5L
+block_attempts <- 0L
 expect_error(
-  with_retry(function() {
-    outer_attempts <<- outer_attempts + 1L
-    with_retry(function() {
-      inner_attempts <<- inner_attempts + 1L
+  db$transaction({
+    block_attempts <- block_attempts + 1L
+    # reaches DuckDB, and so goes through execute() -> with_retry()
+    db$execute("select 1 from nowhere_at_all")
+  }),
+  "nowhere_at_all"
+)
+expect_equal(block_attempts, 1L) # not contention, so not replayed
+
+block_attempts <- 0L
+statement_attempts <- 0L
+expect_error(
+  db$transaction({
+    block_attempts <- block_attempts + 1L
+    private_with_retry <- db$.__enclos_env__$private$with_retry
+    private_with_retry(function() {
+      statement_attempts <<- statement_attempts + 1L
       stop("database is locked")
     })
   }),
   "database is locked"
 )
-expect_equal(outer_attempts, 5L)
-expect_equal(inner_attempts, 5L) # once per outer attempt, not 5 times each
+expect_equal(block_attempts, 5L) # the block is what retries
+expect_equal(statement_attempts, 5L) # once per attempt, not 5 times each
+
+# and outside a transaction the same statement retries on its own
+statement_attempts <- 0L
+expect_error(
+  with_retry(function() {
+    statement_attempts <<- statement_attempts + 1L
+    stop("database is locked")
+  }),
+  "database is locked"
+)
+expect_equal(statement_attempts, 5L)
 
 # leave the shared db as the later tests expect to find it
 db$retry_max <- retry_defaults[["retry_max"]]

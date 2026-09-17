@@ -114,9 +114,8 @@ when not given.}
 \if{html}{\out{<a id="method-ducklake_db-execute"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-execute}{}}}
 \subsection{\code{ducklake_db$execute()}}{
-  Execute a SQL statement. Retried on catalog lock contention, except when
-it is one statement of an enclosing multi-statement block, which is
-retried as a whole instead.
+  Execute a SQL statement. Retried on catalog lock contention, except
+inside a \verb{$transaction()}, which is retried as a whole instead.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$execute(statement)}
