@@ -12,6 +12,15 @@ TRANSIENT_CATALOG_ERRORS <- paste(
   sep = "|"
 )
 
+# A plain reference to a table in the attached catalog. Deliberately not a
+# method: `$get_read_expr()` is the overridable way to *read* a table, and
+# evoland_db overrides it with a subquery that subsets by run lineage. Writes,
+# and the reads documented as ignoring the active run, need the table itself,
+# so they call this and are not affected by what a subclass does to reading.
+table_ref <- function(table_name) {
+  glue::glue('{CATALOG_ALIAS}."{table_name}"')
+}
+
 #' R6 Base Class for DuckLake-Backed Storage
 #'
 #' @description
@@ -209,7 +218,7 @@ ducklake_db <- R6::R6Class(
       }
 
       self$get_query(glue::glue(
-        "select count(*) from {private$table_ref(table_name)}"
+        "select count(*) from {table_ref(table_name)}"
       ))[[1]]
     },
 
@@ -225,7 +234,7 @@ ducklake_db <- R6::R6Class(
       }
 
       self$get_query(glue::glue(
-        'select max("{column_name}") from {private$table_ref(table_name)}'
+        'select max("{column_name}") from {table_ref(table_name)}'
       ))[[1]]
     },
 
@@ -259,7 +268,7 @@ ducklake_db <- R6::R6Class(
       }
 
       metadata <- private$read_metadata(table_name)
-      map_cols <- private$col_specs(table_name, table_exists = TRUE)[["map_cols"]]
+      map_cols <- private$col_specs(NULL, metadata)[["map_cols"]]
       if (!is.null(cols)) {
         map_cols <- intersect(cols, map_cols)
       }
@@ -319,15 +328,16 @@ ducklake_db <- R6::R6Class(
       where_clause <- if (is.null(where)) "" else glue::glue("where {where}")
 
       self$execute(glue::glue(
-        "delete from {private$table_ref(table_name)} {where_clause}"
+        "delete from {table_ref(table_name)} {where_clause}"
       ))
     },
 
     #' @description
     #' Commit data using overwrite, append, or upsert modes. Handles partitioning,
     #' key identity columns, and list-to-MAP conversion. Which columns serve which
-    #' purpose is read from the table's `as_<table_name>()` prototype where one
-    #' exists, and otherwise from `x`'s attributes or the stored table metadata.
+    #' purpose is read from `x`'s attributes, and otherwise from the metadata the
+    #' target table carries -- so a character `x` inherits the target's specs,
+    #' and a table first created from one has none.
     #' @param x If data.table, the data to commit. If character, treated as an
     #' in-DuckDB-memory table or view name.
     #' @param table_name Target table name to commit to.
@@ -346,12 +356,12 @@ ducklake_db <- R6::R6Class(
 
       table_exists <- table_name %in% self$list_tables()
 
-      specs <- private$col_specs(table_name, x, table_exists)
+      stored <- if (table_exists) private$read_metadata(table_name) else list()
+      specs <- private$col_specs(x, stored)
+      metadata <- private$resolve_metadata(x, stored)
+
       on.exit(private$cleanup_new_data_v(), add = TRUE)
       all_new_cols <- private$register_new_data_v(x, specs[["map_cols"]])
-
-      stored <- if (table_exists) private$read_metadata(table_name) else list()
-      metadata <- private$resolve_metadata(x, stored)
 
       if (table_exists && method != "overwrite") {
         private$check_target_columns(table_name, all_new_cols)
@@ -374,7 +384,7 @@ ducklake_db <- R6::R6Class(
         }
         # "by name" tolerates columns missing from the new data
         self$execute(glue::glue(
-          "insert into {private$table_ref(table_name)} by name (from new_data_v)"
+          "insert into {table_ref(table_name)} by name (from new_data_v)"
         ))
       } else {
         private$commit_upsert(table_name, all_new_cols, specs)
@@ -567,27 +577,31 @@ ducklake_db <- R6::R6Class(
     #' @param table_name Character string table name
     #' @return Character string SQL expression
     get_read_expr = function(table_name) {
-      private$table_ref(table_name)
+      table_ref(table_name)
     }
   ),
 
   ## Private Methods ----
   private = list(
-    # R6 hook called on gc(); Close the database connection
+    # R6 hook called on gc(). Deliberately only closes the connection:
+    #
+    # - inlined rows are not flushed. Inlining small writes into the catalog is
+    #   the point of the feature, and flushing would put a catalog write on the
+    #   teardown of every object, including read-only ones and the short-lived
+    #   ones parallel workers open. `$maintain()` flushes, which is where a
+    #   caller who wants that can ask for it.
+    # - the NULL guard is load-bearing: finalize() also runs for an object
+    #   whose initialize() failed before connecting, and DBI has no
+    #   dbDisconnect method for NULL, so without it the finalizer itself errors.
+    # - duckdb_shutdown() takes the *driver*, which is constructed inline above
+    #   and never kept. Its equivalent here is dbDisconnect(shutdown = TRUE),
+    #   and over 200 open/close cycles that reclaims the same memory to within
+    #   0.1 MB, so it buys nothing.
     finalize = function() {
-      # TODO do we want to flush inlined data on cleanup? use ducklake_flush_inlined_data
-      # TODO do we need to hedge against connection being null?
       if (!is.null(self$connection)) {
-        # TODO why not use duckdb_shutdown?
         DBI::dbDisconnect(self$connection)
-        # why do we need to assign null, does that help the GC?
         self$connection <- NULL
       }
-    },
-
-    # fully qualified reference to a table in the attached catalog
-    table_ref = function(table_name) {
-      glue::glue('{CATALOG_ALIAS}."{table_name}"')
     },
 
     # DuckLake itself does not pull in the extensions that back the catalog and
@@ -654,7 +668,7 @@ ducklake_db <- R6::R6Class(
 
     # replace table_name wholesale with pre-registered data from new_data_v
     commit_overwrite = function(table_name, specs) {
-      table_ref <- private$table_ref(table_name)
+      target <- table_ref(table_name)
 
       # one transaction, so that a concurrent reader never observes the table
       # in its intermediate, empty state
@@ -662,19 +676,19 @@ ducklake_db <- R6::R6Class(
         # create the table empty first, so that partitioning is already in
         # effect for the initial batch of rows
         self$execute(glue::glue(
-          "create or replace table {table_ref} as from new_data_v limit 0"
+          "create or replace table {target} as from new_data_v limit 0"
         ))
 
         # partitioning is a pruning hint only; set it once, at table creation
         if (length(specs[["partition_cols"]])) {
           self$execute(glue::glue(
-            "alter table {table_ref}
+            "alter table {target}
              set partitioned by ({cols_to_select_expr(specs[['partition_cols']])})"
           ))
         }
 
         self$execute(glue::glue(
-          "insert into {table_ref} by name (from new_data_v)"
+          "insert into {target} by name (from new_data_v)"
         ))
       })
     },
@@ -695,7 +709,7 @@ ducklake_db <- R6::R6Class(
 
       self$execute(glue::glue(
         r"{
-        merge into {private$table_ref(table_name)}
+        merge into {table_ref(table_name)}
         using new_data_v
         using ({cols_to_select_expr(key_cols)}) -- natural join
         when matched then update set {update_assign_expr}
@@ -710,7 +724,7 @@ ducklake_db <- R6::R6Class(
     # fail on a column the caller has to spot for themselves.
     check_target_columns = function(table_name, all_new_cols) {
       target_cols <- self$get_query(glue::glue(
-        "select column_name from (describe {private$table_ref(table_name)})"
+        "select column_name from (describe {table_ref(table_name)})"
       ))[[1]]
 
       unknown_cols <- setdiff(all_new_cols, target_cols)
@@ -760,7 +774,7 @@ ducklake_db <- R6::R6Class(
       stolen_keys <- self$get_query(glue::glue(
         r"{
         select count(*)
-        from {private$table_ref(table_name)} t
+        from {table_ref(table_name)} t
         join new_data_v n using ({cols_to_select_expr(alternate_key_cols)})
         where {key_differs}
         }"
@@ -834,33 +848,18 @@ ducklake_db <- R6::R6Class(
 
     ### Column and Metadata Resolution ----
 
-    # Which columns are keys, maps or partitions is declared in the as_<table>_t()
-    # constructor, so an empty prototype answers the question without a round-trip
-    # through storage. Data committed to a table without a constructor falls back
-    # to attributes on the data, or to what the table was created with.
-    col_specs = function(table_name, x = NULL, table_exists) {
-      prototype_fn <- paste0("as_", table_name)
-      prototype <- if (exists(prototype_fn, mode = "function")) {
-        get(prototype_fn, mode = "function")()
-      }
-
-      stored <- if (is.null(prototype) && table_exists) {
-        private$read_metadata(table_name)
-      } else {
-        list()
-      }
-
+    # Which columns are keys, maps or partitions comes from the data being
+    # committed, where as_ducklake_db_t() put it, and otherwise from what the
+    # table already carries -- which is the same declaration, stored by the
+    # commit that created it. The live object wins, so changing a spec in a
+    # constructor takes effect on the next commit rather than being pinned by
+    # whatever the table was created with.
+    col_specs = function(x, stored) {
       lapply(
         stats::setNames(
           nm = c("key_cols", "alternate_key_cols", "map_cols", "partition_cols")
         ),
-        function(spec) {
-          cols <-
-            attr(prototype, spec) %||%
-            attr(x, spec) %||%
-            stored[[spec]]
-          if (is.null(cols)) character(0) else cols
-        }
+        function(spec) attr(x, spec) %||% stored[[spec]] %||% character(0)
       )
     },
 
@@ -922,7 +921,7 @@ ducklake_db <- R6::R6Class(
       }
 
       self$execute(glue::glue(
-        "comment on table {private$table_ref(table_name)} is {quoted}",
+        "comment on table {table_ref(table_name)} is {quoted}",
         quoted = if (nzchar(comment)) {
           paste0("'", gsub("'", "''", comment), "'")
         } else {

@@ -296,8 +296,9 @@ returns 0 if table does not exist
 \subsection{\code{ducklake_db$commit()}}{
   Commit data using overwrite, append, or upsert modes. Handles partitioning,
 key identity columns, and list-to-MAP conversion. Which columns serve which
-purpose is read from the table's \verb{as_<table_name>()} prototype where one
-exists, and otherwise from \code{x}'s attributes or the stored table metadata.
+purpose is read from \code{x}'s attributes, and otherwise from the metadata the
+target table carries -- so a character \code{x} inherits the target's specs,
+and a table first created from one has none.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$commit(x, table_name, method = c("overwrite", "append", "upsert"))}

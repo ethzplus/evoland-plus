@@ -786,67 +786,63 @@ expect_error(
 
 unlink(upkeep_dir, recursive = TRUE)
 
-# Test 58: transaction() makes several writes land together or not at all
-tx_dir <- tempfile("ducklake_tx_")
-db_tx <- ducklake_db$new(tx_dir)
-db_tx$commit(data.table::data.table(id = 1:3, value = 1:3), "tx_a", method = "overwrite")
-db_tx$commit(data.table::data.table(id = 1:3, value = 1:3), "tx_b", method = "overwrite")
+# Test 58: transaction() makes several writes land together or not at all.
+# Rolling a table back is not a property of a fresh catalog, so this runs
+# against the database already open above.
+db$commit(data.table::data.table(id = 1:3, value = 1:3), "tx_a", method = "overwrite")
+db$commit(data.table::data.table(id = 1:3, value = 1:3), "tx_b", method = "overwrite")
 
 # both writes commit
-db_tx$transaction({
-  db_tx$commit(data.table::data.table(id = 4L, value = 40L), "tx_a", method = "append")
-  db_tx$commit(data.table::data.table(id = 4L, value = 40L), "tx_b", method = "append")
+db$transaction({
+  db$commit(data.table::data.table(id = 4L, value = 40L), "tx_a", method = "append")
+  db$commit(data.table::data.table(id = 4L, value = 40L), "tx_b", method = "append")
 })
-expect_equal(db_tx$row_count("tx_a"), 4L)
-expect_equal(db_tx$row_count("tx_b"), 4L)
+expect_equal(db$row_count("tx_a"), 4L)
+expect_equal(db$row_count("tx_b"), 4L)
 
 # a failure after the first write discards it too
 expect_error(
-  db_tx$transaction({
-    db_tx$commit(data.table::data.table(id = 5L, value = 50L), "tx_a", method = "append")
+  db$transaction({
+    db$commit(data.table::data.table(id = 5L, value = 50L), "tx_a", method = "append")
     stop("boom")
   }),
   "boom"
 )
-expect_equal(db_tx$row_count("tx_a"), 4L)
+expect_equal(db$row_count("tx_a"), 4L)
 
 # the rollback leaves the connection usable
-db_tx$commit(data.table::data.table(id = 5L, value = 50L), "tx_a", method = "append")
-expect_equal(db_tx$row_count("tx_a"), 5L)
+db$commit(data.table::data.table(id = 5L, value = 50L), "tx_a", method = "append")
+expect_equal(db$row_count("tx_a"), 5L)
 
 # Test 59: a transaction that creates a table -- the overwrite path opens one of
 # its own, so it has to join the enclosing one rather than fail on a nested begin
 expect_error(
-  db_tx$transaction({
-    db_tx$commit(data.table::data.table(id = 1L), "tx_new", method = "overwrite")
-    expect_true("tx_new" %in% db_tx$list_tables())
+  db$transaction({
+    db$commit(data.table::data.table(id = 1L), "tx_new", method = "overwrite")
+    expect_true("tx_new" %in% db$list_tables())
     stop("boom")
   }),
   "boom"
 )
-expect_false("tx_new" %in% db_tx$list_tables())
+expect_false("tx_new" %in% db$list_tables())
 
 # committing a character source registers its view as temp, which is what keeps
 # the "one attached database per transaction" rule from tripping
-db_tx$execute("create or replace temp table tx_src as select 6 as id, 60 as value")
-db_tx$transaction({
-  db_tx$commit(data.table::data.table(id = 7L, value = 70L), "tx_b", method = "append")
-  db_tx$commit("tx_src", "tx_a", method = "append")
+db$execute("create or replace temp table tx_src as select 6 as id, 60 as value")
+db$transaction({
+  db$commit(data.table::data.table(id = 7L, value = 70L), "tx_b", method = "append")
+  db$commit("tx_src", "tx_a", method = "append")
 })
-expect_equal(db_tx$row_count("tx_a"), 6L)
-expect_equal(db_tx$row_count("tx_b"), 5L)
+expect_equal(db$row_count("tx_a"), 6L)
+expect_equal(db$row_count("tx_b"), 5L)
 
 # Test 60: transaction() returns the value of its block, nests, and refuses a
 # read-only database
-expect_equal(db_tx$transaction(41L + 1L), 42L)
+expect_equal(db$transaction(41L + 1L), 42L)
 expect_equal(
-  db_tx$transaction({
-    db_tx$transaction(db_tx$row_count("tx_a"))
+  db$transaction({
+    db$transaction(db$row_count("tx_a"))
   }),
   6L
 )
-expect_error(ducklake_db$new(tx_dir, read_only = TRUE)$transaction(1L), "read-only")
-
-rm(db_tx)
-gc()
-unlink(tx_dir, recursive = TRUE)
+expect_error(ducklake_db$new(test_dir, read_only = TRUE)$transaction(1L), "read-only")

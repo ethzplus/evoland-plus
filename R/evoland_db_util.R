@@ -16,9 +16,9 @@ NULL
 #' @param table_name The name of the table to read from
 #' @return A SQL expression string to read most specific data for slice
 get_evoland_db_read_expr <- function(self, super, table_name) {
-  table_ref <- super$get_read_expr(table_name)
+  base_read_expr <- super$get_read_expr(table_name)
   all_cols <- self$get_query(
-    glue::glue("select column_name from (describe {table_ref})")
+    glue::glue("select column_name from (describe {base_read_expr})")
   )[[1]]
 
   if (
@@ -45,7 +45,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
 
   # Single run in lineage: just filter for active id_run
   if (length(self$run_lineage) == 1L) {
-    return(glue::glue("(select * from {table_ref} where id_run = {self$id_run})"))
+    return(glue::glue("(select * from {base_read_expr} where id_run = {self$id_run})"))
   }
 
   # map each id_run in lineage to its distance from the active run; used to
@@ -68,7 +68,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
     select distinct
       {cols_to_select_expr(distinctness_cols)}
     from
-      {table_ref}
+      {base_read_expr}
     where
       id_run in ({toString(self$run_lineage)})
     ]"
@@ -131,7 +131,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
         {ctes[["best_run"]]}
       )
     from
-      {table_ref} c
+      {base_read_expr} c
     semi join
       best_run b
       using ({cols_to_select_expr(distinctness_cols)})

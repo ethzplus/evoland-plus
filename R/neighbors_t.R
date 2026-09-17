@@ -253,13 +253,11 @@ generate_neighbor_predictors <- function(self) {
   lulc_meta_read_expr <- self$get_read_expr("lulc_meta_t")
   pred_meta_read_expr <- self$get_read_expr("pred_meta_t")
 
-  # registered before the tables exist, so that a retry of the block below
-  # never trips over leftovers, and so the drops stay out of the transaction
-  on.exit(self$execute("drop table if exists pred_meta_neighbors_t"), add = TRUE)
-  on.exit(self$execute("drop table if exists pred_neighbors_t"), add = TRUE)
-
   # one transaction: the predictor ids come from what pred_meta_t holds, and a
-  # failure between the two upserts would leave predictors with no data
+  # failure between the two upserts would leave predictors with no data. The
+  # scratch tables below need no on.exit: a rollback discards temp tables
+  # created inside the transaction along with everything else, so dropping
+  # them on the way out covers the only case left, which is success.
   self$transaction({
     # Generate metadata rows based on all distinct distance class / id_lulc
     # permutations
@@ -334,6 +332,11 @@ generate_neighbor_predictors <- function(self) {
     }"
     ))
     self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
+
+    # pred_neighbors_t holds a row per coordinate, period and predictor, so
+    # leaving it on the connection would pin the whole result until the next call
+    self$execute("drop table pred_meta_neighbors_t")
+    self$execute("drop table pred_neighbors_t")
   })
 
   message(glue::glue(

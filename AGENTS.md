@@ -77,7 +77,7 @@ Only write Rcpp-free headers when the code should also compile as a standalone p
     - key columns, i.e. uniqueness columns
     - hive partitioning columns, which are a pruning hint only
     - map columns, i.e. R list columns of named lists translated to DuckDB MAP columns
-  - Which columns serve which purpose is read from the table's `as_<table>_t()` prototype, so every constructor must return a valid empty instance when called with no arguments.
+  - Which columns serve which purpose is read from those attributes on the data being committed, and otherwise from the metadata the target table already carries -- `ducklake_db` makes no assumption about how domain constructors are named.
   - DuckLake supports no constraints, keys or indexes, and `MERGE` silently inserts duplicates from a source with duplicate keys, so `$commit()` checks uniqueness explicitly before merging. It has no ENUM type either; factors are stored as strings and cast back by the `as_*_t()` constructors.
 - Domain specific database elements are in `R/evoland_db.R`; `evoland_db` inherits from `ducklake_db`.
   - The schema for this database is (for now) distributed across the class definitions: all `R/*_t.R` files contain `as_*_t` class constructors using `as_ducklake_db_t`.
