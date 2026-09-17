@@ -76,6 +76,12 @@ ducklake_db <- R6::R6Class(
     #' `"postgres:dbname=evoland host=..."`.
     #' @param data_path Character string. Where DuckLake writes its data files;
     #' defaults to `<path>/data/`. May be remote, e.g. `"s3://bucket/prefix/"`.
+    #' @param expire_older_than,delete_older_than Retention for `$maintain()`,
+    #' as an interval DuckDB reads, e.g. `"7 days"`: how old a snapshot must be
+    #' before it is expired, and how old an unreferenced file must be before it
+    #' is deleted. Both are stored in the catalog, so they only need passing
+    #' once, and are left at DuckLake's defaults -- which discard nothing --
+    #' when not given.
     #'
     #' @return A new `ducklake_db` object
     initialize = function(
@@ -83,7 +89,9 @@ ducklake_db <- R6::R6Class(
       read_only = FALSE,
       extensions = character(0),
       catalog = NULL,
-      data_path = NULL
+      data_path = NULL,
+      expire_older_than = NULL,
+      delete_older_than = NULL
     ) {
       self$path <- path
       if (is.null(catalog) || is.null(data_path)) {
@@ -130,6 +138,19 @@ ducklake_db <- R6::R6Class(
         self$execute(
           glue::glue("call {CATALOG_ALIAS}.set_option('parquet_compression', 'zstd')")
         )
+      }
+
+      # persisted too, but write them whenever they are passed, so that naming
+      # them against an existing database is not silently ignored
+      retention <- c(
+        expire_older_than = expire_older_than,
+        delete_older_than = delete_older_than
+      )
+      for (option in names(retention)) {
+        stopifnot("database is attached read-only" = !read_only)
+        self$execute(glue::glue(
+          "call {CATALOG_ALIAS}.set_option('{option}', '{retention[[option]]}')"
+        ))
       }
 
       invisible(self)
@@ -372,27 +393,22 @@ ducklake_db <- R6::R6Class(
     },
 
     #' @description
-    #' Expire old snapshots and delete the data files only those snapshots still
-    #' referenced. Every commit adds a snapshot and leaves the files it
-    #' superseded in place, so a long run accumulates both without bound;
-    #' DuckLake never reclaims them on its own.
+    #' Run DuckLake's `CHECKPOINT`, which flushes inlined data, expires
+    #' snapshots, merges adjacent files, rewrites files with many deletes, and
+    #' removes the files left unreferenced.
     #'
-    #' Expiring a snapshot gives up time travel to it, and anything still
-    #' reading at one loses the files under it, so run this when no other
-    #' process is using the database. Do not lean on `older_than` to protect
-    #' concurrent readers: a cutoff a day back was measured to expire nothing,
-    #' but an hour back expired snapshots only seconds old, so DuckLake honours
-    #' it coarsely at best.
+    #' Every commit adds a snapshot and leaves the files it superseded in place,
+    #' and DuckLake reclaims neither on its own, so a long run grows without
+    #' bound until this is called.
     #'
-    #' Compaction of the many small files a run leaves behind is not included:
-    #' `ducklake_merge_adjacent_files` had no effect on them at the time of
-    #' writing, whatever file-size bounds it was given.
-    #' @param older_than POSIXct or a string DuckDB reads as a timestamp.
-    #' Bounds which snapshots are expired, coarsely -- see above. Defaults to
-    #' expiring every snapshot but the current one.
-    #' @return Named integer vector: snapshots before and after, and how many
-    #' files were deleted, invisibly
-    maintain = function(older_than = Sys.time()) {
+    #' How much is discarded is governed by the `expire_older_than` and
+    #' `delete_older_than` options, set on the database (see `$new()`). Left
+    #' unset they keep everything, so checkpointing an unconfigured database
+    #' compacts but reclaims nothing. Expiring a snapshot gives up time travel
+    #' to it, and anything still reading at one loses the files under it, so
+    #' set a retention that covers the readers you expect.
+    #' @return Snapshot counts before and after, invisibly
+    maintain = function() {
       stopifnot("database is attached read-only" = !self$read_only)
 
       count_snapshots <- function() {
@@ -402,22 +418,11 @@ ducklake_db <- R6::R6Class(
       }
 
       snapshots_before <- count_snapshots()
-
-      timestamp <- format(as.POSIXct(older_than), "%Y-%m-%d %H:%M:%S", tz = "UTC")
-      self$execute(glue::glue(
-        "call ducklake_expire_snapshots(
-           {CATALOG_ALIAS}, older_than => timestamp '{timestamp}'
-         )"
-      ))
-      # returns one row per file it removed
-      deleted <- self$get_query(glue::glue(
-        "call ducklake_cleanup_old_files({CATALOG_ALIAS}, cleanup_all => true)"
-      ))
+      self$execute(glue::glue("checkpoint {CATALOG_ALIAS}"))
 
       invisible(c(
         snapshots_before = snapshots_before,
-        snapshots_after = count_snapshots(),
-        files_deleted = nrow(deleted)
+        snapshots_after = count_snapshots()
       ))
     },
 

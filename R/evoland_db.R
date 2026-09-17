@@ -29,6 +29,7 @@ evoland_db <- R6::R6Class(
     #' initialization; if TRUE, the catalog is attached read-only.
     #' @param catalog Character string. DuckLake catalog connection, see [ducklake_db].
     #' @param data_path Character string. DuckLake data files location, see [ducklake_db].
+    #' @param expire_older_than,delete_older_than Retention for `$maintain()`, see [ducklake_db].
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
@@ -38,13 +39,17 @@ evoland_db <- R6::R6Class(
       read_only = FALSE,
       catalog = NULL,
       data_path = NULL,
+      expire_older_than = NULL,
+      delete_older_than = NULL,
       ...
     ) {
       super$initialize(
         path = path,
         read_only = read_only,
         catalog = catalog,
-        data_path = data_path
+        data_path = data_path,
+        expire_older_than = expire_older_than,
+        delete_older_than = delete_older_than
       )
       if (!read_only) {
         self$set_report(...)

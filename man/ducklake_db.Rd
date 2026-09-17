@@ -78,7 +78,9 @@ which doubles per attempt up to 64 times this}
   read_only = FALSE,
   extensions = character(0),
   catalog = NULL,
-  data_path = NULL
+  data_path = NULL,
+  expire_older_than = NULL,
+  delete_older_than = NULL
 )}
     \if{html}{\out{</div>}}
   }
@@ -93,6 +95,12 @@ SQLite at \verb{<path>/catalog.sqlite}. Anything DuckLake accepts works, e.g.
 \code{"postgres:dbname=evoland host=..."}.}
       \item{\code{data_path}}{Character string. Where DuckLake writes its data files;
 defaults to \verb{<path>/data/}. May be remote, e.g. \code{"s3://bucket/prefix/"}.}
+      \item{\code{expire_older_than, delete_older_than}}{Retention for \verb{$maintain()},
+as an interval DuckDB reads, e.g. \code{"7 days"}: how old a snapshot must be
+before it is expired, and how old an unreferenced file must be before it
+is deleted. Both are stored in the catalog, so they only need passing
+once, and are left at DuckLake's defaults -- which discard nothing --
+when not given.}
     }
     \if{html}{\out{</div>}}
   }
@@ -317,38 +325,27 @@ does not have.}
 \if{html}{\out{<a id="method-ducklake_db-maintain"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-maintain}{}}}
 \subsection{\code{ducklake_db$maintain()}}{
-  Expire old snapshots and delete the data files only those snapshots still
-referenced. Every commit adds a snapshot and leaves the files it
-superseded in place, so a long run accumulates both without bound;
-DuckLake never reclaims them on its own.
+  Run DuckLake's \code{CHECKPOINT}, which flushes inlined data, expires
+snapshots, merges adjacent files, rewrites files with many deletes, and
+removes the files left unreferenced.
 
-Expiring a snapshot gives up time travel to it, and anything still
-reading at one loses the files under it, so run this when no other
-process is using the database. Do not lean on \code{older_than} to protect
-concurrent readers: a cutoff a day back was measured to expire nothing,
-but an hour back expired snapshots only seconds old, so DuckLake honours
-it coarsely at best.
+Every commit adds a snapshot and leaves the files it superseded in place,
+and DuckLake reclaims neither on its own, so a long run grows without
+bound until this is called.
 
-Compaction of the many small files a run leaves behind is not included:
-\code{ducklake_merge_adjacent_files} had no effect on them at the time of
-writing, whatever file-size bounds it was given.
+How much is discarded is governed by the \code{expire_older_than} and
+\code{delete_older_than} options, set on the database (see \verb{$new()}). Left
+unset they keep everything, so checkpointing an unconfigured database
+compacts but reclaims nothing. Expiring a snapshot gives up time travel
+to it, and anything still reading at one loses the files under it, so
+set a retention that covers the readers you expect.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$maintain(older_than = Sys.time())}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{older_than}}{POSIXct or a string DuckDB reads as a timestamp.
-Bounds which snapshots are expired, coarsely -- see above. Defaults to
-expiring every snapshot but the current one.}
-    }
+    \preformatted{ducklake_db$maintain()}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    Named integer vector: snapshots before and after, and how many
-files were deleted, invisibly
+    Snapshot counts before and after, invisibly
   }
 }
 

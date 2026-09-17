@@ -723,31 +723,41 @@ expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["key_cols"]], "id")
 db_upkeep$commit(upkeep_row(251:300, epsg = 2056L), "upkeep_t", method = "upsert")
 expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["epsg"]], 2056L)
 
-# Test 56: maintain() expires snapshots and deletes the files only they held
+# Test 56: with no retention configured, maintain() keeps every snapshot -- it
+# compacts, but discards nothing
 for (i in 1:10) {
   db_upkeep$commit(upkeep_row(sample(1:300, 100)), "upkeep_t", method = "upsert")
 }
 expect_true(snapshots() > 10)
 
-upkeep_result <- db_upkeep$maintain()
-expect_equal(upkeep_result[["snapshots_after"]], 1)
-expect_true(upkeep_result[["snapshots_before"]] > upkeep_result[["snapshots_after"]])
-expect_true(upkeep_result[["files_deleted"]] > 0)
+kept <- db_upkeep$maintain()
+expect_true(kept[["snapshots_after"]] >= kept[["snapshots_before"]])
+
+# Test 57: retention set on the database is what lets maintain() reclaim
+db_reclaim <- ducklake_db$new(
+  upkeep_dir,
+  expire_older_than = "0 seconds",
+  delete_older_than = "0 seconds"
+)
+files_before <- length(list.files(file.path(upkeep_dir, "data"), recursive = TRUE))
+reclaimed <- db_reclaim$maintain()
+
+expect_true(reclaimed[["snapshots_before"]] > reclaimed[["snapshots_after"]])
+expect_true(length(list.files(file.path(upkeep_dir, "data"), recursive = TRUE)) < files_before)
 
 # the surviving data and its metadata are untouched
-expect_equal(db_upkeep$row_count("upkeep_t"), 300L)
-expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["epsg"]], 2056L)
+expect_equal(db_reclaim$row_count("upkeep_t"), 300L)
+expect_equal(db_reclaim$get_table_metadata("upkeep_t")[["epsg"]], 2056L)
 
-# older_than does bound the expiry, though only coarsely: a cutoff a day back
-# leaves every snapshot in place
-db_upkeep$commit(upkeep_row(301:305), "upkeep_t", method = "upsert")
-before_cutoff <- db_upkeep$maintain(older_than = Sys.time() - 86400)
-expect_equal(before_cutoff[["snapshots_before"]], before_cutoff[["snapshots_after"]])
-expect_equal(before_cutoff[["files_deleted"]], 0L)
+# the options persist, so a later connection reclaims without being told again
+db_reclaim$commit(upkeep_row(301:400), "upkeep_t", method = "upsert")
+again <- ducklake_db$new(upkeep_dir)$maintain()
+expect_true(again[["snapshots_before"]] > again[["snapshots_after"]])
 
-# a read-only database refuses to maintain
+# a read-only database refuses to maintain, or to be told a retention
+expect_error(ducklake_db$new(upkeep_dir, read_only = TRUE)$maintain(), "read-only")
 expect_error(
-  ducklake_db$new(upkeep_dir, read_only = TRUE)$maintain(),
+  ducklake_db$new(upkeep_dir, read_only = TRUE, expire_older_than = "1 day"),
   "read-only"
 )
 
