@@ -667,6 +667,8 @@ ducklake_db <- R6::R6Class(
         return(fn())
       }
 
+      started <- Sys.time()
+
       for (attempt in seq_len(self$retry_max)) {
         result <- try(fn(), silent = TRUE)
 
@@ -675,11 +677,29 @@ ducklake_db <- R6::R6Class(
         }
 
         condition <- attr(result, "condition")
-        if (
-          !grepl(TRANSIENT_CATALOG_ERRORS, conditionMessage(condition)) ||
-            attempt == self$retry_max
-        ) {
+
+        # Not contention: re-raise untouched, so the original class and call
+        # survive for whoever was expecting them.
+        if (!grepl(TRANSIENT_CATALOG_ERRORS, conditionMessage(condition))) {
           stop(condition)
+        }
+
+        # Contention we could not outlast. Say so: re-raising the original
+        # condition here is indistinguishable from never having retried at
+        # all, which sends anyone reading the error looking for a bug in the
+        # matching rather than for whatever is holding the lock.
+        if (attempt == self$retry_max) {
+          stop(
+            glue::glue(
+              "Gave up after {attempt} attempts over {elapsed}s waiting for the ",
+              "DuckLake catalog. Something else is holding it -- another R ",
+              "session with the database open, or a stale lock. Raise ",
+              "`$retry_max` / `$retry_wait` only once you know what that is.\n",
+              "  {conditionMessage(condition)}",
+              elapsed = round(as.numeric(difftime(Sys.time(), started, units = "secs")), 1)
+            ),
+            call. = FALSE
+          )
         }
 
         # The doubling stops at 64x the base wait: unchecked, the last of

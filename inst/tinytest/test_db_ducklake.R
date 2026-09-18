@@ -638,6 +638,16 @@ expect_error(
 )
 expect_equal(attempts, 3L)
 
+# giving up on contention says so, rather than re-raising the original error
+# untouched -- which reads exactly like the retry never ran
+db$retry_max <- 2L
+exhausted <- tryCatch(
+  with_retry(function() stop("database is locked")),
+  error = conditionMessage
+)
+expect_true(grepl("Gave up after 2 attempts", exhausted))
+expect_true(grepl("database is locked", exhausted)) # original message kept
+
 # a statement of an open transaction is left to the transaction to retry, so
 # that one statement of an aborted one is never replayed on its own
 db$retry_max <- 5L
