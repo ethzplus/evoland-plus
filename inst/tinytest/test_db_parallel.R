@@ -11,12 +11,12 @@ expect_silent(
   res <- run_parallel_evoland(
     items = list(1, 2, 3),
     worker_fun = function(item, db) {
-      paste(db$path, item * 2)
+      paste(db$read_only, item * 2)
     },
     parent_db = db
   )
 )
-expect_equal(res, as.list(paste(temp_dir, c(2, 4, 6))))
+expect_equal(res, as.list(paste(FALSE, c(2, 4, 6))))
 
 # 2. Test Parallel Execution (Requires installed package for workers)
 # In development (pkgload load_all()), workers can't load the package via library()
