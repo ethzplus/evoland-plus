@@ -35,29 +35,7 @@ if (!at_home() || !requireNamespace("evoland", quietly = TRUE)) {
     {
       cluster <- parallel::makeCluster(2)
 
-      # todo ensure there is a scenario where a worker tries to write but is
-      # stopped by the read_only lock
-
-      # test_table_dt <-
-      #   data.table::data.table(
-      #     someitem = NA_integer_
-      #   )
-
-      # todo make partitioned writes so append works across processes
-      # db$commit(
-      #   test_table_dt,
-      #   "test_table",
-      #   "append"
-      # )
-
       worker_db_check <- function(item, db) {
-        # db$commit(
-        #   data.table::data.table(
-        #     someitem = item
-        #   ),
-        #   "test_table",
-        #   "append"
-        # )
         db$reporting_t
       }
 
