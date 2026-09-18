@@ -777,6 +777,45 @@ db_reclaim$commit(upkeep_row(301:400), "upkeep_t", method = "upsert")
 again <- ducklake_db$new(upkeep_dir)$maintain()
 expect_true(again[["snapshots_before"]] > again[["snapshots_after"]])
 
+# Test 57b: a path holding a run of separators -- which macOS hands out
+# readily, since tempdir() there can contain one -- used to cost the data.
+# DuckLake matches a stored file path against the one it derives from
+# DATA_PATH as strings, so the `//` made every file look unreferenced and the
+# next maintain() deleted it. Scanned and checked against disk, because
+# row_count() answers from catalog statistics and reports the rows either way.
+slash_dir <- paste0(tempfile("ducklake_db_slash_"), "//nested")
+db_slash <- ducklake_db$new(
+  slash_dir,
+  expire_older_than = "0 seconds",
+  delete_older_than = "0 seconds"
+)
+expect_false(grepl("//", db_slash$data_path))
+db_slash$commit(upkeep_row(1:200), "slash_t", method = "overwrite")
+db_slash$commit(upkeep_row(50:300), "slash_t", method = "upsert")
+db_slash$maintain()
+
+slash_files <- db_slash$get_query(glue::glue(
+  "select data_file from ducklake_list_files({evoland:::CATALOG_ALIAS}, 'slash_t')"
+))[[1]]
+expect_true(length(slash_files) > 0L)
+expect_equal(slash_files[!file.exists(slash_files)], character(0))
+expect_equal(
+  db_slash$get_query(glue::glue(
+    "select count(distinct id) from {evoland:::CATALOG_ALIAS}.slash_t"
+  ))[[1]],
+  300L
+)
+
+# a remote data path keeps the // that makes it a URI
+expect_equal(
+  evoland:::collapse_path_separators("s3://bucket//lake//"),
+  "s3://bucket/lake/"
+)
+
+rm(db_slash)
+gc()
+unlink(slash_dir, recursive = TRUE)
+
 # a read-only database refuses to maintain, or to be told a retention
 expect_error(ducklake_db$new(upkeep_dir, read_only = TRUE)$maintain(), "read-only")
 expect_error(

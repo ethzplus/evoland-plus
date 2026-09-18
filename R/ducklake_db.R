@@ -12,6 +12,23 @@ TRANSIENT_CATALOG_ERRORS <- paste(
   sep = "|"
 )
 
+# DuckLake resolves a data file by comparing the stored path against the one it
+# derives from DATA_PATH as strings, normalising separators but not runs of
+# them: see ducklake_metadata_manager.cpp, GetPathPrefix/StripPathPrefix. So a
+# DATA_PATH holding `//` -- which macOS hands out readily, since tempdir() there
+# can contain one -- writes files whose paths no longer match, and the next
+# maintenance pass takes them for unreferenced and deletes them, live rows and
+# all. Collapsing the runs before DuckLake ever sees them avoids the whole
+# class. The `//` of a remote URI is the one that has to survive, or an s3:// or
+# https:// data path would be mangled into something unreachable; `sqlite:` and
+# `duckdb:` take a bare path after the colon and so want collapsing throughout.
+REMOTE_URI_PREFIX <- "^(s3|gcs|r2|az|abfss?|https?)://"
+
+collapse_path_separators <- function(path) {
+  scheme <- sub(paste0("^((", substring(REMOTE_URI_PREFIX, 2L), ")?).*$"), "\\1", path)
+  paste0(scheme, gsub("/{2,}", "/", substring(path, nchar(scheme) + 1L)))
+}
+
 # A plain reference to a table in the attached catalog. Deliberately not a
 # method: `$get_read_expr()` is the overridable way to *read* a table, and
 # evoland_db overrides it with a subquery that subsets by run lineage. Writes,
@@ -102,13 +119,21 @@ ducklake_db <- R6::R6Class(
       expire_older_than = NULL,
       delete_older_than = NULL
     ) {
+      # before anything is derived from it, so that the catalog and the data
+      # path inherit a path DuckLake can match against what it stores
+      path <- collapse_path_separators(path)
+
       self$path <- path
       if (is.null(catalog) || is.null(data_path)) {
         # only needed for the halves that actually get stored there
         ensure_dir(path)
       }
-      self$catalog <- catalog %||% glue::glue("sqlite:{file.path(path, 'catalog.sqlite')}")
-      self$data_path <- data_path %||% paste0(ensure_dir(file.path(path, "data")), "/")
+      self$catalog <- collapse_path_separators(
+        catalog %||% glue::glue("sqlite:{file.path(path, 'catalog.sqlite')}")
+      )
+      self$data_path <- collapse_path_separators(
+        data_path %||% paste0(ensure_dir(file.path(path, "data")), "/")
+      )
       self$read_only <- read_only
 
       # `shared_home = TRUE` pins DuckDB's extension and secret storage to ~/.duckdb.
@@ -617,7 +642,7 @@ ducklake_db <- R6::R6Class(
         NULL
       )
 
-      remote_data <- grepl("^(s3|gcs|r2|az|abfss?|https?)://", self$data_path)
+      remote_data <- grepl(REMOTE_URI_PREFIX, self$data_path)
 
       c(catalog_ext, if (remote_data) "httpfs")
     },
