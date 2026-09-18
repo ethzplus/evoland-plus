@@ -313,13 +313,12 @@ add_predictor <- function(
 
     # upsert
     self$pred_meta_t <- as_pred_meta_t(new_meta_row)
-
-    # construct valid pred data
-    pred_data_to_add <- data.table::copy(pred_data_raw)
-    pred_data_to_add[, id_run := self$id_run]
-    pred_data_to_add[, id_pred := id_pred]
-
-    # upsert
-    self$pred_data_t <- as_pred_data_t(pred_data_to_add)
   })
+  # construct valid pred data
+  pred_data_to_add <- data.table::copy(pred_data_raw)
+  pred_data_to_add[, id_run := self$id_run]
+  pred_data_to_add[, id_pred := id_pred]
+
+  # upsert
+  self$pred_data_t <- as_pred_data_t(pred_data_to_add)
 }
