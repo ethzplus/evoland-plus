@@ -10,7 +10,11 @@ source(file.path(
   system.file("tinytest", package = "evoland"),
   "helper_testdb.R"
 ))
-db <- make_test_db(include_neighbors = FALSE, include_trans_preds = FALSE)
+db <- make_test_db(
+  include_neighbors = FALSE,
+  include_trans_preds = FALSE,
+  include_alloc_params = FALSE
+)
 
 # Test empty table
 expect_stdout(print(as_trans_preds_t()), "Transition-Predictor Relationships")
