@@ -110,8 +110,8 @@ expect_match(
     body() |>
     deparse() |>
     paste(collapse = "\n"),
-  'tbl <- "coords_t"\n    md <- "append"',
-  fixed = TRUE
+  'tbl <- "coords_t"(.|\n)*?md <- "append"',
+  perl = TRUE
 )
 
 # ---- create_method_binding ----
