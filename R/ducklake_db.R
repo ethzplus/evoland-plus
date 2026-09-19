@@ -38,6 +38,19 @@ table_ref <- function(table_name) {
   glue::glue('{CATALOG_ALIAS}."{table_name}"')
 }
 
+# Every table gets a companion view holding one row per key. Writes only ever
+# append -- a MERGE rewrites whole files and holds the catalog lock for as long
+# as that takes, which is what starves everyone else -- so a key can appear
+# many times in the table, and the newest occurrence is the live one. Reading
+# through the view is what makes an append-only table look like a keyed one.
+#
+# Suffixed `_v` to match the convention the domain views already follow, and
+# named unconditionally so that get_read_expr() never has to ask the catalog
+# which tables have keys: a table without key_cols gets a pass-through view.
+view_ref <- function(table_name) {
+  glue::glue('{CATALOG_ALIAS}."{table_name}_v"')
+}
+
 #' R6 Base Class for DuckLake-Backed Storage
 #'
 #' @description
@@ -243,7 +256,7 @@ ducklake_db <- R6::R6Class(
       }
 
       self$get_query(glue::glue(
-        "select count(*) from {table_ref(table_name)}"
+        "select count(*) from {view_ref(table_name)}"
       ))[[1]]
     },
 
@@ -259,7 +272,7 @@ ducklake_db <- R6::R6Class(
       }
 
       self$get_query(glue::glue(
-        'select max("{column_name}") from {table_ref(table_name)}'
+        'select max("{column_name}") from {view_ref(table_name)}'
       ))[[1]]
     },
 
@@ -267,11 +280,7 @@ ducklake_db <- R6::R6Class(
     #' List all tables in storage
     #' @return Character vector of table names
     list_tables = function() {
-      self$get_query(glue::glue(
-        "select table_name from information_schema.tables
-         where table_catalog = '{CATALOG_ALIAS}'
-         order by table_name"
-      ))[[1]]
+      private$catalog_objects()[type == "BASE TABLE", name]
     },
 
     #' @description
@@ -352,9 +361,15 @@ ducklake_db <- R6::R6Class(
 
       where_clause <- if (is.null(where)) "" else glue::glue("where {where}")
 
+      # Report rows as the caller sees them. Appending means a key can have
+      # several superseded rows behind it, so the physical count DELETE returns
+      # would be some larger number that corresponds to nothing a caller asked
+      # about.
+      before <- self$row_count(table_name)
       self$execute(glue::glue(
         "delete from {table_ref(table_name)} {where_clause}"
       ))
+      before - self$row_count(table_name)
     },
 
     #' @description
@@ -379,7 +394,9 @@ ducklake_db <- R6::R6Class(
       method <- match.arg(method)
       stopifnot("database is attached read-only" = !self$read_only)
 
-      table_exists <- table_name %in% self$list_tables()
+      objects <- private$catalog_objects()
+      table_exists <- table_name %in% objects[type == "BASE TABLE", name]
+      view_exists <- paste0(table_name, "_v") %in% objects[type == "VIEW", name]
 
       stored <- if (table_exists) private$read_metadata(table_name) else list()
       specs <- private$col_specs(x, stored)
@@ -392,18 +409,24 @@ ducklake_db <- R6::R6Class(
         private$check_target_columns(table_name, all_new_cols)
       }
 
-      rows <- if (method == "overwrite" || !table_exists) {
+      replaced <- method == "overwrite" || !table_exists
+
+      rows <- if (replaced) {
         private$commit_overwrite(table_name, specs)
-      } else if (method == "append" || length(specs[["key_cols"]]) == 0L) {
-        # if there are no key columns to join on, upsert becomes append
-        if (
+      } else {
+        # Upsert is an append too: the companion view resolves a key to its
+        # newest row, so superseding one is a matter of writing a later one.
+        # What upsert still buys over append is the check below.
+        if (method == "upsert") {
+          private$check_source_uniqueness(table_name, specs)
+        } else if (
           length(specs[["key_cols"]]) &&
             getOption("evoland.ducklake_db_append_warning", TRUE)
         ) {
           warning(
-            "!! No uniqueness checks are performed when appending.\n",
-            "  Only use if you need high speed _and_ know you're not introducing duplicates\n",
-            "  Use upsert to be safe.\n",
+            "!! Appending skips the duplicate-key check on the data you are committing.\n",
+            "  Duplicates within one commit share a snapshot, so which one the\n",
+            "  `_v` view returns is arbitrary. Use upsert unless you know there are none.\n",
             "  Set option 'evoland.ducklake_db_append_warning' to FALSE to disable this warning."
           )
         }
@@ -411,8 +434,20 @@ ducklake_db <- R6::R6Class(
         self$execute(glue::glue(
           "insert into {table_ref(table_name)} by name (from new_data_v)"
         ))
-      } else {
-        private$commit_upsert(table_name, all_new_cols, specs)
+      }
+
+      # `create or replace table` leaves the old view bound to a table that no
+      # longer exists, and a new table has none at all. Keys arriving later
+      # than the table -- committed without them, then upserted with them --
+      # leave a pass-through view that would silently stop deduplicating, so
+      # that counts too. Otherwise the view already says the right thing, and
+      # rewriting it would cost a snapshot on every commit for no change.
+      keys_changed <- !identical(
+        as.character(stored[["key_cols"]] %||% character(0)),
+        specs[["key_cols"]]
+      )
+      if (replaced || !view_exists || keys_changed) {
+        private$ensure_view(table_name, specs[["key_cols"]])
       }
 
       # `create or replace` drops the comment, so overwrite always rewrites it;
@@ -420,7 +455,7 @@ ducklake_db <- R6::R6Class(
       private$write_metadata(
         table_name,
         metadata,
-        current = if (method == "overwrite" || !table_exists) list() else stored
+        current = if (replaced) list() else stored
       )
 
       rows
@@ -602,7 +637,7 @@ ducklake_db <- R6::R6Class(
     #' @param table_name Character string table name
     #' @return Character string SQL expression
     get_read_expr = function(table_name) {
-      table_ref(table_name)
+      view_ref(table_name)
     }
   ),
 
@@ -627,6 +662,46 @@ ducklake_db <- R6::R6Class(
         DBI::dbDisconnect(self$connection)
         self$connection <- NULL
       }
+    },
+
+    # Tables and views in one query, so that commit() can ask both "does the
+    # table exist" and "does its view exist" without a second catalog round-trip.
+    catalog_objects = function() {
+      self$get_query(glue::glue(
+        "select table_name as name, table_type as type
+         from information_schema.tables
+         where table_catalog = '{CATALOG_ALIAS}'
+         order by table_name"
+      ))
+    },
+
+    # The companion view: one row per key, newest wins. `snapshot_id` is a
+    # hidden column DuckLake exposes per row, so the ordering costs nothing to
+    # store; file_row_number breaks ties within a snapshot, which only happens
+    # if a caller appended duplicate keys in one commit.
+    #
+    # A table without key_cols has nothing to deduplicate, but still gets a
+    # view, so that reads never have to branch on whether one exists.
+    ensure_view = function(table_name, key_cols) {
+      if (length(key_cols) == 0L) {
+        return(self$execute(glue::glue(
+          "create or replace view {view_ref(table_name)} as
+           select * from {table_ref(table_name)}"
+        )))
+      }
+
+      self$execute(glue::glue(
+        "create or replace view {view_ref(table_name)} as
+         select * exclude (ducklake_row_rank) from (
+           select *,
+             row_number() over (
+               partition by {cols_to_select_expr(key_cols)}
+               order by snapshot_id desc, file_row_number desc
+             ) as ducklake_row_rank
+           from {table_ref(table_name)}
+         )
+         where ducklake_row_rank = 1"
+      ))
     },
 
     # DuckLake itself does not pull in the extensions that back the catalog and
@@ -738,31 +813,6 @@ ducklake_db <- R6::R6Class(
       })
     },
 
-    commit_upsert = function(table_name, all_new_cols, specs) {
-      key_cols <- specs[["key_cols"]]
-      alternate_key_cols <- specs[["alternate_key_cols"]]
-
-      private$check_source_uniqueness(table_name, key_cols, alternate_key_cols)
-
-      # Alternate keys identify the same rows as the primary key, so they are
-      # never updated; excluding them keeps the mapping between the two intact.
-      ordinary_cols <- setdiff(all_new_cols, c(key_cols, alternate_key_cols))
-      update_assign_expr <- glue::glue_collapse(
-        glue::glue('"{ordinary_cols}" = new_data_v."{ordinary_cols}"'),
-        sep = ",\n "
-      )
-
-      self$execute(glue::glue(
-        r"{
-        merge into {table_ref(table_name)}
-        using new_data_v
-        using ({cols_to_select_expr(key_cols)}) -- natural join
-        when matched then update set {update_assign_expr}
-        when not matched then insert by name
-        }"
-      ))
-    },
-
     # A table's schema is fixed once created. Deleting every row no longer
     # drops the table, so the old "delete, then insert with an extra column"
     # route to a schema change is gone; say so rather than letting the insert
@@ -785,11 +835,13 @@ ducklake_db <- R6::R6Class(
       ))
     },
 
-    # DuckLake supports no constraints, keys or indexes, and MERGE silently
-    # inserts duplicates when the source itself has duplicate keys. Both gaps
-    # have to be closed before the merge runs.
-    check_source_uniqueness = function(table_name, key_cols, alternate_key_cols) {
-      for (cols in list(key_cols, alternate_key_cols)) {
+    # Nothing stops a caller committing the same key twice in one batch, and
+    # dedup-on-read cannot help there: both rows land in the same snapshot, so
+    # which one the view returns comes down to their order within the file.
+    # Checking the staged data catches that; it reads new_data_v only and never
+    # touches the target, so it stays cheap as the table grows.
+    check_source_uniqueness = function(table_name, specs) {
+      for (cols in specs[c("key_cols", "alternate_key_cols")]) {
         if (length(cols) == 0L) {
           next
         }
@@ -806,21 +858,28 @@ ducklake_db <- R6::R6Class(
         }
       }
 
-      if (length(alternate_key_cols) == 0L || length(key_cols) == 0L) {
+      if (length(specs[["alternate_key_cols"]]) == 0L || length(specs[["key_cols"]]) == 0L) {
         return(invisible(NULL))
       }
 
-      # An alternate key already held by a different primary key would be
-      # inserted as a duplicate, because the merge joins on the primary key only
+      # An alternate key identifies the same row as the primary key, so the
+      # same one turning up under a different primary key is a contradiction
+      # rather than a newer version. Dedup cannot catch it -- the view
+      # partitions by the primary key, so both rows survive and the table ends
+      # up with two live rows claiming the same identity.
+      #
+      # This reads the table where the rest of upsert only appends to it, but a
+      # read takes no write lock, and only tables that declare an alternate key
+      # pay for it.
       key_differs <- glue::glue_collapse(
-        glue::glue('t."{key_cols}" is distinct from n."{key_cols}"'),
+        glue::glue('t."{specs[["key_cols"]]}" is distinct from n."{specs[["key_cols"]]}"'),
         sep = " or "
       )
       stolen_keys <- self$get_query(glue::glue(
         r"{
         select count(*)
-        from {table_ref(table_name)} t
-        join new_data_v n using ({cols_to_select_expr(alternate_key_cols)})
+        from {view_ref(table_name)} t
+        join new_data_v n using ({cols_to_select_expr(specs[["alternate_key_cols"]])})
         where {key_differs}
         }"
       ))[[1]]
@@ -828,8 +887,9 @@ ducklake_db <- R6::R6Class(
       if (stolen_keys > 0) {
         stop(glue::glue(
           "Duplicate key found in data to commit to `{table_name}`\n",
-          "  {stolen_keys} row(s) reuse an existing {toString(alternate_key_cols)} ",
-          "under a different {toString(key_cols)}"
+          "  {stolen_keys} row(s) reuse an existing ",
+          "{toString(specs[['alternate_key_cols']])} ",
+          "under a different {toString(specs[['key_cols']])}"
         ))
       }
 
