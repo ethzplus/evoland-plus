@@ -37,7 +37,11 @@ source(file.path(
   system.file("tinytest", package = "evoland"),
   "helper_testdb.R"
 ))
-db <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
+db <- make_test_db(
+  include_neighbors = FALSE,
+  include_trans_preds = TRUE,
+  include_alloc_params = FALSE
+)
 
 # simple featureless learner for fast, dependency-free testing
 test_learner <- mlr3::lrn("classif.featureless", predict_type = "prob")
@@ -92,7 +96,7 @@ expect_message(
 # Test DB round trip
 expect_equal(nrow(full_models), 2L)
 full_mods_roundtrip <- db$trans_models_t[id_trans == 2L & learner_id == "classif.featureless"]
-data.table::setattr(full_mods_roundtrip, "parquet_db_t_class", NULL)
+data.table::setattr(full_mods_roundtrip, "ducklake_db_t_class", NULL)
 expect_identical(
   full_mods_roundtrip,
   full_models[id_trans == 2L & learner_id == "classif.featureless"]

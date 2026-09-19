@@ -30,7 +30,7 @@ as_neighbors_t <- function(x) {
     cast_dt_col(x, "distance_class", "factor")
   }
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "neighbors_t",
     key_cols = c("id_coord_origin", "id_coord_neighbor")
@@ -195,36 +195,25 @@ set_neighbors <- function(
   n_neighbors <- nrow(neighbors)
   chunksize <- min(chunksize, n_neighbors)
 
-  if (n_neighbors > 0) {
-    # Use a temporary prefix for the chunked files
-    temp_prefix <- "neighbors_t_temp"
-    n_chunks <- ceiling(n_neighbors / chunksize)
+  # chunks are disjoint slices of a table that is unique by construction
+  previous_warning_option <- options(evoland.ducklake_db_append_warning = FALSE)
+  on.exit(options(previous_warning_option), add = TRUE)
 
-    for (i in seq_len(n_chunks)) {
+  # one transaction over all chunks: the overwrite goes first, so a failure
+  # part-way through would otherwise leave a truncated neighbors_t behind --
+  # which the guard above then takes for a complete one and skips
+  self$transaction({
+    for (i in seq_len(ceiling(n_neighbors / chunksize))) {
       slice_start <- (i - 1) * chunksize + 1
       slice_end <- min(i * chunksize, n_neighbors)
 
-      # Write each chunk to a separate parquet file using overwrite
       self$commit(
         as_neighbors_t(neighbors[slice_start:slice_end, ]),
-        table_name = paste0(temp_prefix, "_", i),
-        method = "overwrite"
+        table_name = "neighbors_t",
+        method = if (i == 1L) "overwrite" else "append"
       )
     }
-
-    # Remove the large object from memory and collect garbage
-    rm(neighbors)
-    gc()
-
-    # Gather all temporary parquet files into the final large file using DuckDB
-    self$execute(glue::glue(
-      "copy (
-        select * from read_parquet('{self$path}/{temp_prefix}_*.parquet')
-      ) to '{self$path}/neighbors_t.parquet' ({self$writeopts})"
-    ))
-
-    unlink(list.files(self$path, pattern = temp_prefix, full.names = TRUE))
-  }
+  })
 
   message(glue::glue("Computed {n_neighbors} neighbor relationships"))
   invisible(self)
@@ -264,11 +253,17 @@ generate_neighbor_predictors <- function(self) {
   lulc_meta_read_expr <- self$get_read_expr("lulc_meta_t")
   pred_meta_read_expr <- self$get_read_expr("pred_meta_t")
 
-  # Generate metadata rows based on all distinct distance class / id_lulc
-  # permutations
-  current_max_id_pred <- self$column_max("pred_meta_t", "id_pred")
-  n_predictors <- self$execute(glue::glue(
-    r"{
+  # one transaction: the predictor ids come from what pred_meta_t holds, and a
+  # failure between the two upserts would leave predictors with no data. The
+  # scratch tables below need no on.exit: a rollback discards temp tables
+  # created inside the transaction along with everything else, so dropping
+  # them on the way out covers the only case left, which is success.
+  self$transaction({
+    # Generate metadata rows based on all distinct distance class / id_lulc
+    # permutations
+    current_max_id_pred <- self$column_max("pred_meta_t", "id_pred")
+    n_predictors <- self$execute(glue::glue(
+      r"{
     create or replace temp table pred_meta_neighbors_t as
     with
       all_distance_classes as (select distinct distance_class from {neighbors_read_expr})
@@ -293,29 +288,27 @@ generate_neighbor_predictors <- function(self) {
     cross join
       all_distance_classes c
     }"
-  ))
-  on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
+    ))
+    self$pred_meta_t <-
+      self$get_query(
+        "select * exclude (distance_class, id_lulc) from pred_meta_neighbors_t"
+      ) |>
+      as_pred_meta_t()
 
-  self$pred_meta_t <-
-    self$get_query(
-      "select * exclude (distance_class, id_lulc) from pred_meta_neighbors_t"
-    ) |>
-    as_pred_meta_t()
-
-  # Set the id_pred in pred_meta_neighbors_t based on the autoincremented IDs in pred_meta_t
-  self$execute(glue::glue(
-    r"{
+    # Set the id_pred in pred_meta_neighbors_t based on the autoincremented IDs in pred_meta_t
+    self$execute(glue::glue(
+      r"{
     update pred_meta_neighbors_t
     set id_pred = m.id_pred
     from {pred_meta_read_expr} m
     where pred_meta_neighbors_t.name = m.name
     }"
-  ))
+    ))
 
-  # Count the number of neighbours per origin, period, id_lulc and distance_class
-  n_data_points <- self$execute(glue::glue(
-    r"{
-    create temp table pred_neighbors_t as
+    # Count the number of neighbours per origin, period, id_lulc and distance_class
+    n_data_points <- self$execute(glue::glue(
+      r"{
+    create or replace temp table pred_neighbors_t as
     select
       {self$id_run} as id_run,
       p.id_pred,
@@ -337,10 +330,14 @@ generate_neighbor_predictors <- function(self) {
       t.id_lulc,
       p.id_pred
     }"
-  ))
-  on.exit(self$execute("drop table pred_neighbors_t"), add = TRUE)
+    ))
+    self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
 
-  self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
+    # pred_neighbors_t holds a row per coordinate, period and predictor, so
+    # leaving it on the connection would pin the whole result until the next call
+    self$execute("drop table pred_meta_neighbors_t")
+    self$execute("drop table pred_neighbors_t")
+  })
 
   message(glue::glue(
     "Appended {n_predictors} neighbor predictor variables with ",

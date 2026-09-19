@@ -5,11 +5,10 @@
 \title{\code{evoland_db} - R6 Class for lulc data management}
 \description{
 An R6 class that provides an interface to a folder-based data storage system
-for the evoland package. Each table is stored as a parquet (or JSON) file.
-This class uses DuckDB for in-memory SQL operations while persisting data
-to disk in parquet format for better compression.
+for the evoland package. This class uses DuckDB for in-memory SQL operations
+while persisting data to a DuckLake catalog on disk.
 
-Inherits from \link{parquet_db} for generic database operations.
+Inherits from \link{ducklake_db} for generic database operations.
 }
 \seealso{
 Additional methods and active bindings are added to this class in separate files:
@@ -18,7 +17,7 @@ Additional methods and active bindings are added to this class in separate files
 }
 }
 \section{Super class}{
-\code{\link[evoland:parquet_db]{parquet_db}} -> \code{evoland_db}
+\code{\link[evoland:ducklake_db]{ducklake_db}} -> \code{evoland_db}
 }
 \section{Active bindings}{
   \if{html}{\out{<div class="r6-active-bindings">}}
@@ -68,9 +67,6 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
 \section{Methods}{
 \subsection{Public methods}{
   \itemize{
-    \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
-    \item \href{#method-evoland_db-adjusted_trans_pot_v}{\code{evoland_db$adjusted_trans_pot_v()}}
-    \item \href{#method-evoland_db-alloc_params_clumpy_v}{\code{evoland_db$alloc_params_clumpy_v()}}
     \item \href{#method-evoland_db-initialize}{\code{evoland_db$new()}}
     \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
     \item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
@@ -93,56 +89,27 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-get_pred_filter_score}{\code{evoland_db$get_pred_filter_score()}}
     \item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
     \item \href{#method-evoland_db-get_obs_trans_rates}{\code{evoland_db$get_obs_trans_rates()}}
+    \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
+    \item \href{#method-evoland_db-adjusted_trans_pot_v}{\code{evoland_db$adjusted_trans_pot_v()}}
+    \item \href{#method-evoland_db-alloc_params_clumpy_v}{\code{evoland_db$alloc_params_clumpy_v()}}
     \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
   }
 }
 \if{html}{\out{<details><summary>Inherited methods</summary>
 <ul>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="column_max"><a href='../../evoland/html/parquet_db.html#method-parquet_db-column_max'><code>parquet_db$column_max()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="commit"><a href='../../evoland/html/parquet_db.html#method-parquet_db-commit'><code>parquet_db$commit()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="delete_from"><a href='../../evoland/html/parquet_db.html#method-parquet_db-delete_from'><code>parquet_db$delete_from()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="execute"><a href='../../evoland/html/parquet_db.html#method-parquet_db-execute'><code>parquet_db$execute()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="fetch"><a href='../../evoland/html/parquet_db.html#method-parquet_db-fetch'><code>parquet_db$fetch()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_query"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_query'><code>parquet_db$get_query()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_metadata"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_metadata'><code>parquet_db$get_table_metadata()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_path"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_path'><code>parquet_db$get_table_path()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="list_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-list_tables'><code>parquet_db$list_tables()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="row_count"><a href='../../evoland/html/parquet_db.html#method-parquet_db-row_count'><code>parquet_db$row_count()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="column_max"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-column_max'><code>ducklake_db$column_max()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="commit"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-commit'><code>ducklake_db$commit()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="delete_from"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-delete_from'><code>ducklake_db$delete_from()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="execute"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-execute'><code>ducklake_db$execute()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="fetch"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-fetch'><code>ducklake_db$fetch()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_query"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_query'><code>ducklake_db$get_query()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_table_metadata"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_table_metadata'><code>ducklake_db$get_table_metadata()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="list_tables"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-list_tables'><code>ducklake_db$list_tables()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="maintain"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-maintain'><code>ducklake_db$maintain()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="row_count"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-row_count'><code>ducklake_db$row_count()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="transaction"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-transaction'><code>ducklake_db$transaction()</code></a></span></li>
 </ul>
 </details>}}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
-\subsection{\code{evoland_db$trans_rates_dinamica_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$trans_rates_dinamica_v(id_period)}
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-adjusted_trans_pot_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-adjusted_trans_pot_v}{}}}
-\subsection{\code{evoland_db$adjusted_trans_pot_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$adjusted_trans_pot_v(id_period_post)}
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-alloc_params_clumpy_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-alloc_params_clumpy_v}{}}}
-\subsection{\code{evoland_db$alloc_params_clumpy_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$alloc_params_clumpy_v()}
-    \if{html}{\out{</div>}}
-  }
-}
-
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-initialize"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-initialize}{}}}
@@ -150,7 +117,16 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   Initialize a new evoland_db object
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$new(path, id_run = 0L, read_only = FALSE, ...)}
+    \preformatted{evoland_db$new(
+  path,
+  id_run = 0L,
+  read_only = FALSE,
+  catalog = NULL,
+  data_path = NULL,
+  expire_older_than = NULL,
+  delete_older_than = NULL,
+  ...
+)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -159,7 +135,10 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
       \item{\code{path}}{Character string. Path to the data folder.}
       \item{\code{id_run}}{Atomic integer run ID, defaults to 0. Can be set to NULL}
       \item{\code{read_only}}{Logical. Whether to update the reporting table upon
-initialization; if TRUE, only parallel-safe appends are allowed.}
+initialization; if TRUE, the catalog is attached read-only.}
+      \item{\code{catalog}}{Character string. DuckLake catalog connection, see \link{ducklake_db}.}
+      \item{\code{data_path}}{Character string. DuckLake data files location, see \link{ducklake_db}.}
+      \item{\code{expire_older_than, delete_older_than}}{Retention for \verb{$maintain()}, see \link{ducklake_db}.}
       \item{\code{...}}{passed on to \code{set_report}}
     }
     \if{html}{\out{</div>}}
@@ -705,6 +684,39 @@ to select model for extrapolation}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$get_obs_trans_rates()}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
+\subsection{\code{evoland_db$trans_rates_dinamica_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$trans_rates_dinamica_v(id_period)}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-adjusted_trans_pot_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-adjusted_trans_pot_v}{}}}
+\subsection{\code{evoland_db$adjusted_trans_pot_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$adjusted_trans_pot_v(id_period_post)}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-alloc_params_clumpy_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-alloc_params_clumpy_v}{}}}
+\subsection{\code{evoland_db$alloc_params_clumpy_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$alloc_params_clumpy_v()}
     \if{html}{\out{</div>}}
   }
 }

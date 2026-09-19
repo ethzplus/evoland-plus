@@ -34,7 +34,7 @@ as_trans_rates_t <- function(x) {
     cast_dt_col("count", "int") |>
     cast_dt_col("rate", "float")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "trans_rates_t",
     key_cols = c("id_run", "id_period", "id_trans")

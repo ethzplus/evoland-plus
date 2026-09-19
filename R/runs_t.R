@@ -30,7 +30,7 @@ as_runs_t <- function(x) {
     cast_dt_col("id_run", "int") |>
     cast_dt_col("parent_id_run", "int")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "runs_t",
     key_cols = "id_run"

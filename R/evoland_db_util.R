@@ -16,9 +16,9 @@ NULL
 #' @param table_name The name of the table to read from
 #' @return A SQL expression string to read most specific data for slice
 get_evoland_db_read_expr <- function(self, super, table_name) {
-  table_path <- super$get_table_path(table_name)
+  base_read_expr <- super$get_read_expr(table_name)
   all_cols <- self$get_query(
-    glue::glue("select column_name from (describe '{table_path}')")
+    glue::glue("select column_name from (describe {base_read_expr})")
   )[[1]]
 
   if (
@@ -45,7 +45,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
 
   # Single run in lineage: just filter for active id_run
   if (length(self$run_lineage) == 1L) {
-    return(glue::glue("(select * from '{table_path}' where id_run = {self$id_run})"))
+    return(glue::glue("(select * from {base_read_expr} where id_run = {self$id_run})"))
   }
 
   # map each id_run in lineage to its distance from the active run; used to
@@ -68,7 +68,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
     select distinct
       {cols_to_select_expr(distinctness_cols)}
     from
-      '{table_path}'
+      {base_read_expr}
     where
       id_run in ({toString(self$run_lineage)})
     ]"
@@ -120,7 +120,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
     )
   }
 
-  # return read expression: use semi join to filter table_path using best_run
+  # return read expression: use semi join to filter the table using best_run
   glue::glue(
     r"[(
     with
@@ -131,7 +131,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
         {ctes[["best_run"]]}
       )
     from
-      '{table_path}' c
+      {base_read_expr} c
     semi join
       best_run b
       using ({cols_to_select_expr(distinctness_cols)})
@@ -177,7 +177,7 @@ run_parallel_evoland <- function(
   }
 
   # Wrapper function to manage DB connection inside the worker
-  wrapper <- function(item, worker_fun_inner, db_path, id_run, ...) {
+  wrapper <- function(item, worker_fun_inner, db_path, id_run, catalog, data_path, ...) {
     if (!exists("evoland_db")) {
       stop("evoland_db class not found on worker. Ensure package is installed.")
     }
@@ -185,7 +185,9 @@ run_parallel_evoland <- function(
     worker_db <- evoland_db$new(
       path = db_path,
       id_run = id_run,
-      read_only = TRUE
+      read_only = TRUE,
+      catalog = catalog,
+      data_path = data_path
     )
     worker_db$execute("set threads to 1")
 
@@ -201,6 +203,9 @@ run_parallel_evoland <- function(
     worker_fun_inner = worker_fun,
     db_path = parent_db$path,
     id_run = parent_db$id_run,
+    # workers must reach the same catalog and data files as the parent
+    catalog = parent_db$catalog,
+    data_path = parent_db$data_path,
     ...
   )
 }

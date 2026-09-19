@@ -1,10 +1,10 @@
-# Domain-specific functionality; generic parquet_db tests are in test_parquet_db.R
+# Domain-specific functionality; generic ducklake_db tests are in test_db_ducklake.R
 library(tinytest)
 
 # evoland_db initialization with reporting
 source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
 expect_silent(db <- make_test_db())
-expect_inherits(db, c("evoland_db", "parquet_db"))
+expect_inherits(db, c("evoland_db", "ducklake_db"))
 expect_stdout(print(db), "Active Run: 0")
 expect_identical(
   db$list_tables(),
@@ -83,13 +83,13 @@ expect_equivalent(
 
 # fetch back as rast
 expect_equal(
-  db$lulc_data_as_rast()["id_period_1_id_run_0"],
+  db$lulc_data_as_rast()["id_run_0_id_period_1"],
   m <- db$lulc_data_as_rast(id_period = 1L)
 )
-expect_length(as.vector(m["id_period_1"]), 900L)
+expect_length(as.vector(m["id_run_0_id_period_1"]), 900L)
 expect_equal(
   unique(db$lulc_data_t$id_lulc),
-  unique(as.vector(m["id_period_1"]))
+  unique(as.vector(m["id_run_0_id_period_1"]))
 )
 
 # add predictor via sugar add_predictor()

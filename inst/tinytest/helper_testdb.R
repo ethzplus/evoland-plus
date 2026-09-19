@@ -13,6 +13,9 @@
 #'
 #' @param include_neighbors bool, run set_neighbors() + generate_neighbor_predictors()
 #' @param include_trans_preds bool, run set_full_trans_preds()
+#' @param include_alloc_params bool, derive the perturbed alloc_params_t. The
+#'   runs_t lineage is always created, since most callers want it and it is
+#'   cheap; this is only the ~1s of parameter perturbation on top.
 #' @return An evoland_db object in a temporary directory. The temp directory path is in db$path.
 make_test_db <- function(
   include_neighbors = TRUE,
@@ -42,14 +45,17 @@ make_test_db <- function(
     db$set_full_trans_preds()
   }
 
+  # the run lineage is what most callers are after and costs ~0.1s; deriving
+  # the perturbed parameters costs ~1s, so only the allocation tests pay for it
+  db$runs_t <-
+    data.table::data.table(
+      id_run = 0L:3L,
+      parent_id_run = c(NA, 0L, 0L, 0L),
+      description = c("base", "unperturbed", "perturbation 1", "perturbation 2")
+    ) |>
+    as_runs_t()
+
   if (include_alloc_params) {
-    db$runs_t <-
-      data.table::data.table(
-        id_run = 0L:3L,
-        parent_id_run = c(NA, 0L, 0L, 0L),
-        description = c("base", "unperturbed", "perturbation 1", "perturbation 2")
-      ) |>
-      as_runs_t()
     suppressMessages(
       db$alloc_params_t <- db$create_alloc_params_t(
         n_perturbations = 2L,

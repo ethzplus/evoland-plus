@@ -44,7 +44,7 @@ as_trans_models_t <- function(x) {
     cast_dt_col("id_run", "int") |>
     cast_dt_col("id_trans", "int")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     "trans_models_t",
     key_cols = c("id_run", "id_trans", "learner_id"),
@@ -477,7 +477,7 @@ fit_full_models <- function(
       "select_score must be a character string" = is.character(select_score) &&
         length(select_score) == 1L,
       "select_maximize must be TRUE or FALSE" = isTRUE(select_maximize) || isFALSE(select_maximize),
-      "trans_models_t is missing" = file.exists(self$get_table_path("trans_models_t"))
+      "trans_models_t is missing" = self$row_count("trans_models_t") > 0L
     )
 
     # Identify the best partial model per transition (using QUALIFY window function)

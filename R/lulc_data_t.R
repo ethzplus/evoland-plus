@@ -29,7 +29,7 @@ as_lulc_data_t <- function(x) {
     cast_dt_col("id_lulc", "int") |>
     cast_dt_col("id_coord", "int")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x = x,
     class_name = "lulc_data_t",
     key_cols = c("id_run", "id_coord", "id_period"),

@@ -1,9 +1,9 @@
 library(tinytest)
 
-# ---- as_parquet_db_t: minimal usage (defaults only) ----
-x_min <- as_parquet_db_t(data.frame(id = 1:3, val = letters[1:3]))
+# ---- as_ducklake_db_t: minimal usage (defaults only) ----
+x_min <- as_ducklake_db_t(data.frame(id = 1:3, val = letters[1:3]))
 expect_true(data.table::is.data.table(x_min))
-expect_inherits(x_min, "parquet_db_t")
+expect_inherits(x_min, "ducklake_db_t")
 expect_identical(attr(x_min, "key_cols"), NULL)
 expect_identical(attr(x_min, "alternate_key_cols"), NULL)
 expect_identical(attr(x_min, "map_cols"), NULL)
@@ -11,21 +11,21 @@ expect_identical(attr(x_min, "partition_cols"), NULL)
 
 # validator error (false input) for minimal usage: mixed classes in list column
 expect_error(
-  as_parquet_db_t(data.table::data.table(id = 1:2, bad_list = list(1L, "x"))),
+  as_ducklake_db_t(data.table::data.table(id = 1:2, bad_list = list(1L, "x"))),
   "must have the same class"
 )
 
-# ---- as_parquet_db_t: class_name only ----
-x_class <- as_parquet_db_t(data.frame(id = 1:2), class_name = "demo_t")
-expect_inherits(x_class, c("demo_t", "parquet_db_t"))
+# ---- as_ducklake_db_t: class_name only ----
+x_class <- as_ducklake_db_t(data.frame(id = 1:2), class_name = "demo_t")
+expect_inherits(x_class, c("demo_t", "ducklake_db_t"))
 
 # validator error (false input) for class_name-only object: non-atomic attribute
-x_class_bad <- as_parquet_db_t(data.frame(id = 1:2), class_name = "demo_t")
+x_class_bad <- as_ducklake_db_t(data.frame(id = 1:2), class_name = "demo_t")
 data.table::setattr(x_class_bad, "bad_attr", list(1))
 expect_error(validate(x_class_bad), "all attributes need to be atomic")
 
-# ---- as_parquet_db_t: all optional attrs set ----
-x_all <- as_parquet_db_t(
+# ---- as_ducklake_db_t: all optional attrs set ----
+x_all <- as_ducklake_db_t(
   data.table::data.table(
     id = c("a", "b"),
     alt_id = c(10L, 20L),
@@ -50,7 +50,7 @@ expect_identical(data.table::key(x_all), "id")
 
 # validator error (false input) for all-attrs case: invalid map_cols payload
 expect_error(
-  as_parquet_db_t(
+  as_ducklake_db_t(
     data.table::data.table(
       id = c("a", "b"),
       alt_id = c(1L, 2L),
@@ -69,42 +69,26 @@ expect_error(
   "Column 'map_col' specified as map_cols must be a list of named lists with atomic values"
 )
 
-# ---- resolve_cols / resolve_partition_clause ----
-x_resolve <- as_parquet_db_t(
-  data.table::data.table(id = 1L, part = "p"),
-  key_cols = "id",
-  partition_cols = "part"
-)
+# ---- serialize_metadata / deserialize_metadata ----
 expect_identical(
-  evoland:::resolve_cols(x_resolve, metadata = list(), attr = "key_cols"),
-  "id"
+  evoland:::serialize_metadata(list(existing = "keep", custom_attr = c("a", "b"))),
+  'existing: "keep"\ncustom_attr: "a", "b"'
 )
-expect_warning(
-  id_alt <- evoland:::resolve_cols(
-    x_resolve,
-    metadata = list(key_cols = "id_alt"),
-    attr = "key_cols"
-  ),
-  "key_cols on disk (id_alt) takes precedence over attributes (id)",
-  fixed = TRUE
-)
-expect_identical(id_alt, "id_alt")
+expect_identical(evoland:::serialize_metadata(list()), "")
 
-expect_match(
-  evoland:::resolve_partition_clause(x_resolve),
-  ', partition_by ( "part" )',
-  fixed = TRUE
+# values are type-converted, so numbers do not come back as strings
+expect_identical(
+  evoland:::deserialize_metadata('existing: "keep"\nnum: "42"\nflag: "TRUE"'),
+  list(existing = "keep", num = 42L, flag = TRUE)
 )
+expect_identical(evoland:::deserialize_metadata(NA_character_), list())
+expect_identical(evoland:::deserialize_metadata(""), list())
 
-# ---- resolve_metadata_clause ----
-x_meta <- as_parquet_db_t(data.table::data.table(id = 1L))
-data.table::setattr(x_meta, "custom_attr", c("a", "b"))
-expect_match(
-  evoland:::resolve_metadata_clause(x_meta, metadata = list(existing = "keep")),
-  r"[existing: '"keep"',
-  custom_attr: '"a", "b"',
-  parquet_db_t_class: '"parquet_db_t"']",
-  fixed = TRUE
+# a metadata list survives the round-trip unchanged
+roundtrip <- list(epsg = 2056L, resolution = 100.5, key_cols = c("id_run", "id_coord"))
+expect_identical(
+  evoland:::deserialize_metadata(evoland:::serialize_metadata(roundtrip)),
+  roundtrip
 )
 
 # ---- convert_list_cols ----
@@ -126,8 +110,8 @@ expect_match(
     body() |>
     deparse() |>
     paste(collapse = "\n"),
-  'tbl <- "coords_t"\n    md <- "append"',
-  fixed = TRUE
+  'tbl <- "coords_t"(.|\n)*?md <- "append"',
+  perl = TRUE
 )
 
 # ---- create_method_binding ----

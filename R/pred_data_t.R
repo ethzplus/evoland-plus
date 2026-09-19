@@ -33,7 +33,7 @@ as_pred_data_t <- function(x) {
     cast_dt_col("id_coord", "int") |>
     cast_dt_col("value", "float")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "pred_data_t",
     key_cols = c("id_run", "id_period", "id_pred", "id_coord"),
@@ -270,47 +270,50 @@ add_predictor <- function(
   sources = list(),
   unit = NA_character_
 ) {
-  id_pred <- self$column_max("pred_meta_t", "id_pred") + 1L
-  if (id_pred > 1L) {
-    # if id_pred == 1, this is the first entry in pred_meta_t
-    # if higher, we check if this predictor is already in DB
-    existing_pred <- self$fetch("pred_meta_t", where = glue::glue("name = '{name}'"))
-    if (nrow(existing_pred) > 0L) {
-      # use pre-existing id_pred if already exists
-      id_pred <- existing_pred[["id_pred"]][1L]
-    }
-  }
-
-  new_meta_row <- data.table::data.table(
-    id_pred = id_pred,
-    name = name,
-    pretty_name = pretty_name,
-    description = description,
-    orig_format = orig_format,
-    sources = list(sources),
-    unit = unit,
-    data_type = switch(
-      class(pred_data_raw[["value"]])[[1]],
-      integer = "int",
-      numeric = "float",
-      logical = "bool",
-      factor = "factor",
-      ordered = "ordered",
-      stop("Unsupported data type for value column")
-    ),
-    fill_value = fill_value,
-    factor_levels = {
-      if (is.factor(pred_data_raw[["value"]])) {
-        list(levels(pred_data_raw[["value"]]))
-      } else {
-        list(character(0))
+  # one transaction: the id_pred is derived from what pred_meta_t holds, and
+  # a failure between the two upserts would leave a predictor with no data
+  self$transaction({
+    id_pred <- self$column_max("pred_meta_t", "id_pred") + 1L
+    if (id_pred > 1L) {
+      # if id_pred == 1, this is the first entry in pred_meta_t
+      # if higher, we check if this predictor is already in DB
+      existing_pred <- self$fetch("pred_meta_t", where = glue::glue("name = '{name}'"))
+      if (nrow(existing_pred) > 0L) {
+        # use pre-existing id_pred if already exists
+        id_pred <- existing_pred[["id_pred"]][1L]
       }
     }
-  )
 
-  # upsert
-  self$pred_meta_t <- as_pred_meta_t(new_meta_row)
+    new_meta_row <- data.table::data.table(
+      id_pred = id_pred,
+      name = name,
+      pretty_name = pretty_name,
+      description = description,
+      orig_format = orig_format,
+      sources = list(sources),
+      unit = unit,
+      data_type = switch(
+        class(pred_data_raw[["value"]])[[1]],
+        integer = "int",
+        numeric = "float",
+        logical = "bool",
+        factor = "factor",
+        ordered = "ordered",
+        stop("Unsupported data type for value column")
+      ),
+      fill_value = fill_value,
+      factor_levels = {
+        if (is.factor(pred_data_raw[["value"]])) {
+          list(levels(pred_data_raw[["value"]]))
+        } else {
+          list(character(0))
+        }
+      }
+    )
 
+    # upsert
+    self$pred_meta_t <- as_pred_meta_t(new_meta_row)
+  })
   # construct valid pred data
   pred_data_to_add <- data.table::copy(pred_data_raw)
   pred_data_to_add[, id_run := self$id_run]
