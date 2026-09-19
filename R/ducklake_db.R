@@ -394,16 +394,18 @@ ducklake_db <- R6::R6Class(
     #'   it holds the catalog lock for as long as that takes. Right for metadata
     #'   and lookup tables; wrong for a table large enough that the rewrite
     #'   starves other writers.
-    #' * `"supersede"` -- append, and let the `_v` view resolve each key to the
+    #' * `"append"` -- insert, and let the `_v` view resolve each key to the
     #'   newest row. The write is proportional to what is being committed rather
     #'   than to what is already stored, at the cost of the table accumulating
     #'   superseded rows until `$maintain(compact_keys = TRUE)` clears them.
-    #' * `"append"` -- insert with no uniqueness check at all.
+    #'
+    #' Both reject duplicate keys within the data being committed; they differ
+    #' only in whether the rows they supersede are removed now or later.
     #' @return Number of rows written
     commit = function(
       x,
       table_name,
-      method = c("overwrite", "append", "upsert", "supersede")
+      method = c("overwrite", "append", "upsert")
     ) {
       method <- match.arg(method)
       stopifnot("database is attached read-only" = !self$read_only)
@@ -430,27 +432,12 @@ ducklake_db <- R6::R6Class(
       } else if (method == "upsert" && length(specs[["key_cols"]])) {
         private$commit_upsert(table_name, all_new_cols, specs, x)
       } else {
-        # supersede leaves the superseded rows in place and lets the companion
-        # view resolve the key to its newest one. It is the mode for tables big
-        # enough that upsert's file rewriting would hold the catalog lock long
-        # enough to starve other writers.
-        if (method == "supersede") {
-          private$check_source_uniqueness(table_name, specs, x)
-        } else if (
-          method == "append" &&
-            length(specs[["key_cols"]]) &&
-            # a ducklake_db_t was already checked for duplicate keys by
-            # validate.ducklake_db_t() on its way in; nothing else has been
-            !inherits(x, "ducklake_db_t") &&
-            getOption("evoland.ducklake_db_append_warning", TRUE)
-        ) {
-          warning(
-            "!! Appending skips the duplicate-key check on the data you are committing.\n",
-            "  Duplicates within one commit share a snapshot, so which one the\n",
-            "  `_v` view returns is arbitrary. Use supersede unless you know there are none.\n",
-            "  Set option 'evoland.ducklake_db_append_warning' to FALSE to disable this warning."
-          )
-        }
+        # Appending leaves any superseded row in place and lets the companion
+        # view resolve the key to the newest one. The check is the same one
+        # upsert runs, and reads only the data being committed, so it costs
+        # nothing worth avoiding.
+        private$check_source_uniqueness(table_name, specs, x)
+
         # "by name" tolerates columns missing from the new data
         self$execute(glue::glue(
           "insert into {table_ref(table_name)} by name (from new_data_v)"
@@ -541,7 +528,7 @@ ducklake_db <- R6::R6Class(
     #' to it, and anything still reading at one loses the files under it, so
     #' set a retention that covers the readers you expect.
     #' @param compact_keys Logical. If true, first rewrite every keyed table to
-    #' the rows its `_v` view returns, discarding the versions `supersede` left
+    #' the rows its `_v` view returns, discarding the versions `append` left
     #' behind. This is the work `upsert` would have done at write time, moved to
     #' a moment of your choosing: it holds the catalog lock per table for as
     #' long as the rewrite takes, so run it when nothing else is writing. It
@@ -910,7 +897,7 @@ ducklake_db <- R6::R6Class(
     # Rewrites the files holding a matched key, so the table keeps exactly one
     # row per key and the companion view has nothing to resolve. That rewriting
     # is also what makes it the wrong mode for a large table: it holds the
-    # catalog lock for as long as it takes, where `supersede` appends and
+    # catalog lock for as long as it takes, where `append` inserts and
     # defers the work to read time.
     commit_upsert = function(table_name, all_new_cols, specs, x) {
       key_cols <- specs[["key_cols"]]

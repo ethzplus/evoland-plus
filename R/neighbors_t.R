@@ -195,10 +195,6 @@ set_neighbors <- function(
   n_neighbors <- nrow(neighbors)
   chunksize <- min(chunksize, n_neighbors)
 
-  # chunks are disjoint slices of a table that is unique by construction
-  previous_warning_option <- options(evoland.ducklake_db_append_warning = FALSE)
-  on.exit(options(previous_warning_option), add = TRUE)
-
   # one transaction over all chunks: the overwrite goes first, so a failure
   # part-way through would otherwise leave a truncated neighbors_t behind --
   # which the guard above then takes for a complete one and skips

@@ -301,11 +301,7 @@ target table carries -- so a character \code{x} inherits the target's specs,
 and a table first created from one has none.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$commit(
-  x,
-  table_name,
-  method = c("overwrite", "append", "upsert", "supersede")
-)}
+    \preformatted{ducklake_db$commit(x, table_name, method = c("overwrite", "append", "upsert"))}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -323,12 +319,14 @@ key in the table itself. Rewrites every file holding a matched key, so
 it holds the catalog lock for as long as that takes. Right for metadata
 and lookup tables; wrong for a table large enough that the rewrite
 starves other writers.
-\item \code{"supersede"} -- append, and let the \verb{_v} view resolve each key to the
+\item \code{"append"} -- insert, and let the \verb{_v} view resolve each key to the
 newest row. The write is proportional to what is being committed rather
 than to what is already stored, at the cost of the table accumulating
 superseded rows until \verb{$maintain(compact_keys = TRUE)} clears them.
-\item \code{"append"} -- insert with no uniqueness check at all.
-}}
+}
+
+Both reject duplicate keys within the data being committed; they differ
+only in whether the rows they supersede are removed now or later.}
     }
     \if{html}{\out{</div>}}
   }
@@ -393,7 +391,7 @@ set a retention that covers the readers you expect.
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{compact_keys}}{Logical. If true, first rewrite every keyed table to
-the rows its \verb{_v} view returns, discarding the versions \code{supersede} left
+the rows its \verb{_v} view returns, discarding the versions \code{append} left
 behind. This is the work \code{upsert} would have done at write time, moved to
 a moment of your choosing: it holds the catalog lock per table for as
 long as the rewrite takes, so run it when nothing else is writing. It

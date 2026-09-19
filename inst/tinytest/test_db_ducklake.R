@@ -901,8 +901,8 @@ expect_equal(
 )
 expect_error(ducklake_db$new(test_dir, read_only = TRUE)$transaction(1L), "read-only")
 
-# Test 61: supersede appends and lets the view resolve the key, where upsert
-# rewrites the matched files so the table itself stays one row per key
+# Test 61: append lets the view resolve the key, where upsert rewrites the
+# matched files so the table itself stays one row per key
 mode_dir <- tempfile("ducklake_modes_")
 db_modes <- ducklake_db$new(mode_dir)
 keyed <- function(ids, v) {
@@ -917,7 +917,7 @@ physical <- function(tbl) {
 }
 
 db_modes$commit(keyed(1:100, 1L), "mode_t", method = "overwrite")
-db_modes$commit(keyed(51:150, 2L), "mode_t", method = "supersede")
+db_modes$commit(keyed(51:150, 2L), "mode_t", method = "append")
 expect_equal(db_modes$row_count("mode_t"), 150L) # the view resolves the overlap
 expect_equal(physical("mode_t"), 200L) # superseded rows are still there
 expect_equal(db_modes$fetch("mode_t", where = "id_key = 51")[["v"]], 2L) # newest wins
@@ -938,8 +938,8 @@ expect_true(
 )
 
 # Test 62: maintain(compact_keys = TRUE) does upsert's work after the fact,
-# dropping the rows supersede left behind without changing what reads return
-db_modes$commit(keyed(1:50, 4L), "mode_t", method = "supersede")
+# dropping the rows append left behind without changing what reads return
+db_modes$commit(keyed(1:50, 4L), "mode_t", method = "append")
 before_physical <- physical("mode_t")
 before_live <- db_modes$row_count("mode_t")
 expect_true(before_physical > before_live)
@@ -951,15 +951,24 @@ expect_equal(db_modes$row_count("mode_t"), before_live) # reads unchanged
 expect_equal(db_modes$fetch("mode_t", where = "id_key = 1")[["v"]], 4L)
 expect_equal(db_modes$get_table_metadata("mode_t")[["key_cols"]], "id_key")
 
-# Test 63: appending a validated object skips the warning, since
-# validate.ducklake_db_t() already rejected duplicate keys on the way in
+# Test 63: append checks the data being committed, like upsert does. A
+# ducklake_db_t was already checked by validate.ducklake_db_t(), so it is not
+# re-scanned; a bare data.table carrying key_cols never was.
 expect_silent(db_modes$commit(keyed(200:210, 5L), "mode_t", method = "append"))
 
-bare <- data.table::data.table(id_key = 300:310, v = 6L)
-data.table::setattr(bare, "key_cols", "id_key")
-expect_warning(
-  db_modes$commit(bare, "mode_t", method = "append"),
-  "Appending skips the duplicate-key check"
+bare_dup <- data.table::data.table(id_key = c(300L, 300L), v = 6L)
+data.table::setattr(bare_dup, "key_cols", "id_key")
+expect_error(
+  db_modes$commit(bare_dup, "mode_t", method = "append"),
+  "Duplicate key found"
+)
+expect_error(
+  as_ducklake_db_t(
+    data.table::data.table(id_key = c(301L, 301L), v = 7L),
+    class_name = "mode_t",
+    key_cols = "id_key"
+  ),
+  "Duplicates found in key_cols"
 )
 
 rm(db_modes)
