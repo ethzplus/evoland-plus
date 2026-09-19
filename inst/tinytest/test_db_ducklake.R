@@ -479,7 +479,9 @@ data.table::setattr(test_types, "key_cols", "id")
 data.table::setattr(test_types, "map_cols", "params")
 db$commit(test_types, "test_types", method = "overwrite")
 
-retrieved <- db$fetch("test_types")
+# reads resolve through the _v view, whose window function imposes no row
+# order, so anything comparing positionally has to sort first
+retrieved <- db$fetch("test_types")[order(id)]
 expect_equal(retrieved[["params"]][[1]], list(alpha = 1L, beta = "two"))
 expect_null(retrieved[["params"]][[2]])
 expect_equal(retrieved[["payload"]], list(as.raw(1:3), as.raw(4:5)))
@@ -898,3 +900,68 @@ expect_equal(
   6L
 )
 expect_error(ducklake_db$new(test_dir, read_only = TRUE)$transaction(1L), "read-only")
+
+# Test 61: supersede appends and lets the view resolve the key, where upsert
+# rewrites the matched files so the table itself stays one row per key
+mode_dir <- tempfile("ducklake_modes_")
+db_modes <- ducklake_db$new(mode_dir)
+keyed <- function(ids, v) {
+  as_ducklake_db_t(
+    data.table::data.table(id_key = ids, v = rep(v, length(ids))),
+    class_name = "mode_t",
+    key_cols = "id_key"
+  )
+}
+physical <- function(tbl) {
+  db_modes$get_query(glue::glue('select count(*) from {evoland:::CATALOG_ALIAS}."{tbl}"'))[[1]]
+}
+
+db_modes$commit(keyed(1:100, 1L), "mode_t", method = "overwrite")
+db_modes$commit(keyed(51:150, 2L), "mode_t", method = "supersede")
+expect_equal(db_modes$row_count("mode_t"), 150L) # the view resolves the overlap
+expect_equal(physical("mode_t"), 200L) # superseded rows are still there
+expect_equal(db_modes$fetch("mode_t", where = "id_key = 51")[["v"]], 2L) # newest wins
+
+db_modes$commit(keyed(51:150, 3L), "mode_t", method = "upsert")
+expect_equal(db_modes$row_count("mode_t"), 150L)
+expect_equal(db_modes$fetch("mode_t", where = "id_key = 51")[["v"]], 3L)
+
+# the view is named for the table, with `_t` swapped for `_v`
+expect_equal(evoland:::view_name("lulc_data_t"), "lulc_data_v")
+expect_equal(evoland:::view_name("no_suffix"), "no_suffix_v")
+expect_true(
+  "mode_v" %in%
+    db_modes$get_query(glue::glue(
+      "select table_name from information_schema.tables
+   where table_catalog = '{evoland:::CATALOG_ALIAS}' and table_type = 'VIEW'"
+    ))[[1]]
+)
+
+# Test 62: maintain(compact_keys = TRUE) does upsert's work after the fact,
+# dropping the rows supersede left behind without changing what reads return
+db_modes$commit(keyed(1:50, 4L), "mode_t", method = "supersede")
+before_physical <- physical("mode_t")
+before_live <- db_modes$row_count("mode_t")
+expect_true(before_physical > before_live)
+
+compacted <- db_modes$maintain(compact_keys = TRUE)
+expect_equal(compacted[["rows_discarded"]], before_physical - before_live)
+expect_equal(physical("mode_t"), before_live) # nothing superseded left
+expect_equal(db_modes$row_count("mode_t"), before_live) # reads unchanged
+expect_equal(db_modes$fetch("mode_t", where = "id_key = 1")[["v"]], 4L)
+expect_equal(db_modes$get_table_metadata("mode_t")[["key_cols"]], "id_key")
+
+# Test 63: appending a validated object skips the warning, since
+# validate.ducklake_db_t() already rejected duplicate keys on the way in
+expect_silent(db_modes$commit(keyed(200:210, 5L), "mode_t", method = "append"))
+
+bare <- data.table::data.table(id_key = 300:310, v = 6L)
+data.table::setattr(bare, "key_cols", "id_key")
+expect_warning(
+  db_modes$commit(bare, "mode_t", method = "append"),
+  "Appending skips the duplicate-key check"
+)
+
+rm(db_modes)
+gc()
+unlink(mode_dir, recursive = TRUE)

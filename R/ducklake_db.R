@@ -44,11 +44,16 @@ table_ref <- function(table_name) {
 # many times in the table, and the newest occurrence is the live one. Reading
 # through the view is what makes an append-only table look like a keyed one.
 #
-# Suffixed `_v` to match the convention the domain views already follow, and
-# named unconditionally so that get_read_expr() never has to ask the catalog
-# which tables have keys: a table without key_cols gets a pass-through view.
+# Named by swapping the table's `_t` for the `_v` the domain views already use,
+# so `lulc_data_t` reads through `lulc_data_v`. Every table gets one, whether or
+# not it has keys, so that get_read_expr() never has to ask the catalog which
+# tables have them.
+view_name <- function(table_name) {
+  paste0(sub("_t$", "", table_name), "_v")
+}
+
 view_ref <- function(table_name) {
-  glue::glue('{CATALOG_ALIAS}."{table_name}_v"')
+  glue::glue('{CATALOG_ALIAS}."{view_name(table_name)}"')
 }
 
 #' R6 Base Class for DuckLake-Backed Storage
@@ -381,22 +386,31 @@ ducklake_db <- R6::R6Class(
     #' @param x If data.table, the data to commit. If character, treated as an
     #' in-DuckDB-memory table or view name.
     #' @param table_name Target table name to commit to.
-    #' @param method Character, one of "overwrite", "append", "upsert" (upsert being an
-    #' update for existing rows, and insert for new rows). Only "overwrite"
-    #' changes an existing table's schema; the others reject columns the table
-    #' does not have.
+    #' @param method Character, one of:
+    #' * `"overwrite"` -- replace the table and its schema. The only mode that
+    #'   changes the schema; the others reject columns the table does not have.
+    #' * `"upsert"` -- update matched rows, insert the rest, leaving one row per
+    #'   key in the table itself. Rewrites every file holding a matched key, so
+    #'   it holds the catalog lock for as long as that takes. Right for metadata
+    #'   and lookup tables; wrong for a table large enough that the rewrite
+    #'   starves other writers.
+    #' * `"supersede"` -- append, and let the `_v` view resolve each key to the
+    #'   newest row. The write is proportional to what is being committed rather
+    #'   than to what is already stored, at the cost of the table accumulating
+    #'   superseded rows until `$maintain(compact_keys = TRUE)` clears them.
+    #' * `"append"` -- insert with no uniqueness check at all.
     #' @return Number of rows written
     commit = function(
       x,
       table_name,
-      method = c("overwrite", "append", "upsert")
+      method = c("overwrite", "append", "upsert", "supersede")
     ) {
       method <- match.arg(method)
       stopifnot("database is attached read-only" = !self$read_only)
 
       objects <- private$catalog_objects()
       table_exists <- table_name %in% objects[type == "BASE TABLE", name]
-      view_exists <- paste0(table_name, "_v") %in% objects[type == "VIEW", name]
+      view_exists <- view_name(table_name) %in% objects[type == "VIEW", name]
 
       stored <- if (table_exists) private$read_metadata(table_name) else list()
       specs <- private$col_specs(x, stored)
@@ -413,20 +427,27 @@ ducklake_db <- R6::R6Class(
 
       rows <- if (replaced) {
         private$commit_overwrite(table_name, specs)
+      } else if (method == "upsert" && length(specs[["key_cols"]])) {
+        private$commit_upsert(table_name, all_new_cols, specs, x)
       } else {
-        # Upsert is an append too: the companion view resolves a key to its
-        # newest row, so superseding one is a matter of writing a later one.
-        # What upsert still buys over append is the check below.
-        if (method == "upsert") {
-          private$check_source_uniqueness(table_name, specs)
+        # supersede leaves the superseded rows in place and lets the companion
+        # view resolve the key to its newest one. It is the mode for tables big
+        # enough that upsert's file rewriting would hold the catalog lock long
+        # enough to starve other writers.
+        if (method == "supersede") {
+          private$check_source_uniqueness(table_name, specs, x)
         } else if (
-          length(specs[["key_cols"]]) &&
+          method == "append" &&
+            length(specs[["key_cols"]]) &&
+            # a ducklake_db_t was already checked for duplicate keys by
+            # validate.ducklake_db_t() on its way in; nothing else has been
+            !inherits(x, "ducklake_db_t") &&
             getOption("evoland.ducklake_db_append_warning", TRUE)
         ) {
           warning(
             "!! Appending skips the duplicate-key check on the data you are committing.\n",
             "  Duplicates within one commit share a snapshot, so which one the\n",
-            "  `_v` view returns is arbitrary. Use upsert unless you know there are none.\n",
+            "  `_v` view returns is arbitrary. Use supersede unless you know there are none.\n",
             "  Set option 'evoland.ducklake_db_append_warning' to FALSE to disable this warning."
           )
         }
@@ -519,8 +540,16 @@ ducklake_db <- R6::R6Class(
     #' compacts but reclaims nothing. Expiring a snapshot gives up time travel
     #' to it, and anything still reading at one loses the files under it, so
     #' set a retention that covers the readers you expect.
-    #' @return Snapshot counts before and after, invisibly
-    maintain = function() {
+    #' @param compact_keys Logical. If true, first rewrite every keyed table to
+    #' the rows its `_v` view returns, discarding the versions `supersede` left
+    #' behind. This is the work `upsert` would have done at write time, moved to
+    #' a moment of your choosing: it holds the catalog lock per table for as
+    #' long as the rewrite takes, so run it when nothing else is writing. It
+    #' also gives up the history those rows represent, and with it the ability
+    #' to time-travel to a superseded value.
+    #' @return Snapshot counts before and after, invisibly, plus the number of
+    #' rows compaction discarded when it ran
+    maintain = function(compact_keys = FALSE) {
       stopifnot("database is attached read-only" = !self$read_only)
 
       count_snapshots <- function() {
@@ -530,11 +559,14 @@ ducklake_db <- R6::R6Class(
       }
 
       snapshots_before <- count_snapshots()
+      discarded <- if (compact_keys) private$compact_keyed_tables() else 0L
+
       self$execute(glue::glue("checkpoint {CATALOG_ALIAS}"))
 
       invisible(c(
         snapshots_before = snapshots_before,
-        snapshots_after = count_snapshots()
+        snapshots_after = count_snapshots(),
+        rows_discarded = discarded
       ))
     },
 
@@ -631,9 +663,11 @@ ducklake_db <- R6::R6Class(
       invisible(self)
     },
 
-    #' @description Get SQL expression to read a table. Public because the
-    #' domain functions compose their own SQL around it; they are bound with
-    #' `create_method_binding()` and only receive `self`.
+    #' @description Get SQL expression to read a table -- the table's `_v`
+    #' companion view, which resolves each key to its newest row. Rows come back
+    #' in no particular order, since the view ranks them; sort if you need one.
+    #' Public because the domain functions compose their own SQL around it; they
+    #' are bound with `create_method_binding()` and only receive `self`.
     #' @param table_name Character string table name
     #' @return Character string SQL expression
     get_read_expr = function(table_name) {
@@ -784,6 +818,44 @@ ducklake_db <- R6::R6Class(
       }
     },
 
+    # Collapse every keyed table to the rows its view returns. Staged through a
+    # temp table because a table cannot be replaced from a view that reads it,
+    # then committed as an overwrite so that partitioning and the stored
+    # metadata comment come back with it.
+    compact_keyed_tables = function() {
+      discarded <- 0L
+
+      for (table_name in self$list_tables()) {
+        stored <- private$read_metadata(table_name)
+        if (length(stored[["key_cols"]]) == 0L) {
+          next
+        }
+
+        physical <- self$get_query(glue::glue(
+          "select count(*) from {table_ref(table_name)}"
+        ))[[1]]
+        live <- self$row_count(table_name)
+        if (physical <= live) {
+          next
+        }
+
+        stage <- "compact_stage_v"
+        on.exit(
+          try(self$execute(glue::glue("drop table if exists {stage}")), silent = TRUE),
+          add = TRUE
+        )
+        self$execute(glue::glue(
+          "create or replace temp table {stage} as from {view_ref(table_name)}"
+        ))
+        self$commit(stage, table_name, method = "overwrite")
+        self$execute(glue::glue("drop table if exists {stage}"))
+
+        discarded <- discarded + (physical - live)
+      }
+
+      discarded
+    },
+
     ### Commit Methods ----
 
     # replace table_name wholesale with pre-registered data from new_data_v
@@ -835,13 +907,53 @@ ducklake_db <- R6::R6Class(
       ))
     },
 
+    # Rewrites the files holding a matched key, so the table keeps exactly one
+    # row per key and the companion view has nothing to resolve. That rewriting
+    # is also what makes it the wrong mode for a large table: it holds the
+    # catalog lock for as long as it takes, where `supersede` appends and
+    # defers the work to read time.
+    commit_upsert = function(table_name, all_new_cols, specs, x) {
+      key_cols <- specs[["key_cols"]]
+      alternate_key_cols <- specs[["alternate_key_cols"]]
+
+      private$check_source_uniqueness(table_name, specs, x)
+
+      # Alternate keys identify the same rows as the primary key, so they are
+      # never updated; excluding them keeps the mapping between the two intact.
+      ordinary_cols <- setdiff(all_new_cols, c(key_cols, alternate_key_cols))
+      update_assign_expr <- glue::glue_collapse(
+        glue::glue('"{ordinary_cols}" = new_data_v."{ordinary_cols}"'),
+        sep = ",\n "
+      )
+
+      self$execute(glue::glue(
+        r"{
+        merge into {table_ref(table_name)}
+        using new_data_v
+        using ({cols_to_select_expr(key_cols)}) -- natural join
+        when matched then update set {update_assign_expr}
+        when not matched then insert by name
+        }"
+      ))
+    },
+
     # Nothing stops a caller committing the same key twice in one batch, and
     # dedup-on-read cannot help there: both rows land in the same snapshot, so
     # which one the view returns comes down to their order within the file.
     # Checking the staged data catches that; it reads new_data_v only and never
     # touches the target, so it stays cheap as the table grows.
-    check_source_uniqueness = function(table_name, specs) {
-      for (cols in specs[c("key_cols", "alternate_key_cols")]) {
+    check_source_uniqueness = function(table_name, specs, x) {
+      # validate.ducklake_db_t() already rejected duplicate key_cols and
+      # alternate_key_cols on its way in, so re-scanning the staged data would
+      # only repeat it. A character source names a view that never went through
+      # a constructor, and a bare data.table never ran the validator either.
+      source_is_validated <- inherits(x, "ducklake_db_t")
+
+      for (cols in if (source_is_validated) {
+        list()
+      } else {
+        specs[c("key_cols", "alternate_key_cols")]
+      }) {
         if (length(cols) == 0L) {
           next
         }

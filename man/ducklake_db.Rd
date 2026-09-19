@@ -301,7 +301,11 @@ target table carries -- so a character \code{x} inherits the target's specs,
 and a table first created from one has none.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$commit(x, table_name, method = c("overwrite", "append", "upsert"))}
+    \preformatted{ducklake_db$commit(
+  x,
+  table_name,
+  method = c("overwrite", "append", "upsert", "supersede")
+)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -310,10 +314,21 @@ and a table first created from one has none.
       \item{\code{x}}{If data.table, the data to commit. If character, treated as an
 in-DuckDB-memory table or view name.}
       \item{\code{table_name}}{Target table name to commit to.}
-      \item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
-update for existing rows, and insert for new rows). Only "overwrite"
-changes an existing table's schema; the others reject columns the table
-does not have.}
+      \item{\code{method}}{Character, one of:
+\itemize{
+\item \code{"overwrite"} -- replace the table and its schema. The only mode that
+changes the schema; the others reject columns the table does not have.
+\item \code{"upsert"} -- update matched rows, insert the rest, leaving one row per
+key in the table itself. Rewrites every file holding a matched key, so
+it holds the catalog lock for as long as that takes. Right for metadata
+and lookup tables; wrong for a table large enough that the rewrite
+starves other writers.
+\item \code{"supersede"} -- append, and let the \verb{_v} view resolve each key to the
+newest row. The write is proportional to what is being committed rather
+than to what is already stored, at the cost of the table accumulating
+superseded rows until \verb{$maintain(compact_keys = TRUE)} clears them.
+\item \code{"append"} -- insert with no uniqueness check at all.
+}}
     }
     \if{html}{\out{</div>}}
   }
@@ -371,11 +386,25 @@ to it, and anything still reading at one loses the files under it, so
 set a retention that covers the readers you expect.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$maintain()}
+    \preformatted{ducklake_db$maintain(compact_keys = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{compact_keys}}{Logical. If true, first rewrite every keyed table to
+the rows its \verb{_v} view returns, discarding the versions \code{supersede} left
+behind. This is the work \code{upsert} would have done at write time, moved to
+a moment of your choosing: it holds the catalog lock per table for as
+long as the rewrite takes, so run it when nothing else is writing. It
+also gives up the history those rows represent, and with it the ability
+to time-travel to a superseded value.}
+    }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    Snapshot counts before and after, invisibly
+    Snapshot counts before and after, invisibly, plus the number of
+rows compaction discarded when it ran
   }
 }
 
@@ -406,9 +435,11 @@ set a retention that covers the readers you expect.
 \if{html}{\out{<a id="method-ducklake_db-get_read_expr"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-get_read_expr}{}}}
 \subsection{\code{ducklake_db$get_read_expr()}}{
-  Get SQL expression to read a table. Public because the
-domain functions compose their own SQL around it; they are bound with
-\code{create_method_binding()} and only receive \code{self}.
+  Get SQL expression to read a table -- the table's \verb{_v}
+companion view, which resolves each key to its newest row. Rows come back
+in no particular order, since the view ranks them; sort if you need one.
+Public because the domain functions compose their own SQL around it; they
+are bound with \code{create_method_binding()} and only receive \code{self}.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$get_read_expr(table_name)}
