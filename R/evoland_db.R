@@ -386,9 +386,9 @@ evoland_db <- R6::R6Class(
     #' @field lulc_meta_t Get or upsert [lulc_meta_t]
     lulc_meta_t = create_table_binding("lulc_meta_t", "upsert"),
     #' @field lulc_data_t Get or upsert [lulc_data_t]
-    lulc_data_t = create_table_binding("lulc_data_t", "upsert"),
+    lulc_data_t = create_table_binding("lulc_data_t", "append"),
     #' @field pred_data_t Get or upsert [pred_data_t]
-    pred_data_t = create_table_binding("pred_data_t", "upsert"),
+    pred_data_t = create_table_binding("pred_data_t", "append"),
     #' @field pred_meta_t Get or upsert [pred_meta_t]
     pred_meta_t = create_table_binding("pred_meta_t", "upsert"),
     #' @field trans_meta_t Get or upsert [trans_meta_t]
@@ -408,7 +408,7 @@ evoland_db <- R6::R6Class(
     #' @field trans_pot_t Get or upsert raw transition potentials [trans_pot_t].
     #' These are per-transition model probabilities stored by [predict_trans_pot()].
     #' Use [adjusted_trans_pot_v()] for allocation-ready values.
-    trans_pot_t = create_table_binding("trans_pot_t", "upsert"),
+    trans_pot_t = create_table_binding("trans_pot_t", "append"),
     #' @field neighbors_t Get or upsert [neighbors_t]
     neighbors_t = create_table_binding("neighbors_t", "write_once"),
     #' @field reporting_t Get or upsert [reporting_t]
