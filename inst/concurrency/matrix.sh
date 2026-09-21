@@ -10,8 +10,9 @@ for v in "$@"; do
     fails=$(grep -oE "failures: [0-9]+/[0-9]+" <<<"$out" | cut -d' ' -f2)
     keys=$(grep -qE "DUPLICATE|collisions" <<<"$out" && echo DUP || echo ok)
     comp=$(grep -qE "do not have exactly" <<<"$out" && echo LOST || echo ok)
-    lost=$(grep -oE "present: [0-9e+.]+" <<<"$out" | tail -1)
-    printf "%-30s rep%-2s wall=%-7s workers_failed=%-6s keys=%-4s complete=%-5s %s\n" \
-      "$v" "$i" "$wall" "$fails" "$keys" "$comp" "$lost"
+    dense=$(grep -qE "not dense" <<<"$out" && echo GAPS || echo ok)
+    span=$(grep -oE "(dense [0-9]+ \.\. [0-9]+|spanning [0-9]+ \.\. [0-9]+ - [0-9]+ gaps)" <<<"$out" | tail -1)
+    printf "%-32s rep%-2s wall=%-7s lost=%-6s keys=%-4s complete=%-5s dense=%-5s %s\n" \
+      "$v" "$i" "$wall" "$fails" "$keys" "$comp" "$dense" "$span"
   done
 done

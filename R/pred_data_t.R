@@ -270,18 +270,21 @@ add_predictor <- function(
   sources = list(),
   unit = NA_character_
 ) {
-  # one transaction: the id_pred is derived from what pred_meta_t holds, and
-  # a failure between the two upserts would leave a predictor with no data
+  # one transaction: the id_pred is allocated against what pred_meta_t holds,
+  # and a failure between the two upserts would leave a predictor with no data
   self$transaction({
-    id_pred <- self$column_max("pred_meta_t", "id_pred") + 1L
-    if (id_pred > 1L) {
-      # if id_pred == 1, this is the first entry in pred_meta_t
-      # if higher, we check if this predictor is already in DB
-      existing_pred <- self$fetch("pred_meta_t", where = glue::glue("name = '{name}'"))
-      if (nrow(existing_pred) > 0L) {
-        # use pre-existing id_pred if already exists
-        id_pred <- existing_pred[["id_pred"]][1L]
-      }
+    existing_pred <- if ("pred_meta_t" %in% self$list_tables()) {
+      self$fetch("pred_meta_t", where = glue::glue("name = '{name}'"))
+    }
+
+    # `$next_id()` rather than max(id_pred) + 1, because the latter is a read
+    # followed by a write that DuckLake does not treat as a conflict: two
+    # processes registering a predictor at once both keep the same maximum and
+    # the duplicate ids just land in the table, silently
+    id_pred <- if (!is.null(existing_pred) && nrow(existing_pred) > 0L) {
+      existing_pred[["id_pred"]][1L]
+    } else {
+      self$next_id("pred_meta_t", "id_pred")
     }
 
     new_meta_row <- data.table::data.table(

@@ -963,3 +963,69 @@ race_db$commit(data.table::data.table(id = 10L), "contested", method = "append")
 expect_equal(sort(race_db$fetch("contested")[["id"]]), c(9L, 10L))
 race_db$commit(data.table::data.table(id = 11L), "contested", method = "overwrite")
 expect_equal(race_db$fetch("contested")[["id"]], 11L)
+
+# Test 64: $next_id() allocates ids that two processes cannot both get, which
+# max(id) + 1 does not -- see the method's own documentation. What is testable
+# in one process is the contract the concurrency rests on.
+alloc_dir <- tempfile("ducklake_db_alloc_")
+alloc_db <- ducklake_db$new(path = alloc_dir)
+
+# allocating outside a transaction would commit the id on its own, so that the
+# caller's failed write leaves it taken and two racing callers are never
+# made to retry
+expect_error(alloc_db$next_id("pred_meta_t", "id_pred"), "inside `\\$transaction\\(\\)`")
+
+# seeded from what the table already holds, so it can be adopted by a
+# database that has ids in it
+alloc_db$commit(data.table::data.table(id_pred = c(1L, 2L, 7L)), "alloc_target",
+                method = "overwrite")
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 8L)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 9L)
+
+# a block, for a caller registering several rows at once
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred", n = 3L)),
+             10:12)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 13L)
+
+# each table and column is counted separately, and a table that does not
+# exist yet simply starts at 1
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_other", "id_other")), 1L)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_other", "id_other")), 2L)
+
+# the allocation is part of the caller's transaction, which is what keeps the
+# ids dense: a rollback gives the id back rather than burning it
+expect_error(
+  alloc_db$transaction({
+    alloc_db$next_id("alloc_target", "id_pred")
+    stop("boom")
+  }),
+  "boom"
+)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 14L)
+
+# the bookkeeping table is not a table a caller put there, so it stays out of
+# the listing the domain classes build their bindings from
+expect_false("ducklake_db_id_alloc" %in% alloc_db$list_tables())
+expect_true("ducklake_db_id_alloc" %in% alloc_db$list_tables(include_internal = TRUE))
+
+# Two processes seeding a key at once insert two rows rather than conflicting,
+# because inserts of different rows are not a conflict. Collapsing them to the
+# highest cannot reissue an id already in use.
+alloc_db$execute(
+  "insert into ducklake_db.\"ducklake_db_id_alloc\" values ('alloc_target.id_pred', 4)"
+)
+expect_equal(
+  alloc_db$get_query(
+    "select count(*) from ducklake_db.\"ducklake_db_id_alloc\"
+     where id_name = 'alloc_target.id_pred'"
+  )[[1]],
+  2L
+)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 15L)
+expect_equal(
+  alloc_db$get_query(
+    "select count(*) from ducklake_db.\"ducklake_db_id_alloc\"
+     where id_name = 'alloc_target.id_pred'"
+  )[[1]],
+  1L
+)

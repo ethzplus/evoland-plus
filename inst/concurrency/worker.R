@@ -57,18 +57,39 @@ next_id_pred <- function(db) {
     return(worker_index * 1000L + disjoint_seq)
   }
   if (alloc_mode == "max") return(db$column_max("pred_meta_t", "id_pred") + 1L)
+
+  # `counter` expects prep.R to have seeded the row. `counter-lazy` seeds it on
+  # first use instead, which is the version a library would have to ship -- and
+  # the version whose seeding insert is itself a race between processes that all
+  # find the row missing.
   if (!"id_alloc_t" %in% db$list_tables()) {
-    # created by prep.R; a worker finding it absent means prep did not run
-    stop("id_alloc_t missing")
+    if (alloc_mode == "counter") stop("id_alloc_t missing")
+    db$upsert(data.table(table_name = "pred_meta_t",
+                         next_id = db$column_max("pred_meta_t", "id_pred") + 1L),
+              "id_alloc_t", key_cols = "table_name")
   }
   cur <- db$get_query(sprintf(
     "select next_id from %s.id_alloc_t where table_name = 'pred_meta_t'", CATALOG_ALIAS
-  ), label = "alloc_read")$next_id[1L]
+  ), label = "alloc_read")
+  if (nrow(cur) == 0L) {
+    db$upsert(data.table(table_name = "pred_meta_t",
+                         next_id = db$column_max("pred_meta_t", "id_pred") + 1L),
+              "id_alloc_t", key_cols = "table_name")
+    cur <- db$get_query(sprintf(
+      "select next_id from %s.id_alloc_t where table_name = 'pred_meta_t'", CATALOG_ALIAS
+    ), label = "alloc_read")
+  }
+  # duplicate rows for one key mean the seeding insert itself raced
+  if (nrow(cur) > 1L) {
+    jlog("alloc_row_duplicated", rows = nrow(cur))
+    stop("id_alloc_t holds ", nrow(cur), " rows for pred_meta_t")
+  }
+  cur <- as.integer(cur$next_id[1L])
   db$execute(sprintf(
     "update %s.id_alloc_t set next_id = %d where table_name = 'pred_meta_t'",
-    CATALOG_ALIAS, as.integer(cur) + 1L
+    CATALOG_ALIAS, cur + 1L
   ), label = "alloc_write")
-  as.integer(cur)
+  cur
 }
 
 add_predictor <- function(db, pred_data_raw, name) {

@@ -21,7 +21,7 @@ if (seed > 0L) {
                        id_period = 0L, value = runif(seed)),
             "pred_data_t", key_cols = c("id_run","id_pred","id_coord","id_period"))
 }
-if (Sys.getenv("LAKELAB_ALLOC", "max") == "counter") {
+if (grepl("^counter", Sys.getenv("LAKELAB_ALLOC", "max")) && Sys.getenv("LAKELAB_ALLOC") != "counter-lazy") {
   db$upsert(data.table(table_name = "pred_meta_t", next_id = 1L),
             "id_alloc_t", key_cols = "table_name")
 }

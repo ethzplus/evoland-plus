@@ -260,15 +260,27 @@ generate_neighbor_predictors <- function(self) {
   # them on the way out covers the only case left, which is success.
   self$transaction({
     # Generate metadata rows based on all distinct distance class / id_lulc
-    # permutations
-    current_max_id_pred <- self$column_max("pred_meta_t", "id_pred")
+    # permutations. The ids are reserved up front rather than taken from
+    # max(id_pred) + 1: that is a read followed by a write, which DuckLake does
+    # not treat as a conflict, so two processes generating predictors at once
+    # would both keep the same maximum and write the same ids. See
+    # `ducklake_db$next_id()`.
+    n_permutations <- self$get_query(glue::glue(
+      r"{
+    select
+      (select count(*) from {lulc_meta_read_expr})
+      * (select count(distinct distance_class) from {neighbors_read_expr})
+    }"
+    ))[[1L]]
+    first_id_pred <- self$next_id("pred_meta_t", "id_pred", n = n_permutations)[[1L]]
+
     n_predictors <- self$execute(glue::glue(
       r"{
     create or replace temp table pred_meta_neighbors_t as
     with
       all_distance_classes as (select distinct distance_class from {neighbors_read_expr})
     select
-      row_number() over () + {current_max_id_pred} as id_pred,
+      row_number() over () + {first_id_pred - 1L} as id_pred,
       concat('id_lulc_', l.id_lulc, '_dist_', c.distance_class) as name,
       concat(
         'Count of ', l.pretty_name,

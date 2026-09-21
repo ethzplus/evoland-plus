@@ -42,7 +42,9 @@ and recreates its `public` schema.
 | `LAKELAB_CATALOG` | `sqlite:...`, `postgres:...` | which catalog backs the lake |
 | `LAKELAB_ATTACH_OPTS` | e.g. `METADATA_PARAMETERS MAP{'journal_mode':'wal'}` | extra DuckLake attach options |
 | `LAKELAB_MODE`, `LAKELAB_META_MODE` | `upsert`, `append` | write path per table |
-| `LAKELAB_ALLOC` | `max`, `counter`, `disjoint` | how `id_pred` is handed out: `max(id_pred) + 1` as `add_predictor()` does it, through a row every allocator must update, or not at all (each worker owns a block) |
+| `LAKELAB_ALLOC` | `max`, `counter`, `counter-lazy`, `disjoint` | how `id_pred` is handed out: `max(id_pred) + 1`, through a row every allocator must update (seeded by `prep.R`, or on first use for `counter-lazy`), or not at all (each worker owns a block) |
+| `LAKELAB_DUCKLAKE_RETRY` | e.g. `0` | `ducklake_max_retry_count`; set to 0 to tell DuckLake's own commit replay apart from `transaction()`'s |
+| `LAKELAB_INLINE_LIMIT` | e.g. `0` | `ducklake_default_data_inlining_row_limit` |
 | `LAKELAB_CREATE_MODE` | `replace`, `if_not_exists` | what the first write to a missing table does |
 | `LAKELAB_BIG_IN_TXN` | `0`, `1` | whether the `pred_data_t` write shares the metadata transaction |
 | `LAKELAB_BACKOFF` | `current`, `capped`, `flat`, `decorrelated` | retry curve |
@@ -80,14 +82,61 @@ Correctness, at 8 workers with `LAKELAB_NCOORD=200000`, reproducible every run:
 
 None of the corrupting runs reported an error. Two separate causes:
 
-- `add_predictor()` takes `id_pred` from `max(id_pred) + 1`, a read-then-write
+- `add_predictor()` took `id_pred` from `max(id_pred) + 1`, a read-then-write
   across processes. A SQLite catalog serialises the transactions and so hides
   it; PostgreSQL gives each its own snapshot, and DuckLake does not count
   "something was inserted since I read the maximum" as a conflict. Allocating
   through a row every allocator updates (`LAKELAB_ALLOC=counter`) makes the two
-  conflict, so one retries and re-reads.
+  conflict, so one retries and re-reads. Fixed in `ducklake_db$next_id()`.
 - the first write to a table that does not exist yet was `create or replace`,
   so two writers that both found it missing destroyed each other's rows
   (`LAKELAB_CREATE_MODE=replace` against `if_not_exists`). Fixed in
   `ducklake_db`; `correctness-*-disjoint` is the variant that isolates it,
   since it removes the `id_pred` race.
+
+## Allocating ids: why a row and not a sequence
+
+The `alloc-stress-*` variants isolate the allocation: 16 writers registering 6
+predictors each, 2000 rows apiece, so the ids are what collides rather than the
+data. 96 predictors expected.
+
+| variant | distinct `id_pred` | dense | `pred_data_t` | wall |
+| --- | --- | --- | --- | --- |
+| `alloc-stress-postgres-max` | **52** of 96 | no | duplicate rows | 19s |
+| `alloc-stress-postgres-counter` | 96 | 1..96 | clean | 26s |
+| `alloc-stress-postgres-counter-lazy` | 96 | 1..96 | clean | 27s |
+| `alloc-stress-postgres-counter-nodlretry` | 96 | 1..96 | clean | 35s |
+| `alloc-stress-sqlite-max` | 96 | 1..96 | clean | 26s |
+| `alloc-stress-sqlite-counter` | 96 | 1..96 | clean | 25s |
+
+`sqlite-max` looks fine only because SQLite's single writer serialises the
+transactions. That is the property WAL mode and a server-backed catalog exist to
+give up, so it is not one to build on.
+
+`-nodlretry` sets `ducklake_max_retry_count=0`. It still comes out clean, which
+matters: it means the correctness comes from `transaction()` replaying the block
+and *re-reading* the counter, not from DuckLake's internal commit replay, which
+would not re-run the read.
+
+The counter costs 32% more wall time here on PostgreSQL and nothing measurable
+on SQLite — on a workload that is nothing but allocation. A real ingest step
+writes millions of rows per predictor, so it disappears.
+
+A catalog-native sequence would be the obvious alternative. It is not reachable:
+
+- `create sequence` is refused by DuckDB on a SQLite attachment ("SQLite
+  databases do not support creating sequences") and on a PostgreSQL one. A
+  server-side sequence can be created and read through `postgres_execute` /
+  `postgres_query`, but only there — SQLite has no sequences at all, and a
+  DuckDB-file catalog cannot even be attached twice in one process ("Unique
+  file handle conflict").
+- decisively, one DuckDB transaction cannot write to both an attached catalog
+  and the lake: "Attempting to write to database ... in a transaction that has
+  already modified database ...". So a sequence could not roll back with the
+  write it numbers — every retry would burn an id, and the retries are the
+  normal case under contention.
+
+Putting a table of our own in the catalog is otherwise tolerated: it survives
+`checkpoint` with `expire_older_than`/`delete_older_than` set to zero, and does
+not appear in DuckLake's own table listing. The blockers above are what rule
+the approach out, not the catalog objecting.

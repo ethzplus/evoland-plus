@@ -75,6 +75,7 @@ none, for 4\% more wall time.}
     \item \href{#method-ducklake_db-transaction}{\code{ducklake_db$transaction()}}
     \item \href{#method-ducklake_db-maintain}{\code{ducklake_db$maintain()}}
     \item \href{#method-ducklake_db-print}{\code{ducklake_db$print()}}
+    \item \href{#method-ducklake_db-next_id}{\code{ducklake_db$next_id()}}
     \item \href{#method-ducklake_db-get_read_expr}{\code{ducklake_db$get_read_expr()}}
     \item \href{#method-ducklake_db-clone}{\code{ducklake_db$clone()}}
   }
@@ -234,7 +235,19 @@ returns 0 if table does not exist
   List all tables in storage
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$list_tables()}
+    \preformatted{ducklake_db$list_tables(include_internal = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{include_internal}}{Logical. If true, also list the tables this
+class keeps for its own bookkeeping, such as \verb{$next_id()}'s allocation
+row. They are hidden by default because the rest of the interface, and
+the domain classes built on it, treat every name this returns as a
+table a caller put there -- \code{evoland_db} expects a matching active
+binding for each, for one.}
+    }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
@@ -421,6 +434,60 @@ set a retention that covers the readers you expect.
   }
   \subsection{Returns}{
     self (invisibly)
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-ducklake_db-next_id"></a>}}
+\if{latex}{\out{\hypertarget{method-ducklake_db-next_id}{}}}
+\subsection{\code{ducklake_db$next_id()}}{
+  Hand out the next value of an integer id, such that two processes
+allocating at once cannot both get the same one.
+
+\code{max(id) + 1} cannot do that. It is a read followed by a write, and
+DuckLake does not count "rows were inserted since I read the maximum"
+as a conflict, so with a catalog that gives each transaction its own
+snapshot two allocators read the same maximum and both keep it.
+Nothing is raised anywhere; the duplicate ids simply end up in the
+table. Measured with 16 processes registering 96 predictors against a
+PostgreSQL catalog: 96 rows sharing 52 ids, and the rows keyed on them
+duplicated to match.
+
+A SQLite catalog hides this, because its single writer serialises the
+transactions -- which is not a property to depend on, and is exactly
+what WAL mode and a server-backed catalog are for giving up.
+
+So the next value is kept in a row of its own, and allocating updates
+that row. Two allocators then write the \emph{same} row, which is a conflict
+DuckLake does detect, and the loser is sent round \verb{$transaction()}
+again to re-read it. Keeping the update inside the caller's transaction
+is also what keeps the ids dense: a rollback takes the allocation with
+it, so they stay 1..n rather than growing a gap per retry.
+
+A sequence in the catalog would be the obvious alternative and is not
+available: DuckDB refuses \verb{create sequence} on both SQLite and
+PostgreSQL attachments, a DuckDB-file catalog cannot be attached twice
+in one process at all, and -- decisively -- one DuckDB transaction
+cannot write to both an attached catalog and the lake, so such a
+sequence could not roll back with the write it numbers.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{ducklake_db$next_id(table_name, column_name, n = 1L)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string, the table the id belongs to.}
+      \item{\code{column_name}}{Character string, the id column.}
+      \item{\code{n}}{Integer, how many consecutive ids to reserve.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Integer vector of length \code{n}, the allocated ids. Call inside
+\verb{$transaction()}, together with the write that uses them, or it
+protects nothing.
   }
 }
 

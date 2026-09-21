@@ -24,6 +24,18 @@ if (nrow(dup_id)) { cat("!! id_pred collisions:\n"); print(dup_id); print(meta[i
 if (nrow(dup_nm)) { cat("!! name collisions:\n"); print(dup_nm) }
 if (!nrow(dup_id) && !nrow(dup_nm)) cat("pred_meta_t: OK, unique on both keys\n")
 
+# Are the ids dense? An allocator that sits outside the DuckLake transaction
+# cannot be rolled back with it, so every replay burns one and the ids drift
+# away from 1..n -- which is the whole reason for preferring a small integer.
+ids <- sort(meta$id_pred)
+expected_dense <- seq(min(ids), min(ids) + length(ids) - 1L)
+if (identical(as.integer(ids), as.integer(expected_dense))) {
+  cat("id_pred density: OK, dense", min(ids), "..", max(ids), "\n")
+} else {
+  cat("!! id_pred not dense:", length(ids), "ids spanning", min(ids), "..", max(ids),
+      "-", (max(ids) - min(ids) + 1L) - length(ids), "gaps\n")
+}
+
 dat <- db$get_query(sprintf(
   "select id_pred, count(*) n, count(distinct (id_run, id_pred, id_coord, id_period)) nd
    from %s.pred_data_t group by id_pred order by id_pred", CATALOG_ALIAS))

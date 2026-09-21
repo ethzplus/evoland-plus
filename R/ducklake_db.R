@@ -55,6 +55,15 @@ catalog_scheme <- function(catalog) {
 # writer setting it is enough -- readers pick it up without asking for it.
 DEFAULT_CATALOG_JOURNAL_MODE <- "wal"
 
+# Where `$next_id()` keeps the next value of each id it hands out. One row per
+# id, so it stays far inside DuckLake's inlining limit and costs a catalog row
+# rather than a data file.
+ID_ALLOC_TABLE <- "ducklake_db_id_alloc"
+
+# Tables this class keeps for itself, which `$list_tables()` hides unless
+# asked, so that they are not mistaken for a caller's data
+INTERNAL_TABLES <- ID_ALLOC_TABLE
+
 collapse_path_separators <- function(path) {
   scheme <- sub(paste0("^((", substring(REMOTE_URI_PREFIX, 2L), ")?).*$"), "\\1", path)
   paste0(scheme, gsub("/{2,}", "/", substring(path, nchar(scheme) + 1L)))
@@ -341,13 +350,21 @@ ducklake_db <- R6::R6Class(
 
     #' @description
     #' List all tables in storage
+    #' @param include_internal Logical. If true, also list the tables this
+    #' class keeps for its own bookkeeping, such as `$next_id()`'s allocation
+    #' row. They are hidden by default because the rest of the interface, and
+    #' the domain classes built on it, treat every name this returns as a
+    #' table a caller put there -- `evoland_db` expects a matching active
+    #' binding for each, for one.
     #' @return Character vector of table names
-    list_tables = function() {
-      self$get_query(glue::glue(
+    list_tables = function(include_internal = FALSE) {
+      tables <- self$get_query(glue::glue(
         "select table_name from information_schema.tables
          where table_catalog = '{CATALOG_ALIAS}'
          order by table_name"
       ))[[1]]
+
+      if (include_internal) tables else setdiff(tables, INTERNAL_TABLES)
     },
 
     #' @description
@@ -673,6 +690,103 @@ ducklake_db <- R6::R6Class(
       }
 
       invisible(self)
+    },
+
+    #' @description
+    #' Hand out the next value of an integer id, such that two processes
+    #' allocating at once cannot both get the same one.
+    #'
+    #' `max(id) + 1` cannot do that. It is a read followed by a write, and
+    #' DuckLake does not count "rows were inserted since I read the maximum"
+    #' as a conflict, so with a catalog that gives each transaction its own
+    #' snapshot two allocators read the same maximum and both keep it.
+    #' Nothing is raised anywhere; the duplicate ids simply end up in the
+    #' table. Measured with 16 processes registering 96 predictors against a
+    #' PostgreSQL catalog: 96 rows sharing 52 ids, and the rows keyed on them
+    #' duplicated to match.
+    #'
+    #' A SQLite catalog hides this, because its single writer serialises the
+    #' transactions -- which is not a property to depend on, and is exactly
+    #' what WAL mode and a server-backed catalog are for giving up.
+    #'
+    #' So the next value is kept in a row of its own, and allocating updates
+    #' that row. Two allocators then write the *same* row, which is a conflict
+    #' DuckLake does detect, and the loser is sent round `$transaction()`
+    #' again to re-read it. Keeping the update inside the caller's transaction
+    #' is also what keeps the ids dense: a rollback takes the allocation with
+    #' it, so they stay 1..n rather than growing a gap per retry.
+    #'
+    #' A sequence in the catalog would be the obvious alternative and is not
+    #' available: DuckDB refuses `create sequence` on both SQLite and
+    #' PostgreSQL attachments, a DuckDB-file catalog cannot be attached twice
+    #' in one process at all, and -- decisively -- one DuckDB transaction
+    #' cannot write to both an attached catalog and the lake, so such a
+    #' sequence could not roll back with the write it numbers.
+    #'
+    #' @param table_name Character string, the table the id belongs to.
+    #' @param column_name Character string, the id column.
+    #' @param n Integer, how many consecutive ids to reserve.
+    #' @return Integer vector of length `n`, the allocated ids. Call inside
+    #' `$transaction()`, together with the write that uses them, or it
+    #' protects nothing.
+    next_id = function(table_name, column_name, n = 1L) {
+      n <- as.integer(n)
+      stopifnot(
+        "database is attached read-only" = !self$read_only,
+        "`n` must be a positive count" = length(n) == 1L && !is.na(n) && n >= 1L,
+        # outside a transaction the update is committed on its own, so a
+        # caller whose write then fails has taken an id nothing uses, and two
+        # callers racing are not made to retry -- the failure this exists to
+        # prevent
+        "`$next_id()` only allocates safely inside `$transaction()`" =
+          private$in_transaction
+      )
+
+      key <- paste(table_name, column_name, sep = ".")
+      quoted_key <- gsub("'", "''", key)
+      alloc_ref <- table_ref(ID_ALLOC_TABLE)
+
+      # Seeding from the table itself is what lets this be dropped into a
+      # database that already has ids in it.
+      seed <- function() as.integer(self$column_max(table_name, column_name)) + 1L
+
+      if (!ID_ALLOC_TABLE %in% self$list_tables(include_internal = TRUE)) {
+        self$execute(glue::glue(
+          "create table if not exists {alloc_ref} (id_name varchar, next_id integer)"
+        ))
+      }
+
+      allocated <- self$get_query(glue::glue(
+        "select next_id from {alloc_ref} where id_name = '{quoted_key}'"
+      ))[["next_id"]]
+
+      # More than one row for a key means two processes seeded it at once:
+      # inserts of different rows do not conflict, so nothing stopped them.
+      # Collapsing them is a write to both rows, which does conflict, so the
+      # collapse itself is safe -- and taking the maximum cannot hand back an
+      # id already in use.
+      if (length(allocated) > 1L) {
+        allocated <- max(allocated, seed())
+        self$execute(glue::glue(
+          "delete from {alloc_ref} where id_name = '{quoted_key}'"
+        ))
+        self$execute(glue::glue(
+          "insert into {alloc_ref} values ('{quoted_key}', {allocated})"
+        ))
+      } else if (length(allocated) == 0L) {
+        allocated <- seed()
+        self$execute(glue::glue(
+          "insert into {alloc_ref} values ('{quoted_key}', {allocated})"
+        ))
+      }
+
+      allocated <- as.integer(allocated)
+
+      self$execute(glue::glue(
+        "update {alloc_ref} set next_id = {allocated + n} where id_name = '{quoted_key}'"
+      ))
+
+      seq.int(allocated, length.out = n)
     },
 
     #' @description Get SQL expression to read a table. Public because the

@@ -106,6 +106,7 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_table_metadata"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_table_metadata'><code>ducklake_db$get_table_metadata()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="list_tables"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-list_tables'><code>ducklake_db$list_tables()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="maintain"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-maintain'><code>ducklake_db$maintain()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="next_id"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-next_id'><code>ducklake_db$next_id()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="row_count"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-row_count'><code>ducklake_db$row_count()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="transaction"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-transaction'><code>ducklake_db$transaction()</code></a></span></li>
 </ul>

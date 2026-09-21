@@ -74,6 +74,10 @@ mini_db <- R6::R6Class(
                if (grepl("^postgres", catalog)) "postgres")
       for (e in unique(ext)) self$execute(sprintf("install %s; load %s;", e, e))
       if (!is.null(threads)) self$execute(sprintf("set threads=%d", threads))
+      dlr <- Sys.getenv("LAKELAB_DUCKLAKE_RETRY", "")
+      if (nzchar(dlr)) {
+        self$execute(sprintf("set ducklake_max_retry_count=%s", dlr))
+      }
       il <- Sys.getenv("LAKELAB_INLINE_LIMIT", "")
       if (nzchar(il)) {
         self$execute(sprintf("set ducklake_default_data_inlining_row_limit=%s", il))
