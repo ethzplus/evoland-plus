@@ -23,22 +23,25 @@ evoland_db <- R6::R6Class(
   public = list(
     #' @description
     #' Initialize a new evoland_db object
-    #' @param path Character string. Path to the data folder.
+    #' @param path Character string. Path to the data folder; may be omitted
+    #' when both `catalog` and `data_path` are given, see [ducklake_db].
     #' @param id_run Atomic integer run ID, defaults to 0. Can be set to NULL
     #' @param read_only Logical. Whether to update the reporting table upon
     #' initialization; if TRUE, the catalog is attached read-only.
     #' @param catalog Character string. DuckLake catalog connection, see [ducklake_db].
     #' @param data_path Character string. DuckLake data files location, see [ducklake_db].
+    #' @param journal_mode Character string. Journal mode for a SQLite catalog, see [ducklake_db].
     #' @param expire_older_than,delete_older_than Retention for `$maintain()`, see [ducklake_db].
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
     initialize = function(
-      path,
+      path = NULL,
       id_run = 0L,
       read_only = FALSE,
       catalog = NULL,
       data_path = NULL,
+      journal_mode = DEFAULT_CATALOG_JOURNAL_MODE,
       expire_older_than = NULL,
       delete_older_than = NULL,
       ...
@@ -48,6 +51,7 @@ evoland_db <- R6::R6Class(
         read_only = read_only,
         catalog = catalog,
         data_path = data_path,
+        journal_mode = journal_mode,
         expire_older_than = expire_older_than,
         delete_older_than = delete_older_than
       )

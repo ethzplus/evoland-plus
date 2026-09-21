@@ -40,10 +40,22 @@ ducklake_db$new(
 
     \item{\code{read_only}}{If true, the catalog is attached read-only}
 
-    \item{\code{retry_max}}{Integer, how often a contended catalog write is retried}
+    \item{\code{retry_timeout}}{Numeric, how long in seconds to keep retrying a
+contended catalog operation before giving up. This, not \code{retry_max}, is
+the limit that normally applies: how many attempts fit in the budget
+depends on how long each contended attempt blocks, which is not
+something a caller can predict.}
 
     \item{\code{retry_wait}}{Numeric, base wait in seconds for the retry backoff,
 which doubles per attempt up to 64 times this}
+
+    \item{\code{retry_max}}{Integer, a bound on attempts in case something retries
+faster than \code{retry_timeout} can measure. Not the usual limit: whether 20
+attempts are generous or miserly depends entirely on how long each
+contended attempt blocks first, which a caller cannot know. Sixteen
+concurrent writers measured against a 20-attempt cap lost one of their
+number to it; against the same backoff bounded by wall time instead,
+none, for 4\% more wall time.}
   }
   \if{html}{\out{</div>}}
 }
@@ -75,11 +87,12 @@ which doubles per attempt up to 64 times this}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$new(
-  path,
+  path = NULL,
   read_only = FALSE,
   extensions = character(0),
   catalog = NULL,
   data_path = NULL,
+  journal_mode = DEFAULT_CATALOG_JOURNAL_MODE,
   expire_older_than = NULL,
   delete_older_than = NULL
 )}
@@ -88,7 +101,9 @@ which doubles per attempt up to 64 times this}
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{path}}{Character string. Path to the data folder.}
+      \item{\code{path}}{Character string. Path to the data folder. Only needed for
+the halves of the database that are derived from it, so it may be
+omitted when both \code{catalog} and \code{data_path} are given.}
       \item{\code{read_only}}{Logical. If true, the catalog is attached read-only.}
       \item{\code{extensions}}{Character vector of additional DuckDB extensions to load}
       \item{\code{catalog}}{Character string. DuckLake catalog connection; defaults to
@@ -96,6 +111,13 @@ SQLite at \verb{<path>/catalog.sqlite}. Anything DuckLake accepts works, e.g.
 \code{"postgres:dbname=evoland host=..."}.}
       \item{\code{data_path}}{Character string. Where DuckLake writes its data files;
 defaults to \verb{<path>/data/}. May be remote, e.g. \code{"s3://bucket/prefix/"}.}
+      \item{\code{journal_mode}}{Character string, the journal mode to put a SQLite
+catalog in; \code{"wal"} by default, because the default rollback journal
+lets one writer block every other process's \emph{reads} of the catalog and
+so turns contention into starvation. \code{NULL} leaves the catalog as it is,
+which is what a filesystem without shared memory needs. Ignored for
+catalogs that are not SQLite, and when attaching read-only: the mode is
+stored in the file, so a reader inherits whatever a writer set.}
       \item{\code{expire_older_than, delete_older_than}}{Retention for \verb{$maintain()},
 as an interval DuckDB reads, e.g. \code{"7 days"}: how old a snapshot must be
 before it is expired, and how old an unreferenced file must be before it

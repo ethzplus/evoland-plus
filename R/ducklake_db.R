@@ -24,6 +24,37 @@ TRANSIENT_CATALOG_ERRORS <- paste(
 # `duckdb:` take a bare path after the colon and so want collapsing throughout.
 REMOTE_URI_PREFIX <- "^(s3|gcs|r2|az|abfss?|https?)://"
 
+# The part of a catalog string before the first colon: "sqlite", "postgres",
+# or, for a DuckDB-file catalog given as a bare path, the path itself -- which
+# matches none of the schemes anything here switches on, so it needs no
+# special case.
+catalog_scheme <- function(catalog) {
+  sub(":.*$", "", catalog)
+}
+
+# A SQLite catalog left in its default rollback-journal mode serialises far
+# more than the one-writer-at-a-time SQLite is actually limited to. A writer
+# that cannot take the exclusive lock immediately sits in SQLite's busy
+# handler holding the PENDING lock, and PENDING blocks every other process's
+# *reads* -- which is why contention surfaces in a process that was only
+# reading, as "Failed to query most recent snapshot for DuckLake: Failed to
+# prepare query \"SELECT type FROM sqlite_master ...\": database is locked".
+# One collision therefore creates a lock hold long enough to cause the next,
+# and the writers convoy.
+#
+# In WAL mode a writer never blocks a reader, so only writer-against-writer
+# contention is left -- which is what `with_retry()` is for. Measured over 16
+# concurrent writers: the catalog went from held 80.5s of a 116s run, with one
+# writer exhausting its retries, to held 1.4s of a 53s run with none giving
+# up. `busy_timeout` is accepted as a SQLite attach option but has no effect,
+# so it is no substitute.
+#
+# WAL needs the shared-memory file beside the database, which some network
+# filesystems do not provide; `journal_mode = NULL` leaves the catalog in
+# whatever mode it already has. The mode is a property of the file, so one
+# writer setting it is enough -- readers pick it up without asking for it.
+DEFAULT_CATALOG_JOURNAL_MODE <- "wal"
+
 collapse_path_separators <- function(path) {
   scheme <- sub(paste0("^((", substring(REMOTE_URI_PREFIX, 2L), ")?).*$"), "\\1", path)
   paste0(scheme, gsub("/{2,}", "/", substring(path, nchar(scheme) + 1L)))
@@ -85,16 +116,31 @@ ducklake_db <- R6::R6Class(
     #' @field read_only If true, the catalog is attached read-only
     read_only = NULL,
 
-    #' @field retry_max Integer, how often a contended catalog write is retried
-    retry_max = 20L,
+    #' @field retry_timeout Numeric, how long in seconds to keep retrying a
+    #' contended catalog operation before giving up. This, not `retry_max`, is
+    #' the limit that normally applies: how many attempts fit in the budget
+    #' depends on how long each contended attempt blocks, which is not
+    #' something a caller can predict.
+    retry_timeout = 300,
 
     #' @field retry_wait Numeric, base wait in seconds for the retry backoff,
     #' which doubles per attempt up to 64 times this
     retry_wait = 0.1,
 
+    #' @field retry_max Integer, a bound on attempts in case something retries
+    #' faster than `retry_timeout` can measure. Not the usual limit: whether 20
+    #' attempts are generous or miserly depends entirely on how long each
+    #' contended attempt blocks first, which a caller cannot know. Sixteen
+    #' concurrent writers measured against a 20-attempt cap lost one of their
+    #' number to it; against the same backoff bounded by wall time instead,
+    #' none, for 4% more wall time.
+    retry_max = 2000L,
+
     #' @description
     #' Initialize a new ducklake_db object
-    #' @param path Character string. Path to the data folder.
+    #' @param path Character string. Path to the data folder. Only needed for
+    #' the halves of the database that are derived from it, so it may be
+    #' omitted when both `catalog` and `data_path` are given.
     #' @param read_only Logical. If true, the catalog is attached read-only.
     #' @param extensions Character vector of additional DuckDB extensions to load
     #' @param catalog Character string. DuckLake catalog connection; defaults to
@@ -102,6 +148,13 @@ ducklake_db <- R6::R6Class(
     #' `"postgres:dbname=evoland host=..."`.
     #' @param data_path Character string. Where DuckLake writes its data files;
     #' defaults to `<path>/data/`. May be remote, e.g. `"s3://bucket/prefix/"`.
+    #' @param journal_mode Character string, the journal mode to put a SQLite
+    #' catalog in; `"wal"` by default, because the default rollback journal
+    #' lets one writer block every other process's *reads* of the catalog and
+    #' so turns contention into starvation. `NULL` leaves the catalog as it is,
+    #' which is what a filesystem without shared memory needs. Ignored for
+    #' catalogs that are not SQLite, and when attaching read-only: the mode is
+    #' stored in the file, so a reader inherits whatever a writer set.
     #' @param expire_older_than,delete_older_than Retention for `$maintain()`,
     #' as an interval DuckDB reads, e.g. `"7 days"`: how old a snapshot must be
     #' before it is expired, and how old an unreferenced file must be before it
@@ -111,20 +164,31 @@ ducklake_db <- R6::R6Class(
     #'
     #' @return A new `ducklake_db` object
     initialize = function(
-      path,
+      path = NULL,
       read_only = FALSE,
       extensions = character(0),
       catalog = NULL,
       data_path = NULL,
+      journal_mode = DEFAULT_CATALOG_JOURNAL_MODE,
       expire_older_than = NULL,
       delete_older_than = NULL
     ) {
+      # `path` is only the place the defaults are derived from, so naming both
+      # halves leaves nothing for it to do
+      derives_from_path <- is.null(catalog) || is.null(data_path)
+      stopifnot(
+        "`path` is required unless both `catalog` and `data_path` are given" =
+          !derives_from_path || (is.character(path) && length(path) == 1L)
+      )
+
       # before anything is derived from it, so that the catalog and the data
       # path inherit a path DuckLake can match against what it stores
-      path <- collapse_path_separators(path)
+      if (!is.null(path)) {
+        path <- collapse_path_separators(path)
+      }
 
       self$path <- path
-      if (is.null(catalog) || is.null(data_path)) {
+      if (derives_from_path) {
         # only needed for the halves that actually get stored there
         ensure_dir(path)
       }
@@ -154,11 +218,23 @@ ducklake_db <- R6::R6Class(
       # A catalog that does not exist yet has no options set on it
       catalog_is_new <- !file.exists(sub("^(sqlite|duckdb):", "", self$catalog))
 
+      # DuckLake hands METADATA_PARAMETERS straight to the attach of the
+      # catalog itself, which is the only way in from here -- see the note on
+      # DEFAULT_CATALOG_JOURNAL_MODE for why WAL is the mode that matters.
+      journal_option <- if (
+        !read_only &&
+          !is.null(journal_mode) &&
+          catalog_scheme(self$catalog) == "sqlite"
+      ) {
+        glue::glue("METADATA_PARAMETERS MAP{{'journal_mode': '{journal_mode}'}}")
+      }
+
       self$execute(glue::glue(
         "attach 'ducklake:{self$catalog}' as {CATALOG_ALIAS} ({options_str})",
         options_str = glue::glue_collapse(
           c(
             glue::glue("DATA_PATH '{self$data_path}'"),
+            journal_option,
             if (read_only) "READ_ONLY"
           ),
           sep = ", "
@@ -289,7 +365,10 @@ ducklake_db <- R6::R6Class(
       limit = NULL
     ) {
       if (!table_name %in% self$list_tables()) {
-        stop("Table `", table_name, "` does not exist in `", self$path, "`")
+        stop(
+          "Table `", table_name, "` does not exist in `",
+          self$path %||% self$catalog, "`"
+        )
       }
 
       metadata <- private$read_metadata(table_name)
@@ -393,7 +472,7 @@ ducklake_db <- R6::R6Class(
       }
 
       rows <- if (method == "overwrite" || !table_exists) {
-        private$commit_overwrite(table_name, specs)
+        private$commit_overwrite(table_name, specs, replace = method == "overwrite")
       } else if (method == "append" || length(specs[["key_cols"]]) == 0L) {
         # if there are no key columns to join on, upsert becomes append
         if (
@@ -558,7 +637,7 @@ ducklake_db <- R6::R6Class(
       }
 
       # Basic DB descriptors
-      cat("\n | Database:", self$path)
+      cat("\n | Database:", self$path %||% "(catalog and data path given directly)")
       cat("\n | Catalog:", self$catalog)
       cat("\n | Data Path:", self$data_path)
       cat("\n | Read Only:", self$read_only)
@@ -633,7 +712,7 @@ ducklake_db <- R6::R6Class(
     # the data files, so derive them from where those were pointed
     backend_extensions = function() {
       catalog_ext <- switch(
-        sub(":.*$", "", self$catalog),
+        catalog_scheme(self$catalog),
         sqlite = "sqlite",
         postgres = , # fallthrough
         postgresql = "postgres",
@@ -668,6 +747,9 @@ ducklake_db <- R6::R6Class(
       }
 
       started <- Sys.time()
+      elapsed <- function() {
+        as.numeric(difftime(Sys.time(), started, units = "secs"))
+      }
 
       for (attempt in seq_len(self$retry_max)) {
         result <- try(fn(), silent = TRUE)
@@ -688,15 +770,15 @@ ducklake_db <- R6::R6Class(
         # condition here is indistinguishable from never having retried at
         # all, which sends anyone reading the error looking for a bug in the
         # matching rather than for whatever is holding the lock.
-        if (attempt == self$retry_max) {
+        if (attempt == self$retry_max || elapsed() > self$retry_timeout) {
           stop(
             glue::glue(
-              "Gave up after {attempt} attempts over {elapsed}s waiting for the ",
-              "DuckLake catalog. Something else is holding it -- another R ",
-              "session with the database open, or a stale lock. Raise ",
-              "`$retry_max` / `$retry_wait` only once you know what that is.\n",
-              "  {conditionMessage(condition)}",
-              elapsed = round(as.numeric(difftime(Sys.time(), started, units = "secs")), 1)
+              "Gave up after {attempt} attempts over {round(elapsed(), 1)}s ",
+              "waiting for the DuckLake catalog. Either the writers sharing it ",
+              "hold it for longer together than `$retry_timeout`, or something ",
+              "outside this session is -- another R session with the database ",
+              "open, or a stale lock.\n",
+              "  {conditionMessage(condition)}"
             ),
             call. = FALSE
           )
@@ -705,15 +787,38 @@ ducklake_db <- R6::R6Class(
         # The doubling stops at 64x the base wait: unchecked, the last of
         # retry_max attempts would be hours apart, but the wait still has to
         # grow enough to sit out a large commit holding the catalog lock.
+        # Flattening it far lower looks like the fix for a waiter that keeps
+        # missing its turn -- SQLite keeps no queue, so the catalog goes to
+        # whichever process asks next -- but measurably is not: at 16 writers a
+        # ceiling of 8x the base wait cost more attempts and more wall time
+        # than this one, on both journal modes. What was starving those writers
+        # was the attempt cap, not the curve.
         Sys.sleep(stats::runif(1L, 0, self$retry_wait * 2^min(attempt - 1L, 6L)))
       }
     },
 
     ### Commit Methods ----
 
-    # replace table_name wholesale with pre-registered data from new_data_v
-    commit_overwrite = function(table_name, specs) {
+    # Create table_name and fill it from the pre-registered new_data_v.
+    #
+    # `replace` separates the two callers. An explicit "overwrite" is asking
+    # for the table and its schema to be replaced, so it gets `create or
+    # replace`. An append or upsert that merely found the table missing is
+    # not: with several processes writing, two of them can both find it
+    # missing, and then the second one's `create or replace` drops the table
+    # the first has already committed and takes its rows with it. DuckLake
+    # reports no conflict for that -- the rows are simply gone, with nothing
+    # raised anywhere -- and a pipeline stage whose steps run concurrently
+    # walks straight into it, because they all find the table absent at once.
+    # `create table if not exists` makes the loser of the race a no-op, and
+    # its insert lands in the table the winner created.
+    commit_overwrite = function(table_name, specs, replace = TRUE) {
       target <- table_ref(table_name)
+      create_expr <- if (replace) {
+        glue::glue("create or replace table {target}")
+      } else {
+        glue::glue("create table if not exists {target}")
+      }
 
       # one transaction, so that a concurrent reader never observes the table
       # in its intermediate, empty state
@@ -721,7 +826,7 @@ ducklake_db <- R6::R6Class(
         # create the table empty first, so that partitioning is already in
         # effect for the initial batch of rows
         self$execute(glue::glue(
-          "create or replace table {target} as from new_data_v limit 0"
+          "{create_expr} as from new_data_v limit 0"
         ))
 
         # partitioning is a pruning hint only; set it once, at table creation

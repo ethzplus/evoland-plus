@@ -118,11 +118,12 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$new(
-  path,
+  path = NULL,
   id_run = 0L,
   read_only = FALSE,
   catalog = NULL,
   data_path = NULL,
+  journal_mode = DEFAULT_CATALOG_JOURNAL_MODE,
   expire_older_than = NULL,
   delete_older_than = NULL,
   ...
@@ -132,12 +133,14 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{path}}{Character string. Path to the data folder.}
+      \item{\code{path}}{Character string. Path to the data folder; may be omitted
+when both \code{catalog} and \code{data_path} are given, see \link{ducklake_db}.}
       \item{\code{id_run}}{Atomic integer run ID, defaults to 0. Can be set to NULL}
       \item{\code{read_only}}{Logical. Whether to update the reporting table upon
 initialization; if TRUE, the catalog is attached read-only.}
       \item{\code{catalog}}{Character string. DuckLake catalog connection, see \link{ducklake_db}.}
       \item{\code{data_path}}{Character string. DuckLake data files location, see \link{ducklake_db}.}
+      \item{\code{journal_mode}}{Character string. Journal mode for a SQLite catalog, see \link{ducklake_db}.}
       \item{\code{expire_older_than, delete_older_than}}{Retention for \verb{$maintain()}, see \link{ducklake_db}.}
       \item{\code{...}}{passed on to \code{set_report}}
     }

@@ -895,3 +895,71 @@ expect_equal(
   6L
 )
 expect_error(ducklake_db$new(test_dir, read_only = TRUE)$transaction(1L), "read-only")
+
+# Test 61: `path` is only needed for the halves derived from it
+split_dir <- tempfile("ducklake_db_split_")
+dir.create(file.path(split_dir, "data"), recursive = TRUE)
+expect_silent(
+  split_db <- ducklake_db$new(
+    catalog = paste0("sqlite:", file.path(split_dir, "catalog.sqlite")),
+    data_path = paste0(file.path(split_dir, "data"), "/")
+  )
+)
+expect_null(split_db$path)
+split_db$commit(data.table::data.table(id = 1:3), "split_table", method = "overwrite")
+expect_equal(split_db$row_count("split_table"), 3L)
+expect_error(ducklake_db$new(), "`path` is required")
+expect_error(
+  ducklake_db$new(catalog = "sqlite:nowhere.sqlite"),
+  "`path` is required"
+)
+
+# Test 62: a SQLite catalog is put in WAL mode, because the default rollback
+# journal lets a writer block other processes from *reading* the catalog. The
+# mode lives in bytes 19 and 20 of the SQLite header, 2 meaning WAL.
+sqlite_journal_version <- function(catalog_path) {
+  readBin(catalog_path, "integer", n = 20L, size = 1L, signed = FALSE)[[19L]]
+}
+wal_dir <- tempfile("ducklake_db_wal_")
+wal_db <- ducklake_db$new(path = wal_dir)
+wal_db$commit(data.table::data.table(id = 1L), "wal_table", method = "overwrite")
+expect_equal(sqlite_journal_version(file.path(wal_dir, "catalog.sqlite")), 2L)
+
+# and `journal_mode = NULL` leaves the catalog however it already is, for a
+# filesystem that cannot do WAL
+plain_dir <- tempfile("ducklake_db_plain_")
+plain_db <- ducklake_db$new(path = plain_dir, journal_mode = NULL)
+plain_db$commit(data.table::data.table(id = 1L), "plain_table", method = "overwrite")
+expect_equal(sqlite_journal_version(file.path(plain_dir, "catalog.sqlite")), 1L)
+
+# Test 63: only an explicit "overwrite" may replace a table. An append or
+# upsert that merely found the table missing must not, because with several
+# processes writing, two of them can both find it missing -- and then the
+# second one's `create or replace` drops the table the first has already
+# committed and takes its rows with it, silently, since DuckLake reports no
+# conflict for it. A pipeline stage whose steps run concurrently walks into
+# exactly that, because they all find the table absent at once.
+race_dir <- tempfile("ducklake_db_race_")
+race_db <- ducklake_db$new(path = race_dir)
+race_db$commit(data.table::data.table(id = 1:3), "contested", method = "append")
+
+race_private <- race_db$.__enclos_env__$private
+no_partitions <- list(partition_cols = character(0))
+
+# the second writer, whose snapshot still predates the table
+race_private$register_new_data_v(data.table::data.table(id = 4:5))
+race_private$commit_overwrite("contested", no_partitions, replace = FALSE)
+expect_equal(sort(race_db$fetch("contested")[["id"]]), 1:5)
+
+# whereas replacing, which is what method = "overwrite" asks for, still does
+race_private$cleanup_new_data_v()
+race_private$register_new_data_v(data.table::data.table(id = 9L))
+race_private$commit_overwrite("contested", no_partitions, replace = TRUE)
+expect_equal(race_db$fetch("contested")[["id"]], 9L)
+race_private$cleanup_new_data_v()
+
+# and the same through the public interface: an append never replaces
+race_db$commit(data.table::data.table(id = 10L), "contested", method = "append")
+expect_equal(sort(race_db$fetch("contested")[["id"]]), c(9L, 10L))
+race_db$commit(data.table::data.table(id = 11L), "contested", method = "overwrite")
+expect_equal(race_db$fetch("contested")[["id"]], 11L)
