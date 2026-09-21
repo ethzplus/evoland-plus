@@ -9,6 +9,7 @@ TRANSIENT_CATALOG_ERRORS <- paste(
   "database is locked",
   "Could not set lock on file",
   "Failed to commit DuckLake transaction",
+  "could not serialize access due to concurrent update",
   sep = "|"
 )
 
