@@ -4,16 +4,14 @@
 \alias{ducklake_db}
 \title{R6 Base Class for DuckLake-Backed Storage}
 \description{
-A domain-agnostic R6 class that provides an interface to a folder-based data
-storage system. An in-memory DuckDB instance attaches a DuckLake catalog, so
-that writes are atomic and readers see snapshot-isolated data even while
-other processes are writing. This class can be inherited by domain-specific
-database classes.
+A domain-agnostic R6 class that provides an interface to a folder-based data storage system. An
+in-memory \href{https://duckdb.org/}{DuckDB} instance attaches a \href{https://ducklake.select/}{DuckLake}
+catalog, so that writes are atomic and readers see snapshot-isolated data even while other
+processes are writing. This class can be inherited by domain-specific database classes.
 
-By default a database is one self-contained folder: the catalog lives in
-SQLite at \verb{<path>/catalog.sqlite} and the data files at \verb{<path>/data/}.
-Passing \code{catalog} and/or \code{data_path} puts either half somewhere else, such
-as a shared PostgreSQL catalog or a bucket.
+By default a database is one self-contained folder: the catalog lives in SQLite at
+\verb{<path>/catalog.sqlite} and the parquet data files at \verb{<path>/data/}. Passing \code{catalog} and/or
+\code{data_path} puts either half somewhere else, such as a shared PostgreSQL catalog or an S3 bucket.
 }
 \examples{
 # needs a reachable PostgreSQL catalog and bucket credentials, so not run
@@ -31,8 +29,6 @@ ducklake_db$new(
   \describe{
     \item{\code{connection}}{DBI connection object to an in-memory DuckDB database}
 
-    \item{\code{path}}{Character string path to the data folder}
-
     \item{\code{catalog}}{Character string, the DuckLake catalog connection, e.g.
 \code{"sqlite:<path>/catalog.sqlite"}}
 
@@ -40,10 +36,17 @@ ducklake_db$new(
 
     \item{\code{read_only}}{If true, the catalog is attached read-only}
 
-    \item{\code{retry_max}}{Integer, how often a contended catalog write is retried}
+    \item{\code{retry_timeout}}{Numeric, how long in seconds to keep retrying a
+contended catalog operation before giving up. This, not \code{retry_max}, is
+the limit that normally applies: how many attempts fit in the budget
+depends on how long each contended attempt blocks, which is not
+something a caller can predict.}
 
     \item{\code{retry_wait}}{Numeric, base wait in seconds for the retry backoff,
 which doubles per attempt up to 64 times this}
+
+    \item{\code{retry_max}}{Integer, maximum number of attempts in case something retries
+faster than \code{retry_timeout} can measure.}
   }
   \if{html}{\out{</div>}}
 }
@@ -54,15 +57,15 @@ which doubles per attempt up to 64 times this}
     \item \href{#method-ducklake_db-execute}{\code{ducklake_db$execute()}}
     \item \href{#method-ducklake_db-get_query}{\code{ducklake_db$get_query()}}
     \item \href{#method-ducklake_db-row_count}{\code{ducklake_db$row_count()}}
-    \item \href{#method-ducklake_db-column_max}{\code{ducklake_db$column_max()}}
     \item \href{#method-ducklake_db-list_tables}{\code{ducklake_db$list_tables()}}
     \item \href{#method-ducklake_db-fetch}{\code{ducklake_db$fetch()}}
     \item \href{#method-ducklake_db-get_table_metadata}{\code{ducklake_db$get_table_metadata()}}
     \item \href{#method-ducklake_db-delete_from}{\code{ducklake_db$delete_from()}}
     \item \href{#method-ducklake_db-commit}{\code{ducklake_db$commit()}}
     \item \href{#method-ducklake_db-transaction}{\code{ducklake_db$transaction()}}
-    \item \href{#method-ducklake_db-maintain}{\code{ducklake_db$maintain()}}
+    \item \href{#method-ducklake_db-checkpoint}{\code{ducklake_db$checkpoint()}}
     \item \href{#method-ducklake_db-print}{\code{ducklake_db$print()}}
+    \item \href{#method-ducklake_db-next_id}{\code{ducklake_db$next_id()}}
     \item \href{#method-ducklake_db-get_read_expr}{\code{ducklake_db$get_read_expr()}}
     \item \href{#method-ducklake_db-clone}{\code{ducklake_db$clone()}}
   }
@@ -75,11 +78,12 @@ which doubles per attempt up to 64 times this}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$new(
-  path,
+  path = NULL,
   read_only = FALSE,
   extensions = character(0),
   catalog = NULL,
   data_path = NULL,
+  sqlite_journal_mode = "wal",
   expire_older_than = NULL,
   delete_older_than = NULL
 )}
@@ -88,20 +92,27 @@ which doubles per attempt up to 64 times this}
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{path}}{Character string. Path to the data folder.}
+      \item{\code{path}}{Character string. Path to the data folder. Only needed for
+the halves of the database that are derived from it, so it may be
+omitted when both \code{catalog} and \code{data_path} are given.}
       \item{\code{read_only}}{Logical. If true, the catalog is attached read-only.}
       \item{\code{extensions}}{Character vector of additional DuckDB extensions to load}
-      \item{\code{catalog}}{Character string. DuckLake catalog connection; defaults to
-SQLite at \verb{<path>/catalog.sqlite}. Anything DuckLake accepts works, e.g.
-\code{"postgres:dbname=evoland host=..."}.}
-      \item{\code{data_path}}{Character string. Where DuckLake writes its data files;
-defaults to \verb{<path>/data/}. May be remote, e.g. \code{"s3://bucket/prefix/"}.}
-      \item{\code{expire_older_than, delete_older_than}}{Retention for \verb{$maintain()},
-as an interval DuckDB reads, e.g. \code{"7 days"}: how old a snapshot must be
-before it is expired, and how old an unreferenced file must be before it
-is deleted. Both are stored in the catalog, so they only need passing
-once, and are left at DuckLake's defaults -- which discard nothing --
-when not given.}
+      \item{\code{catalog}}{Character string. DuckLake catalog connection; defaults to SQLite
+at \verb{<path>/catalog.sqlite}. Anything DuckLake accepts works, e.g.
+\code{"postgres:dbname=evoland host=..."}. See \href{https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database}{Choosing a catalog database}}
+      \item{\code{data_path}}{Character string. Where DuckLake writes its data files; defaults
+to \verb{<path>/data/}. May be remote, e.g. \code{"s3://bucket/prefix/"}. See \href{https://ducklake.select/docs/stable/duckdb/usage/choosing_storage}{Choosing storage}}
+      \item{\code{sqlite_journal_mode}}{Character string, the journal mode to put a SQLite
+catalog in; \href{https://www.sqlite.org/wal.html}{\code{wal}} by default, because the
+default rollback journal lets one writer block every other process's \emph{reads} of
+the catalog. \code{NULL} leaves the catalog as it is. Ignored for catalogs that are
+not SQLite or when attaching read-only. Readers adapt to whatever journal mode
+they find.}
+      \item{\code{expire_older_than, delete_older_than}}{Retention for \verb{$checkpoint()}, as an
+interval DuckDB reads, e.g. \code{"7 days"}: how old a snapshot must be before it is
+expired, and how old an unreferenced file must be before it is deleted. Stored in
+the catalog but can be overwritten by passing. Default to NULL, discarding
+nothing.}
     }
     \if{html}{\out{</div>}}
   }
@@ -114,17 +125,25 @@ when not given.}
 \if{html}{\out{<a id="method-ducklake_db-execute"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-execute}{}}}
 \subsection{\code{ducklake_db$execute()}}{
-  Execute a SQL statement. Retried on catalog lock contention, except
-inside a \verb{$transaction()}, which is retried as a whole instead.
+  Execute a SQL statement. Retried on catalog lock contention, except inside a
+\verb{$transaction()}, which is retried as a whole instead.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$execute(statement)}
+    \preformatted{ducklake_db$execute(statement, ..., .open = "{", .close = "}")}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{statement}}{A SQL statement}
+      \item{\code{statement}}{A SQL statement, interpolated with \code{\link[glue:glue_sql]{glue::glue_sql()}} in the
+caller's environment: \code{{value}} is quoted as a value, \code{{`name`}} as an
+identifier, \verb{\{`names`*\}} as a comma-separated list of them, and a
+\code{\link[DBI:SQL]{DBI::SQL()}} object -- such as \verb{$get_read_expr()} returns -- inserted as it
+stands. A statement already built with \code{\link[glue:glue]{glue::glue()}} or \code{\link[glue:glue_sql]{glue::glue_sql()}} is
+passed through as it is.}
+      \item{\code{...}}{Values for the interpolation, as with \code{\link[glue:glue_sql]{glue::glue_sql()}}.}
+      \item{\code{.open, .close}}{Interpolation delimiters, for a statement whose own
+syntax needs the braces.}
     }
     \if{html}{\out{</div>}}
   }
@@ -137,24 +156,32 @@ inside a \verb{$transaction()}, which is retried as a whole instead.
 \if{html}{\out{<a id="method-ducklake_db-get_query"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-get_query}{}}}
 \subsection{\code{ducklake_db$get_query()}}{
-  Execute a SQL query and return results. Reading contends for the catalog
-lock too -- a read landing on a SQLite catalog mid-commit fails with
-"Failed to query most recent snapshot for DuckLake: ... database is
-locked" -- so queries are retried on the same terms as writes.
+  Execute a SQL query and return results. Reading contends for the catalog lock
+too; queries are retried on the same terms as writes.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$get_query(statement)}
+    \preformatted{ducklake_db$get_query(
+  statement,
+  ...,
+  as_atomic = FALSE,
+  .open = "{",
+  .close = "}"
+)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{statement}}{A SQL query statement}
+      \item{\code{statement}}{A SQL query statement, interpolated as in \verb{$execute()}.}
+      \item{\code{...}}{Values for the interpolation, as with \code{\link[glue:glue_sql]{glue::glue_sql()}}.}
+      \item{\code{as_atomic}}{Logical. If true, return the single column the query selects
+as a plain vector rather than a one-column data.table.}
+      \item{\code{.open, .close}}{Interpolation delimiters, as in \verb{$execute()}.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    A data.table with query results
+    A data.table with query results, or a vector if \code{as_atomic}
   }
 }
 
@@ -162,8 +189,7 @@ locked" -- so queries are retried on the same terms as writes.
 \if{html}{\out{<a id="method-ducklake_db-row_count"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-row_count}{}}}
 \subsection{\code{ducklake_db$row_count()}}{
-  Get row count for a table (without applying id_run subsetting); returns 0
-if table does not exist
+  Get row count for a table; returns 0 if table does not exist
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$row_count(table_name)}
@@ -182,37 +208,21 @@ if table does not exist
 }
 
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-ducklake_db-column_max"></a>}}
-\if{latex}{\out{\hypertarget{method-ducklake_db-column_max}{}}}
-\subsection{\code{ducklake_db$column_max()}}{
-  Get maximum for a column in a table (without applying id_run subsetting);
-returns 0 if table does not exist
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$column_max(table_name, column_name)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{table_name}}{Character string. Name of the table to query.}
-      \item{\code{column_name}}{Character string. Name of the column to get the maximum value for.}
-    }
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Returns}{
-    Maximum value of the column
-  }
-}
-
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-ducklake_db-list_tables"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-list_tables}{}}}
 \subsection{\code{ducklake_db$list_tables()}}{
   List all tables in storage
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$list_tables()}
+    \preformatted{ducklake_db$list_tables(include_internal = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{include_internal}}{Logical. If true, also list auxiliary tables this class
+constructs.}
+    }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
@@ -235,7 +245,8 @@ returns 0 if table does not exist
     \describe{
       \item{\code{table_name}}{Character string. Name of the table to query.}
       \item{\code{cols}}{SQL column selection string (e.g., "col1, col2" or "*")}
-      \item{\code{where}}{Character string. Optional WHERE clause for the SQL query.}
+      \item{\code{where}}{Character string. Optional WHERE clause for the SQL query (e.g.
+\verb{id_pred in (0,4,5)})}
       \item{\code{limit}}{Integer. Optional limit on number of rows to return.}
     }
     \if{html}{\out{</div>}}
@@ -249,7 +260,10 @@ returns 0 if table does not exist
 \if{html}{\out{<a id="method-ducklake_db-get_table_metadata"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-get_table_metadata}{}}}
 \subsection{\code{ducklake_db$get_table_metadata()}}{
-  Get table metadata, stored as a comment on the catalog table
+  Get table metadata, stored as a comment on the catalog table. A table with no
+metadata, and one that does not exist, both have none, so both give an empty
+list -- the callers that need a missing table to be an error, \verb{$fetch()} and
+\verb{$commit()}, say so themselves and more usefully.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$get_table_metadata(table_name)}
@@ -307,12 +321,12 @@ and a table first created from one has none.
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{x}}{If data.table, the data to commit. If character, treated as an
-in-DuckDB-memory table or view name.}
+      \item{\code{x}}{If data.table, the data to commit; use \link{as_ducklake_db_t} for setting
+constraints. If character, treated as an in-DuckDB-memory table or view name.}
       \item{\code{table_name}}{Target table name to commit to.}
       \item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
-update for existing rows, and insert for new rows). Only "overwrite"
-changes an existing table's schema; the others reject columns the table
+update for existing rows, and insert for new rows). Only "overwrite" can change a
+table's schema; even if a table is empty, the others reject columns the table
 does not have.}
     }
     \if{html}{\out{</div>}}
@@ -326,14 +340,11 @@ does not have.}
 \if{html}{\out{<a id="method-ducklake_db-transaction"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-transaction}{}}}
 \subsection{\code{ducklake_db$transaction()}}{
-  Evaluate \code{expr} as a single DuckLake transaction, so that several writes
-either all land or none do. Without one, a failure part-way through
-leaves the database holding half of the change.
-
-Contention is retried by re-evaluating the whole block, so \code{expr} must be
-safe to run more than once -- it re-reads whatever it derived its writes
-from, which is the point. Calls nest: an inner \code{transaction()} joins the
-one already open rather than starting its own.
+  Evaluate \code{expr} as a single DuckLake transaction, so that a block of reads/writes
+either all land or none do. On failure part-way through, DB state is rolled back
+and no harm is done. Contention is retried by re-evaluating the whole block, so
+\code{expr} is safe to run more than once -- it re-reads whatever it derived its
+writes from.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$transaction(expr)}
@@ -352,26 +363,26 @@ one already open rather than starting its own.
 }
 
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-ducklake_db-maintain"></a>}}
-\if{latex}{\out{\hypertarget{method-ducklake_db-maintain}{}}}
-\subsection{\code{ducklake_db$maintain()}}{
+\if{html}{\out{<a id="method-ducklake_db-checkpoint"></a>}}
+\if{latex}{\out{\hypertarget{method-ducklake_db-checkpoint}{}}}
+\subsection{\code{ducklake_db$checkpoint()}}{
   Run DuckLake's \code{CHECKPOINT}, which flushes inlined data, expires
 snapshots, merges adjacent files, rewrites files with many deletes, and
 removes the files left unreferenced.
 
 Every commit adds a snapshot and leaves the files it superseded in place,
-and DuckLake reclaims neither on its own, so a long run grows without
+and DuckLake deletes neither on its own, so a long run grows without
 bound until this is called.
 
 How much is discarded is governed by the \code{expire_older_than} and
 \code{delete_older_than} options, set on the database (see \verb{$new()}). Left
 unset they keep everything, so checkpointing an unconfigured database
-compacts but reclaims nothing. Expiring a snapshot gives up time travel
+compacts but deletes nothing. Expiring a snapshot gives up time travel
 to it, and anything still reading at one loses the files under it, so
 set a retention that covers the readers you expect.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$maintain()}
+    \preformatted{ducklake_db$checkpoint()}
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
@@ -403,12 +414,39 @@ set a retention that covers the readers you expect.
 }
 
 \if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-ducklake_db-next_id"></a>}}
+\if{latex}{\out{\hypertarget{method-ducklake_db-next_id}{}}}
+\subsection{\code{ducklake_db$next_id()}}{
+  Use inside \verb{$transaction()}: Safely hand out the next value of an integer id,
+such that two processes allocating at once cannot both get the same one. Is not a
+DuckLake native feature; employs an auxiliary table for row-level locks to ensure
+uniqueness.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{ducklake_db$next_id(table_name, column_name, n = 1L)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{table_name}}{Character string, the table the id belongs to.}
+      \item{\code{column_name}}{Character string, the id column.}
+      \item{\code{n}}{Integer, how many consecutive ids to reserve.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Integer vector of length \code{n}, the allocated ids. Side effect: increment
+counter in DB.
+  }
+}
+
+\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-ducklake_db-get_read_expr"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-get_read_expr}{}}}
 \subsection{\code{ducklake_db$get_read_expr()}}{
-  Get SQL expression to read a table. Public because the
-domain functions compose their own SQL around it; they are bound with
-\code{create_method_binding()} and only receive \code{self}.
+  Get SQL expression to read a table, potentially with additional
+filtering applied. \link{evoland_db} uses it to inject its own state based filter.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$get_read_expr(table_name)}

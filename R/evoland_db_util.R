@@ -18,8 +18,9 @@ NULL
 get_evoland_db_read_expr <- function(self, super, table_name) {
   base_read_expr <- super$get_read_expr(table_name)
   all_cols <- self$get_query(
-    glue::glue("select column_name from (describe {base_read_expr})")
-  )[[1]]
+    "select column_name from (describe {base_read_expr})",
+    as_atomic = TRUE
+  )
 
   if (
     is.null(self$id_run) || # no active id_run
@@ -43,85 +44,89 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
   distinctness_cols <- intersect(all_cols, theoretical_distinctness_cols)
   inheritance_key_cols <- setdiff(distinctness_cols, "id_run")
 
+  # .envir, or the statement would be interpolated in this helper's frame
+  sql <- function(...) glue::glue_sql(..., .con = self$connection, .envir = parent.frame())
+  run_lineage <- self$run_lineage
+
   # Single run in lineage: just filter for active id_run
-  if (length(self$run_lineage) == 1L) {
-    return(glue::glue("(select * from {base_read_expr} where id_run = {self$id_run})"))
+  if (length(run_lineage) == 1L) {
+    return(sql("(select * from {base_read_expr} where id_run = {self$id_run})"))
   }
 
   # map each id_run in lineage to its distance from the active run; used to
   # find the minimum distance. e.g. if run_lineage is (3, 2, 0) we get
   # case id_run when 3 then 1 when 2 then 2 when 0 then 3 else 999999 end
-  run_case <- glue::glue(
-    "case b.id_run ",
-    paste(
-      glue::glue("when {self$run_lineage} then {seq_along(self$run_lineage)}"),
-      collapse = " "
-    ),
-    " else 999999 end"
+  run_case <- sql(
+    "case b.id_run {when_clauses} else 999999 end",
+    when_clauses = glue::glue_sql_collapse(
+      sql("when {run_lineage} then {seq_along(run_lineage)}"),
+      sep = " "
+    )
   )
 
   ctes <- list()
 
   # return one row per tuple of available data within lineage
-  ctes[["data_present"]] <- glue::glue(
+  ctes[["data_present"]] <- sql(
     r"[
     select distinct
-      {cols_to_select_expr(distinctness_cols)}
+      {`distinctness_cols`*}
     from
       {base_read_expr}
     where
-      id_run in ({toString(self$run_lineage)})
+      id_run in ({run_lineage*})
     ]"
   )
 
   # Special case for id_period: need self-join on id_period AND id_period=0;
   # currently only relevant for pred_data_t, but let's generalize just in case
   if ("id_period" %in% inheritance_key_cols) {
-    join_conditions <- vapply(
+    join_conditions <- lapply(
       inheritance_key_cols,
       function(col) {
         if (col == "id_period") {
           # special case for id_period: self-join data_present to allow for
           # id_period=0 fallback
-          return(glue::glue("(a.{col} = b.{col} or b.{col} = 0)"))
+          return(sql("(a.{`col`} = b.{`col`} or b.{`col`} = 0)"))
         }
-        glue::glue("a.{col} = b.{col}")
-      },
-      character(1)
+        sql("a.{`col`} = b.{`col`}")
+      }
     )
     # reduce data_present to one row per most specific id_run
-    ctes[["best_run"]] <- glue::glue(
+    ctes[["best_run"]] <- sql(
       r"[
       select
-        {paste0("b.", inheritance_key_cols, collapse = ", ")},
+        {group_cols},
         -- arg_min returns id_run for the single row where run_case is minimal
         arg_min(b.id_run, {run_case}) as id_run
       from
         data_present a,
         data_present b
       where
-        {paste(join_conditions, collapse = " and ")}
+        {glue::glue_sql_collapse(join_conditions, sep = " and ")}
       group by
-        {paste0("b.", inheritance_key_cols, collapse = ", ")}
-      ]"
+        {group_cols}
+      ]",
+      group_cols = glue::glue_sql_collapse(sql("b.{`inheritance_key_cols`}"), sep = ", ")
     )
   } else {
     # general case: just find minimum distance id_run for each tuple of distinctness cols
-    ctes[["best_run"]] <- glue::glue(
+    ctes[["best_run"]] <- sql(
       r"[
       select
-        {paste0("b.", distinctness_cols, collapse = ", ")},
+        {group_cols},
         arg_min(b.id_run, {run_case}) as id_run
       from
         data_present b
       group by
-        {paste0("b.", distinctness_cols, collapse = ", ")}
-      ]"
+        {group_cols}
+      ]",
+      group_cols = glue::glue_sql_collapse(sql("b.{`distinctness_cols`}"), sep = ", ")
     )
   }
 
-  # return read expression: use semi join to filter the table using best_run
-  glue::glue(
+  # use a semi join to filter the table using best_run
+  sql(
     r"[(
     with
       data_present as (
@@ -134,9 +139,9 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
       {base_read_expr} c
     semi join
       best_run b
-      using ({cols_to_select_expr(distinctness_cols)})
+      using ({`distinctness_cols`*})
     where
-      c.id_run in ({toString(self$run_lineage)})
+      c.id_run in ({run_lineage*})
     )]"
   )
 }
@@ -177,13 +182,12 @@ run_parallel_evoland <- function(
   }
 
   # Wrapper function to manage DB connection inside the worker
-  wrapper <- function(item, worker_fun_inner, db_path, id_run, catalog, data_path, ...) {
+  wrapper <- function(item, worker_fun_inner, id_run, catalog, data_path, ...) {
     if (!exists("evoland_db")) {
       stop("evoland_db class not found on worker. Ensure package is installed.")
     }
 
     worker_db <- evoland_db$new(
-      path = db_path,
       id_run = id_run,
       read_only = TRUE,
       catalog = catalog,
@@ -201,7 +205,6 @@ run_parallel_evoland <- function(
     X = items,
     fun = wrapper,
     worker_fun_inner = worker_fun,
-    db_path = parent_db$path,
     id_run = parent_db$id_run,
     # workers must reach the same catalog and data files as the parent
     catalog = parent_db$catalog,

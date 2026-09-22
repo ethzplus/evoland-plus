@@ -3,10 +3,10 @@ Provides design matrix for transitions (did / did not transition) for
 non-extrapolated periods. cross-joins the static predictors to all periods.
 Assumes that the read expressions return a single run.
 
-Meant to be run with glue for interpolation, requiring
+Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
 - {id_trans}
-- {toString(id_pred)}
+- {id_pred*}
 Data sources:
 - {lulc_data_read_expr}
 - {period_read_expr}
@@ -71,7 +71,7 @@ with
       inner join period_select s on d.id_period = s.id_period_anterior
     where
       d.id_period >= 1
-      and d.id_pred in ({toString(id_pred)})
+      and d.id_pred in ({id_pred*})
     union all
     select
       p0.id_coord,
@@ -92,7 +92,7 @@ with
       ) as periods
     where
       p0.id_period = 0
-      and id_pred in ({toString(id_pred)})
+      and id_pred in ({id_pred*})
   ),
   -- a predictor may carry both a period-specific value and an id_period = 0
   -- fallback (e.g. a climate baseline overridden by a scenario projection).

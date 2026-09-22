@@ -173,7 +173,13 @@ db_ext <- ducklake_db$new(
   extensions = "json"
 )
 expect_equal(
-  db_ext$get_query('select json_extract_string(\'{"a": "loaded"}\', \'$.a\') as v')[[1]],
+  # JSON braces are interpolation delimiters unless the statement moves them
+  db_ext$get_query(
+    'select json_extract_string(\'{"a": "loaded"}\', \'$.a\') as v',
+    as_atomic = TRUE,
+    .open = "<<",
+    .close = ">>"
+  ),
   "loaded"
 )
 
@@ -515,10 +521,9 @@ duckdb::duckdb_register(
   "iso_new_v",
   data.table::data.table(id = 1:50, value = 2)
 )
-iso_ref <- glue::glue('{evoland:::CATALOG_ALIAS}."iso_t"')
 db$execute("begin transaction")
-db$execute(glue::glue("create or replace table {iso_ref} as from iso_new_v limit 0"))
-db$execute(glue::glue("insert into {iso_ref} by name (from iso_new_v)"))
+db$execute("create or replace table dl_db.iso_t as from iso_new_v limit 0")
+db$execute("insert into dl_db.iso_t by name (from iso_new_v)")
 
 expect_equal(db$row_count("iso_t"), 50L) # writer sees its own changes
 expect_equal(db_reader$row_count("iso_t"), 300L) # reader still sees the old snapshot
@@ -540,9 +545,10 @@ zstd_files <- list.files(
 )
 expect_true(length(zstd_files) > 0)
 expect_equal(
-  db$get_query(glue::glue(
-    "select distinct compression from parquet_metadata('{zstd_files[[1]]}')"
-  ))[[1]],
+  db$get_query(
+    "select distinct compression from parquet_metadata({zstd_files[[1]]})",
+    as_atomic = TRUE
+  ),
   "ZSTD"
 )
 
@@ -730,13 +736,11 @@ expect_true(is.na(db$fetch("schema_t", where = "id_run = 4")[["extra"]]))
 upkeep_dir <- tempfile("ducklake_db_upkeep_")
 db_upkeep <- ducklake_db$new(upkeep_dir)
 snapshots <- function() {
-  db_upkeep$get_query(glue::glue(
-    "select count(*) from ducklake_snapshots({evoland:::CATALOG_ALIAS})"
-  ))[[1]]
+  db_upkeep$get_query("select count(*) from ducklake_snapshots(dl_db)", as_atomic = TRUE)
 }
 
 # past the row limit below which DuckLake inlines into the catalog, so that
-# there are real files for maintain() to reclaim
+# there are real files for checkpoint() to reclaim
 upkeep_row <- function(ids, ...) {
   row <- data.table::data.table(id = ids, value = seq_along(ids) * 1.0)
   data.table::setattr(row, "key_cols", "id")
@@ -756,24 +760,24 @@ expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["key_cols"]], "id")
 db_upkeep$commit(upkeep_row(251:300, epsg = 2056L), "upkeep_t", method = "upsert")
 expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["epsg"]], 2056L)
 
-# Test 56: with no retention configured, maintain() keeps every snapshot -- it
+# Test 56: with no retention configured, checkpoint() keeps every snapshot -- it
 # compacts, but discards nothing
 for (i in 1:10) {
   db_upkeep$commit(upkeep_row(sample(1:300, 100)), "upkeep_t", method = "upsert")
 }
 expect_true(snapshots() > 10)
 
-kept <- db_upkeep$maintain()
+kept <- db_upkeep$checkpoint()
 expect_true(kept[["snapshots_after"]] >= kept[["snapshots_before"]])
 
-# Test 57: retention set on the database is what lets maintain() reclaim
+# Test 57: retention set on the database is what lets checkpoint() reclaim
 db_reclaim <- ducklake_db$new(
   upkeep_dir,
   expire_older_than = "0 seconds",
   delete_older_than = "0 seconds"
 )
 files_before <- length(list.files(file.path(upkeep_dir, "data"), recursive = TRUE))
-reclaimed <- db_reclaim$maintain()
+reclaimed <- db_reclaim$checkpoint()
 
 expect_true(reclaimed[["snapshots_before"]] > reclaimed[["snapshots_after"]])
 expect_true(length(list.files(file.path(upkeep_dir, "data"), recursive = TRUE)) < files_before)
@@ -784,14 +788,14 @@ expect_equal(db_reclaim$get_table_metadata("upkeep_t")[["epsg"]], 2056L)
 
 # the options persist, so a later connection reclaims without being told again
 db_reclaim$commit(upkeep_row(301:400), "upkeep_t", method = "upsert")
-again <- ducklake_db$new(upkeep_dir)$maintain()
+again <- ducklake_db$new(upkeep_dir)$checkpoint()
 expect_true(again[["snapshots_before"]] > again[["snapshots_after"]])
 
 # Test 57b: a path holding a run of separators -- which macOS hands out
 # readily, since tempdir() there can contain one -- used to cost the data.
 # DuckLake matches a stored file path against the one it derives from
 # DATA_PATH as strings, so the `//` made every file look unreferenced and the
-# next maintain() deleted it. Scanned and checked against disk, because
+# next checkpoint() deleted it. Scanned and checked against disk, because
 # row_count() answers from catalog statistics and reports the rows either way.
 slash_dir <- paste0(tempfile("ducklake_db_slash_"), "//nested")
 db_slash <- ducklake_db$new(
@@ -802,17 +806,16 @@ db_slash <- ducklake_db$new(
 expect_false(grepl("//", db_slash$data_path))
 db_slash$commit(upkeep_row(1:200), "slash_t", method = "overwrite")
 db_slash$commit(upkeep_row(50:300), "slash_t", method = "upsert")
-db_slash$maintain()
+db_slash$checkpoint()
 
-slash_files <- db_slash$get_query(glue::glue(
-  "select data_file from ducklake_list_files({evoland:::CATALOG_ALIAS}, 'slash_t')"
-))[[1]]
+slash_files <- db_slash$get_query(
+  "select data_file from ducklake_list_files(dl_db, 'slash_t')",
+  as_atomic = TRUE
+)
 expect_true(length(slash_files) > 0L)
 expect_equal(slash_files[!file.exists(slash_files)], character(0))
 expect_equal(
-  db_slash$get_query(glue::glue(
-    "select count(distinct id) from {evoland:::CATALOG_ALIAS}.slash_t"
-  ))[[1]],
+  db_slash$get_query("select count(distinct id) from dl_db.slash_t", as_atomic = TRUE),
   300L
 )
 
@@ -826,12 +829,8 @@ rm(db_slash)
 gc()
 unlink(slash_dir, recursive = TRUE)
 
-# a read-only database refuses to maintain, or to be told a retention
-expect_error(ducklake_db$new(upkeep_dir, read_only = TRUE)$maintain(), "read-only")
-expect_error(
-  ducklake_db$new(upkeep_dir, read_only = TRUE, expire_older_than = "1 day"),
-  "read-only"
-)
+# a read-only database refuses to maintain
+expect_error(ducklake_db$new(upkeep_dir, read_only = TRUE)$checkpoint(), "read-only")
 
 unlink(upkeep_dir, recursive = TRUE)
 
@@ -895,3 +894,272 @@ expect_equal(
   6L
 )
 expect_error(ducklake_db$new(test_dir, read_only = TRUE)$transaction(1L), "read-only")
+
+# Test 61: `path` is only needed for the halves derived from it
+split_dir <- tempfile("ducklake_db_split_")
+dir.create(file.path(split_dir, "data"), recursive = TRUE)
+expect_silent(
+  split_db <- ducklake_db$new(
+    catalog = paste0("sqlite:", file.path(split_dir, "catalog.sqlite")),
+    data_path = paste0(file.path(split_dir, "data"), "/")
+  )
+)
+
+split_db$commit(data.table::data.table(id = 1:3), "split_table", method = "overwrite")
+expect_equal(split_db$row_count("split_table"), 3L)
+expect_error(ducklake_db$new(), "`path` is required")
+expect_error(
+  ducklake_db$new(catalog = "sqlite:nowhere.sqlite"),
+  "`path` is required"
+)
+
+# Test 62: a SQLite catalog is put in WAL mode, because the default rollback
+# journal lets a writer block other processes from *reading* the catalog. The
+# mode lives in bytes 19 and 20 of the SQLite header, 2 meaning WAL.
+sqlite_journal_version <- function(catalog_path) {
+  readBin(catalog_path, "integer", n = 20L, size = 1L, signed = FALSE)[[19L]]
+}
+wal_dir <- tempfile("ducklake_db_wal_")
+wal_db <- ducklake_db$new(path = wal_dir)
+wal_db$commit(data.table::data.table(id = 1L), "wal_table", method = "overwrite")
+expect_equal(sqlite_journal_version(file.path(wal_dir, "catalog.sqlite")), 2L)
+
+# and `sqlite_journal_mode = NULL` leaves the catalog however it already is, for a
+# filesystem that cannot do WAL
+plain_dir <- tempfile("ducklake_db_plain_")
+plain_db <- ducklake_db$new(path = plain_dir, sqlite_journal_mode = NULL)
+plain_db$commit(data.table::data.table(id = 1L), "plain_table", method = "overwrite")
+expect_equal(sqlite_journal_version(file.path(plain_dir, "catalog.sqlite")), 1L)
+
+# Test 63: only an explicit "overwrite" may replace a table. An append or
+# upsert that merely found the table missing must not, because with several
+# processes writing, two of them can both find it missing -- and then the
+# second one's `create or replace` drops the table the first has already
+# committed and takes its rows with it, silently, since DuckLake reports no
+# conflict for it. A pipeline stage whose steps run concurrently walks into
+# exactly that, because they all find the table absent at once.
+race_dir <- tempfile("ducklake_db_race_")
+race_db <- ducklake_db$new(path = race_dir)
+race_db$commit(data.table::data.table(id = 1:3), "contested", method = "append")
+
+race_private <- race_db$.__enclos_env__$private
+no_partitions <- list(partition_cols = character(0))
+
+# the second writer, whose snapshot still predates the table
+race_private$register_new_data_v(data.table::data.table(id = 4:5))
+race_private$commit_overwrite("contested", no_partitions, replace = FALSE)
+expect_equal(sort(race_db$fetch("contested")[["id"]]), 1:5)
+
+# whereas replacing, which is what method = "overwrite" asks for, still does
+race_private$cleanup_new_data_v()
+race_private$register_new_data_v(data.table::data.table(id = 9L))
+race_private$commit_overwrite("contested", no_partitions, replace = TRUE)
+expect_equal(race_db$fetch("contested")[["id"]], 9L)
+race_private$cleanup_new_data_v()
+
+# and the same through the public interface: an append never replaces
+race_db$commit(data.table::data.table(id = 10L), "contested", method = "append")
+expect_equal(sort(race_db$fetch("contested")[["id"]]), c(9L, 10L))
+race_db$commit(data.table::data.table(id = 11L), "contested", method = "overwrite")
+expect_equal(race_db$fetch("contested")[["id"]], 11L)
+
+# Test 64: $next_id() allocates ids that two processes cannot both get, which
+# max(id) + 1 does not -- see the method's own documentation. What is testable
+# in one process is the contract the concurrency rests on.
+alloc_dir <- tempfile("ducklake_db_alloc_")
+alloc_db <- ducklake_db$new(path = alloc_dir)
+
+# allocating outside a transaction would commit the id on its own, so that the
+# caller's failed write leaves it taken and two racing callers are never
+# made to retry
+expect_error(alloc_db$next_id("pred_meta_t", "id_pred"), "inside `\\$transaction\\(\\)`")
+
+# seeded from what the table already holds, so it can be adopted by a
+# database that has ids in it
+alloc_db$commit(
+  data.table::data.table(id_pred = c(1L, 2L, 7L)),
+  "alloc_target",
+  method = "overwrite"
+)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 8L)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 9L)
+
+# a table that exists but holds no rows has no maximum, which must not leak out
+# as an NA id
+alloc_db$commit(
+  data.table::data.table(id_pred = integer(0), v = character(0)),
+  "alloc_empty",
+  method = "overwrite"
+)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_empty", "id_pred")), 1L)
+
+# a block, for a caller registering several rows at once
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred", n = 3L)), 10:12)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 13L)
+
+# each table and column is counted separately, and a table that does not
+# exist yet simply starts at 1
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_other", "id_other")), 1L)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_other", "id_other")), 2L)
+
+# the allocation is part of the caller's transaction, which is what keeps the
+# ids dense: a rollback gives the id back rather than burning it
+expect_error(
+  alloc_db$transaction({
+    alloc_db$next_id("alloc_target", "id_pred")
+    stop("boom")
+  }),
+  "boom"
+)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 14L)
+
+# the bookkeeping table is not a table a caller put there, so it stays out of
+# the listing the domain classes build their bindings from
+expect_false("ducklake_db_id_alloc" %in% alloc_db$list_tables())
+expect_true("ducklake_db_id_alloc" %in% alloc_db$list_tables(include_internal = TRUE))
+
+# Two processes seeding a key at once insert two rows rather than conflicting,
+# because inserts of different rows are not a conflict. Collapsing them to the
+# highest cannot reissue an id already in use.
+alloc_db$execute(
+  "insert into dl_db.\"ducklake_db_id_alloc\" values ('alloc_target.id_pred', 4)"
+)
+expect_equal(
+  alloc_db$get_query(
+    "select count(*) from dl_db.\"ducklake_db_id_alloc\"
+     where id_name = 'alloc_target.id_pred'"
+  )[[1]],
+  2L
+)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 15L)
+expect_equal(
+  alloc_db$get_query(
+    "select count(*) from dl_db.\"ducklake_db_id_alloc\"
+     where id_name = 'alloc_target.id_pred'"
+  )[[1]],
+  1L
+)
+
+# Test 65: a plain statement is interpolated in its caller's environment, with
+# values quoted rather than pasted, so data cannot close a string and become
+# syntax. An already-interpolated statement is passed through untouched, which
+# is what keeps the pre-glued call sites working.
+interp_db <- ducklake_db$new(path = tempfile("ducklake_db_interp_"))
+interp_db$commit(
+  data.table::data.table(id = 1:3, label = c("a", "b", "O'Brien")),
+  "interp_t",
+  method = "overwrite"
+)
+
+# a value: quoted, apostrophe and all
+wanted <- "O'Brien"
+expect_equal(
+  interp_db$get_query("select id from dl_db.interp_t where label = {wanted}", as_atomic = TRUE),
+  3L
+)
+# and as an explicit argument rather than from the environment
+expect_equal(
+  interp_db$get_query("select id from dl_db.interp_t where label = {v}", v = "b", as_atomic = TRUE),
+  2L
+)
+# an identifier, in backticks
+col <- "label"
+expect_equal(
+  interp_db$get_query("select {`col`} from dl_db.interp_t where id = 1", as_atomic = TRUE),
+  "a"
+)
+# a SQL fragment carries DBI::SQL, so it is inserted, not quoted
+read_expr <- interp_db$get_read_expr("interp_t")
+expect_inherits(read_expr, "SQL")
+expect_equal(
+  interp_db$get_query("select count(*) from {read_expr}", as_atomic = TRUE),
+  3L
+)
+# already interpolated: braces surviving in the text are text, not delimiters
+expect_equal(
+  interp_db$get_query(glue::glue("select '{{literal}}' as v"), as_atomic = TRUE),
+  "{literal}"
+)
+expect_error(
+  interp_db$get_query(glue::glue("select 1"), v = 2),
+  "already interpolated"
+)
+
+# as_atomic wants exactly one column, so a caller cannot silently lose the rest
+expect_error(
+  interp_db$get_query("select id, label from dl_db.interp_t", as_atomic = TRUE),
+  "exactly one column"
+)
+expect_inherits(interp_db$get_query("select id from dl_db.interp_t"), "data.table")
+
+# Test 66: metadata of a table that does not exist is empty, like that of a
+# table carrying none; the callers that need a missing table to be an error say
+# so themselves
+expect_equal(interp_db$get_table_metadata("no_such_table"), list())
+expect_equal(interp_db$get_table_metadata("interp_t"), list())
+expect_error(interp_db$fetch("no_such_table"), "does not exist")
+
+# Test 67: the source uniqueness scan is skipped for the column sets a
+# constructor already checked, and only those. Here the object declares
+# key_cols, so its duplicates could not exist; alternate_key_cols comes from
+# the table's stored spec, which nothing validated the object against.
+uniq_db <- ducklake_db$new(path = tempfile("ducklake_db_uniq_"))
+uniq_db$commit(
+  as_ducklake_db_t(
+    data.table::data.table(id = 1:2, alt = c("x", "y"), value = c(1, 2)),
+    key_cols = "id",
+    alternate_key_cols = "alt"
+  ),
+  "uniq_t",
+  method = "overwrite"
+)
+
+# declares key_cols only, so `alt` is checked against the stored spec and the
+# duplicate in it is caught
+expect_error(
+  uniq_db$commit(
+    as_ducklake_db_t(
+      data.table::data.table(id = 3:4, alt = c("z", "z"), value = c(3, 4)),
+      key_cols = "id"
+    ),
+    "uniq_t",
+    method = "upsert"
+  ),
+  "Duplicate key found"
+)
+
+# an alternate key held by a different primary key is a check against the
+# stored rows, so no constructor can have covered it
+expect_error(
+  uniq_db$commit(
+    as_ducklake_db_t(
+      data.table::data.table(id = 9L, alt = "x", value = 9),
+      key_cols = "id",
+      alternate_key_cols = "alt"
+    ),
+    "uniq_t",
+    method = "upsert"
+  ),
+  "reuse an existing"
+)
+
+# the scan really is skipped, not merely redundant: duplicates forged past the
+# constructor get through, which is the trade the skip accepts
+forged <- data.table::data.table(id = c(7L, 7L), alt = c("s", "t"), value = c(7, 8))
+data.table::setattr(forged, "class", c("ducklake_db_t", class(forged)))
+data.table::setattr(forged, "key_cols", "id")
+data.table::setattr(forged, "alternate_key_cols", "alt")
+expect_silent(uniq_db$commit(forged, "uniq_t", method = "upsert"))
+
+# and a plain data.table gets both scans, having been validated by nothing
+expect_error(
+  uniq_db$commit(
+    structure(
+      data.table::data.table(id = c(5L, 5L), alt = c("p", "q"), value = c(5, 5)),
+      key_cols = "id"
+    ),
+    "uniq_t",
+    method = "upsert"
+  ),
+  "Duplicate key found"
+)

@@ -16,7 +16,7 @@
 #' @param include_alloc_params bool, derive the perturbed alloc_params_t. The
 #'   runs_t lineage is always created, since most callers want it and it is
 #'   cheap; this is only the ~1s of parameter perturbation on top.
-#' @return An evoland_db object in a temporary directory. The temp directory path is in db$path.
+#' @return An evoland_db object in a temporary directory.
 make_test_db <- function(
   include_neighbors = TRUE,
   include_trans_preds = TRUE,

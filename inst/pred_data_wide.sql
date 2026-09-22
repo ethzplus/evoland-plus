@@ -4,9 +4,9 @@ Reads one resolved slice per predictor, preferring period-specific data over the
 id_period = 0 static fallback.
 Assumes that the read expressions return a single run.
 
-Meant to be run with glue for interpolation, requiring
+Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
-- {id_trans}
+- {trans_condition}
 - {id_period_anterior}
 Data sources:
 - {trans_meta_read_expr}
@@ -22,9 +22,7 @@ with
     from
       {trans_meta_read_expr}
     where
-      {
-        if (is.na (id_trans)) "is_viable = TRUE" else paste ("id_trans =", id_trans)
-      }
+      {trans_condition}
   ),
   anterior_coords as (
     -- we only infer the transition potential where id_coord had the anterior land cover
@@ -44,9 +42,7 @@ with
     select distinct
       id_pred
     from
-      {trans_preds_read_expr} {
-        if (is.na (id_trans)) "" else paste ("where id_trans =", id_trans)
-      }
+      {trans_preds_read_expr} {trans_filter}
   ),
   -- a predictor may carry both a period-specific value and an id_period = 0
   -- fallback (e.g. a climate baseline overridden by a scenario projection).

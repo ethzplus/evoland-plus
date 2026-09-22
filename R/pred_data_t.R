@@ -93,16 +93,13 @@ print.pred_data_t <- function(x, nrow = 10, ...) {
 #' @describeIn pred_data_t Check if predictor data is complete, i.e. each entry in
 #' [pred_meta_t] is either present in period 0 or for all other periods for a given run.
 pred_data_available_v <- function(self) {
-  system.file("pred_data_present.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
-      pred_data_read_expr = self$get_read_expr("pred_data_t"),
-      periods_read_expr = self$get_read_expr("periods_t"),
-      pred_meta_read_expr = self$get_read_expr("pred_meta_t"),
-      runs_read_expr = self$get_read_expr("runs_t")
-    ) |>
-    self$get_query()
+  self$get_query(
+    read_sql("pred_data_present.sql"),
+    pred_data_read_expr = self$get_read_expr("pred_data_t"),
+    periods_read_expr = self$get_read_expr("periods_t"),
+    pred_meta_read_expr = self$get_read_expr("pred_meta_t"),
+    runs_read_expr = self$get_read_expr("runs_t")
+  )
 }
 
 #' @describeIn pred_data_t Get transitions along with their predictor data in a wide data.table
@@ -136,18 +133,15 @@ trans_pred_data_v <- function(
   }
 
   result <-
-    system.file("trans_pred_data.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
+    self$get_query(
+      read_sql("trans_pred_data.sql"),
       lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
       period_read_expr = self$get_read_expr("periods_t"),
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       id_trans = id_trans,
       id_pred = id_pred
-    ) |>
-    self$get_query()
+    )
 
   set_pred_coltypes(result, pred_meta_t)
 
@@ -164,6 +158,7 @@ trans_pred_data_v <- function(
 #' get the predictors that explain the processes over the next N years
 pred_data_wide_v <- function(
   self,
+  private,
   id_trans,
   id_period_anterior
 ) {
@@ -177,19 +172,27 @@ pred_data_wide_v <- function(
     "id_run must be set" = !is.null(self$id_run)
   )
 
+  if (is.na(id_trans)) {
+    # if NA, fetch all data for viable transitions. used for prefetch.
+    trans_condition <- DBI::SQL("is_viable = TRUE")
+    trans_filter <- DBI::SQL("")
+  } else {
+    # only fetch data for single transition
+    trans_condition <- private$sql("id_trans = {id_trans}")
+    trans_filter <- private$sql("where {trans_condition}")
+  }
+
   result <-
-    system.file("pred_data_wide.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
+    self$get_query(
+      read_sql("pred_data_wide.sql"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
       lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
-      id_trans = id_trans,
+      trans_condition = trans_condition,
+      trans_filter = trans_filter,
       id_period_anterior = id_period_anterior
-    ) |>
-    self$get_query()
+    )
 
   set_pred_coltypes(result, self$pred_meta_t)
 
@@ -261,6 +264,7 @@ set_pred_coltypes <- function(result, pred_meta_t) {
 #' descriptors like "bed nights/year" as a proxy for touristic activity
 add_predictor <- function(
   self,
+  private,
   pred_data_raw,
   name,
   fill_value,
@@ -270,19 +274,10 @@ add_predictor <- function(
   sources = list(),
   unit = NA_character_
 ) {
-  # one transaction: the id_pred is derived from what pred_meta_t holds, and
-  # a failure between the two upserts would leave a predictor with no data
+  # one transaction: the id_pred is allocated against what pred_meta_t holds,
+  # and a failure between the two upserts would leave a predictor with no data
   self$transaction({
-    id_pred <- self$column_max("pred_meta_t", "id_pred") + 1L
-    if (id_pred > 1L) {
-      # if id_pred == 1, this is the first entry in pred_meta_t
-      # if higher, we check if this predictor is already in DB
-      existing_pred <- self$fetch("pred_meta_t", where = glue::glue("name = '{name}'"))
-      if (nrow(existing_pred) > 0L) {
-        # use pre-existing id_pred if already exists
-        id_pred <- existing_pred[["id_pred"]][1L]
-      }
-    }
+    id_pred <- self$next_id("pred_meta_t", "id_pred")
 
     new_meta_row <- data.table::data.table(
       id_pred = id_pred,

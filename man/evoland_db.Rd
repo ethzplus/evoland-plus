@@ -97,7 +97,7 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
 }
 \if{html}{\out{<details><summary>Inherited methods</summary>
 <ul>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="column_max"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-column_max'><code>ducklake_db$column_max()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="checkpoint"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-checkpoint'><code>ducklake_db$checkpoint()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="commit"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-commit'><code>ducklake_db$commit()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="delete_from"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-delete_from'><code>ducklake_db$delete_from()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="execute"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-execute'><code>ducklake_db$execute()</code></a></span></li>
@@ -105,7 +105,7 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_query"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_query'><code>ducklake_db$get_query()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_table_metadata"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_table_metadata'><code>ducklake_db$get_table_metadata()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="list_tables"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-list_tables'><code>ducklake_db$list_tables()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="maintain"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-maintain'><code>ducklake_db$maintain()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="next_id"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-next_id'><code>ducklake_db$next_id()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="row_count"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-row_count'><code>ducklake_db$row_count()</code></a></span></li>
   <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="transaction"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-transaction'><code>ducklake_db$transaction()</code></a></span></li>
 </ul>
@@ -118,11 +118,12 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$new(
-  path,
+  path = NULL,
   id_run = 0L,
   read_only = FALSE,
   catalog = NULL,
   data_path = NULL,
+  sqlite_journal_mode = "wal",
   expire_older_than = NULL,
   delete_older_than = NULL,
   ...
@@ -132,13 +133,15 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{path}}{Character string. Path to the data folder.}
+      \item{\code{path}}{Character. Path to the data folder; may be omitted
+when both \code{catalog} and \code{data_path} are given, see \link{ducklake_db}.}
       \item{\code{id_run}}{Atomic integer run ID, defaults to 0. Can be set to NULL}
       \item{\code{read_only}}{Logical. Whether to update the reporting table upon
 initialization; if TRUE, the catalog is attached read-only.}
-      \item{\code{catalog}}{Character string. DuckLake catalog connection, see \link{ducklake_db}.}
-      \item{\code{data_path}}{Character string. DuckLake data files location, see \link{ducklake_db}.}
-      \item{\code{expire_older_than, delete_older_than}}{Retention for \verb{$maintain()}, see \link{ducklake_db}.}
+      \item{\code{catalog}}{Character. DuckLake catalog connection, see \link{ducklake_db}.}
+      \item{\code{data_path}}{Character. DuckLake data files location, see \link{ducklake_db}.}
+      \item{\code{sqlite_journal_mode}}{Character. Journal mode for a SQLite catalog, see \link{ducklake_db}.}
+      \item{\code{expire_older_than, delete_older_than}}{Retention for \verb{$checkpoint()}, see \link{ducklake_db}.}
       \item{\code{...}}{passed on to \code{set_report}}
     }
     \if{html}{\out{</div>}}

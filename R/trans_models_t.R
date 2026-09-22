@@ -483,7 +483,7 @@ fit_full_models <- function(
     # Identify the best partial model per transition (using QUALIFY window function)
     # and get the predictor ID lists from trans_preds_t in the same query
     best_models <-
-      self$get_query(glue::glue(
+      self$get_query(
         r"[
       with preds_nested as (
         select
@@ -515,11 +515,12 @@ fit_full_models <- function(
           partition by tm.id_run, tm.id_trans
           -- learner_id breaks ties (e.g. two learners scoring an identical AUC), so the
           -- selection does not depend on scan order
-          order by tm.crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")},
+          order by tm.crossval_score[{select_score}] {sort_direction},
             tm.learner_id
       ) = 1;
-        ]"
-      )) |>
+        ]",
+        sort_direction = DBI::SQL(if (select_maximize) "desc" else "asc")
+      ) |>
       convert_list_cols(
         c("learner_params", "crossval_score"),
         kv_df_to_list

@@ -23,22 +23,25 @@ evoland_db <- R6::R6Class(
   public = list(
     #' @description
     #' Initialize a new evoland_db object
-    #' @param path Character string. Path to the data folder.
+    #' @param path Character. Path to the data folder; may be omitted
+    #' when both `catalog` and `data_path` are given, see [ducklake_db].
     #' @param id_run Atomic integer run ID, defaults to 0. Can be set to NULL
     #' @param read_only Logical. Whether to update the reporting table upon
     #' initialization; if TRUE, the catalog is attached read-only.
-    #' @param catalog Character string. DuckLake catalog connection, see [ducklake_db].
-    #' @param data_path Character string. DuckLake data files location, see [ducklake_db].
-    #' @param expire_older_than,delete_older_than Retention for `$maintain()`, see [ducklake_db].
+    #' @param catalog Character. DuckLake catalog connection, see [ducklake_db].
+    #' @param data_path Character. DuckLake data files location, see [ducklake_db].
+    #' @param sqlite_journal_mode Character. Journal mode for a SQLite catalog, see [ducklake_db].
+    #' @param expire_older_than,delete_older_than Retention for `$checkpoint()`, see [ducklake_db].
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
     initialize = function(
-      path,
+      path = NULL,
       id_run = 0L,
       read_only = FALSE,
       catalog = NULL,
       data_path = NULL,
+      sqlite_journal_mode = "wal",
       expire_older_than = NULL,
       delete_older_than = NULL,
       ...
@@ -48,6 +51,7 @@ evoland_db <- R6::R6Class(
         read_only = read_only,
         catalog = catalog,
         data_path = data_path,
+        sqlite_journal_mode = sqlite_journal_mode,
         expire_older_than = expire_older_than,
         delete_older_than = delete_older_than
       )
@@ -143,7 +147,7 @@ evoland_db <- R6::R6Class(
       sources = data.frame(url = character(0), md5sum = character(0)),
       unit = NA_character_
     ) {
-      create_method_binding(add_predictor)
+      create_method_binding(add_predictor, with_private = TRUE)
     },
 
     #' @description Get transitions along with their predictor data in a wide
@@ -159,7 +163,7 @@ evoland_db <- R6::R6Class(
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_period_anterior Integer ID of period to retrieve data for
     pred_data_wide_v = function(id_trans, id_period_anterior) {
-      create_method_binding(pred_data_wide_v)
+      create_method_binding(pred_data_wide_v, with_private = TRUE)
     },
 
     ### Allocation methods ---
@@ -243,7 +247,7 @@ evoland_db <- R6::R6Class(
     #' @param id_period Optional integer vector of period IDs to include. If
     #'   NULL (default), all periods are included.
     lulc_data_as_rast = function(id_period = NULL) {
-      create_method_binding(lulc_data_as_rast)
+      create_method_binding(lulc_data_as_rast, with_private = TRUE)
     },
 
     #' @description

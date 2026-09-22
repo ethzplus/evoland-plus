@@ -133,10 +133,3 @@ expect_equal(
   wrapper(a = 2, b = 3),
   list(sum = 5, self_ok = TRUE, private_ok = TRUE, super_ok = FALSE)
 )
-
-# ---- cols_to_select_expr ----
-expect_identical(evoland:::cols_to_select_expr(c("a", "b")), '"a", "b"')
-expect_identical(
-  evoland:::cols_to_select_expr(c("a", "b"), "tbl"),
-  '"tbl"."a", "tbl"."b"'
-)

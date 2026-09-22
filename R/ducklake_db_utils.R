@@ -157,6 +157,14 @@ validate.ducklake_db_t <- function(x, ...) {
 }
 
 
+#' @describeIn ducklake_db_utils Read one of the package's `inst/*.sql` files, for
+#' passing to `$get_query()` -- which interpolates it, so the placeholders in the
+#' file are filled from the named arguments given alongside it.
+#' @param file Name of a SQL file in the installed package.
+read_sql <- function(file) {
+  paste(readLines(system.file(file, package = "evoland")), collapse = "\n")
+}
+
 #' @describeIn ducklake_db_utils Serialize a named list of atomic vectors into the
 #' single string that [ducklake_db] stores as a comment on the catalog table. Each
 #' entry becomes one line, `key: "value1", "value2"`.
@@ -337,17 +345,4 @@ create_method_binding <- function(fun, with_private = FALSE, with_super = FALSE)
 
   # Evaluate in original environment. Preserves lazy evaluation of arguments.
   eval(cl, envir = parent.frame(2))
-}
-
-#' @describeIn ducklake_db_utils Paste vector of escaped column names into a SQL
-#' select statement, with optional table name prefix.
-#' @param cols The columns to select.
-cols_to_select_expr <- function(cols, table_name) {
-  if (!missing(table_name)) {
-    prefix <- paste0('"', table_name, '"."')
-    suffix <- '"'
-  } else {
-    prefix <- suffix <- '"'
-  }
-  paste0(prefix, cols, suffix, collapse = ", ")
 }
