@@ -515,7 +515,7 @@ duckdb::duckdb_register(
   "iso_new_v",
   data.table::data.table(id = 1:50, value = 2)
 )
-iso_ref <- glue::glue('{evoland:::CATALOG_ALIAS}."iso_t"')
+iso_ref <- glue::glue('dl_db."iso_t"')
 db$execute("begin transaction")
 db$execute(glue::glue("create or replace table {iso_ref} as from iso_new_v limit 0"))
 db$execute(glue::glue("insert into {iso_ref} by name (from iso_new_v)"))
@@ -731,12 +731,12 @@ upkeep_dir <- tempfile("ducklake_db_upkeep_")
 db_upkeep <- ducklake_db$new(upkeep_dir)
 snapshots <- function() {
   db_upkeep$get_query(glue::glue(
-    "select count(*) from ducklake_snapshots({evoland:::CATALOG_ALIAS})"
+    "select count(*) from ducklake_snapshots(dl_db)"
   ))[[1]]
 }
 
 # past the row limit below which DuckLake inlines into the catalog, so that
-# there are real files for maintain() to reclaim
+# there are real files for checkpoint() to reclaim
 upkeep_row <- function(ids, ...) {
   row <- data.table::data.table(id = ids, value = seq_along(ids) * 1.0)
   data.table::setattr(row, "key_cols", "id")
@@ -756,24 +756,24 @@ expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["key_cols"]], "id")
 db_upkeep$commit(upkeep_row(251:300, epsg = 2056L), "upkeep_t", method = "upsert")
 expect_equal(db_upkeep$get_table_metadata("upkeep_t")[["epsg"]], 2056L)
 
-# Test 56: with no retention configured, maintain() keeps every snapshot -- it
+# Test 56: with no retention configured, checkpoint() keeps every snapshot -- it
 # compacts, but discards nothing
 for (i in 1:10) {
   db_upkeep$commit(upkeep_row(sample(1:300, 100)), "upkeep_t", method = "upsert")
 }
 expect_true(snapshots() > 10)
 
-kept <- db_upkeep$maintain()
+kept <- db_upkeep$checkpoint()
 expect_true(kept[["snapshots_after"]] >= kept[["snapshots_before"]])
 
-# Test 57: retention set on the database is what lets maintain() reclaim
+# Test 57: retention set on the database is what lets checkpoint() reclaim
 db_reclaim <- ducklake_db$new(
   upkeep_dir,
   expire_older_than = "0 seconds",
   delete_older_than = "0 seconds"
 )
 files_before <- length(list.files(file.path(upkeep_dir, "data"), recursive = TRUE))
-reclaimed <- db_reclaim$maintain()
+reclaimed <- db_reclaim$checkpoint()
 
 expect_true(reclaimed[["snapshots_before"]] > reclaimed[["snapshots_after"]])
 expect_true(length(list.files(file.path(upkeep_dir, "data"), recursive = TRUE)) < files_before)
@@ -784,14 +784,14 @@ expect_equal(db_reclaim$get_table_metadata("upkeep_t")[["epsg"]], 2056L)
 
 # the options persist, so a later connection reclaims without being told again
 db_reclaim$commit(upkeep_row(301:400), "upkeep_t", method = "upsert")
-again <- ducklake_db$new(upkeep_dir)$maintain()
+again <- ducklake_db$new(upkeep_dir)$checkpoint()
 expect_true(again[["snapshots_before"]] > again[["snapshots_after"]])
 
 # Test 57b: a path holding a run of separators -- which macOS hands out
 # readily, since tempdir() there can contain one -- used to cost the data.
 # DuckLake matches a stored file path against the one it derives from
 # DATA_PATH as strings, so the `//` made every file look unreferenced and the
-# next maintain() deleted it. Scanned and checked against disk, because
+# next checkpoint() deleted it. Scanned and checked against disk, because
 # row_count() answers from catalog statistics and reports the rows either way.
 slash_dir <- paste0(tempfile("ducklake_db_slash_"), "//nested")
 db_slash <- ducklake_db$new(
@@ -802,16 +802,16 @@ db_slash <- ducklake_db$new(
 expect_false(grepl("//", db_slash$data_path))
 db_slash$commit(upkeep_row(1:200), "slash_t", method = "overwrite")
 db_slash$commit(upkeep_row(50:300), "slash_t", method = "upsert")
-db_slash$maintain()
+db_slash$checkpoint()
 
 slash_files <- db_slash$get_query(glue::glue(
-  "select data_file from ducklake_list_files({evoland:::CATALOG_ALIAS}, 'slash_t')"
+  "select data_file from ducklake_list_files(dl_db, 'slash_t')"
 ))[[1]]
 expect_true(length(slash_files) > 0L)
 expect_equal(slash_files[!file.exists(slash_files)], character(0))
 expect_equal(
   db_slash$get_query(glue::glue(
-    "select count(distinct id) from {evoland:::CATALOG_ALIAS}.slash_t"
+    "select count(distinct id) from dl_db.slash_t"
   ))[[1]],
   300L
 )
@@ -826,12 +826,8 @@ rm(db_slash)
 gc()
 unlink(slash_dir, recursive = TRUE)
 
-# a read-only database refuses to maintain, or to be told a retention
-expect_error(ducklake_db$new(upkeep_dir, read_only = TRUE)$maintain(), "read-only")
-expect_error(
-  ducklake_db$new(upkeep_dir, read_only = TRUE, expire_older_than = "1 day"),
-  "read-only"
-)
+# a read-only database refuses to maintain
+expect_error(ducklake_db$new(upkeep_dir, read_only = TRUE)$checkpoint(), "read-only")
 
 unlink(upkeep_dir, recursive = TRUE)
 
@@ -905,7 +901,7 @@ expect_silent(
     data_path = paste0(file.path(split_dir, "data"), "/")
   )
 )
-expect_null(split_db$path)
+
 split_db$commit(data.table::data.table(id = 1:3), "split_table", method = "overwrite")
 expect_equal(split_db$row_count("split_table"), 3L)
 expect_error(ducklake_db$new(), "`path` is required")
@@ -925,10 +921,10 @@ wal_db <- ducklake_db$new(path = wal_dir)
 wal_db$commit(data.table::data.table(id = 1L), "wal_table", method = "overwrite")
 expect_equal(sqlite_journal_version(file.path(wal_dir, "catalog.sqlite")), 2L)
 
-# and `journal_mode = NULL` leaves the catalog however it already is, for a
+# and `sqlite_journal_mode = NULL` leaves the catalog however it already is, for a
 # filesystem that cannot do WAL
 plain_dir <- tempfile("ducklake_db_plain_")
-plain_db <- ducklake_db$new(path = plain_dir, journal_mode = NULL)
+plain_db <- ducklake_db$new(path = plain_dir, sqlite_journal_mode = NULL)
 plain_db$commit(data.table::data.table(id = 1L), "plain_table", method = "overwrite")
 expect_equal(sqlite_journal_version(file.path(plain_dir, "catalog.sqlite")), 1L)
 
@@ -977,14 +973,16 @@ expect_error(alloc_db$next_id("pred_meta_t", "id_pred"), "inside `\\$transaction
 
 # seeded from what the table already holds, so it can be adopted by a
 # database that has ids in it
-alloc_db$commit(data.table::data.table(id_pred = c(1L, 2L, 7L)), "alloc_target",
-                method = "overwrite")
+alloc_db$commit(
+  data.table::data.table(id_pred = c(1L, 2L, 7L)),
+  "alloc_target",
+  method = "overwrite"
+)
 expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 8L)
 expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 9L)
 
 # a block, for a caller registering several rows at once
-expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred", n = 3L)),
-             10:12)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred", n = 3L)), 10:12)
 expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 13L)
 
 # each table and column is counted separately, and a table that does not
@@ -1012,11 +1010,11 @@ expect_true("ducklake_db_id_alloc" %in% alloc_db$list_tables(include_internal = 
 # because inserts of different rows are not a conflict. Collapsing them to the
 # highest cannot reissue an id already in use.
 alloc_db$execute(
-  "insert into ducklake_db.\"ducklake_db_id_alloc\" values ('alloc_target.id_pred', 4)"
+  "insert into dl_db.\"ducklake_db_id_alloc\" values ('alloc_target.id_pred', 4)"
 )
 expect_equal(
   alloc_db$get_query(
-    "select count(*) from ducklake_db.\"ducklake_db_id_alloc\"
+    "select count(*) from dl_db.\"ducklake_db_id_alloc\"
      where id_name = 'alloc_target.id_pred'"
   )[[1]],
   2L
@@ -1024,7 +1022,7 @@ expect_equal(
 expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 15L)
 expect_equal(
   alloc_db$get_query(
-    "select count(*) from ducklake_db.\"ducklake_db_id_alloc\"
+    "select count(*) from dl_db.\"ducklake_db_id_alloc\"
      where id_name = 'alloc_target.id_pred'"
   )[[1]],
   1L

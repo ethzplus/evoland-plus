@@ -1,7 +1,3 @@
-# Only ever one DuckLake catalog is attached per connection, so its alias is a constant
-# rather than something a caller should set.
-CATALOG_ALIAS <- "ducklake_db"
-
 # Contention shows up differently per catalog backend: the first two come from
 # SQLite and DuckDB-file catalogs, the last from DuckLake's own commit path.
 # A server-backed catalog reports its own; add them here when one is adopted.
@@ -12,48 +8,8 @@ TRANSIENT_CATALOG_ERRORS <- paste(
   sep = "|"
 )
 
-# DuckLake resolves a data file by comparing the stored path against the one it
-# derives from DATA_PATH as strings, normalising separators but not runs of
-# them: see ducklake_metadata_manager.cpp, GetPathPrefix/StripPathPrefix. So a
-# DATA_PATH holding `//` -- which macOS hands out readily, since tempdir() there
-# can contain one -- writes files whose paths no longer match, and the next
-# maintenance pass takes them for unreferenced and deletes them, live rows and
-# all. Collapsing the runs before DuckLake ever sees them avoids the whole
-# class. The `//` of a remote URI is the one that has to survive, or an s3:// or
-# https:// data path would be mangled into something unreachable; `sqlite:` and
-# `duckdb:` take a bare path after the colon and so want collapsing throughout.
+# regex to identify remote URIs
 REMOTE_URI_PREFIX <- "^(s3|gcs|r2|az|abfss?|https?)://"
-
-# The part of a catalog string before the first colon: "sqlite", "postgres",
-# or, for a DuckDB-file catalog given as a bare path, the path itself -- which
-# matches none of the schemes anything here switches on, so it needs no
-# special case.
-catalog_scheme <- function(catalog) {
-  sub(":.*$", "", catalog)
-}
-
-# A SQLite catalog left in its default rollback-journal mode serialises far
-# more than the one-writer-at-a-time SQLite is actually limited to. A writer
-# that cannot take the exclusive lock immediately sits in SQLite's busy
-# handler holding the PENDING lock, and PENDING blocks every other process's
-# *reads* -- which is why contention surfaces in a process that was only
-# reading, as "Failed to query most recent snapshot for DuckLake: Failed to
-# prepare query \"SELECT type FROM sqlite_master ...\": database is locked".
-# One collision therefore creates a lock hold long enough to cause the next,
-# and the writers convoy.
-#
-# In WAL mode a writer never blocks a reader, so only writer-against-writer
-# contention is left -- which is what `with_retry()` is for. Measured over 16
-# concurrent writers: the catalog went from held 80.5s of a 116s run, with one
-# writer exhausting its retries, to held 1.4s of a 53s run with none giving
-# up. `busy_timeout` is accepted as a SQLite attach option but has no effect,
-# so it is no substitute.
-#
-# WAL needs the shared-memory file beside the database, which some network
-# filesystems do not provide; `journal_mode = NULL` leaves the catalog in
-# whatever mode it already has. The mode is a property of the file, so one
-# writer setting it is enough -- readers pick it up without asking for it.
-DEFAULT_CATALOG_JOURNAL_MODE <- "wal"
 
 # Where `$next_id()` keeps the next value of each id it hands out. One row per
 # id, so it stays far inside DuckLake's inlining limit and costs a catalog row
@@ -75,22 +31,20 @@ collapse_path_separators <- function(path) {
 # and the reads documented as ignoring the active run, need the table itself,
 # so they call this and are not affected by what a subclass does to reading.
 table_ref <- function(table_name) {
-  glue::glue('{CATALOG_ALIAS}."{table_name}"')
+  glue::glue('dl_db."{table_name}"')
 }
 
 #' R6 Base Class for DuckLake-Backed Storage
 #'
 #' @description
-#' A domain-agnostic R6 class that provides an interface to a folder-based data
-#' storage system. An in-memory DuckDB instance attaches a DuckLake catalog, so
-#' that writes are atomic and readers see snapshot-isolated data even while
-#' other processes are writing. This class can be inherited by domain-specific
-#' database classes.
+#' A domain-agnostic R6 class that provides an interface to a folder-based data storage system. An
+#' in-memory [DuckDB](https://duckdb.org/) instance attaches a [DuckLake](https://ducklake.select/)
+#' catalog, so that writes are atomic and readers see snapshot-isolated data even while other
+#' processes are writing. This class can be inherited by domain-specific database classes.
 #'
-#' By default a database is one self-contained folder: the catalog lives in
-#' SQLite at `<path>/catalog.sqlite` and the data files at `<path>/data/`.
-#' Passing `catalog` and/or `data_path` puts either half somewhere else, such
-#' as a shared PostgreSQL catalog or a bucket.
+#' By default a database is one self-contained folder: the catalog lives in SQLite at
+#' `<path>/catalog.sqlite` and the parquet data files at `<path>/data/`. Passing `catalog` and/or
+#' `data_path` puts either half somewhere else, such as a shared PostgreSQL catalog or an S3 bucket.
 #'
 #' @examples
 #' # needs a reachable PostgreSQL catalog and bucket credentials, so not run
@@ -111,9 +65,6 @@ ducklake_db <- R6::R6Class(
   public = list(
     #' @field connection DBI connection object to an in-memory DuckDB database
     connection = NULL,
-
-    #' @field path Character string path to the data folder
-    path = NULL,
 
     #' @field catalog Character string, the DuckLake catalog connection, e.g.
     #' `"sqlite:<path>/catalog.sqlite"`
@@ -136,13 +87,8 @@ ducklake_db <- R6::R6Class(
     #' which doubles per attempt up to 64 times this
     retry_wait = 0.1,
 
-    #' @field retry_max Integer, a bound on attempts in case something retries
-    #' faster than `retry_timeout` can measure. Not the usual limit: whether 20
-    #' attempts are generous or miserly depends entirely on how long each
-    #' contended attempt blocks first, which a caller cannot know. Sixteen
-    #' concurrent writers measured against a 20-attempt cap lost one of their
-    #' number to it; against the same backoff bounded by wall time instead,
-    #' none, for 4% more wall time.
+    #' @field retry_max Integer, maximum number of attempts in case something retries
+    #' faster than `retry_timeout` can measure.
     retry_max = 2000L,
 
     #' @description
@@ -152,24 +98,24 @@ ducklake_db <- R6::R6Class(
     #' omitted when both `catalog` and `data_path` are given.
     #' @param read_only Logical. If true, the catalog is attached read-only.
     #' @param extensions Character vector of additional DuckDB extensions to load
-    #' @param catalog Character string. DuckLake catalog connection; defaults to
-    #' SQLite at `<path>/catalog.sqlite`. Anything DuckLake accepts works, e.g.
-    #' `"postgres:dbname=evoland host=..."`.
-    #' @param data_path Character string. Where DuckLake writes its data files;
-    #' defaults to `<path>/data/`. May be remote, e.g. `"s3://bucket/prefix/"`.
-    #' @param journal_mode Character string, the journal mode to put a SQLite
-    #' catalog in; `"wal"` by default, because the default rollback journal
-    #' lets one writer block every other process's *reads* of the catalog and
-    #' so turns contention into starvation. `NULL` leaves the catalog as it is,
-    #' which is what a filesystem without shared memory needs. Ignored for
-    #' catalogs that are not SQLite, and when attaching read-only: the mode is
-    #' stored in the file, so a reader inherits whatever a writer set.
-    #' @param expire_older_than,delete_older_than Retention for `$maintain()`,
-    #' as an interval DuckDB reads, e.g. `"7 days"`: how old a snapshot must be
-    #' before it is expired, and how old an unreferenced file must be before it
-    #' is deleted. Both are stored in the catalog, so they only need passing
-    #' once, and are left at DuckLake's defaults -- which discard nothing --
-    #' when not given.
+    #' @param catalog Character string. DuckLake catalog connection; defaults to SQLite
+    #' at `<path>/catalog.sqlite`. Anything DuckLake accepts works, e.g.
+    #' `"postgres:dbname=evoland host=..."`. See [Choosing a catalog
+    #' database](https://ducklake.select/docs/stable/duckdb/usage/choosing_a_catalog_database)
+    #' @param data_path Character string. Where DuckLake writes its data files; defaults
+    #' to `<path>/data/`. May be remote, e.g. `"s3://bucket/prefix/"`. See [Choosing
+    #' storage](https://ducklake.select/docs/stable/duckdb/usage/choosing_storage)
+    #' @param sqlite_journal_mode Character string, the journal mode to put a SQLite
+    #' catalog in; [`wal`](https://www.sqlite.org/wal.html) by default, because the
+    #' default rollback journal lets one writer block every other process's *reads* of
+    #' the catalog. `NULL` leaves the catalog as it is. Ignored for catalogs that are
+    #' not SQLite or when attaching read-only. Readers adapt to whatever journal mode
+    #' they find.
+    #' @param expire_older_than,delete_older_than Retention for `$checkpoint()`, as an
+    #' interval DuckDB reads, e.g. `"7 days"`: how old a snapshot must be before it is
+    #' expired, and how old an unreferenced file must be before it is deleted. Stored in
+    #' the catalog but can be overwritten by passing. Default to NULL, discarding
+    #' nothing.
     #'
     #' @return A new `ducklake_db` object
     initialize = function(
@@ -178,7 +124,7 @@ ducklake_db <- R6::R6Class(
       extensions = character(0),
       catalog = NULL,
       data_path = NULL,
-      journal_mode = DEFAULT_CATALOG_JOURNAL_MODE,
+      sqlite_journal_mode = "wal",
       expire_older_than = NULL,
       delete_older_than = NULL
     ) {
@@ -186,19 +132,11 @@ ducklake_db <- R6::R6Class(
       # halves leaves nothing for it to do
       derives_from_path <- is.null(catalog) || is.null(data_path)
       stopifnot(
-        "`path` is required unless both `catalog` and `data_path` are given" =
-          !derives_from_path || (is.character(path) && length(path) == 1L)
+        "`path` is required unless both `catalog` and `data_path` are given" = !derives_from_path ||
+          (is.character(path) && length(path) == 1L)
       )
 
-      # before anything is derived from it, so that the catalog and the data
-      # path inherit a path DuckLake can match against what it stores
-      if (!is.null(path)) {
-        path <- collapse_path_separators(path)
-      }
-
-      self$path <- path
       if (derives_from_path) {
-        # only needed for the halves that actually get stored there
         ensure_dir(path)
       }
       self$catalog <- collapse_path_separators(
@@ -207,39 +145,29 @@ ducklake_db <- R6::R6Class(
       self$data_path <- collapse_path_separators(
         data_path %||% paste0(ensure_dir(file.path(path, "data")), "/")
       )
+
       self$read_only <- read_only
 
-      # `shared_home = TRUE` pins DuckDB's extension and secret storage to ~/.duckdb.
-      # Stating the choice explicitly silences the storage-location message that duckdb
-      # emits whenever the location is resolved implicitly, and keeps extensions cached
-      # across sessions instead of re-downloading them on every instantiation.
-      self$connection <- DBI::dbConnect(
-        duckdb::duckdb(shared_home = TRUE),
-        dbdir = ":memory:"
-      )
+      # in-memory duckdb connection; shared_home=TRUE pins extension and secret storage
+      # to ~/.duckdb and silences startup noise
+      self$connection <- DBI::dbConnect(duckdb::duckdb(shared_home = TRUE))
 
-      # ducklake plus whatever backs the catalog and the data files are on the
-      # critical path for opening the database at all
+      # backend_extensions needed for catalog (sqlite, postgres...)
       for (ext in unique(c("ducklake", private$backend_extensions(), extensions))) {
         self$execute(glue::glue("install {ext}; load {ext};"))
       }
 
-      # A catalog that does not exist yet has no options set on it
-      catalog_is_new <- !file.exists(sub("^(sqlite|duckdb):", "", self$catalog))
-
-      # DuckLake hands METADATA_PARAMETERS straight to the attach of the
-      # catalog itself, which is the only way in from here -- see the note on
-      # DEFAULT_CATALOG_JOURNAL_MODE for why WAL is the mode that matters.
+      # build attach statement
       journal_option <- if (
         !read_only &&
-          !is.null(journal_mode) &&
-          catalog_scheme(self$catalog) == "sqlite"
+          !is.null(sqlite_journal_mode) &&
+          grepl("^sqlite:.*$", self$catalog)
       ) {
-        glue::glue("METADATA_PARAMETERS MAP{{'journal_mode': '{journal_mode}'}}")
+        glue::glue("METADATA_PARAMETERS MAP{{'journal_mode': '{sqlite_journal_mode}'}}")
       }
 
       self$execute(glue::glue(
-        "attach 'ducklake:{self$catalog}' as {CATALOG_ALIAS} ({options_str})",
+        "attach 'ducklake:{self$catalog}' as dl_db ({options_str})",
         options_str = glue::glue_collapse(
           c(
             glue::glue("DATA_PATH '{self$data_path}'"),
@@ -250,26 +178,18 @@ ducklake_db <- R6::R6Class(
         )
       ))
 
-      # The option is persisted in the catalog, so setting it once is enough.
-      # Skipping it on later opens keeps a catalog *write* off the path every
-      # process takes to merely open the database.
-      if (!read_only && catalog_is_new) {
-        self$execute(
-          glue::glue("call {CATALOG_ALIAS}.set_option('parquet_compression', 'zstd')")
+      # options are persisted, but easiest just in case to set like this
+      if (!read_only) {
+        options <- c(
+          parquet_compression = "zstd",
+          expire_older_than = expire_older_than,
+          delete_older_than = delete_older_than
         )
-      }
-
-      # persisted too, but write them whenever they are passed, so that naming
-      # them against an existing database is not silently ignored
-      retention <- c(
-        expire_older_than = expire_older_than,
-        delete_older_than = delete_older_than
-      )
-      for (option in names(retention)) {
-        stopifnot("database is attached read-only" = !read_only)
-        self$execute(glue::glue(
-          "call {CATALOG_ALIAS}.set_option('{option}', '{retention[[option]]}')"
-        ))
+        for (option in names(options)) {
+          self$execute(glue::glue(
+            "call dl_db.set_option('{option}', '{options[[option]]}')"
+          ))
+        }
       }
 
       invisible(self)
@@ -278,28 +198,30 @@ ducklake_db <- R6::R6Class(
     ### Core Database Methods ----
 
     #' @description
-    #' Execute a SQL statement. Retried on catalog lock contention, except
-    #' inside a `$transaction()`, which is retried as a whole instead.
+    #' Execute a SQL statement. Retried on catalog lock contention, except inside a
+    #' `$transaction()`, which is retried as a whole instead.
     #' @param statement A SQL statement
     #' @return Number of rows affected by statement
     execute = function(statement) {
+      # TODO interpret statement as glue in its calling environment, using
+      # glue::glue_sql(...), exposing ..., .open, and .close
       private$with_retry(function() {
         DBI::dbExecute(self$connection, statement)
       })
     },
 
     #' @description
-    #' Execute a SQL query and return results. Reading contends for the catalog
-    #' lock too -- a read landing on a SQLite catalog mid-commit fails with
-    #' "Failed to query most recent snapshot for DuckLake: ... database is
-    #' locked" -- so queries are retried on the same terms as writes.
+    #' Execute a SQL query and return results. Reading contends for the catalog lock
+    #' too; queries are retried on the same terms as writes.
     #' @param statement A SQL query statement
     #' @return A data.table with query results
     get_query = function(statement) {
+      # TODO interpret statement as glue, as with execute
+      # TODO add "as_atomic" argument, returning a single vector without coercing to
+      # data.table; replace the common get_query("select a from b")[[1]] pattern
       result <- private$with_retry(function() {
         DBI::dbGetQuery(self$connection, statement)
       })
-      # set in place
       data.table::setDT(result)
 
       # Convert list columns containing data.frames to data.tables
@@ -318,8 +240,7 @@ ducklake_db <- R6::R6Class(
     },
 
     #' @description
-    #' Get row count for a table (without applying id_run subsetting); returns 0
-    #' if table does not exist
+    #' Get row count for a table; returns 0 if table does not exist
     #' @param table_name Character string. Name of the table to query.
     #' @return Integer number of rows
     row_count = function(table_name) {
@@ -333,34 +254,14 @@ ducklake_db <- R6::R6Class(
     },
 
     #' @description
-    #' Get maximum for a column in a table (without applying id_run subsetting);
-    #' returns 0 if table does not exist
-    #' @param table_name Character string. Name of the table to query.
-    #' @param column_name Character string. Name of the column to get the maximum value for.
-    #' @return Maximum value of the column
-    column_max = function(table_name, column_name) {
-      if (!table_name %in% self$list_tables()) {
-        return(0L)
-      }
-
-      self$get_query(glue::glue(
-        'select max("{column_name}") from {table_ref(table_name)}'
-      ))[[1]]
-    },
-
-    #' @description
     #' List all tables in storage
-    #' @param include_internal Logical. If true, also list the tables this
-    #' class keeps for its own bookkeeping, such as `$next_id()`'s allocation
-    #' row. They are hidden by default because the rest of the interface, and
-    #' the domain classes built on it, treat every name this returns as a
-    #' table a caller put there -- `evoland_db` expects a matching active
-    #' binding for each, for one.
+    #' @param include_internal Logical. If true, also list auxiliary tables this class
+    #' constructs.
     #' @return Character vector of table names
     list_tables = function(include_internal = FALSE) {
       tables <- self$get_query(glue::glue(
         "select table_name from information_schema.tables
-         where table_catalog = '{CATALOG_ALIAS}'
+         where table_catalog = 'dl_db'
          order by table_name"
       ))[[1]]
 
@@ -371,7 +272,8 @@ ducklake_db <- R6::R6Class(
     #' Fetch data from a table
     #' @param table_name Character string. Name of the table to query.
     #' @param cols SQL column selection string (e.g., "col1, col2" or "*")
-    #' @param where Character string. Optional WHERE clause for the SQL query.
+    #' @param where Character string. Optional WHERE clause for the SQL query (e.g.
+    #' `id_pred in (0,4,5)`)
     #' @param limit Integer. Optional limit on number of rows to return.
     #'
     #' @return A data.table
@@ -382,10 +284,7 @@ ducklake_db <- R6::R6Class(
       limit = NULL
     ) {
       if (!table_name %in% self$list_tables()) {
-        stop(
-          "Table `", table_name, "` does not exist in `",
-          self$path %||% self$catalog, "`"
-        )
+        stop("Table `", table_name, "` does not exist in `", self$catalog, "`")
       }
 
       metadata <- private$read_metadata(table_name)
@@ -440,7 +339,7 @@ ducklake_db <- R6::R6Class(
     #' @param where Character string. Optional WHERE clause; if NULL, deletes all rows.
     #' @return Number of rows deleted
     delete_from = function(table_name, where = NULL) {
-      stopifnot(!self$read_only)
+      stopifnot("database is attached read-only" = !self$read_only)
 
       if (!table_name %in% self$list_tables()) {
         return(0L)
@@ -459,12 +358,12 @@ ducklake_db <- R6::R6Class(
     #' purpose is read from `x`'s attributes, and otherwise from the metadata the
     #' target table carries -- so a character `x` inherits the target's specs,
     #' and a table first created from one has none.
-    #' @param x If data.table, the data to commit. If character, treated as an
-    #' in-DuckDB-memory table or view name.
+    #' @param x If data.table, the data to commit; use [as_ducklake_db_t] for setting
+    #' constraints. If character, treated as an in-DuckDB-memory table or view name.
     #' @param table_name Target table name to commit to.
     #' @param method Character, one of "overwrite", "append", "upsert" (upsert being an
-    #' update for existing rows, and insert for new rows). Only "overwrite"
-    #' changes an existing table's schema; the others reject columns the table
+    #' update for existing rows, and insert for new rows). Only "overwrite" can change a
+    #' table's schema; even if a table is empty, the others reject columns the table
     #' does not have.
     #' @return Number of rows written
     commit = function(
@@ -485,7 +384,7 @@ ducklake_db <- R6::R6Class(
       all_new_cols <- private$register_new_data_v(x, specs[["map_cols"]])
 
       if (table_exists && method != "overwrite") {
-        private$check_target_columns(table_name, all_new_cols)
+        private$check_target_columns(table_name, all_new_cols) # friendly errors
       }
 
       rows <- if (method == "overwrite" || !table_exists) {
@@ -511,8 +410,8 @@ ducklake_db <- R6::R6Class(
         private$commit_upsert(table_name, all_new_cols, specs)
       }
 
-      # `create or replace` drops the comment, so overwrite always rewrites it;
-      # otherwise it is still whatever we just read
+      # `create or replace` drops the comment, so overwrite always passes an empty list
+      # to rewrite it
       private$write_metadata(
         table_name,
         metadata,
@@ -523,14 +422,11 @@ ducklake_db <- R6::R6Class(
     },
 
     #' @description
-    #' Evaluate `expr` as a single DuckLake transaction, so that several writes
-    #' either all land or none do. Without one, a failure part-way through
-    #' leaves the database holding half of the change.
-    #'
-    #' Contention is retried by re-evaluating the whole block, so `expr` must be
-    #' safe to run more than once -- it re-reads whatever it derived its writes
-    #' from, which is the point. Calls nest: an inner `transaction()` joins the
-    #' one already open rather than starting its own.
+    #' Evaluate `expr` as a single DuckLake transaction, so that a block of reads/writes
+    #' either all land or none do. On failure part-way through, DB state is rolled back
+    #' and no harm is done. Contention is retried by re-evaluating the whole block, so
+    #' `expr` is safe to run more than once -- it re-reads whatever it derived its
+    #' writes from.
     #' @param expr Code to evaluate inside the transaction
     #' @return The value of `expr`
     transaction = function(expr) {
@@ -556,8 +452,8 @@ ducklake_db <- R6::R6Class(
 
         result <- eval(code, envir)
 
-        # the commit is the statement that actually contends for the catalog;
-        # it runs bare, and a failure sends the whole block round again
+        # the commit is the statement that actually contends for the catalog; failure
+        # sends the whole block round again
         self$execute("commit")
         on.exit(private$in_transaction <- FALSE)
 
@@ -571,27 +467,27 @@ ducklake_db <- R6::R6Class(
     #' removes the files left unreferenced.
     #'
     #' Every commit adds a snapshot and leaves the files it superseded in place,
-    #' and DuckLake reclaims neither on its own, so a long run grows without
+    #' and DuckLake deletes neither on its own, so a long run grows without
     #' bound until this is called.
     #'
     #' How much is discarded is governed by the `expire_older_than` and
     #' `delete_older_than` options, set on the database (see `$new()`). Left
     #' unset they keep everything, so checkpointing an unconfigured database
-    #' compacts but reclaims nothing. Expiring a snapshot gives up time travel
+    #' compacts but deletes nothing. Expiring a snapshot gives up time travel
     #' to it, and anything still reading at one loses the files under it, so
     #' set a retention that covers the readers you expect.
     #' @return Snapshot counts before and after, invisibly
-    maintain = function() {
+    checkpoint = function() {
       stopifnot("database is attached read-only" = !self$read_only)
 
       count_snapshots <- function() {
         self$get_query(glue::glue(
-          "select count(*) from ducklake_snapshots({CATALOG_ALIAS})"
+          "select count(*) from ducklake_snapshots(dl_db)"
         ))[[1]]
       }
 
       snapshots_before <- count_snapshots()
-      self$execute(glue::glue("checkpoint {CATALOG_ALIAS}"))
+      self$execute(glue::glue("checkpoint dl_db"))
 
       invisible(c(
         snapshots_before = snapshots_before,
@@ -654,7 +550,6 @@ ducklake_db <- R6::R6Class(
       }
 
       # Basic DB descriptors
-      cat("\n | Database:", self$path %||% "(catalog and data path given directly)")
       cat("\n | Catalog:", self$catalog)
       cat("\n | Data Path:", self$data_path)
       cat("\n | Read Only:", self$read_only)
@@ -693,42 +588,15 @@ ducklake_db <- R6::R6Class(
     },
 
     #' @description
-    #' Hand out the next value of an integer id, such that two processes
-    #' allocating at once cannot both get the same one.
-    #'
-    #' `max(id) + 1` cannot do that. It is a read followed by a write, and
-    #' DuckLake does not count "rows were inserted since I read the maximum"
-    #' as a conflict, so with a catalog that gives each transaction its own
-    #' snapshot two allocators read the same maximum and both keep it.
-    #' Nothing is raised anywhere; the duplicate ids simply end up in the
-    #' table. Measured with 16 processes registering 96 predictors against a
-    #' PostgreSQL catalog: 96 rows sharing 52 ids, and the rows keyed on them
-    #' duplicated to match.
-    #'
-    #' A SQLite catalog hides this, because its single writer serialises the
-    #' transactions -- which is not a property to depend on, and is exactly
-    #' what WAL mode and a server-backed catalog are for giving up.
-    #'
-    #' So the next value is kept in a row of its own, and allocating updates
-    #' that row. Two allocators then write the *same* row, which is a conflict
-    #' DuckLake does detect, and the loser is sent round `$transaction()`
-    #' again to re-read it. Keeping the update inside the caller's transaction
-    #' is also what keeps the ids dense: a rollback takes the allocation with
-    #' it, so they stay 1..n rather than growing a gap per retry.
-    #'
-    #' A sequence in the catalog would be the obvious alternative and is not
-    #' available: DuckDB refuses `create sequence` on both SQLite and
-    #' PostgreSQL attachments, a DuckDB-file catalog cannot be attached twice
-    #' in one process at all, and -- decisively -- one DuckDB transaction
-    #' cannot write to both an attached catalog and the lake, so such a
-    #' sequence could not roll back with the write it numbers.
-    #'
+    #' Use inside `$transaction()`: Safely hand out the next value of an integer id,
+    #' such that two processes allocating at once cannot both get the same one. Is not a
+    #' DuckLake native feature; employs an auxiliary table for row-level locks to ensure
+    #' uniqueness.
     #' @param table_name Character string, the table the id belongs to.
     #' @param column_name Character string, the id column.
     #' @param n Integer, how many consecutive ids to reserve.
-    #' @return Integer vector of length `n`, the allocated ids. Call inside
-    #' `$transaction()`, together with the write that uses them, or it
-    #' protects nothing.
+    #' @return Integer vector of length `n`, the allocated ids. Side effect: increment
+    #' counter in DB.
     next_id = function(table_name, column_name, n = 1L) {
       n <- as.integer(n)
       stopifnot(
@@ -738,23 +606,29 @@ ducklake_db <- R6::R6Class(
         # caller whose write then fails has taken an id nothing uses, and two
         # callers racing are not made to retry -- the failure this exists to
         # prevent
-        "`$next_id()` only allocates safely inside `$transaction()`" =
-          private$in_transaction
+        "`$next_id()` only allocates safely inside `$transaction()`" = private$in_transaction
       )
 
-      key <- paste(table_name, column_name, sep = ".")
-      quoted_key <- gsub("'", "''", key)
+      quoted_key <-
+        paste(table_name, column_name, sep = ".") |>
+        gsub("'", "''", x = _)
       alloc_ref <- table_ref(ID_ALLOC_TABLE)
 
-      # Seeding from the table itself is what lets this be dropped into a
-      # database that already has ids in it.
-      seed <- function() as.integer(self$column_max(table_name, column_name)) + 1L
+      # Seeding from the table itself in case database already has ids in it.
+      seed <- function() {
+        if (!table_name %in% self$list_tables()) {
+          return(1L)
+        }
 
-      if (!ID_ALLOC_TABLE %in% self$list_tables(include_internal = TRUE)) {
-        self$execute(glue::glue(
-          "create table if not exists {alloc_ref} (id_name varchar, next_id integer)"
-        ))
+        self$get_query(glue::glue(
+          'select max("{column_name}") from {table_ref(table_name)}'
+        ))[[1]] +
+          1L
       }
+
+      self$execute(glue::glue(
+        "create table if not exists {alloc_ref} (id_name varchar, next_id integer)"
+      ))
 
       allocated <- self$get_query(glue::glue(
         "select next_id from {alloc_ref} where id_name = '{quoted_key}'"
@@ -789,9 +663,8 @@ ducklake_db <- R6::R6Class(
       seq.int(allocated, length.out = n)
     },
 
-    #' @description Get SQL expression to read a table. Public because the
-    #' domain functions compose their own SQL around it; they are bound with
-    #' `create_method_binding()` and only receive `self`.
+    #' @description Get SQL expression to read a table, potentially with additional
+    #' filtering applied. [evoland_db] uses it to inject its own state based filter.
     #' @param table_name Character string table name
     #' @return Character string SQL expression
     get_read_expr = function(table_name) {
@@ -801,32 +674,22 @@ ducklake_db <- R6::R6Class(
 
   ## Private Methods ----
   private = list(
-    # R6 hook called on gc(). Deliberately only closes the connection:
-    #
-    # - inlined rows are not flushed. Inlining small writes into the catalog is
-    #   the point of the feature, and flushing would put a catalog write on the
-    #   teardown of every object, including read-only ones and the short-lived
-    #   ones parallel workers open. `$maintain()` flushes, which is where a
-    #   caller who wants that can ask for it.
-    # - the NULL guard is load-bearing: finalize() also runs for an object
-    #   whose initialize() failed before connecting, and DBI has no
-    #   dbDisconnect method for NULL, so without it the finalizer itself errors.
-    # - duckdb_shutdown() takes the *driver*, which is constructed inline above
-    #   and never kept. Its equivalent here is dbDisconnect(shutdown = TRUE),
-    #   and over 200 open/close cycles that reclaims the same memory to within
-    #   0.1 MB, so it buys nothing.
+    # R6 hook called on gc(). Deliberately only closes the connection, no maintenance;
+    # that is for checkpoint()
     finalize = function() {
       if (!is.null(self$connection)) {
+        # in case the connection wasn't started yet
         DBI::dbDisconnect(self$connection)
         self$connection <- NULL
       }
     },
 
-    # DuckLake itself does not pull in the extensions that back the catalog and
-    # the data files, so derive them from where those were pointed
+    # DuckLake does not automatically pull in the extensions; derive from catalog and
+    # data_path
     backend_extensions = function() {
+      scheme <- sub(":.*$", "", self$catalog)
       catalog_ext <- switch(
-        catalog_scheme(self$catalog),
+        scheme,
         sqlite = "sqlite",
         postgres = , # fallthrough
         postgresql = "postgres",
@@ -840,30 +703,22 @@ ducklake_db <- R6::R6Class(
       c(catalog_ext, if (remote_data) "httpfs")
     },
 
-    # whether a transaction() is open on this connection. Both of the things
-    # that have to know are downstream of this one fact: a nested transaction()
-    # joins the open one rather than starting another, since DuckDB has no
-    # nested transactions, and a statement is retried alone only when it is not
-    # part of one.
+    # whether a transaction() is open on this connection
     in_transaction = FALSE,
 
     # Retry a catalog operation in the face of lock contention. DuckLake's own
-    # `ducklake_max_retry_count` covers logical snapshot conflicts, but not
-    # contention on the catalog itself; uncoordinated writers need this wrapper
-    # to all get through. Only transient errors are retried, with exponential
-    # backoff and jitter; anything else is re-raised immediately.
+    # `ducklake_max_retry_count` covers snapshot conflicts, but not contention on the
+    # catalog itself; uncoordinated writers need this wrapper to all get through. Only
+    # transient errors are retried, with exponential backoff and jitter; anything else
+    # is re-raised immediately.
     with_retry = function(fn) {
-      # A statement of an open transaction must not be retried on its own,
-      # because replaying one statement of an aborted transaction would not
-      # redo the rest. It runs bare and transaction() replays the whole block.
       if (private$in_transaction) {
+        # in a transaction, the statement must not be retried on its own
         return(fn())
       }
 
       started <- Sys.time()
-      elapsed <- function() {
-        as.numeric(difftime(Sys.time(), started, units = "secs"))
-      }
+      elapsed <- function() as.numeric(difftime(Sys.time(), started, units = "secs"))
 
       for (attempt in seq_len(self$retry_max)) {
         result <- try(fn(), silent = TRUE)
@@ -880,10 +735,7 @@ ducklake_db <- R6::R6Class(
           stop(condition)
         }
 
-        # Contention we could not outlast. Say so: re-raising the original
-        # condition here is indistinguishable from never having retried at
-        # all, which sends anyone reading the error looking for a bug in the
-        # matching rather than for whatever is holding the lock.
+        # Contention we could not outlast.
         if (attempt == self$retry_max || elapsed() > self$retry_timeout) {
           stop(
             glue::glue(
@@ -898,52 +750,35 @@ ducklake_db <- R6::R6Class(
           )
         }
 
-        # The doubling stops at 64x the base wait: unchecked, the last of
-        # retry_max attempts would be hours apart, but the wait still has to
-        # grow enough to sit out a large commit holding the catalog lock.
-        # Flattening it far lower looks like the fix for a waiter that keeps
-        # missing its turn -- SQLite keeps no queue, so the catalog goes to
-        # whichever process asks next -- but measurably is not: at 16 writers a
-        # ceiling of 8x the base wait cost more attempts and more wall time
-        # than this one, on both journal modes. What was starving those writers
-        # was the attempt cap, not the curve.
+        # The doubling stops at 2^6 = 64x the base wait
         Sys.sleep(stats::runif(1L, 0, self$retry_wait * 2^min(attempt - 1L, 6L)))
       }
     },
 
     ### Commit Methods ----
 
-    # Create table_name and fill it from the pre-registered new_data_v.
-    #
-    # `replace` separates the two callers. An explicit "overwrite" is asking
-    # for the table and its schema to be replaced, so it gets `create or
-    # replace`. An append or upsert that merely found the table missing is
-    # not: with several processes writing, two of them can both find it
-    # missing, and then the second one's `create or replace` drops the table
-    # the first has already committed and takes its rows with it. DuckLake
-    # reports no conflict for that -- the rows are simply gone, with nothing
-    # raised anywhere -- and a pipeline stage whose steps run concurrently
-    # walks straight into it, because they all find the table absent at once.
-    # `create table if not exists` makes the loser of the race a no-op, and
-    # its insert lands in the table the winner created.
+    # commit_append is now a one-line clause in commit()
+
+    # commit_overwrite also used if table is missing
     commit_overwrite = function(table_name, specs, replace = TRUE) {
       target <- table_ref(table_name)
       create_expr <- if (replace) {
+        # replace only if explicit overwrite is required
         glue::glue("create or replace table {target}")
       } else {
+        # if two (or more) writers find the table missing at the same time, they race
+        # each other - with the "create or replace" clause, the last one to arrive drops
+        # what the others wrote.
+        # "create table if not exists" makes the loser of the race a no-op.
         glue::glue("create table if not exists {target}")
       }
 
-      # one transaction, so that a concurrent reader never observes the table
-      # in its intermediate, empty state
+      # concurrent readers observe the state _before_ the overwrite is committed
       self$transaction({
-        # create the table empty first, so that partitioning is already in
-        # effect for the initial batch of rows
+        # create empty table so partitioning can be applied from the start
         self$execute(glue::glue(
           "{create_expr} as from new_data_v limit 0"
         ))
-
-        # partitioning is a pruning hint only; set it once, at table creation
         if (length(specs[["partition_cols"]])) {
           self$execute(glue::glue(
             "alter table {target}
@@ -982,10 +817,7 @@ ducklake_db <- R6::R6Class(
       ))
     },
 
-    # A table's schema is fixed once created. Deleting every row no longer
-    # drops the table, so the old "delete, then insert with an extra column"
-    # route to a schema change is gone; say so rather than letting the insert
-    # fail on a column the caller has to spot for themselves.
+    # Friendly warning if an additional column has been provided
     check_target_columns = function(table_name, all_new_cols) {
       target_cols <- self$get_query(glue::glue(
         "select column_name from (describe {table_ref(table_name)})"
@@ -1005,9 +837,9 @@ ducklake_db <- R6::R6Class(
     },
 
     # DuckLake supports no constraints, keys or indexes, and MERGE silently
-    # inserts duplicates when the source itself has duplicate keys. Both gaps
-    # have to be closed before the merge runs.
+    # inserts duplicates when the source itself has duplicate keys.
     check_source_uniqueness = function(table_name, key_cols, alternate_key_cols) {
+      # FIXME if we're committing a ducklake_db_t, that already has its uniqueness checked
       for (cols in list(key_cols, alternate_key_cols)) {
         if (length(cols) == 0L) {
           next
@@ -1084,6 +916,7 @@ ducklake_db <- R6::R6Class(
       # duckdb_register() cannot turn an R named list into a MAP, so pass it
       # through a key/value intermediate and rebuild the MAP in SQL
       x <- convert_list_cols(x, map_cols, list_to_kv_df)
+      # TODO safe to unregister at end of function?
       duckdb::duckdb_register(self$connection, "new_data_raw", x)
 
       select_expr <- glue::glue_collapse(
@@ -1112,12 +945,8 @@ ducklake_db <- R6::R6Class(
 
     ### Column and Metadata Resolution ----
 
-    # Which columns are keys, maps or partitions comes from the data being
-    # committed, where as_ducklake_db_t() put it, and otherwise from what the
-    # table already carries -- which is the same declaration, stored by the
-    # commit that created it. The live object wins, so changing a spec in a
-    # constructor takes effect on the next commit rather than being pinned by
-    # whatever the table was created with.
+    # Which columns are keys, maps or partitions comes from the attributes of the data
+    # being committed; otherwise use what the table already carries
     col_specs = function(x, stored) {
       lapply(
         stats::setNames(
@@ -1130,9 +959,10 @@ ducklake_db <- R6::R6Class(
     # The stored metadata, without get_table_metadata()'s existence check, for
     # callers that have already established that the table is there
     read_metadata = function(table_name) {
+      # TODO refactor, drop the existence check on get_table_metadata, only implement this there, drop private method
       comment <- self$get_query(glue::glue(
         "select comment from duckdb_tables()
-         where database_name = '{CATALOG_ALIAS}' and table_name = '{table_name}'"
+         where database_name = 'dl_db' and table_name = '{table_name}'"
       ))[[1]]
 
       deserialize_metadata(comment)

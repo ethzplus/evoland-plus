@@ -48,7 +48,7 @@ if (Sys.which("DinamicaConsole") == "") {
       id_periods = 4,
       select_score = "classif.auc",
       select_maximize = TRUE,
-      work_dir = file.path(db$path, "dinamica_test"),
+      work_dir = file.path(dirname(db$catalog), "dinamica_test"),
       keep_intermediate = FALSE
     ),
     "Copying anterior.tif to posterior.tif as fallback so we can test."
@@ -59,7 +59,7 @@ if (Sys.which("DinamicaConsole") == "") {
       id_periods = 4,
       select_score = "classif.auc",
       select_maximize = TRUE,
-      work_dir = file.path(db$path, "dinamica_test"),
+      work_dir = file.path(dirname(db$catalog), "dinamica_test"),
       keep_intermediate = FALSE
     ),
     "Starting to run model with Dinamica EGO"
@@ -182,7 +182,7 @@ expect_message(
       db$eval_alloc_params_t(
         select_score = "classif.auc",
         select_maximize = TRUE,
-        work_dir = file.path(db$path, "dinamica_eval"),
+        work_dir = file.path(dirname(db$catalog), "dinamica_eval"),
         keep_intermediate = FALSE
       ),
   "Evaluation Complete"
