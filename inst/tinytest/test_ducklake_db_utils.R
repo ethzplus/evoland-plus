@@ -135,8 +135,11 @@ expect_equal(
 )
 
 # ---- cols_to_select_expr ----
-expect_identical(evoland:::cols_to_select_expr(c("a", "b")), '"a", "b"')
+# DBI::SQL, like table_ref(), so that a fragment interpolated into a statement
+# is inserted rather than quoted as a string literal
+expect_inherits(evoland:::cols_to_select_expr(c("a", "b")), "SQL")
+expect_identical(as.character(evoland:::cols_to_select_expr(c("a", "b"))), '"a", "b"')
 expect_identical(
-  evoland:::cols_to_select_expr(c("a", "b"), "tbl"),
+  as.character(evoland:::cols_to_select_expr(c("a", "b"), "tbl")),
   '"tbl"."a", "tbl"."b"'
 )

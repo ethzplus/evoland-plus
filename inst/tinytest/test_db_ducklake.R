@@ -173,7 +173,13 @@ db_ext <- ducklake_db$new(
   extensions = "json"
 )
 expect_equal(
-  db_ext$get_query('select json_extract_string(\'{"a": "loaded"}\', \'$.a\') as v')[[1]],
+  # JSON braces are interpolation delimiters unless the statement moves them
+  db_ext$get_query(
+    'select json_extract_string(\'{"a": "loaded"}\', \'$.a\') as v',
+    as_atomic = TRUE,
+    .open = "<<",
+    .close = ">>"
+  ),
   "loaded"
 )
 
@@ -981,6 +987,15 @@ alloc_db$commit(
 expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 8L)
 expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 9L)
 
+# a table that exists but holds no rows has no maximum, which must not leak out
+# as an NA id
+alloc_db$commit(
+  data.table::data.table(id_pred = integer(0), v = character(0)),
+  "alloc_empty",
+  method = "overwrite"
+)
+expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_empty", "id_pred")), 1L)
+
 # a block, for a caller registering several rows at once
 expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred", n = 3L)), 10:12)
 expect_equal(alloc_db$transaction(alloc_db$next_id("alloc_target", "id_pred")), 13L)
@@ -1026,4 +1041,118 @@ expect_equal(
      where id_name = 'alloc_target.id_pred'"
   )[[1]],
   1L
+)
+
+# Test 65: a plain statement is interpolated in its caller's environment, with
+# values quoted rather than pasted, so data cannot close a string and become
+# syntax. An already-interpolated statement is passed through untouched, which
+# is what keeps the pre-glued call sites working.
+interp_db <- ducklake_db$new(path = tempfile("ducklake_db_interp_"))
+interp_db$commit(
+  data.table::data.table(id = 1:3, label = c("a", "b", "O'Brien")),
+  "interp_t",
+  method = "overwrite"
+)
+
+# a value: quoted, apostrophe and all
+wanted <- "O'Brien"
+expect_equal(
+  interp_db$get_query("select id from {table_ref('interp_t')} where label = {wanted}", as_atomic = TRUE),
+  3L
+)
+# and as an explicit argument rather than from the environment
+expect_equal(
+  interp_db$get_query("select id from {table_ref('interp_t')} where label = {v}", v = "b", as_atomic = TRUE),
+  2L
+)
+# an identifier, in backticks
+col <- "label"
+expect_equal(
+  interp_db$get_query("select {`col`} from {table_ref('interp_t')} where id = 1", as_atomic = TRUE),
+  "a"
+)
+# a SQL fragment carries DBI::SQL, so it is inserted, not quoted
+expect_equal(
+  interp_db$get_query("select count(*) from {table_ref('interp_t')}", as_atomic = TRUE),
+  3L
+)
+# already interpolated: braces surviving in the text are text, not delimiters
+expect_equal(
+  interp_db$get_query(glue::glue("select '{{literal}}' as v"), as_atomic = TRUE),
+  "{literal}"
+)
+expect_error(
+  interp_db$get_query(glue::glue("select 1"), v = 2),
+  "already interpolated"
+)
+
+# as_atomic wants exactly one column, so a caller cannot silently lose the rest
+expect_error(
+  interp_db$get_query("select id, label from {table_ref('interp_t')}", as_atomic = TRUE),
+  "exactly one column"
+)
+expect_inherits(interp_db$get_query("select id from {table_ref('interp_t')}"), "data.table")
+
+# Test 66: metadata of a table that does not exist is empty, like that of a
+# table carrying none; the callers that need a missing table to be an error say
+# so themselves
+expect_equal(interp_db$get_table_metadata("no_such_table"), list())
+expect_equal(interp_db$get_table_metadata("interp_t"), list())
+expect_error(interp_db$fetch("no_such_table"), "does not exist")
+
+# Test 67: the source uniqueness scan is skipped for the column sets a
+# constructor already checked, and only those. Here the object declares
+# key_cols, so its duplicates could not exist; alternate_key_cols comes from
+# the table's stored spec, which nothing validated the object against.
+uniq_db <- ducklake_db$new(path = tempfile("ducklake_db_uniq_"))
+uniq_db$commit(
+  as_ducklake_db_t(
+    data.table::data.table(id = 1:2, alt = c("x", "y"), value = c(1, 2)),
+    key_cols = "id",
+    alternate_key_cols = "alt"
+  ),
+  "uniq_t",
+  method = "overwrite"
+)
+
+# declares key_cols only, so `alt` is checked against the stored spec and the
+# duplicate in it is caught
+expect_error(
+  uniq_db$commit(
+    as_ducklake_db_t(
+      data.table::data.table(id = 3:4, alt = c("z", "z"), value = c(3, 4)),
+      key_cols = "id"
+    ),
+    "uniq_t",
+    method = "upsert"
+  ),
+  "Duplicate key found"
+)
+
+# an alternate key held by a different primary key is a check against the
+# stored rows, so no constructor can have covered it
+expect_error(
+  uniq_db$commit(
+    as_ducklake_db_t(
+      data.table::data.table(id = 9L, alt = "x", value = 9),
+      key_cols = "id",
+      alternate_key_cols = "alt"
+    ),
+    "uniq_t",
+    method = "upsert"
+  ),
+  "reuse an existing"
+)
+
+# and a plain data.table gets both scans, having been validated by nothing
+expect_error(
+  uniq_db$commit(
+    structure(
+      data.table::data.table(id = c(5L, 5L), alt = c("p", "q"), value = c(5, 5)),
+      key_cols = "id"
+    ),
+    "uniq_t",
+    method = "upsert"
+  ),
+  "Duplicate key found"
 )

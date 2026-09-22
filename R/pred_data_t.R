@@ -274,7 +274,12 @@ add_predictor <- function(
   # and a failure between the two upserts would leave a predictor with no data
   self$transaction({
     existing_pred <- if ("pred_meta_t" %in% self$list_tables()) {
-      self$fetch("pred_meta_t", where = glue::glue("name = '{name}'"))
+      # glue_sql, so that a name holding an apostrophe is a name rather than a
+      # syntax error
+      self$fetch(
+        "pred_meta_t",
+        where = glue::glue_sql("name = {name}", .con = self$connection)
+      )
     }
 
     # `$next_id()` rather than max(id_pred) + 1, because the latter is a read

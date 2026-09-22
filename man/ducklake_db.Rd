@@ -129,13 +129,20 @@ nothing.}
 \verb{$transaction()}, which is retried as a whole instead.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$execute(statement)}
+    \preformatted{ducklake_db$execute(statement, ..., .open = "{", .close = "}")}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{statement}}{A SQL statement}
+      \item{\code{statement}}{A SQL statement. A plain string is interpolated with
+\code{\link[glue:glue_sql]{glue::glue_sql()}} in the caller's environment, so \code{{value}} is quoted as a
+value, \code{{`name`}} as an identifier, and a \code{\link[DBI:SQL]{DBI::SQL()}} object -- such as
+\code{table_ref()} returns -- inserted as it is. A statement already built with
+\code{\link[glue:glue]{glue::glue()}} or \code{\link[glue:glue_sql]{glue::glue_sql()}} is passed through untouched.}
+      \item{\code{...}}{Values for the interpolation, as with \code{\link[glue:glue_sql]{glue::glue_sql()}}.}
+      \item{\code{.open, .close}}{Interpolation delimiters, for a statement whose own
+syntax needs the braces.}
     }
     \if{html}{\out{</div>}}
   }
@@ -152,18 +159,28 @@ nothing.}
 too; queries are retried on the same terms as writes.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$get_query(statement)}
+    \preformatted{ducklake_db$get_query(
+  statement,
+  ...,
+  as_atomic = FALSE,
+  .open = "{",
+  .close = "}"
+)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{statement}}{A SQL query statement}
+      \item{\code{statement}}{A SQL query statement, interpolated as in \verb{$execute()}.}
+      \item{\code{...}}{Values for the interpolation, as with \code{\link[glue:glue_sql]{glue::glue_sql()}}.}
+      \item{\code{as_atomic}}{Logical. If true, return the single column the query selects
+as a plain vector rather than a one-column data.table.}
+      \item{\code{.open, .close}}{Interpolation delimiters, as in \verb{$execute()}.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    A data.table with query results
+    A data.table with query results, or a vector if \code{as_atomic}
   }
 }
 
@@ -242,7 +259,10 @@ constructs.}
 \if{html}{\out{<a id="method-ducklake_db-get_table_metadata"></a>}}
 \if{latex}{\out{\hypertarget{method-ducklake_db-get_table_metadata}{}}}
 \subsection{\code{ducklake_db$get_table_metadata()}}{
-  Get table metadata, stored as a comment on the catalog table
+  Get table metadata, stored as a comment on the catalog table. A table with no
+metadata, and one that does not exist, both have none, so both give an empty
+list -- the callers that need a missing table to be an error, \verb{$fetch()} and
+\verb{$commit()}, say so themselves and more usefully.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$get_table_metadata(table_name)}

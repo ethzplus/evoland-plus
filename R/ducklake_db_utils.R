@@ -349,5 +349,6 @@ cols_to_select_expr <- function(cols, table_name) {
   } else {
     prefix <- suffix <- '"'
   }
-  paste0(prefix, cols, suffix, collapse = ", ")
+  # DBI::SQL for the same reason as table_ref(): this is a fragment, not a value
+  DBI::SQL(paste0(prefix, cols, suffix, collapse = ", "))
 }

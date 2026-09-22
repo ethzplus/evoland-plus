@@ -31,7 +31,9 @@ collapse_path_separators <- function(path) {
 # and the reads documented as ignoring the active run, need the table itself,
 # so they call this and are not affected by what a subclass does to reading.
 table_ref <- function(table_name) {
-  glue::glue('dl_db."{table_name}"')
+  # DBI::SQL, so that interpolating this into a glue_sql() statement inserts the
+  # reference rather than quoting it as a string literal
+  DBI::SQL(glue::glue('dl_db."{table_name}"'))
 }
 
 #' R6 Base Class for DuckLake-Backed Storage
@@ -200,11 +202,19 @@ ducklake_db <- R6::R6Class(
     #' @description
     #' Execute a SQL statement. Retried on catalog lock contention, except inside a
     #' `$transaction()`, which is retried as a whole instead.
-    #' @param statement A SQL statement
+    #' @param statement A SQL statement. A plain string is interpolated with
+    #' [glue::glue_sql()] in the caller's environment, so `{value}` is quoted as a
+    #' value, ``{`name`}`` as an identifier, and a [DBI::SQL()] object -- such as
+    #' `table_ref()` returns -- inserted as it is. A statement already built with
+    #' [glue::glue()] or [glue::glue_sql()] is passed through untouched.
+    #' @param ... Values for the interpolation, as with [glue::glue_sql()].
+    #' @param .open,.close Interpolation delimiters, for a statement whose own
+    #' syntax needs the braces.
     #' @return Number of rows affected by statement
-    execute = function(statement) {
-      # TODO interpret statement as glue in its calling environment, using
-      # glue::glue_sql(...), exposing ..., .open, and .close
+    execute = function(statement, ..., .open = "{", .close = "}") {
+      statement <- private$interpolate(
+        statement, ..., .open = .open, .close = .close, .envir = parent.frame()
+      )
       private$with_retry(function() {
         DBI::dbExecute(self$connection, statement)
       })
@@ -213,15 +223,27 @@ ducklake_db <- R6::R6Class(
     #' @description
     #' Execute a SQL query and return results. Reading contends for the catalog lock
     #' too; queries are retried on the same terms as writes.
-    #' @param statement A SQL query statement
-    #' @return A data.table with query results
-    get_query = function(statement) {
-      # TODO interpret statement as glue, as with execute
-      # TODO add "as_atomic" argument, returning a single vector without coercing to
-      # data.table; replace the common get_query("select a from b")[[1]] pattern
+    #' @param statement A SQL query statement, interpolated as in `$execute()`.
+    #' @param as_atomic Logical. If true, return the single column the query selects
+    #' as a plain vector rather than a one-column data.table.
+    #' @param ... Values for the interpolation, as with [glue::glue_sql()].
+    #' @param .open,.close Interpolation delimiters, as in `$execute()`.
+    #' @return A data.table with query results, or a vector if `as_atomic`
+    get_query = function(statement, ..., as_atomic = FALSE, .open = "{", .close = "}") {
+      statement <- private$interpolate(
+        statement, ..., .open = .open, .close = .close, .envir = parent.frame()
+      )
       result <- private$with_retry(function() {
         DBI::dbGetQuery(self$connection, statement)
       })
+
+      if (as_atomic) {
+        stopifnot(
+          "`as_atomic` needs a query selecting exactly one column" = length(result) == 1L
+        )
+        return(result[[1L]])
+      }
+
       data.table::setDT(result)
 
       # Convert list columns containing data.frames to data.tables
@@ -248,9 +270,10 @@ ducklake_db <- R6::R6Class(
         return(0L)
       }
 
-      self$get_query(glue::glue(
-        "select count(*) from {table_ref(table_name)}"
-      ))[[1]]
+      self$get_query(
+        "select count(*) from {table_ref(table_name)}",
+        as_atomic = TRUE
+      )
     },
 
     #' @description
@@ -259,11 +282,12 @@ ducklake_db <- R6::R6Class(
     #' constructs.
     #' @return Character vector of table names
     list_tables = function(include_internal = FALSE) {
-      tables <- self$get_query(glue::glue(
+      tables <- self$get_query(
         "select table_name from information_schema.tables
          where table_catalog = 'dl_db'
-         order by table_name"
-      ))[[1]]
+         order by table_name",
+        as_atomic = TRUE
+      )
 
       if (include_internal) tables else setdiff(tables, INTERNAL_TABLES)
     },
@@ -287,7 +311,7 @@ ducklake_db <- R6::R6Class(
         stop("Table `", table_name, "` does not exist in `", self$catalog, "`")
       }
 
-      metadata <- private$read_metadata(table_name)
+      metadata <- self$get_table_metadata(table_name)
       map_cols <- private$col_specs(NULL, metadata)[["map_cols"]]
       if (!is.null(cols)) {
         map_cols <- intersect(cols, map_cols)
@@ -322,15 +346,20 @@ ducklake_db <- R6::R6Class(
     },
 
     #' @description
-    #' Get table metadata, stored as a comment on the catalog table
+    #' Get table metadata, stored as a comment on the catalog table. A table with no
+    #' metadata, and one that does not exist, both have none, so both give an empty
+    #' list -- the callers that need a missing table to be an error, `$fetch()` and
+    #' `$commit()`, say so themselves and more usefully.
     #' @param table_name Character string. Name of the table to query.
     #' @return Named list
     get_table_metadata = function(table_name) {
-      if (!table_name %in% self$list_tables()) {
-        stop("Table `", table_name, "` does not exist")
-      }
+      comment <- self$get_query(
+        "select comment from duckdb_tables()
+         where database_name = 'dl_db' and table_name = {table_name}",
+        as_atomic = TRUE
+      )
 
-      private$read_metadata(table_name)
+      deserialize_metadata(comment)
     },
 
     #' @description
@@ -376,7 +405,7 @@ ducklake_db <- R6::R6Class(
 
       table_exists <- table_name %in% self$list_tables()
 
-      stored <- if (table_exists) private$read_metadata(table_name) else list()
+      stored <- if (table_exists) self$get_table_metadata(table_name) else list()
       specs <- private$col_specs(x, stored)
       metadata <- private$resolve_metadata(x, stored)
 
@@ -385,6 +414,17 @@ ducklake_db <- R6::R6Class(
 
       if (table_exists && method != "overwrite") {
         private$check_target_columns(table_name, all_new_cols) # friendly errors
+      }
+
+      # `as_<table>_t()` rejects duplicates in the key and alternate key columns
+      # the object itself declares, so re-checking those in SQL scans the whole
+      # source for an answer already known. Only what the object declared is
+      # covered: col_specs() falls back to the target table's stored spec, and
+      # nothing validated the data against that.
+      validated_cols <- if (inherits(x, "ducklake_db_t")) {
+        Filter(length, list(attr(x, "key_cols"), attr(x, "alternate_key_cols")))
+      } else {
+        list()
       }
 
       rows <- if (method == "overwrite" || !table_exists) {
@@ -407,7 +447,7 @@ ducklake_db <- R6::R6Class(
           "insert into {table_ref(table_name)} by name (from new_data_v)"
         ))
       } else {
-        private$commit_upsert(table_name, all_new_cols, specs)
+        private$commit_upsert(table_name, all_new_cols, specs, validated_cols)
       }
 
       # `create or replace` drops the comment, so overwrite always passes an empty list
@@ -481,9 +521,10 @@ ducklake_db <- R6::R6Class(
       stopifnot("database is attached read-only" = !self$read_only)
 
       count_snapshots <- function() {
-        self$get_query(glue::glue(
-          "select count(*) from ducklake_snapshots(dl_db)"
-        ))[[1]]
+        self$get_query(
+          "select count(*) from ducklake_snapshots(dl_db)",
+          as_atomic = TRUE
+        )
       }
 
       snapshots_before <- count_snapshots()
@@ -609,9 +650,7 @@ ducklake_db <- R6::R6Class(
         "`$next_id()` only allocates safely inside `$transaction()`" = private$in_transaction
       )
 
-      quoted_key <-
-        paste(table_name, column_name, sep = ".") |>
-        gsub("'", "''", x = _)
+      id_name <- paste(table_name, column_name, sep = ".")
       alloc_ref <- table_ref(ID_ALLOC_TABLE)
 
       # Seeding from the table itself in case database already has ids in it.
@@ -620,19 +659,23 @@ ducklake_db <- R6::R6Class(
           return(1L)
         }
 
-        self$get_query(glue::glue(
-          'select max("{column_name}") from {table_ref(table_name)}'
-        ))[[1]] +
+        # coalesce, because max() over a table that exists but is empty is NULL,
+        # and allocating from NA fails well away from here
+        self$get_query(
+          "select coalesce(max({`column_name`}), 0) from {table_ref(table_name)}",
+          as_atomic = TRUE
+        ) +
           1L
       }
 
-      self$execute(glue::glue(
+      self$execute(
         "create table if not exists {alloc_ref} (id_name varchar, next_id integer)"
-      ))
+      )
 
-      allocated <- self$get_query(glue::glue(
-        "select next_id from {alloc_ref} where id_name = '{quoted_key}'"
-      ))[["next_id"]]
+      allocated <- self$get_query(
+        "select next_id from {alloc_ref} where id_name = {id_name}",
+        as_atomic = TRUE
+      )
 
       # More than one row for a key means two processes seeded it at once:
       # inserts of different rows do not conflict, so nothing stopped them.
@@ -641,24 +684,18 @@ ducklake_db <- R6::R6Class(
       # id already in use.
       if (length(allocated) > 1L) {
         allocated <- max(allocated, seed())
-        self$execute(glue::glue(
-          "delete from {alloc_ref} where id_name = '{quoted_key}'"
-        ))
-        self$execute(glue::glue(
-          "insert into {alloc_ref} values ('{quoted_key}', {allocated})"
-        ))
+        self$execute("delete from {alloc_ref} where id_name = {id_name}")
+        self$execute("insert into {alloc_ref} values ({id_name}, {allocated})")
       } else if (length(allocated) == 0L) {
         allocated <- seed()
-        self$execute(glue::glue(
-          "insert into {alloc_ref} values ('{quoted_key}', {allocated})"
-        ))
+        self$execute("insert into {alloc_ref} values ({id_name}, {allocated})")
       }
 
       allocated <- as.integer(allocated)
 
-      self$execute(glue::glue(
-        "update {alloc_ref} set next_id = {allocated + n} where id_name = '{quoted_key}'"
-      ))
+      self$execute(
+        "update {alloc_ref} set next_id = {allocated + n} where id_name = {id_name}"
+      )
 
       seq.int(allocated, length.out = n)
     },
@@ -705,6 +742,32 @@ ducklake_db <- R6::R6Class(
 
     # whether a transaction() is open on this connection
     in_transaction = FALSE,
+
+    # Interpolate a SQL statement in its caller's environment, with values
+    # quoted by glue_sql() rather than pasted in.
+    #
+    # Only a plain string is interpolated. glue() and glue_sql() return classed
+    # objects, so a statement a caller has already interpolated is passed
+    # through untouched -- which both keeps the many pre-glued call sites
+    # working and stops a second pass tripping over braces that arrived in the
+    # data, in a serialised comment or a predictor name.
+    interpolate = function(statement, ..., .open, .close, .envir) {
+      if (inherits(statement, c("glue", "SQL"))) {
+        stopifnot(
+          "cannot interpolate into an already interpolated statement" = ...length() == 0L
+        )
+        return(statement)
+      }
+
+      glue::glue_sql(
+        statement,
+        ...,
+        .con = self$connection,
+        .open = .open,
+        .close = .close,
+        .envir = .envir
+      )
+    },
 
     # Retry a catalog operation in the face of lock contention. DuckLake's own
     # `ducklake_max_retry_count` covers snapshot conflicts, but not contention on the
@@ -792,11 +855,13 @@ ducklake_db <- R6::R6Class(
       })
     },
 
-    commit_upsert = function(table_name, all_new_cols, specs) {
+    commit_upsert = function(table_name, all_new_cols, specs, validated_cols = list()) {
       key_cols <- specs[["key_cols"]]
       alternate_key_cols <- specs[["alternate_key_cols"]]
 
-      private$check_source_uniqueness(table_name, key_cols, alternate_key_cols)
+      private$check_source_uniqueness(
+        table_name, key_cols, alternate_key_cols, validated_cols
+      )
 
       # Alternate keys identify the same rows as the primary key, so they are
       # never updated; excluding them keeps the mapping between the two intact.
@@ -819,9 +884,10 @@ ducklake_db <- R6::R6Class(
 
     # Friendly warning if an additional column has been provided
     check_target_columns = function(table_name, all_new_cols) {
-      target_cols <- self$get_query(glue::glue(
-        "select column_name from (describe {table_ref(table_name)})"
-      ))[[1]]
+      target_cols <- self$get_query(
+        "select column_name from (describe {table_ref(table_name)})",
+        as_atomic = TRUE
+      )
 
       unknown_cols <- setdiff(all_new_cols, target_cols)
       if (length(unknown_cols) == 0L) {
@@ -837,17 +903,27 @@ ducklake_db <- R6::R6Class(
     },
 
     # DuckLake supports no constraints, keys or indexes, and MERGE silently
-    # inserts duplicates when the source itself has duplicate keys.
-    check_source_uniqueness = function(table_name, key_cols, alternate_key_cols) {
-      # FIXME if we're committing a ducklake_db_t, that already has its uniqueness checked
+    # inserts duplicates when the source itself has duplicate keys. `validated_cols`
+    # names the column sets a constructor has already checked, which need no scan.
+    check_source_uniqueness = function(
+      table_name,
+      key_cols,
+      alternate_key_cols,
+      validated_cols = list()
+    ) {
+      already_validated <- function(cols) {
+        any(vapply(validated_cols, identical, logical(1), cols))
+      }
+
       for (cols in list(key_cols, alternate_key_cols)) {
-        if (length(cols) == 0L) {
+        if (length(cols) == 0L || already_validated(cols)) {
           next
         }
         select_expr <- cols_to_select_expr(cols)
-        duplicates <- self$get_query(glue::glue(
-          "select count(*) - count(distinct ({select_expr})) from new_data_v"
-        ))[[1]]
+        duplicates <- self$get_query(
+          "select count(*) - count(distinct ({select_expr})) from new_data_v",
+          as_atomic = TRUE
+        )
         if (duplicates > 0) {
           stop(glue::glue(
             "Duplicate key found in data to commit to `{table_name}`\n",
@@ -894,7 +970,7 @@ ducklake_db <- R6::R6Class(
         # temp, because a transaction that has written to the catalog may not
         # also write to `memory`, and a plain view would land there
         self$execute(glue::glue("create or replace temp view new_data_v as from {x}"))
-        return(self$get_query(glue::glue("select column_name from (describe {x})"))[[1]])
+        return(self$get_query("select column_name from (describe {`x`})", as_atomic = TRUE))
       }
 
       # DuckLake has no ENUM type, so factors are stored as strings; the
@@ -916,7 +992,6 @@ ducklake_db <- R6::R6Class(
       # duckdb_register() cannot turn an R named list into a MAP, so pass it
       # through a key/value intermediate and rebuild the MAP in SQL
       x <- convert_list_cols(x, map_cols, list_to_kv_df)
-      # TODO safe to unregister at end of function?
       duckdb::duckdb_register(self$connection, "new_data_raw", x)
 
       select_expr <- glue::glue_collapse(
@@ -929,6 +1004,11 @@ ducklake_db <- R6::R6Class(
       self$execute(glue::glue(
         "create or replace temp table new_data_v as select {select_expr} from new_data_raw"
       ))
+
+      # CREATE TABLE AS materialises, so the registration is dead from here and
+      # holding it would pin the R copy for the rest of the commit.
+      # cleanup_new_data_v() still unregisters, for the paths that error first.
+      duckdb::duckdb_unregister(self$connection, "new_data_raw")
 
       names(x)
     },
@@ -954,18 +1034,6 @@ ducklake_db <- R6::R6Class(
         ),
         function(spec) attr(x, spec) %||% stored[[spec]] %||% character(0)
       )
-    },
-
-    # The stored metadata, without get_table_metadata()'s existence check, for
-    # callers that have already established that the table is there
-    read_metadata = function(table_name) {
-      # TODO refactor, drop the existence check on get_table_metadata, only implement this there, drop private method
-      comment <- self$get_query(glue::glue(
-        "select comment from duckdb_tables()
-         where database_name = 'dl_db' and table_name = '{table_name}'"
-      ))[[1]]
-
-      deserialize_metadata(comment)
     },
 
     # Merge the atomic attributes of `x` into the metadata a table already

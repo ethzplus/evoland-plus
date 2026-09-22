@@ -18,8 +18,9 @@ NULL
 get_evoland_db_read_expr <- function(self, super, table_name) {
   base_read_expr <- super$get_read_expr(table_name)
   all_cols <- self$get_query(
-    glue::glue("select column_name from (describe {base_read_expr})")
-  )[[1]]
+    "select column_name from (describe {base_read_expr})",
+    as_atomic = TRUE
+  )
 
   if (
     is.null(self$id_run) || # no active id_run
@@ -45,7 +46,9 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
 
   # Single run in lineage: just filter for active id_run
   if (length(self$run_lineage) == 1L) {
-    return(glue::glue("(select * from {base_read_expr} where id_run = {self$id_run})"))
+    return(DBI::SQL(
+      glue::glue("(select * from {base_read_expr} where id_run = {self$id_run})")
+    ))
   }
 
   # map each id_run in lineage to its distance from the active run; used to
@@ -120,8 +123,9 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
     )
   }
 
-  # return read expression: use semi join to filter the table using best_run
-  glue::glue(
+  # return read expression: use semi join to filter the table using best_run.
+  # DBI::SQL, as with table_ref(), so glue_sql() inserts rather than quotes it.
+  DBI::SQL(glue::glue(
     r"[(
     with
       data_present as (
@@ -138,7 +142,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
     where
       c.id_run in ({toString(self$run_lineage)})
     )]"
-  )
+  ))
 }
 
 #' @describeIn evoland_db_util Run a worker function in parallel with an `evoland_db`
