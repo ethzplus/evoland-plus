@@ -30,7 +30,7 @@
 NULL
 
 evoland_db$set("active", "lulc_meta_long_v", function() {
-  self$get_query(glue::glue(
+  self$get_query(
     r"{
     select
       id_lulc,
@@ -39,11 +39,11 @@ evoland_db$set("active", "lulc_meta_long_v", function() {
     from
       {self$get_read_expr("lulc_meta_t")}
     }"
-  ))
+  )
 })
 
 evoland_db$set("active", "pred_sources_v", function() {
-  self$get_query(glue::glue(
+  self$get_query(
     r"{
     select distinct
       unnest(sources).url as url,
@@ -51,12 +51,12 @@ evoland_db$set("active", "pred_sources_v", function() {
     from {self$get_read_expr("pred_meta_t")}
     where sources is not null
     }"
-  ))
+  )
 })
 
 evoland_db$set("active", "trans_v", function() {
   lulc_read_expr <- self$get_read_expr("lulc_data_t")
-  self$get_query(glue::glue(
+  self$get_query(
     r"{
     select
       curr.id_period,
@@ -71,12 +71,12 @@ evoland_db$set("active", "trans_v", function() {
       curr.id_coord = prev.id_coord
       and curr.id_period = prev.id_period + 1
     }"
-  ))
+  )
 })
 
 evoland_db$set("active", "extent", function() {
   coords_read_expr <- self$get_read_expr("coords_t")
-  self$get_query(glue::glue(
+  self$get_query(
     r"{
       select
         min(lon) as xmin,
@@ -86,7 +86,7 @@ evoland_db$set("active", "extent", function() {
       from
         {coords_read_expr}
       }"
-  )) |>
+  ) |>
     unlist() |>
     terra::ext()
 })
@@ -94,12 +94,12 @@ evoland_db$set("active", "extent", function() {
 evoland_db$set("active", "coords_minimal", function() {
   coords_read_expr <- self$get_read_expr("coords_t")
   metadata <- self$get_table_metadata("coords_t")
-  self$get_query(glue::glue(
+  self$get_query(
     r"{
       select id_coord, lon, lat
       from {coords_read_expr}
       }"
-  )) |>
+  ) |>
     cast_dt_col("id_coord", "int") |>
     data.table::setkeyv("id_coord") |>
     data.table::setattr("epsg", metadata[["epsg"]]) |>
@@ -127,7 +127,7 @@ evoland_db$set(
     rates_read_expr <- self$get_read_expr("trans_rates_t")
     meta_read_expr <- self$get_read_expr("trans_meta_t")
 
-    result <- self$get_query(glue::glue(
+    result <- self$get_query(
       r"{
       select
         m.id_lulc_anterior as "From*",
@@ -141,7 +141,7 @@ evoland_db$set(
         and r.id_period = {id_period}
         and m.is_viable
       }"
-    ))
+    )
 
     result
   }
@@ -176,7 +176,7 @@ evoland_db$set(
     pot_read_expr <- self$get_read_expr("trans_pot_t")
     rates_read_expr <- self$get_read_expr("trans_rates_t")
 
-    self$get_query(glue::glue(
+    self$get_query(
       r"{
       with raw as (
         select
@@ -218,7 +218,7 @@ evoland_db$set(
       select id_trans, id_coord, id_period_post, value
       from closed
       }"
-    ))
+    )
   }
 )
 
@@ -238,7 +238,7 @@ evoland_db$set(
   function() {
     params_read_expr <- self$get_read_expr("alloc_params_t")
 
-    self$get_query(glue::glue(
+    self$get_query(
       r"{
       select
         id_run,
@@ -248,6 +248,6 @@ evoland_db$set(
         patch_elongation    as elongation
       from {params_read_expr}
       }"
-    ))
+    )
   }
 )

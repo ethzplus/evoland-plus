@@ -521,10 +521,9 @@ duckdb::duckdb_register(
   "iso_new_v",
   data.table::data.table(id = 1:50, value = 2)
 )
-iso_ref <- glue::glue('dl_db."iso_t"')
 db$execute("begin transaction")
-db$execute(glue::glue("create or replace table {iso_ref} as from iso_new_v limit 0"))
-db$execute(glue::glue("insert into {iso_ref} by name (from iso_new_v)"))
+db$execute("create or replace table dl_db.iso_t as from iso_new_v limit 0")
+db$execute("insert into dl_db.iso_t by name (from iso_new_v)")
 
 expect_equal(db$row_count("iso_t"), 50L) # writer sees its own changes
 expect_equal(db_reader$row_count("iso_t"), 300L) # reader still sees the old snapshot
@@ -546,9 +545,10 @@ zstd_files <- list.files(
 )
 expect_true(length(zstd_files) > 0)
 expect_equal(
-  db$get_query(glue::glue(
-    "select distinct compression from parquet_metadata('{zstd_files[[1]]}')"
-  ))[[1]],
+  db$get_query(
+    "select distinct compression from parquet_metadata({zstd_files[[1]]})",
+    as_atomic = TRUE
+  ),
   "ZSTD"
 )
 
@@ -736,9 +736,7 @@ expect_true(is.na(db$fetch("schema_t", where = "id_run = 4")[["extra"]]))
 upkeep_dir <- tempfile("ducklake_db_upkeep_")
 db_upkeep <- ducklake_db$new(upkeep_dir)
 snapshots <- function() {
-  db_upkeep$get_query(glue::glue(
-    "select count(*) from ducklake_snapshots(dl_db)"
-  ))[[1]]
+  db_upkeep$get_query("select count(*) from ducklake_snapshots(dl_db)", as_atomic = TRUE)
 }
 
 # past the row limit below which DuckLake inlines into the catalog, so that
@@ -810,15 +808,14 @@ db_slash$commit(upkeep_row(1:200), "slash_t", method = "overwrite")
 db_slash$commit(upkeep_row(50:300), "slash_t", method = "upsert")
 db_slash$checkpoint()
 
-slash_files <- db_slash$get_query(glue::glue(
-  "select data_file from ducklake_list_files(dl_db, 'slash_t')"
-))[[1]]
+slash_files <- db_slash$get_query(
+  "select data_file from ducklake_list_files(dl_db, 'slash_t')",
+  as_atomic = TRUE
+)
 expect_true(length(slash_files) > 0L)
 expect_equal(slash_files[!file.exists(slash_files)], character(0))
 expect_equal(
-  db_slash$get_query(glue::glue(
-    "select count(distinct id) from dl_db.slash_t"
-  ))[[1]],
+  db_slash$get_query("select count(distinct id) from dl_db.slash_t", as_atomic = TRUE),
   300L
 )
 
@@ -1057,23 +1054,25 @@ interp_db$commit(
 # a value: quoted, apostrophe and all
 wanted <- "O'Brien"
 expect_equal(
-  interp_db$get_query("select id from {table_ref('interp_t')} where label = {wanted}", as_atomic = TRUE),
+  interp_db$get_query("select id from dl_db.interp_t where label = {wanted}", as_atomic = TRUE),
   3L
 )
 # and as an explicit argument rather than from the environment
 expect_equal(
-  interp_db$get_query("select id from {table_ref('interp_t')} where label = {v}", v = "b", as_atomic = TRUE),
+  interp_db$get_query("select id from dl_db.interp_t where label = {v}", v = "b", as_atomic = TRUE),
   2L
 )
 # an identifier, in backticks
 col <- "label"
 expect_equal(
-  interp_db$get_query("select {`col`} from {table_ref('interp_t')} where id = 1", as_atomic = TRUE),
+  interp_db$get_query("select {`col`} from dl_db.interp_t where id = 1", as_atomic = TRUE),
   "a"
 )
 # a SQL fragment carries DBI::SQL, so it is inserted, not quoted
+read_expr <- interp_db$get_read_expr("interp_t")
+expect_inherits(read_expr, "SQL")
 expect_equal(
-  interp_db$get_query("select count(*) from {table_ref('interp_t')}", as_atomic = TRUE),
+  interp_db$get_query("select count(*) from {read_expr}", as_atomic = TRUE),
   3L
 )
 # already interpolated: braces surviving in the text are text, not delimiters
@@ -1088,10 +1087,10 @@ expect_error(
 
 # as_atomic wants exactly one column, so a caller cannot silently lose the rest
 expect_error(
-  interp_db$get_query("select id, label from {table_ref('interp_t')}", as_atomic = TRUE),
+  interp_db$get_query("select id, label from dl_db.interp_t", as_atomic = TRUE),
   "exactly one column"
 )
-expect_inherits(interp_db$get_query("select id from {table_ref('interp_t')}"), "data.table")
+expect_inherits(interp_db$get_query("select id from dl_db.interp_t"), "data.table")
 
 # Test 66: metadata of a table that does not exist is empty, like that of a
 # table carrying none; the callers that need a missing table to be an error say
@@ -1143,6 +1142,14 @@ expect_error(
   ),
   "reuse an existing"
 )
+
+# the scan really is skipped, not merely redundant: duplicates forged past the
+# constructor get through, which is the trade the skip accepts
+forged <- data.table::data.table(id = c(7L, 7L), alt = c("s", "t"), value = c(7, 8))
+data.table::setattr(forged, "class", c("ducklake_db_t", class(forged)))
+data.table::setattr(forged, "key_cols", "id")
+data.table::setattr(forged, "alternate_key_cols", "alt")
+expect_silent(uniq_db$commit(forged, "uniq_t", method = "upsert"))
 
 # and a plain data.table gets both scans, having been validated by nothing
 expect_error(

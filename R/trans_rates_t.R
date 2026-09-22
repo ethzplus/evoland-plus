@@ -52,7 +52,7 @@ get_obs_trans_rates <- function(self) {
   lulc_expr <- self$get_read_expr("lulc_data_t")
   meta_expr <- self$get_read_expr("trans_meta_t")
 
-  result <- self$get_query(glue::glue(
+  result <- self$get_query(
     r"{
     with trans_v as (
       select
@@ -104,7 +104,7 @@ get_obs_trans_rates <- function(self) {
       and c.id_lulc_anterior = m.id_lulc_anterior
       and c.id_lulc_posterior = m.id_lulc_posterior
     }"
-  ))
+  )
 
   as_trans_rates_t(result)
 }

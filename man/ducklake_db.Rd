@@ -135,11 +135,12 @@ nothing.}
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{statement}}{A SQL statement. A plain string is interpolated with
-\code{\link[glue:glue_sql]{glue::glue_sql()}} in the caller's environment, so \code{{value}} is quoted as a
-value, \code{{`name`}} as an identifier, and a \code{\link[DBI:SQL]{DBI::SQL()}} object -- such as
-\code{table_ref()} returns -- inserted as it is. A statement already built with
-\code{\link[glue:glue]{glue::glue()}} or \code{\link[glue:glue_sql]{glue::glue_sql()}} is passed through untouched.}
+      \item{\code{statement}}{A SQL statement, interpolated with \code{\link[glue:glue_sql]{glue::glue_sql()}} in the
+caller's environment: \code{{value}} is quoted as a value, \code{{`name`}} as an
+identifier, \verb{\{`names`*\}} as a comma-separated list of them, and a
+\code{\link[DBI:SQL]{DBI::SQL()}} object -- such as \verb{$get_read_expr()} returns -- inserted as it
+stands. A statement already built with \code{\link[glue:glue]{glue::glue()}} or \code{\link[glue:glue_sql]{glue::glue_sql()}} is
+passed through as it is.}
       \item{\code{...}}{Values for the interpolation, as with \code{\link[glue:glue_sql]{glue::glue_sql()}}.}
       \item{\code{.open, .close}}{Interpolation delimiters, for a statement whose own
 syntax needs the braces.}

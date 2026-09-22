@@ -265,16 +265,17 @@ generate_neighbor_predictors <- function(self) {
     # not treat as a conflict, so two processes generating predictors at once
     # would both keep the same maximum and write the same ids. See
     # `ducklake_db$next_id()`.
-    n_permutations <- self$get_query(glue::glue(
+    n_permutations <- self$get_query(
       r"{
     select
       (select count(*) from {lulc_meta_read_expr})
       * (select count(distinct distance_class) from {neighbors_read_expr})
-    }"
-    ))[[1L]]
+    }",
+      as_atomic = TRUE
+    )
     first_id_pred <- self$next_id("pred_meta_t", "id_pred", n = n_permutations)[[1L]]
 
-    n_predictors <- self$execute(glue::glue(
+    n_predictors <- self$execute(
       r"{
     create or replace temp table pred_meta_neighbors_t as
     with
@@ -300,7 +301,7 @@ generate_neighbor_predictors <- function(self) {
     cross join
       all_distance_classes c
     }"
-    ))
+    )
     self$pred_meta_t <-
       self$get_query(
         "select * exclude (distance_class, id_lulc) from pred_meta_neighbors_t"
@@ -308,17 +309,17 @@ generate_neighbor_predictors <- function(self) {
       as_pred_meta_t()
 
     # Set the id_pred in pred_meta_neighbors_t based on the autoincremented IDs in pred_meta_t
-    self$execute(glue::glue(
+    self$execute(
       r"{
     update pred_meta_neighbors_t
     set id_pred = m.id_pred
     from {pred_meta_read_expr} m
     where pred_meta_neighbors_t.name = m.name
     }"
-    ))
+    )
 
     # Count the number of neighbours per origin, period, id_lulc and distance_class
-    n_data_points <- self$execute(glue::glue(
+    n_data_points <- self$execute(
       r"{
     create or replace temp table pred_neighbors_t as
     select
@@ -342,7 +343,7 @@ generate_neighbor_predictors <- function(self) {
       t.id_lulc,
       p.id_pred
     }"
-    ))
+    )
     self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
 
     # pred_neighbors_t holds a row per coordinate, period and predictor, so
@@ -375,7 +376,7 @@ upsert_new_neighbors <- function(self, id_period) {
     }
   )
 
-  self$execute(glue::glue(
+  self$execute(
     r"{
     create temp table pred_meta_neighbors_t as
     select
@@ -385,14 +386,14 @@ upsert_new_neighbors <- function(self, id_period) {
     from {self$get_read_expr("pred_meta_t")}
       where name like 'id_lulc_%_dist_%'
     }"
-  ))
+  )
   on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
 
   if (self$get_query("from pred_meta_neighbors_t") |> nrow() == 0L) {
     stop("No neighbor predictors found in pred_meta_t, cannot upsert new neighbors")
   }
 
-  self$execute(glue::glue(
+  self$execute(
     r"{
     create temp table pred_neighbors_t as
     select
@@ -417,7 +418,7 @@ upsert_new_neighbors <- function(self, id_period) {
       t.id_lulc,
       p.id_pred
     }"
-  ))
+  )
   on.exit(self$execute("drop table pred_neighbors_t"), add = TRUE)
 
   self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")

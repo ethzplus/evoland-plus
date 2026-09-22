@@ -91,7 +91,10 @@ lulc_data_as_rast <- function(self, id_period = NULL) {
   # Build query to join lulc_data_t with coords_t
   where_clause <- NULL
   if (!is.null(id_period)) {
-    where_clause <- glue::glue("id_period in ({toString(id_period)})")
+    where_clause <- glue::glue_sql(
+      "id_period in ({id_period*})",
+      .con = self$connection
+    )
   }
 
   data <- self$fetch("lulc_data_t", where = where_clause)

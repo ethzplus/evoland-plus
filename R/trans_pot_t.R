@@ -163,16 +163,18 @@ predict_trans_pot <- function(
     }
 
     # Get model for this transition
-    model_blob <- self$get_query(glue::glue(
+    model_blob <- self$get_query(
       r"[
       select learner_full
       from {self$get_read_expr("trans_models_t")}
       where id_trans = {id_trans}
         and learner_full is not null
-      order by crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")}
+      order by crossval_score[{select_score}] {sort_direction}
       limit 1
-      ]"
-    ))[[1]]
+      ]",
+      sort_direction = DBI::SQL(if (select_maximize) "desc" else "asc"),
+      as_atomic = TRUE
+    )
 
     if (length(model_blob) == 0L) {
       warning(glue::glue("No model found for id_trans={id_trans}"))
@@ -211,15 +213,16 @@ predict_trans_pot <- function(
 .check_viable_trans_models <- function(self, select_score) {
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
-  modeled_ids <- self$get_query(glue::glue(
+  modeled_ids <- self$get_query(
     r"[
     select distinct id_trans
     from {self$get_read_expr("trans_models_t")}
     where
       learner_full is not null
-      and crossval_score['{select_score}'] is not null
-    ]"
-  ))[[1]]
+      and crossval_score[{select_score}] is not null
+    ]",
+    as_atomic = TRUE
+  )
 
   missing_models <- sort(setdiff(viable_trans$id_trans, modeled_ids))
 
@@ -229,14 +232,14 @@ predict_trans_pot <- function(
 
   # If a transition has no valid model but _has_ an error row, print that
   err_messages <-
-    self$get_query(glue::glue(
+    self$get_query(
       r"[
         select id_trans, learner_id, learner_params.error_message
         from {self$get_read_expr("trans_models_t")}
-        where id_trans in ({toString(missing_models)})
+        where id_trans in ({missing_models*})
           and learner_params.error_message is not null
         ]"
-    )) |>
+    ) |>
     split(by = c("id_trans", "learner_id"), keep.by = TRUE) |>
     sapply(function(df) {
       glue::glue(
@@ -269,13 +272,14 @@ predict_trans_pot <- function(
     return(FALSE)
   }
 
-  self$get_query(glue::glue(
+  self$get_query(
     r"[
       select exists (
         select 1
         from {self$get_read_expr("trans_pot_t")}
         where id_trans = {id_trans} and id_period_post = {id_period_post}
       )
-    ]"
-  ))[[1]] # returns scalar boolean
+    ]",
+    as_atomic = TRUE
+  )
 }

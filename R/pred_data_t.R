@@ -93,16 +93,13 @@ print.pred_data_t <- function(x, nrow = 10, ...) {
 #' @describeIn pred_data_t Check if predictor data is complete, i.e. each entry in
 #' [pred_meta_t] is either present in period 0 or for all other periods for a given run.
 pred_data_available_v <- function(self) {
-  system.file("pred_data_present.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
-      pred_data_read_expr = self$get_read_expr("pred_data_t"),
-      periods_read_expr = self$get_read_expr("periods_t"),
-      pred_meta_read_expr = self$get_read_expr("pred_meta_t"),
-      runs_read_expr = self$get_read_expr("runs_t")
-    ) |>
-    self$get_query()
+  self$get_query(
+    read_sql("pred_data_present.sql"),
+    pred_data_read_expr = self$get_read_expr("pred_data_t"),
+    periods_read_expr = self$get_read_expr("periods_t"),
+    pred_meta_read_expr = self$get_read_expr("pred_meta_t"),
+    runs_read_expr = self$get_read_expr("runs_t")
+  )
 }
 
 #' @describeIn pred_data_t Get transitions along with their predictor data in a wide data.table
@@ -136,18 +133,15 @@ trans_pred_data_v <- function(
   }
 
   result <-
-    system.file("trans_pred_data.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
+    self$get_query(
+      read_sql("trans_pred_data.sql"),
       lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
       period_read_expr = self$get_read_expr("periods_t"),
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       id_trans = id_trans,
       id_pred = id_pred
-    ) |>
-    self$get_query()
+    )
 
   set_pred_coltypes(result, pred_meta_t)
 
@@ -177,19 +171,27 @@ pred_data_wide_v <- function(
     "id_run must be set" = !is.null(self$id_run)
   )
 
+  trans_condition <- if (is.na(id_trans)) {
+    DBI::SQL("is_viable = TRUE")
+  } else {
+    glue::glue_sql("id_trans = {id_trans}", .con = self$connection)
+  }
+
   result <-
-    system.file("pred_data_wide.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
+    self$get_query(
+      read_sql("pred_data_wide.sql"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
       lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
-      id_trans = id_trans,
+      trans_condition = trans_condition,
+      trans_filter = if (is.na(id_trans)) {
+        DBI::SQL("")
+      } else {
+        glue::glue_sql("where {trans_condition}", .con = self$connection)
+      },
       id_period_anterior = id_period_anterior
-    ) |>
-    self$get_query()
+    )
 
   set_pred_coltypes(result, self$pred_meta_t)
 

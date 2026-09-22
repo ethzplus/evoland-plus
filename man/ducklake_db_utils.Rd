@@ -3,6 +3,7 @@
 \name{ducklake_db_utils}
 \alias{ducklake_db_utils}
 \alias{as_ducklake_db_t}
+\alias{read_sql}
 \alias{serialize_metadata}
 \alias{deserialize_metadata}
 \alias{convert_list_cols}
@@ -10,7 +11,6 @@
 \alias{kv_df_to_list}
 \alias{create_table_binding}
 \alias{create_method_binding}
-\alias{cols_to_select_expr}
 \title{DuckLake database utility functions}
 \usage{
 as_ducklake_db_t(
@@ -21,6 +21,8 @@ as_ducklake_db_t(
   map_cols = NULL,
   partition_cols = NULL
 )
+
+read_sql(file)
 
 serialize_metadata(metadata)
 
@@ -38,8 +40,6 @@ create_table_binding(
 )
 
 create_method_binding(fun, with_private = FALSE, with_super = FALSE)
-
-cols_to_select_expr(cols, table_name)
 }
 \arguments{
 \item{class_name}{Optional class name to prepend before "ducklake_db_t". Used
@@ -63,11 +63,13 @@ MAP type, used to store named unnested lists from R.}
 \item{partition_cols}{Optional character vector. Used to specify columns for
 hive style partitioning of the data files.}
 
+\item{file}{Name of a SQL file in the installed package.}
+
 \item{metadata}{Named list of atomic vectors.}
 
 \item{comment}{Character scalar, or NA for a table without metadata.}
 
-\item{cols}{The columns to select.}
+\item{cols}{The list columns to convert.}
 
 \item{fn}{The function to apply to each element of the list columns}
 
@@ -92,6 +94,10 @@ A set of utility functions for working with \link{ducklake_db}.
 data.table and adds attributes that \link{ducklake_db} relies on for database-like
 operations. See the paramaters for details.
 
+\item \code{read_sql()}: Read one of the package's \verb{inst/*.sql} files, for
+passing to \verb{$get_query()} -- which interpolates it, so the placeholders in the
+file are filled from the named arguments given alongside it.
+
 \item \code{serialize_metadata()}: Serialize a named list of atomic vectors into the
 single string that \link{ducklake_db} stores as a comment on the catalog table. Each
 entry becomes one line, \verb{key: "value1", "value2"}.
@@ -115,9 +121,6 @@ to fetch or commit data to that table. The active binding either returns the tab
 \item \code{create_method_binding()}: Helper function to bind a function as a method to an R6
 generator. Simply passes the R6 method's arguments as-is to the underlying "pure"
 function, passing the R6 reference to \code{self}, but not to \code{private}.
-
-\item \code{cols_to_select_expr()}: Paste vector of escaped column names into a SQL
-select statement, with optional table name prefix.
 
 }}
 \keyword{internal}
