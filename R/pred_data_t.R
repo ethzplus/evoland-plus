@@ -158,6 +158,7 @@ trans_pred_data_v <- function(
 #' get the predictors that explain the processes over the next N years
 pred_data_wide_v <- function(
   self,
+  private,
   id_trans,
   id_period_anterior
 ) {
@@ -171,10 +172,14 @@ pred_data_wide_v <- function(
     "id_run must be set" = !is.null(self$id_run)
   )
 
-  trans_condition <- if (is.na(id_trans)) {
-    DBI::SQL("is_viable = TRUE")
+  if (is.na(id_trans)) {
+    # if NA, fetch all data for viable transitions. used for prefetch.
+    trans_condition <- DBI::SQL("is_viable = TRUE")
+    trans_filter <- DBI::SQL("")
   } else {
-    glue::glue_sql("id_trans = {id_trans}", .con = self$connection)
+    # only fetch data for single transition
+    trans_condition <- private$sql("id_trans = {id_trans}")
+    trans_filter <- private$sql("where {trans_condition}")
   }
 
   result <-
@@ -185,11 +190,7 @@ pred_data_wide_v <- function(
       lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
       trans_condition = trans_condition,
-      trans_filter = if (is.na(id_trans)) {
-        DBI::SQL("")
-      } else {
-        glue::glue_sql("where {trans_condition}", .con = self$connection)
-      },
+      trans_filter = trans_filter,
       id_period_anterior = id_period_anterior
     )
 
@@ -263,6 +264,7 @@ set_pred_coltypes <- function(result, pred_meta_t) {
 #' descriptors like "bed nights/year" as a proxy for touristic activity
 add_predictor <- function(
   self,
+  private,
   pred_data_raw,
   name,
   fill_value,
@@ -275,24 +277,7 @@ add_predictor <- function(
   # one transaction: the id_pred is allocated against what pred_meta_t holds,
   # and a failure between the two upserts would leave a predictor with no data
   self$transaction({
-    existing_pred <- if ("pred_meta_t" %in% self$list_tables()) {
-      # glue_sql, so that a name holding an apostrophe is a name rather than a
-      # syntax error
-      self$fetch(
-        "pred_meta_t",
-        where = glue::glue_sql("name = {name}", .con = self$connection)
-      )
-    }
-
-    # `$next_id()` rather than max(id_pred) + 1, because the latter is a read
-    # followed by a write that DuckLake does not treat as a conflict: two
-    # processes registering a predictor at once both keep the same maximum and
-    # the duplicate ids just land in the table, silently
-    id_pred <- if (!is.null(existing_pred) && nrow(existing_pred) > 0L) {
-      existing_pred[["id_pred"]][1L]
-    } else {
-      self$next_id("pred_meta_t", "id_pred")
-    }
+    id_pred <- self$next_id("pred_meta_t", "id_pred")
 
     new_meta_row <- data.table::data.table(
       id_pred = id_pred,

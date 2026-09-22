@@ -107,10 +107,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
       group by
         {group_cols}
       ]",
-      group_cols = glue::glue_sql_collapse(
-        sql("b.{`inheritance_key_cols`}"),
-        sep = ", "
-      )
+      group_cols = glue::glue_sql_collapse(sql("b.{`inheritance_key_cols`}"), sep = ", ")
     )
   } else {
     # general case: just find minimum distance id_run for each tuple of distinctness cols

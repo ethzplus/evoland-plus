@@ -147,7 +147,7 @@ evoland_db <- R6::R6Class(
       sources = data.frame(url = character(0), md5sum = character(0)),
       unit = NA_character_
     ) {
-      create_method_binding(add_predictor)
+      create_method_binding(add_predictor, with_private = TRUE)
     },
 
     #' @description Get transitions along with their predictor data in a wide
@@ -163,7 +163,7 @@ evoland_db <- R6::R6Class(
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_period_anterior Integer ID of period to retrieve data for
     pred_data_wide_v = function(id_trans, id_period_anterior) {
-      create_method_binding(pred_data_wide_v)
+      create_method_binding(pred_data_wide_v, with_private = TRUE)
     },
 
     ### Allocation methods ---
@@ -247,7 +247,7 @@ evoland_db <- R6::R6Class(
     #' @param id_period Optional integer vector of period IDs to include. If
     #'   NULL (default), all periods are included.
     lulc_data_as_rast = function(id_period = NULL) {
-      create_method_binding(lulc_data_as_rast)
+      create_method_binding(lulc_data_as_rast, with_private = TRUE)
     },
 
     #' @description

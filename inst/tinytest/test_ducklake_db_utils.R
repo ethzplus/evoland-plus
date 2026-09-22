@@ -133,5 +133,3 @@ expect_equal(
   wrapper(a = 2, b = 3),
   list(sum = 5, self_ok = TRUE, private_ok = TRUE, super_ok = FALSE)
 )
-
-

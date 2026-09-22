@@ -68,10 +68,7 @@ ducklake_db <- R6::R6Class(
     read_only = NULL,
 
     #' @field retry_timeout Numeric, how long in seconds to keep retrying a
-    #' contended catalog operation before giving up. This, not `retry_max`, is
-    #' the limit that normally applies: how many attempts fit in the budget
-    #' depends on how long each contended attempt blocks, which is not
-    #' something a caller can predict.
+    #' contended catalog operation before giving up.
     retry_timeout = 300,
 
     #' @field retry_wait Numeric, base wait in seconds for the retry backoff,
@@ -200,7 +197,11 @@ ducklake_db <- R6::R6Class(
     #' @return Number of rows affected by statement
     execute = function(statement, ..., .open = "{", .close = "}") {
       statement <- private$interpolate(
-        statement, ..., .open = .open, .close = .close, .envir = parent.frame()
+        statement,
+        ...,
+        .open = .open,
+        .close = .close,
+        .envir = parent.frame()
       )
       private$with_retry(function() {
         DBI::dbExecute(self$connection, statement)
@@ -218,7 +219,11 @@ ducklake_db <- R6::R6Class(
     #' @return A data.table with query results, or a vector if `as_atomic`
     get_query = function(statement, ..., as_atomic = FALSE, .open = "{", .close = "}") {
       statement <- private$interpolate(
-        statement, ..., .open = .open, .close = .close, .envir = parent.frame()
+        statement,
+        ...,
+        .open = .open,
+        .close = .close,
+        .envir = parent.frame()
       )
       result <- private$with_retry(function() {
         DBI::dbGetQuery(self$connection, statement)
@@ -326,9 +331,7 @@ ducklake_db <- R6::R6Class(
 
     #' @description
     #' Get table metadata, stored as a comment on the catalog table. A table with no
-    #' metadata, and one that does not exist, both have none, so both give an empty
-    #' list -- the callers that need a missing table to be an error, `$fetch()` and
-    #' `$commit()`, say so themselves and more usefully.
+    #' metadata, and one that does not exist, both return an empty list
     #' @param table_name Character string. Name of the table to query.
     #' @return Named list
     get_table_metadata = function(table_name) {
@@ -382,7 +385,7 @@ ducklake_db <- R6::R6Class(
 
       table_exists <- table_name %in% self$list_tables()
 
-      stored <- if (table_exists) self$get_table_metadata(table_name) else list()
+      stored <- self$get_table_metadata(table_name)
       specs <- private$col_specs(x, stored)
       metadata <- private$resolve_metadata(x, stored)
 
@@ -494,10 +497,7 @@ ducklake_db <- R6::R6Class(
       stopifnot("database is attached read-only" = !self$read_only)
 
       count_snapshots <- function() {
-        self$get_query(
-          "select count(*) from ducklake_snapshots(dl_db)",
-          as_atomic = TRUE
-        )
+        self$get_query("select count(*) from ducklake_snapshots(dl_db)", as_atomic = TRUE)
       }
 
       snapshots_before <- count_snapshots()
@@ -616,7 +616,6 @@ ducklake_db <- R6::R6Class(
       stopifnot(
         "database is attached read-only" = !self$read_only,
         "`n` must be a positive count" = length(n) == 1L && !is.na(n) && n >= 1L,
-        # outside a transaction, two callers racing are never made to retry
         "`$next_id()` only allocates safely inside `$transaction()`" = private$in_transaction
       )
 
@@ -645,8 +644,8 @@ ducklake_db <- R6::R6Class(
         as_atomic = TRUE
       )
 
-      # two processes can seed the row at once, inserts of different rows not being
-      # a conflict. Collapsing them writes both rows, which is one.
+      # two processes could theoretically seed the row at once, inserts of different
+      # rows not being a conflict. Collapsing them writes both rows, which is one.
       if (length(allocated) > 1L) {
         allocated <- max(allocated, seed())
         self$execute("delete from dl_db.{`ID_ALLOC_TABLE`} where id_name = {id_name}")
@@ -709,16 +708,14 @@ ducklake_db <- R6::R6Class(
     # whether a transaction() is open on this connection
     in_transaction = FALSE,
 
-    # glue_sql() bound to this connection, for composing the fragments a statement
-    # is assembled from. .envir, or it would interpolate in this method's frame.
+    # glue_sql() bound to this connection, evaluated in caller's frame
     sql = function(...) {
       glue::glue_sql(..., .con = self$connection, .envir = parent.frame())
     },
 
-    # glue() and glue_sql() return classed objects, so a statement a caller has
-    # already interpolated is left alone; a second pass would trip over braces
-    # that arrived in the data rather than in the template.
     interpolate = function(statement, ..., .open, .close, .envir) {
+      # a statement a caller has already interpolated is left alone; a second pass would
+      # trip over braces that arrived in the data rather than in the template.
       if (inherits(statement, c("glue", "SQL"))) {
         stopifnot(
           "cannot interpolate into an already interpolated statement" = ...length() == 0L
@@ -822,7 +819,10 @@ ducklake_db <- R6::R6Class(
       alternate_key_cols <- specs[["alternate_key_cols"]]
 
       private$check_source_uniqueness(
-        table_name, key_cols, alternate_key_cols, validated_cols
+        table_name,
+        key_cols,
+        alternate_key_cols,
+        validated_cols
       )
 
       # Alternate keys identify the same rows as the primary key, so they are
@@ -968,9 +968,6 @@ ducklake_db <- R6::R6Class(
         "create or replace temp table new_data_v as select {select_expr} from new_data_raw"
       )
 
-      # the table is materialised, so the registration would only pin the R copy
-      duckdb::duckdb_unregister(self$connection, "new_data_raw")
-
       names(x)
     },
 
@@ -1020,9 +1017,7 @@ ducklake_db <- R6::R6Class(
       out <- c(existing, new_metadata[names_to_add])
 
       for (key in names(out)[!vapply(out, is.atomic, logical(1))]) {
-        warning(glue::glue(
-          "Metadata key '{key}' has non-atomic value; dropping metadata"
-        ))
+        warning("Metadata key '", key, "' has non-atomic value; dropping metadata")
       }
       out <- Filter(is.atomic, out)
 

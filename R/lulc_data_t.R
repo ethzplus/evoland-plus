@@ -87,14 +87,11 @@ print.lulc_data_t <- function(x, nrow = 10, ...) {
 #' @param id_period Integer or vector of integers specifying which periods to
 #' retrieve; returned as layers.
 #' @keywords internal
-lulc_data_as_rast <- function(self, id_period = NULL) {
+lulc_data_as_rast <- function(self, private, id_period = NULL) {
   # Build query to join lulc_data_t with coords_t
   where_clause <- NULL
   if (!is.null(id_period)) {
-    where_clause <- glue::glue_sql(
-      "id_period in ({id_period*})",
-      .con = self$connection
-    )
+    where_clause <- private$sql("id_period in ({id_period*})")
   }
 
   data <- self$fetch("lulc_data_t", where = where_clause)

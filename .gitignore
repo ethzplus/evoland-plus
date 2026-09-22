@@ -44,7 +44,3 @@ rv*
 *.parquet
 # ignore drafts
 *suddel*
-
-# concurrency harness run artefacts
-inst/concurrency/runs/
-inst/concurrency/results.txt
