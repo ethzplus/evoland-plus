@@ -254,8 +254,10 @@ db$trans_pot_t <- pots(2L, 2L, 4:6)
 db$trans_pot_t <- pots(2L, 3L, 4:6)
 expect_message(db$prune_trans_pot(id_period_post = 2L), "Pruned 3 trans_pot_t rows of id_run=2")
 expect_equal(
-  db$get_query("select id_run, id_period_post, count(*) as n from dl_db.trans_pot_t
-    group by all order by all"),
+  db$get_query(
+    "select id_run, id_period_post, count(*) as n from dl_db.trans_pot_t
+    group by all order by all"
+  ),
   data.table::data.table(id_run = c(0L, 2L), id_period_post = 2:3, n = c(3, 3)),
   check.attributes = FALSE
 )
