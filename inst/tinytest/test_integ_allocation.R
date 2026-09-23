@@ -152,6 +152,19 @@ expect_message(
   fixed = TRUE
 )
 
+# The exported single-period allocator returns the map without committing it
+n_lulc_before <- db$row_count("lulc_data_t")
+lulc_single <- alloc_clumpy_one_period(
+  db = db,
+  id_period_post = 4L,
+  select_score = "classif.auc",
+  select_maximize = TRUE,
+  use_parent_trans_pot = TRUE
+)
+expect_inherits(lulc_single, "lulc_data_t")
+expect_equal(unique(lulc_single[["id_run"]]), 4L)
+expect_equal(db$row_count("lulc_data_t"), n_lulc_before)
+
 # --------------------------------------------------------------------------
 # Test error handling
 # --------------------------------------------------------------------------

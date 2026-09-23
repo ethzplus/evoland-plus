@@ -49,12 +49,13 @@ NULL
 # Single-period CLUMPY allocation
 # ---------------------------------------------------------------------------
 
-#' @describeIn alloc_clumpy
-#' Allocate LULC changes for a single period using the CLUMPY algorithm.
+#' Single-period CLUMPY allocation
+#'
+#' Allocate LULC changes for a single period using the CLUMPY algorithm, see [alloc_clumpy].
 #' Can either independently compute transition potential, use the parent run's transition potential
 #' (useful when forking runs for Monte-Carlo) or read pre-written trans_pot_t values
 #'
-#' @param self An [evoland_db] instance.
+#' @param db An [evoland_db] instance; uses its active `id_run`.
 #' @param id_period_post Integer posterior period ID.
 #' @param select_score Character; mlr3 measure ID for model selection.
 #' @param select_maximize Logical; whether to maximise `select_score`.
@@ -69,10 +70,15 @@ NULL
 #'   cap (1 = strict uPAM); `< 0` processes all candidates in a single pass.
 #' @param use_parent_trans_pot Logical; if TRUE, use the parent run's transition
 #'   potentials. Useful if a run branches off from parent.
-#' @return An [lulc_data_t] with the simulated posterior LULC.
-#' @keywords internal
+#' @param force_predict_trans_pot Logical; if TRUE, recompute transition potentials even if
+#'   `trans_pot_t` already holds them for this run and period.
+#' @return An [lulc_data_t] with the simulated posterior LULC. Nothing is committed:
+#'   the caller commits it to `lulc_data_t` and, if later periods follow, refreshes the
+#'   neighbour predictors with `db$upsert_new_neighbors()`. This leaves room to edit
+#'   `trans_pot_t` before, or the allocated map after, each period.
+#' @export
 alloc_clumpy_one_period <- function(
-  self,
+  db,
   id_period_post,
   select_score,
   select_maximize,
@@ -86,44 +92,44 @@ alloc_clumpy_one_period <- function(
   # TODO rework whole function into more idiomatic code
   # 1. Predict and store raw transition potentials
   if (use_parent_trans_pot) {
-    id_run_init <- self$id_run
-    on.exit(self$id_run <- id_run_init, add = TRUE)
-    parent_run <- self$run_lineage[2]
+    id_run_init <- db$id_run
+    on.exit(db$id_run <- id_run_init, add = TRUE)
+    parent_run <- db$run_lineage[2]
     if (!is.na(parent_run)) {
       # cannot go up from a root run
-      self$id_run <- parent_run
+      db$id_run <- parent_run
     }
   }
-  self$predict_trans_pot(
+  db$predict_trans_pot(
     id_period_post = id_period_post,
     select_score = select_score,
     select_maximize = select_maximize,
     force = force_predict_trans_pot
   )
   if (use_parent_trans_pot) {
-    self$id_run <- id_run_init # immediately reset, cannot wait for on.exit
+    db$id_run <- id_run_init # immediately reset, cannot wait for on.exit
   }
 
   # 2. Retrieve adjusted potentials, patch params and target rates
-  adj_pots <- self$adjusted_trans_pot_v(id_period_post)
-  clumpy_params <- self$alloc_params_clumpy_v()
-  rates <- self$trans_rates_t[
+  adj_pots <- db$adjusted_trans_pot_v(id_period_post)
+  clumpy_params <- db$alloc_params_clumpy_v()
+  rates <- db$trans_rates_t[
     id_period == id_period_post,
     .(id_trans, rate)
   ]
 
   # 3. Viable transitions
-  viable_trans <- self$trans_meta_t[is_viable == TRUE]
+  viable_trans <- db$trans_meta_t[is_viable == TRUE]
   n_trans <- nrow(viable_trans)
   # 4. Raster representation (row-major, 1-based cell indices)
-  anterior_rast <- self$lulc_data_as_rast(id_period = id_period_ant)
+  anterior_rast <- db$lulc_data_as_rast(id_period = id_period_ant)
   nrow_r <- terra::nrow(anterior_rast)
   ncol_r <- terra::ncol(anterior_rast)
   n_cells <- nrow_r * ncol_r
   ant_vec <- as.integer(terra::values(anterior_rast))
 
   # 5. id_coord <-> raster cell mapping
-  coords_minimal <- self$coords_minimal
+  coords_minimal <- db$coords_minimal
   xy_mat <- as.matrix(coords_minimal[, .(lon, lat)])
   cell_idx <- terra::cellFromXY(anterior_rast, xy_mat)
   coord_to_cell <- stats::setNames(cell_idx, coords_minimal$id_coord)
@@ -206,7 +212,7 @@ alloc_clumpy_one_period <- function(
   }
 
   lulc_result <- data.table::data.table(
-    id_run = self$id_run,
+    id_run = db$id_run,
     id_coord = coord_ids[valid],
     id_lulc = as.integer(post_vec[cell_ids[valid]]),
     id_period = id_period_post
@@ -265,7 +271,7 @@ alloc_clumpy <- function(
     ))
 
     lulc_result <- alloc_clumpy_one_period(
-      self = self,
+      db = self,
       id_period_post = id_period_post,
       select_score = select_score,
       select_maximize = select_maximize,

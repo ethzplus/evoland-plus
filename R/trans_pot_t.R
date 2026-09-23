@@ -33,7 +33,7 @@ as_trans_pot_t <- function(x) {
   as_ducklake_db_t(
     x,
     class_name = "trans_pot_t",
-    key_cols = c("id_trans", "id_period_post", "id_coord"),
+    key_cols = c("id_run", "id_trans", "id_period_post", "id_coord"),
     partition_cols = "id_run"
   )
 }
