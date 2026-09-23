@@ -89,26 +89,15 @@ alloc_clumpy_one_period <- function(
   force_predict_trans_pot = FALSE
 ) {
   id_period_ant <- id_period_post - 1L
-  # TODO rework whole function into more idiomatic code
   # 1. Predict and store raw transition potentials
-  if (use_parent_trans_pot) {
-    id_run_init <- db$id_run
-    on.exit(db$id_run <- id_run_init, add = TRUE)
-    parent_run <- db$run_lineage[2]
-    if (!is.na(parent_run)) {
-      # cannot go up from a root run
-      db$id_run <- parent_run
-    }
-  }
-  db$predict_trans_pot(
+  predict_trans_pot_for_alloc(
+    db = db,
     id_period_post = id_period_post,
     select_score = select_score,
     select_maximize = select_maximize,
+    use_parent_trans_pot = use_parent_trans_pot,
     force = force_predict_trans_pot
   )
-  if (use_parent_trans_pot) {
-    db$id_run <- id_run_init # immediately reset, cannot wait for on.exit
-  }
 
   # 2. Retrieve adjusted potentials, patch params and target rates
   adj_pots <- db$adjusted_trans_pot_v(id_period_post)

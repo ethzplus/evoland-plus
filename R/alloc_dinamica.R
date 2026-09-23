@@ -8,28 +8,16 @@
 #' @include trans_models_t.R alloc_params_t.R
 NULL
 
-#' @describeIn alloc_dinamica Private helper: Set up input files for a single Dinamica
-#' allocation iteration
-#' @param self The evoland_db instance
-#' @param id_period_ant Integer, anterior period ID
-#' @param id_period_post Integer, posterior period ID
-#' @param anterior_rast SpatRast with anterior LULC state
-#' @param temp_dir Character, path to temporary directory
-#' @return List with paths to created files
-#' @keywords internal
-alloc_dinamica_setup_inputs <- function(
-  self,
-  id_period_ant,
-  id_period_post,
-  anterior_rast,
-  temp_dir
-) {
+# Write the input files for a single Dinamica allocation iteration into work_dir: rates,
+# expansion and patcher tables, anterior map and one probability map per viable transition.
+# Returns a list of the paths written.
+alloc_dinamica_setup_inputs <- function(db, id_period_post, anterior_rast, work_dir) {
   # Get metadata
-  coords_meta <- self$get_table_metadata("coords_t")
+  coords_meta <- db$get_table_metadata("coords_t")
   epsg <- coords_meta[["epsg"]]
 
   # Get viable transitions
-  viable_trans <- self$trans_meta_t[is_viable == TRUE]
+  viable_trans <- db$trans_meta_t[is_viable == TRUE]
 
   stopifnot(
     "No viable transitions found" = nrow(viable_trans) > 0L,
@@ -40,19 +28,19 @@ alloc_dinamica_setup_inputs <- function(
   data.table::setorder(viable_trans, id_lulc_anterior, id_lulc_posterior)
 
   # 1. Write transition rates
-  trans_rates <- self$trans_rates_dinamica_v(id_period_post)
+  trans_rates <- db$trans_rates_dinamica_v(id_period_post)
 
   # Ensure same sort order as viable_trans
   data.table::setorder(trans_rates, `From*`, `To*`)
 
-  trans_rates_path <- file.path(temp_dir, "trans_rates.csv")
+  trans_rates_path <- file.path(work_dir, "trans_rates.csv")
   data.table::fwrite(trans_rates, trans_rates_path)
 
   message(glue::glue("  Wrote transition rates to {basename(trans_rates_path)}"))
 
   # 2. Get allocation parameters for this run
   alloc_params_full <-
-    self$alloc_params_t |>
+    db$alloc_params_t |>
     merge(
       viable_trans[, .(id_trans, id_lulc_anterior, id_lulc_posterior)],
       by = "id_trans"
@@ -69,7 +57,7 @@ alloc_dinamica_setup_inputs <- function(
     Frac_expander = pmax(1e-6, pmin(1 - 1e-6, frac_expander))
   )]
 
-  expansion_path <- file.path(temp_dir, "expansion_table.csv")
+  expansion_path <- file.path(work_dir, "expansion_table.csv")
   data.table::fwrite(expansion_table, expansion_path)
 
   message(glue::glue("  Wrote expansion table to {basename(expansion_path)}"))
@@ -83,13 +71,13 @@ alloc_dinamica_setup_inputs <- function(
     Patch_Isometry = ifelse(is.na(patch_isometry), 1, patch_isometry)
   )]
 
-  patcher_path <- file.path(temp_dir, "patcher_table.csv")
+  patcher_path <- file.path(work_dir, "patcher_table.csv")
   data.table::fwrite(patcher_table, patcher_path)
 
   message(glue::glue("  Wrote patcher table to {basename(patcher_path)}"))
 
   # 5. Write anterior.tif
-  anterior_path <- file.path(temp_dir, "anterior.tif")
+  anterior_path <- file.path(work_dir, "anterior.tif")
   terra::writeRaster(
     anterior_rast,
     anterior_path,
@@ -102,13 +90,13 @@ alloc_dinamica_setup_inputs <- function(
 
   # 6. Generate probability maps from the adjusted transition potentials
   prob_map_dir <-
-    file.path(temp_dir, "probability_map_dir") |>
+    file.path(work_dir, "probability_map_dir") |>
     ensure_dir()
 
   message("  Writing probability maps...")
-  coords_minimal <- self$coords_minimal
+  coords_minimal <- db$coords_minimal
 
-  adj_trans_pots <- self$adjusted_trans_pot_v(id_period_post)
+  adj_trans_pots <- db$adjusted_trans_pot_v(id_period_post)
 
   # Iterate over viable transitions and write probability maps
   for (i in seq_len(nrow(viable_trans))) {
@@ -148,70 +136,83 @@ alloc_dinamica_setup_inputs <- function(
   )
 }
 
-#' @describeIn alloc_dinamica Private helper: Run a single Dinamica allocation iteration
-#' @param iteration_dir Character, path to iteration directory
-#' @return lulc_data_t table with simulated results
-#' @keywords internal
+#' Single-period Dinamica EGO allocation
+#'
+#' Allocate LULC changes for a single period using Dinamica EGO, see [alloc_dinamica]. The
+#' counterpart of [alloc_clumpy_one_period()], with the same handling of transition
+#' potentials: existing `trans_pot_t` values for the run and period are reused, so they can
+#' be edited between prediction and allocation.
+#'
+#' @param db An [evoland_db] instance; uses its active `id_run`.
+#' @param id_period_post Integer posterior period ID.
+#' @param select_score Character; mlr3 measure ID for model selection.
+#' @param select_maximize Logical; whether to maximise `select_score`.
+#' @param work_dir Character or NULL; directory for Dinamica's input and output files. If
+#'   `NULL` (default), a temporary directory is used and removed afterwards; a directory
+#'   passed explicitly is kept.
+#' @param use_parent_trans_pot Logical; if TRUE, use the parent run's transition
+#'   potentials. Useful if a run branches off from parent.
+#' @param force_predict_trans_pot Logical; if TRUE, recompute transition potentials even if
+#'   `trans_pot_t` already holds them for this run and period.
+#' @return An [lulc_data_t] with the simulated posterior LULC. Nothing is committed:
+#'   the caller commits it to `lulc_data_t` and, if later periods follow, refreshes the
+#'   neighbour predictors with `db$upsert_new_neighbors()`.
+#' @export
 alloc_dinamica_one_period <- function(
-  self,
-  id_period_ant,
+  db,
   id_period_post,
-  anterior_rast,
-  iteration_dir,
   select_score,
-  select_maximize
+  select_maximize,
+  work_dir = NULL,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 ) {
+  id_period_ant <- id_period_post - 1L
+  if (is.null(work_dir)) {
+    work_dir <- tempfile("dinamica_")
+    on.exit(unlink(work_dir, recursive = TRUE), add = TRUE)
+  }
+  ensure_dir(work_dir)
+
   message(glue::glue(
     "Running Dinamica allocation: period {id_period_ant} -> {id_period_post}"
   ))
 
-  # Predict and store raw transition potentials in trans_pot_t
-  # TODO add argument to manually predict_trans_pot if manipulation is desired
-  self$predict_trans_pot(
+  predict_trans_pot_for_alloc(
+    db = db,
     id_period_post = id_period_post,
     select_score = select_score,
-    select_maximize = select_maximize
+    select_maximize = select_maximize,
+    use_parent_trans_pot = use_parent_trans_pot,
+    force = force_predict_trans_pot
   )
 
-  # Set up input files
-  input_files <- alloc_dinamica_setup_inputs(
-    self = self,
-    id_period_ant = id_period_ant,
+  anterior_rast <- db$lulc_data_as_rast(id_period = id_period_ant)
+  alloc_dinamica_setup_inputs(
+    db = db,
     id_period_post = id_period_post,
     anterior_rast = anterior_rast,
-    temp_dir = iteration_dir
+    work_dir = work_dir
   )
 
   gc() # just in case
 
-  # Run Dinamica
   message("  Executing Dinamica EGO...")
-
   run_alloc_dinamica(
-    work_dir = iteration_dir,
+    work_dir = work_dir,
     echo = FALSE,
     write_logfile = TRUE
   )
 
-  # Read posterior.tif
-  posterior_rast <-
-    file.path(iteration_dir, "posterior.tif") |>
-    terra::rast()
-
   message("  Converting posterior raster to lulc_data_t...")
-
-  # Extract using coords_t
-  coords_t <- self$coords_t
-
-  # Set CRS for extraction
+  posterior_rast <- terra::rast(file.path(work_dir, "posterior.tif"))
+  coords_t <- db$coords_t
   terra::crs(posterior_rast) <- paste0("epsg:", attr(coords_t, "epsg"))
-
   extracted <- extract_using_coords_t(posterior_rast, coords_t, na_omit = TRUE)
 
-  # Convert to lulc_data_t format
   lulc_result <-
     data.table::data.table(
-      id_run = self$id_run,
+      id_run = db$id_run,
       id_coord = extracted$id_coord,
       id_lulc = as.integer(extracted$value),
       id_period = id_period_post
@@ -223,41 +224,36 @@ alloc_dinamica_one_period <- function(
   lulc_result
 }
 
-
 #' @describeIn alloc_dinamica Run Dinamica EGO allocation over multiple periods
 #' @param id_periods Integer vector of posterior period IDs to simulate (must be
 #' contiguous; e.g. if simulating period 4, data from period 3 will be used as
 #' anterior data)
-#' @param work_dir Character, path to working directory for simulations
+#' @param work_dir Character or NULL, path to working directory for simulations; `NULL`
+#' (default) uses a temporary directory
 #' @param keep_intermediate Logical, whether to keep intermediate files from simulations
+#' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
+#' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
+#' values already exist
 alloc_dinamica <- function(
   self,
   id_periods,
   select_score,
   select_maximize,
-  work_dir = "dinamica_rundir",
-  keep_intermediate = FALSE
+  work_dir = NULL,
+  keep_intermediate = FALSE,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 ) {
-  # Validate inputs
   stopifnot(
-    "id_periods must be an integer vector" = is.numeric(id_periods),
+    "id_periods must be a numeric vector" = is.numeric(id_periods),
     "id_periods must be contiguous" = all(diff(id_periods) == 1L),
-    "id_run must be set" = !is.null(self$id_run)
+    "id_run must be set" = !is.null(self$id_run),
+    "id_periods must be in periods_t" = all(id_periods %in% self$periods_t$id_period)
   )
 
-  # Check that periods exist
-  available_periods <- self$periods_t$id_period
-  missing_periods <- setdiff(id_periods, available_periods)
-  if (length(missing_periods) > 0L) {
-    stop(glue::glue(
-      "Periods not found in periods_t: {paste(missing_periods, collapse = ', ')}"
-    ))
-  }
-
-  # Create base work directory
   base_work_dir <-
     file.path(
-      work_dir,
+      work_dir %||% tempfile("dinamica_"),
       sprintf("run_%s", self$id_run)
     ) |>
     ensure_dir()
@@ -269,55 +265,30 @@ alloc_dinamica <- function(
     "  Work directory: {base_work_dir}"
   ))
 
-  # Initialize with first period as observed data
-  message(glue::glue("Loading origin period {id_periods[1]} from lulc_data_t..."))
-  current_rast <- self$lulc_data_as_rast(id_period = id_periods[1] - 1L)
-
-  # Iterate through periods
-  i <- 1L
   for (id_period_post in id_periods) {
-    id_period_ant <- id_period_post - 1L
+    i <- which(id_period_post == id_periods)
+    message(glue::glue("\n=== Period {i}/{length(id_periods)} ==="))
 
-    # Create iteration directory
-    iteration_dir <-
-      file.path(
-        base_work_dir,
-        glue::glue("iteration_{i}_period_{id_period_ant}_to_{id_period_post}")
-      ) |>
-      ensure_dir()
-
-    message(glue::glue("\n=== Iteration {i}/{length(id_periods) - 1L} ==="))
-
-    # Run single iteration
     lulc_result <- alloc_dinamica_one_period(
-      self = self,
-      id_period_ant = id_period_ant,
+      db = self,
       id_period_post = id_period_post,
-      anterior_rast = current_rast,
-      iteration_dir = iteration_dir,
       select_score = select_score,
-      select_maximize = select_maximize
+      select_maximize = select_maximize,
+      work_dir = file.path(
+        base_work_dir,
+        glue::glue("iteration_{i}_period_{id_period_post - 1L}_to_{id_period_post}")
+      ),
+      use_parent_trans_pot = use_parent_trans_pot,
+      force_predict_trans_pot = force_predict_trans_pot
     )
 
-    # Store result
     self$commit(lulc_result, "lulc_data_t", method = "upsert")
-    # Recompute neighbors for next period
     self$upsert_new_neighbors(id_period_post)
-    # Update current rast for next iteration
-    current_rast <- self$lulc_data_as_rast(id_period = id_period_post)
-
-    message(glue::glue("Iteration {i} complete\n"))
-    i <- i + 1L
   }
 
-  message(glue::glue(
-    "Simulation complete!\n",
-    "  Results written to: lulc_data_t\n"
-  ))
+  message("Dinamica allocation complete!")
 
-  # Clean up if requested
   if (!keep_intermediate) {
-    message("Cleaning up intermediate files...")
     unlink(base_work_dir, recursive = TRUE)
   } else {
     message(glue::glue("Intermediate files retained in: {base_work_dir}"))
@@ -328,13 +299,11 @@ alloc_dinamica <- function(
 
 #' @describeIn alloc_dinamica Evaluate allocation parameters using fuzzy
 #' similarity over different runs.
-#' @param work_dir Character, path to working directory for simulations
-#' @param keep_intermediate Logical, whether to keep intermediate files from simulations
 eval_alloc_params_t <- function(
   self,
   select_score,
   select_maximize,
-  work_dir = "dinamica_rundir",
+  work_dir = NULL,
   keep_intermediate = FALSE
 ) {
   # Get historical periods

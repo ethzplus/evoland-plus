@@ -208,6 +208,30 @@ predict_trans_pot <- function(
   }
 }
 
+# Predict transition potentials ahead of allocation. With use_parent_trans_pot, predict (or
+# reuse) under the parent run, so sibling runs share one set of potentials.
+predict_trans_pot_for_alloc <- function(
+  db,
+  id_period_post,
+  select_score,
+  select_maximize,
+  use_parent_trans_pot = FALSE,
+  force = FALSE
+) {
+  parent_run <- db$run_lineage[2]
+  if (use_parent_trans_pot && !is.na(parent_run)) {
+    id_run_init <- db$id_run
+    on.exit(db$id_run <- id_run_init, add = TRUE)
+    db$id_run <- parent_run
+  }
+  db$predict_trans_pot(
+    id_period_post = id_period_post,
+    select_score = select_score,
+    select_maximize = select_maximize,
+    force = force
+  )
+}
+
 # called for side effect: error if a viable transition does either not have a full model available
 # OR it does not have the required crossvalidation score
 .check_viable_trans_models <- function(self, select_score) {

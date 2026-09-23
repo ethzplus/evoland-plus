@@ -49,6 +49,8 @@ Use the `stopifnot("error message" = condition)` pattern for assertions.
 Use tinytest, see `inst/tinytest`.
 Non-exported functions need to be tested as `evoland:::private_function`, because a package can be tested after installation.
 Be parsimonious when constructing tests.
+Keep `test_<table>_t.R` files free of database logic: they test the `as_*_t` constructors and validation only.
+Tests that need a database belong in `test_db_*.R`; extend an instance those files already open rather than creating a new one.
 
 - Test the full package using `R -e "tinytest::build_test_install()"`.
 - Test individual files using `R -e "pkgload::load_all(); tinytest::run_test_file('inst/tinytest/somefile.R')"`

@@ -165,6 +165,28 @@ expect_inherits(lulc_single, "lulc_data_t")
 expect_equal(unique(lulc_single[["id_run"]]), 4L)
 expect_equal(db$row_count("lulc_data_t"), n_lulc_before)
 
+# Same for Dinamica, which by default works in a temporary directory it removes afterwards
+dinamica_dirs_before <- list.files(tempdir(), pattern = "^dinamica_")
+alloc_dinamica_single <- function() {
+  alloc_dinamica_one_period(
+    db = db,
+    id_period_post = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    use_parent_trans_pot = TRUE
+  )
+}
+lulc_single <- if (Sys.which("DinamicaConsole") == "") {
+  expect_warning(lulc <- alloc_dinamica_single(), "fallback")
+  lulc
+} else {
+  alloc_dinamica_single()
+}
+expect_inherits(lulc_single, "lulc_data_t")
+expect_equal(unique(lulc_single[["id_run"]]), 4L)
+expect_equal(db$row_count("lulc_data_t"), n_lulc_before)
+expect_equal(list.files(tempdir(), pattern = "^dinamica_"), dinamica_dirs_before)
+
 # --------------------------------------------------------------------------
 # Test error handling
 # --------------------------------------------------------------------------

@@ -369,8 +369,10 @@ EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
   id_periods,
   select_score,
   select_maximize,
-  work_dir = "dinamica_rundir",
-  keep_intermediate = FALSE
+  work_dir = NULL,
+  keep_intermediate = FALSE,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )}
     \if{html}{\out{</div>}}
   }
@@ -381,8 +383,12 @@ EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
       \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
 to select model for extrapolation}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{work_dir}}{Character path for Dinamica working directory. Default "dinamica_rundir".}
+      \item{\code{work_dir}}{Character path for Dinamica working directory; \code{NULL} (default)
+uses a temporary directory.}
       \item{\code{keep_intermediate}}{Logical, keep intermediate Dinamica files? Default FALSE.}
+      \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials}
+      \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
+values already exist}
     }
     \if{html}{\out{</div>}}
   }
@@ -443,7 +449,7 @@ values already exist}
     \preformatted{evoland_db$eval_alloc_params_t(
   select_score,
   select_maximize,
-  work_dir = "dinamica_rundir",
+  work_dir = NULL,
   keep_intermediate = FALSE
 )}
     \if{html}{\out{</div>}}
@@ -454,7 +460,8 @@ values already exist}
       \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
 to select model for extrapolation}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{work_dir}}{Character path for Dinamica working directory. Default "dinamica_rundir".}
+      \item{\code{work_dir}}{Character path for Dinamica working directory; \code{NULL} (default)
+uses a temporary directory.}
       \item{\code{keep_intermediate}}{Logical, keep intermediate Dinamica files? Default FALSE.}
     }
     \if{html}{\out{</div>}}
