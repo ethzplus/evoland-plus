@@ -28,4 +28,3 @@ expect_error(
   'all(x[["value"]] <= 1) is not TRUE',
   fixed = TRUE
 )
-
