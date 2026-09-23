@@ -88,6 +88,7 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-set_full_trans_preds}{\code{evoland_db$set_full_trans_preds()}}
     \item \href{#method-evoland_db-get_pred_filter_score}{\code{evoland_db$get_pred_filter_score()}}
     \item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
+    \item \href{#method-evoland_db-prune_trans_pot}{\code{evoland_db$prune_trans_pot()}}
     \item \href{#method-evoland_db-get_obs_trans_rates}{\code{evoland_db$get_obs_trans_rates()}}
     \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
     \item \href{#method-evoland_db-adjusted_trans_pot_v}{\code{evoland_db$adjusted_trans_pot_v()}}
@@ -674,6 +675,26 @@ to obtain column-scaled, row-closed values.
       \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
 to select model for extrapolation}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-prune_trans_pot"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-prune_trans_pot}{}}}
+\subsection{\code{evoland_db$prune_trans_pot()}}{
+  Delete the active run's own transition potentials, see \code{\link[=prune_trans_pot]{prune_trans_pot()}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$prune_trans_pot(id_period_post = NULL)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_period_post}}{Optional integer vector of posterior periods to prune; \code{NULL}
+prunes all of the active run's potentials.}
     }
     \if{html}{\out{</div>}}
   }

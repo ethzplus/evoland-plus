@@ -208,6 +208,33 @@ predict_trans_pot <- function(
   }
 }
 
+#' @describeIn trans_pot_t Delete the active run's own transition potentials, e.g. once a
+#' period has been allocated and its potentials are no longer needed. Rows inherited from
+#' ancestor runs are never touched. Deleted rows keep occupying disk until the catalog's
+#' retention allows [ducklake_db]'s `$checkpoint()` to drop the files; see the
+#' `expire_older_than` and `delete_older_than` options.
+#' @param id_period_post Optional integer vector; only delete potentials for these posterior
+#'   periods. `NULL` (default) deletes all of the active run's potentials.
+#' @return `prune_trans_pot()`: number of rows deleted, invisibly
+prune_trans_pot <- function(self, id_period_post = NULL) {
+  stopifnot(
+    "id_run must be set" = !is.null(self$id_run),
+    "id_period_post must be NULL or integerish" = {
+      is.null(id_period_post) || all(id_period_post == as.integer(id_period_post))
+    }
+  )
+
+  where <- glue::glue_sql(
+    "id_run = {self$id_run}",
+    if (is.null(id_period_post)) "" else " and id_period_post in ({id_period_post*})",
+    .con = self$connection
+  )
+  n_deleted <- self$delete_from("trans_pot_t", where)
+
+  message(glue::glue("Pruned {n_deleted} trans_pot_t rows of id_run={self$id_run}"))
+  invisible(n_deleted)
+}
+
 # called for side effect: error if a viable transition does either not have a full model available
 # OR it does not have the required crossvalidation score
 .check_viable_trans_models <- function(self, select_score) {

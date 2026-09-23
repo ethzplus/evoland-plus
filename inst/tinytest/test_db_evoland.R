@@ -236,3 +236,28 @@ expect_equal(
   ],
   n_lulc_ant[id_trans == 2L, N] # all rows should be NA
 )
+
+# prune_trans_pot() deletes the active run's own potentials only, optionally by period
+pots <- function(id_run, id_period_post, id_coord) {
+  as_trans_pot_t(data.table::data.table(
+    id_run = id_run,
+    id_trans = 1L,
+    id_period_post = id_period_post,
+    id_coord = id_coord,
+    value = 0.5
+  ))
+}
+db$id_run <- 0L
+db$trans_pot_t <- pots(0L, 2L, 1:3)
+db$id_run <- 2L
+db$trans_pot_t <- pots(2L, 2L, 4:6)
+db$trans_pot_t <- pots(2L, 3L, 4:6)
+expect_message(db$prune_trans_pot(id_period_post = 2L), "Pruned 3 trans_pot_t rows of id_run=2")
+expect_equal(
+  db$get_query("select id_run, id_period_post, count(*) as n from dl_db.trans_pot_t
+    group by all order by all"),
+  data.table::data.table(id_run = c(0L, 2L), id_period_post = 2:3, n = c(3, 3)),
+  check.attributes = FALSE
+)
+expect_equal(suppressMessages(db$prune_trans_pot()), 3)
+expect_equal(db$row_count("trans_pot_t"), 3L)

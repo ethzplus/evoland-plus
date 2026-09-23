@@ -5,6 +5,7 @@
 \alias{as_trans_pot_t}
 \alias{print.trans_pot_t}
 \alias{predict_trans_pot}
+\alias{prune_trans_pot}
 \title{Calculate Transition Potential}
 \usage{
 as_trans_pot_t(x)
@@ -18,6 +19,8 @@ predict_trans_pot(
   select_maximize,
   force = FALSE
 )
+
+prune_trans_pot(self, id_period_post = NULL)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -28,7 +31,8 @@ predict_trans_pot(
 
 \item{self}{an \link{evoland_db} instance}
 
-\item{id_period_post}{scalar integerish, passed to \code{\link[=pred_data_wide_v]{pred_data_wide_v()}}}
+\item{id_period_post}{Optional integer vector; only delete potentials for these posterior
+periods. \code{NULL} (default) deletes all of the active run's potentials.}
 
 \item{select_score}{character scalar, name of score/measure to identify best fitting model}
 
@@ -46,6 +50,8 @@ A data.table of class "trans_pot_t" with columns:
 }
 
 \code{predict_trans_pot()}: called for side effect; commit \code{trans_pot_t} to database
+
+\code{prune_trans_pot()}: number of rows deleted, invisibly
 }
 \description{
 Estimate transition potential at \code{id_period_post}. Based on the LULC at \code{id_period_anterior}
@@ -66,5 +72,11 @@ potentials are per-transition MLR3 model probabilities; they are \strong{not} ye
 memory pressure but only needs to go to disk once. The learners have
 \code{parallel_predict} enabled, see \link[mlr3:Learner]{mlr3::Learner}: the prediction task is automatically
 chunked out to any \href{https://future.futureverse.org/}{future} workers available.
+
+\item \code{prune_trans_pot()}: Delete the active run's own transition potentials, e.g. once a
+period has been allocated and its potentials are no longer needed. Rows inherited from
+ancestor runs are never touched. Deleted rows keep occupying disk until the catalog's
+retention allows \link{ducklake_db}'s \verb{$checkpoint()} to drop the files; see the
+\code{expire_older_than} and \code{delete_older_than} options.
 
 }}

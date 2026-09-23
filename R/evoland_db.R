@@ -347,6 +347,14 @@ evoland_db <- R6::R6Class(
       create_method_binding(predict_trans_pot)
     },
 
+    #' @description
+    #' Delete the active run's own transition potentials, see [prune_trans_pot()]
+    #' @param id_period_post Optional integer vector of posterior periods to prune; `NULL`
+    #' prunes all of the active run's potentials.
+    prune_trans_pot = function(id_period_post = NULL) {
+      create_method_binding(prune_trans_pot)
+    },
+
     #' @description Get the transition rates that were observed, see [trans_rates_t]
     get_obs_trans_rates = function() {
       create_method_binding(get_obs_trans_rates)
