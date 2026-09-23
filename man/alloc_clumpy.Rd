@@ -13,7 +13,8 @@ alloc_clumpy(
   avoid_aggregation = TRUE,
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )
 }
 \arguments{
@@ -32,6 +33,11 @@ or \code{"normal"}.}
 
 \item{batch_size}{Integer; uPAM pivots attempted per MuST re-draw. \code{0}
 (default) auto-scales with the source pool; see \code{\link[=alloc_clumpy_one_period]{alloc_clumpy_one_period()}}.}
+
+\item{update_neighbors}{Logical; whether to recompute neighbour predictors after the last
+requested period (default \code{TRUE}). Intermediate periods are always updated, since the next
+period's prediction reads them. Set \code{FALSE} when nothing is allocated onwards from the
+last period, e.g. for single-period ensembles.}
 }
 \description{
 Methods for running CLUMPY-style LULC allocation.  The algorithm works in
