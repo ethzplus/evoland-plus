@@ -141,4 +141,3 @@ get_lineage <- function(runs_t, id_run) {
 
   lineage
 }
-
