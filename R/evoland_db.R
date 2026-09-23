@@ -237,7 +237,8 @@ evoland_db <- R6::R6Class(
     #' Computes allocation parameters for all viable transitions, see [create_alloc_params_t()]
     #' @param n_perturbations Number of perturbed parameter sets to generate, each
     #' assigned to a in id_run in [runs_t]
-    #' @param sd Standard deviation for random perturbation of frac_expander
+    #' @param sd Standard deviation(s) for random perturbation, see [perturb_alloc_params()];
+    #' an unnamed scalar perturbs frac_expander only
     create_alloc_params_t = function(n_perturbations = 5L, sd = 0.05) {
       create_method_binding(create_alloc_params_t)
     },

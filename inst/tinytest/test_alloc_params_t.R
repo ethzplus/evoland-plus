@@ -107,3 +107,37 @@ expect_equal(params_empty$mean_patch_size, 0)
 expect_equal(params_empty$frac_expander, 0)
 expect_equal(params_empty$frac_patcher, 0)
 expect_true(is.na(params_empty$patch_elongation))
+
+# perturb_alloc_params: an unnamed scalar sd perturbs frac_expander only
+params <- data.table::data.table(
+  id_trans = 1:50,
+  mean_patch_size = 2,
+  patch_size_variance = 1,
+  patch_elongation = 0.33,
+  patch_isometry = evoland:::isometry_from_elongation(0.33),
+  frac_expander = 0.5,
+  frac_patcher = 0.5
+)
+set.seed(1)
+perturbed <- evoland:::perturb_alloc_params(params, sd = 0.05)
+expect_false(isTRUE(all.equal(perturbed[["frac_expander"]], params[["frac_expander"]])))
+expect_equal(perturbed[["frac_patcher"]], 1 - perturbed[["frac_expander"]])
+expect_equal(
+  perturbed[, .(mean_patch_size, patch_size_variance, patch_elongation, patch_isometry)],
+  params[, .(mean_patch_size, patch_size_variance, patch_elongation, patch_isometry)]
+)
+
+# named sd widens the perturbation; values stay in their domains and isometry follows elongation
+perturbed <- evoland:::perturb_alloc_params(
+  params,
+  sd = c(mean_patch_size = 1, patch_size_variance = 1, patch_elongation = 0.5)
+)
+expect_equal(perturbed[["frac_expander"]], params[["frac_expander"]])
+expect_true(all(perturbed[["mean_patch_size"]] >= 1))
+expect_true(all(perturbed[["patch_size_variance"]] > 0))
+expect_true(all(perturbed[["patch_elongation"]] >= 0 & perturbed[["patch_elongation"]] <= 1))
+expect_equal(
+  perturbed[["patch_isometry"]],
+  evoland:::isometry_from_elongation(perturbed[["patch_elongation"]])
+)
+expect_error(evoland:::perturb_alloc_params(params, sd = c(similarity = 1)), "perturbable columns")

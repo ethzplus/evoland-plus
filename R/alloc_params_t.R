@@ -247,20 +247,75 @@ compute_alloc_params_single <- function(
   )
 }
 
+#' @describeIn alloc_params_t Randomly perturb allocation parameters, e.g. to probe the
+#' sensitivity of an allocation to them. Bounded fractions (`frac_expander`,
+#' `patch_elongation`) get additive normal noise clamped to \[0, 1\]; patch sizes
+#' (`mean_patch_size`, `patch_size_variance`) get multiplicative log-normal noise, so `sd` is
+#' roughly a coefficient of variation and sizes stay positive (`mean_patch_size >= 1`).
+#' Dependent columns follow: `frac_patcher = 1 - frac_expander`, and `patch_isometry` is
+#' recomputed from `patch_elongation`. Each value is drawn independently per transition.
+#' @param params A table of allocation parameters with the columns of [alloc_params_t].
+#' @param sd Numeric; standard deviations of the perturbation. Either a named vector with
+#'   any of `frac_expander`, `patch_elongation`, `mean_patch_size`, `patch_size_variance`,
+#'   or an unnamed scalar, which perturbs `frac_expander` only. Columns not named are left
+#'   unperturbed.
+#' @return A copy of `params` with perturbed values
+perturb_alloc_params <- function(params, sd) {
+  bounded_cols <- c("frac_expander", "patch_elongation")
+  size_cols <- c("mean_patch_size", "patch_size_variance")
+  if (is.null(names(sd))) {
+    stopifnot("an unnamed sd must be a scalar" = length(sd) == 1L)
+    sd <- c(frac_expander = sd)
+  }
+  stopifnot(
+    "sd names must be perturbable columns" = all(names(sd) %in% c(bounded_cols, size_cols)),
+    "sd must be non-negative" = all(sd >= 0)
+  )
+
+  perturbed <- data.table::copy(params)
+  n <- nrow(perturbed)
+  for (col in intersect(names(sd), bounded_cols)) {
+    value <- perturbed[[col]] + stats::rnorm(n, mean = 0, sd = sd[[col]])
+    data.table::set(perturbed, j = col, value = pmax(0, pmin(1, value)))
+  }
+  for (col in intersect(names(sd), size_cols)) {
+    value <- perturbed[[col]] * exp(stats::rnorm(n, mean = 0, sd = sd[[col]]))
+    data.table::set(perturbed, j = col, value = value)
+  }
+  if ("mean_patch_size" %in% names(sd)) {
+    data.table::set(
+      perturbed,
+      j = "mean_patch_size",
+      value = pmax(1, perturbed[["mean_patch_size"]])
+    )
+  }
+  if ("frac_expander" %in% names(sd)) {
+    data.table::set(perturbed, j = "frac_patcher", value = 1 - perturbed[["frac_expander"]])
+  }
+  if ("patch_elongation" %in% names(sd)) {
+    data.table::set(
+      perturbed,
+      j = "patch_isometry",
+      value = isometry_from_elongation(perturbed[["patch_elongation"]])
+    )
+  }
+  perturbed
+}
+
 #' @describeIn alloc_params_t Create allocation parameters for each transition by
 #' estimating patch shape and expansion/patch ratio from observed periods, then
 #' aggregate and perturb parameters for use in runs.
 #' @param self [evoland_db] instance to query
 #' @param n_perturbations Integer number of randomly perturbed parameter sets to create
 #' per transition (default: 5)
-#' @param sd Numeric standard deviation for random perturbations (default: 0.05)
+#' @param sd Numeric standard deviation(s) for the random perturbations, see
+#' [perturb_alloc_params()]. An unnamed scalar perturbs `frac_expander` only (default: 0.05).
 create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
   # Validate parameters
   stopifnot(
     "n_perturbations must be an int >= 0" = {
       (as.integer(n_perturbations) == n_perturbations) && n_perturbations >= 0
     },
-    "sd must be a positive number" = sd > 0,
     "runs_t must contain at least an unperturbed run + n_perturbations runs" = {
       nrow(self$runs_t) >= (1L + n_perturbations)
     }
@@ -369,18 +424,7 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
   final_results[[1]] <- agg_dt
 
   for (i in seq_len(n_perturbations)) {
-    # Add random perturbation to frac_expander
-    frac_exp_perturbed <- agg_dt[["frac_expander"]] + stats::rnorm(nrow(agg_dt), mean = 0, sd = sd)
-
-    # Clamp expanded / patched to [0, 1]
-    frac_exp_perturbed <- pmax(0, pmin(1, frac_exp_perturbed))
-    frac_patch_perturbed <- 1 - frac_exp_perturbed
-
-    # add to list of perturbed params
-    agg_dt_perturbed <- data.table::copy(agg_dt)
-    data.table::set(agg_dt_perturbed, j = "frac_expander", value = frac_exp_perturbed)
-    data.table::set(agg_dt_perturbed, j = "frac_patcher", value = frac_patch_perturbed)
-    final_results[[i + 1L]] <- agg_dt_perturbed # offset bcoz [[1]] is unperturbed
+    final_results[[i + 1L]] <- perturb_alloc_params(agg_dt, sd = sd) # [[1]] is unperturbed
   }
 
   # Step 4: Bind list items into data.table, add id_run; cast as alloc params table

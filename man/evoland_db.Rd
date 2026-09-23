@@ -476,7 +476,8 @@ to select model for extrapolation}
     \describe{
       \item{\code{n_perturbations}}{Number of perturbed parameter sets to generate, each
 assigned to a in id_run in \link{runs_t}}
-      \item{\code{sd}}{Standard deviation for random perturbation of frac_expander}
+      \item{\code{sd}}{Standard deviation(s) for random perturbation, see \code{\link[=perturb_alloc_params]{perturb_alloc_params()}};
+an unnamed scalar perturbs frac_expander only}
     }
     \if{html}{\out{</div>}}
   }
