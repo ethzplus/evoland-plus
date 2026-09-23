@@ -442,14 +442,12 @@ db$trans_rates_t <-
 
 We estimate allocation parameters, which determine the shape and size of new patches, respectively which fraction of converted land use is in new versus expanded patches.
 This estimation procedure is not unbiased and hence a single estimate may not be enough:
-normally, we would perturb the estimate and use multiple `id_run`s to identify the best parametrization.
-For simplicity, we now just take the estimates for granted and assign `id_run=0`, i.e. the base run ID.
+normally, we would perturb the estimate, write each perturbed set onto an `id_run` of its own, and identify the best parametrization.
+For simplicity, we now just take the estimate for granted; `create_alloc_params_t()` returns it for the active run, here the base run `id_run=0`.
 
 ```{r}
 #| seed: 666
-alloc_for_eval <- db$create_alloc_params_t(n_perturbations = 0)
-alloc_for_eval[, id_run := 0L] # overwrite id_run=1
-db$alloc_params_t <- alloc_for_eval
+db$alloc_params_t <- db$create_alloc_params_t() # estimated for the active id_run 0
 ```
 
 # Prediction + Allocation
