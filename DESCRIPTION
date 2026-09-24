@@ -55,7 +55,6 @@ Collate:
     'evoland_db.R'
     'evoland_db_util.R'
     'evoland_db_views.R'
-    'fuzzy_similarity.R'
     'grrf_learner.r'
     'init.R'
     'intrv_masks_t.R'
@@ -79,4 +78,5 @@ Collate:
     'util_dinamica.R'
     'util_download.R'
     'util_terra.R'
+    'validation.R'
 Config/roxygen2/version: 8.1.0
