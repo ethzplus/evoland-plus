@@ -3,10 +3,13 @@
 \name{evoland_db_util}
 \alias{evoland_db_util}
 \alias{get_evoland_db_read_expr}
+\alias{get_run_read_expr}
 \alias{run_parallel_evoland}
 \title{Utility functions and methods for \code{evoland_db}}
 \usage{
 get_evoland_db_read_expr(self, super, table_name)
+
+get_run_read_expr(self, table_name, id_run)
 
 run_parallel_evoland(items, worker_fun, parent_db, cluster = NULL, ...)
 }
@@ -16,6 +19,8 @@ run_parallel_evoland(items, worker_fun, parent_db, cluster = NULL, ...)
 \item{super}{The superclass (parent class) environment.}
 
 \item{table_name}{The name of the table to read from}
+
+\item{id_run}{Integer, the run whose view of the table is read}
 
 \item{items}{A list of items to iterate over}
 
@@ -45,6 +50,9 @@ account the run lineage and distinctness columns. If the table has no \code{id_r
 or is the \code{runs_t} table itself, falls back to the default read expression.
 Otherwise, constructs a read expression that filters for the active \code{id_run} and its lineage,
 using the distinctness columns to determine which slices of data to include.
+
+\item \code{get_run_read_expr()}: Gets the read expression for a table as seen from a given run,
+through that run's lineage, without changing the active run.
 
 \item \code{run_parallel_evoland()}: Run a worker function in parallel with an \code{evoland_db}
 instance; takes an (optional) worker cluster, a worker function, a set of
