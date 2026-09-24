@@ -35,12 +35,12 @@ calc_transition_similarity(
 \value{
 List with:
 \itemize{
-\item observed_change: SpatRaster of observed changes
-\item simulated_change: SpatRaster of simulated changes
+\item observed_change: Logical SpatRaster, \code{TRUE} where the transition was observed
+\item simulated_change: Logical SpatRaster, \code{TRUE} where the transition was simulated
 \item similarity: Minimum of the two directional similarities; \code{NA} if the transition
 happened in neither map
-\item sim_obs_to_sim: Mean membership of observed changes in the simulated change
-\item sim_sim_to_obs: Mean membership of simulated changes in the observed change
+\item similarity_observed_to_simulated: Mean membership of observed changes in the simulated change
+\item similarity_simulated_to_observed: Mean membership of simulated changes in the observed change
 \item similarity_map: SpatRaster of the observed-to-simulated membership at each observed
 change (\code{NA} elsewhere)
 \item n_observed: Number of cells with observed transition

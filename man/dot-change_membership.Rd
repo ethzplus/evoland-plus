@@ -7,7 +7,8 @@
 .change_membership(change_map, weight_matrix)
 }
 \arguments{
-\item{change_map}{SpatRaster, non-\code{NA} where the change happened}
+\item{change_map}{Logical SpatRaster, \code{TRUE} where the change happened, see
+\code{\link[=create_change_map]{create_change_map()}}}
 
 \item{weight_matrix}{Matrix of distance weights, see \code{\link[=.build_weight_matrix]{.build_weight_matrix()}}}
 }

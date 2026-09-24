@@ -77,6 +77,7 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
     \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
     \item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
+    \item \href{#method-evoland_db-figure_of_merit_v}{\code{evoland_db$figure_of_merit_v()}}
     \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
     \item \href{#method-evoland_db-alloc_clumpy}{\code{evoland_db$alloc_clumpy()}}
     \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
@@ -352,6 +353,37 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
     \describe{
       \item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
       \item{\code{id_period_anterior}}{Integer ID of period to retrieve data for}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-figure_of_merit_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-figure_of_merit_v}{}}}
+\subsection{\code{evoland_db$figure_of_merit_v()}}{
+  Pontius' figure of merit of simulated against observed change, see
+\code{\link[=figure_of_merit_v]{figure_of_merit_v()}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$figure_of_merit_v(
+  id_period_anterior,
+  id_period_post,
+  id_run_reference,
+  id_run_simulated = self$id_run,
+  by_transition = FALSE
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_period_anterior}}{Integer, period of the initial map}
+      \item{\code{id_period_post}}{Integer, period of the observed and simulated maps}
+      \item{\code{id_run_reference}}{Integer, run holding the initial and observed maps}
+      \item{\code{id_run_simulated}}{Integer vector, runs holding the simulated maps; defaults to
+the active run}
+      \item{\code{by_transition}}{Logical; if \code{TRUE}, report per transition instead of overall.}
     }
     \if{html}{\out{</div>}}
   }

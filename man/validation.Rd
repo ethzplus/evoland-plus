@@ -6,10 +6,9 @@
 \description{
 Compare a simulated map against the observed one, both starting from the same initial map:
 \itemize{
-\item \code{\link[=calc_figure_of_merit]{calc_figure_of_merit()}}: Pontius' figure of merit and its components, cell by cell, with
-the value expected from random allocation for comparison;
+\item \code{\link[=figure_of_merit_v]{figure_of_merit_v()}} (\code{evoland_db$figure_of_merit_v()}): Pontius' figure of merit and its
+components, cell by cell, with the value expected from random allocation for comparison;
 \item \code{\link[=calc_transition_similarity]{calc_transition_similarity()}}: fuzzy similarity of differences for one transition, which
-tolerates change placed near, rather than exactly on, the observed change;
-\item \code{\link[=create_change_map]{create_change_map()}}: the change map both of them start from.
+tolerates change placed near, rather than exactly on, the observed change.
 }
 }

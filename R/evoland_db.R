@@ -166,6 +166,25 @@ evoland_db <- R6::R6Class(
       create_method_binding(pred_data_wide_v, with_private = TRUE)
     },
 
+    ### Validation methods ---
+    #' @description Pontius' figure of merit of simulated against observed change, see
+    #' [figure_of_merit_v()]
+    #' @param id_period_anterior Integer, period of the initial map
+    #' @param id_period_post Integer, period of the observed and simulated maps
+    #' @param id_run_reference Integer, run holding the initial and observed maps
+    #' @param id_run_simulated Integer vector, runs holding the simulated maps; defaults to
+    #' the active run
+    #' @param by_transition Logical; if `TRUE`, report per transition instead of overall.
+    figure_of_merit_v = function(
+      id_period_anterior,
+      id_period_post,
+      id_run_reference,
+      id_run_simulated = self$id_run,
+      by_transition = FALSE
+    ) {
+      create_method_binding(figure_of_merit_v)
+    },
+
     ### Allocation methods ---
     #' @description Runs a path-dependent Monte Carlo simulation using Dinamica
     #' EGO, see [alloc_dinamica()]

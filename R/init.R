@@ -55,7 +55,6 @@ utils::globalVariables(c(
   "frac_patcher",
   "frequency_rel",
   "From*",
-  "hits_null",
   "i.area",
   "i.gain",
   "i.loss",
@@ -79,7 +78,6 @@ utils::globalVariables(c(
   "md5sum_actual",
   "mean_date",
   "mean_patch_size",
-  "n_initial",
   "no_found_files",
   "parent_id_run",
   "patch_elongation",
@@ -87,7 +85,6 @@ utils::globalVariables(c(
   "patch_size_variance",
   "period_length_d",
   "period_length_y",
-  "posterior",
   "rate",
   "rate_annual",
   "shape",
@@ -96,6 +93,5 @@ utils::globalVariables(c(
   "To*",
   "to_download",
   "V1",
-  "value",
-  "weight"
+  "value"
 ))
