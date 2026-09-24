@@ -173,14 +173,23 @@ evoland_db <- R6::R6Class(
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param work_dir Character path for Dinamica working directory. Default "dinamica_rundir".
+    #' @param work_dir Character path for Dinamica working directory; `NULL` (default)
+    #' uses a temporary directory.
     #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
+    #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
+    #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
+    #' values already exist
+    #' @param update_neighbors Logical; recompute neighbour predictors after the last
+    #' requested period. Intermediate periods are always updated.
     alloc_dinamica = function(
       id_periods,
       select_score,
       select_maximize,
-      work_dir = "dinamica_rundir",
-      keep_intermediate = FALSE
+      work_dir = NULL,
+      keep_intermediate = FALSE,
+      use_parent_trans_pot = FALSE,
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
     ) {
       create_method_binding(alloc_dinamica)
     },
@@ -204,6 +213,8 @@ evoland_db <- R6::R6Class(
     #' (useful for repeated allocation)
     #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
     #' values already exist
+    #' @param update_neighbors Logical; recompute neighbour predictors after the last
+    #' requested period. Intermediate periods are always updated.
     alloc_clumpy = function(
       id_periods,
       select_score,
@@ -212,7 +223,8 @@ evoland_db <- R6::R6Class(
       avoid_aggregation = TRUE,
       batch_size = 0L,
       use_parent_trans_pot = FALSE,
-      force_predict_trans_pot = FALSE
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
     ) {
       create_method_binding(alloc_clumpy)
     },
@@ -222,12 +234,13 @@ evoland_db <- R6::R6Class(
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param work_dir Character path for Dinamica working directory. Default "dinamica_rundir".
+    #' @param work_dir Character path for Dinamica working directory; `NULL` (default)
+    #' uses a temporary directory.
     #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
     eval_alloc_params_t = function(
       select_score,
       select_maximize,
-      work_dir = "dinamica_rundir",
+      work_dir = NULL,
       keep_intermediate = FALSE
     ) {
       create_method_binding(eval_alloc_params_t)

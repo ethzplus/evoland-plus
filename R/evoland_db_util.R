@@ -109,8 +109,8 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
       ]",
       group_cols = glue::glue_sql_collapse(sql("b.{`inheritance_key_cols`}"), sep = ", ")
     )
-  } else {
-    # general case: just find minimum distance id_run for each tuple of distinctness cols
+  } else if (length(inheritance_key_cols) > 0L) {
+    # general case: find minimum distance id_run for each tuple of inheritance key cols
     ctes[["best_run"]] <- sql(
       r"[
       select
@@ -121,7 +121,12 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
       group by
         {group_cols}
       ]",
-      group_cols = glue::glue_sql_collapse(sql("b.{`distinctness_cols`}"), sep = ", ")
+      group_cols = glue::glue_sql_collapse(sql("b.{`inheritance_key_cols`}"), sep = ", ")
+    )
+  } else {
+    # no inheritance keys: the nearest run holding any data wins
+    ctes[["best_run"]] <- sql(
+      "select arg_min(b.id_run, {run_case}) as id_run from data_present b"
     )
   }
 

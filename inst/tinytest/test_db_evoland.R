@@ -89,6 +89,26 @@ expect_equivalent(
   ]
 )
 
+# trans_pot_t is keyed per run: the grandchild's write must not replace run 0's rows, and
+# each run reads back the nearest slice in its lineage
+pots <- function(id_run, value) {
+  as_trans_pot_t(data.table::data.table(
+    id_run = id_run,
+    id_trans = 1L,
+    id_period_post = 2L,
+    id_coord = 1:3,
+    value = value
+  ))
+}
+db$id_run <- 0L
+db$trans_pot_t <- pots(0L, 0.5)
+db$id_run <- 2L
+db$trans_pot_t <- pots(2L, 0)
+expect_equal(db$trans_pot_t[["value"]], c(0, 0, 0))
+db$id_run <- 1L
+expect_equal(db$trans_pot_t[["value"]], c(0.5, 0.5, 0.5))
+db$id_run <- 2L
+
 # fetch back as rast
 expect_equal(
   db$lulc_data_as_rast()["id_run_0_id_period_1"],
