@@ -259,9 +259,19 @@ create_change_map <- function(
 #' Compute fuzzy similarity of differences for transition validation
 #'
 #' @description
-#' Implements the "similarity of differences" approach from Dinamica EGO.
-#' Compares the spatial pattern of a specific transition in observed vs
-#' simulated maps, allowing for spatial tolerance.
+#' Implements the "similarity of differences" approach from Dinamica EGO (Soares-Filho et al.
+#' 2009), after the fuzzy set comparison of Hagen (2003). Compares the spatial pattern of a
+#' specific transition in observed vs simulated maps, allowing for spatial tolerance.
+#'
+#' @details
+#' Both maps are reduced to where the transition happened. For each cell that changed in one
+#' map, its membership in the other map's change is the distance decay to the nearest cell that
+#' changed there, within the window: 1 for a change in the same cell, `exp(-d / decay_divisor)`
+#' for one `d` cells away (or 1 anywhere in the window without decay), 0 if there is none. The
+#' directional similarity is the mean of these memberships over the changed cells of the first
+#' map only; cells that changed in neither map do not enter it. The overall similarity is the
+#' minimum of the two directions, so a simulation cannot score well by placing much more (or
+#' much less) change than was observed.
 #'
 #' @param initial_map SpatRaster, initial LULC state
 #' @param observed_map SpatRaster, observed final LULC state
@@ -275,11 +285,22 @@ create_change_map <- function(
 #' @return List with:
 #'   - observed_change: SpatRaster of observed changes
 #'   - simulated_change: SpatRaster of simulated changes
-#'   - similarity: Minimum fuzzy similarity between change maps
-#'   - sim_obs_to_sim: Mean similarity from observed to simulated
-#'   - sim_sim_to_obs: Mean similarity from simulated to observed
+#'   - similarity: Minimum of the two directional similarities; `NA` if the transition
+#'     happened in neither map
+#'   - sim_obs_to_sim: Mean membership of observed changes in the simulated change
+#'   - sim_sim_to_obs: Mean membership of simulated changes in the observed change
+#'   - similarity_map: SpatRaster of the observed-to-simulated membership at each observed
+#'     change (`NA` elsewhere)
 #'   - n_observed: Number of cells with observed transition
 #'   - n_simulated: Number of cells with simulated transition
+#'
+#' @references
+#' Hagen, A. (2003). Fuzzy set approach to assessing similarity of categorical maps.
+#' International Journal of Geographical Information Science, 17(3), 235-249.
+#' https://doi.org/10.1080/13658810210157822
+#'
+#' Soares-Filho, B. S., Rodrigues, H. O., & Costa, W. L. (2009). Modeling Environmental
+#' Dynamics with Dinamica EGO. Centro de Sensoriamento Remoto, UFMG.
 #'
 #' @export
 calc_transition_similarity <- function(
@@ -292,15 +313,18 @@ calc_transition_similarity <- function(
   use_exp_decay = TRUE,
   decay_divisor = 2.0
 ) {
-  # Create change maps for the specific transition
+  stopifnot(
+    "window_size must be odd" = (window_size %% 2L) == 1L,
+    "window_size must be positive" = window_size > 0L,
+    "decay_divisor must be positive" = decay_divisor > 0
+  )
+
   obs_change <- create_change_map(initial_map, observed_map, from_class, to_class)
   sim_change <- create_change_map(initial_map, simulated_map, from_class, to_class)
 
-  # Count transitions
   n_obs <- terra::global(!is.na(obs_change), "sum", na.rm = FALSE)[1, 1]
   n_sim <- terra::global(!is.na(sim_change), "sum", na.rm = FALSE)[1, 1]
 
-  # If no transitions in either map, return NA similarity
   if (n_obs == 0 && n_sim == 0) {
     return(list(
       observed_change = obs_change,
@@ -308,35 +332,49 @@ calc_transition_similarity <- function(
       similarity = NA_real_,
       sim_obs_to_sim = NA_real_,
       sim_sim_to_obs = NA_real_,
+      similarity_map = NULL,
       n_observed = 0,
       n_simulated = 0
     ))
   }
 
-  # For similarity calculation, we need the maps to have the same categories
-  # Use binary representation: 1 where transition occurred, 0 elsewhere
-  # (replacing NA with 0 for similarity calculation)
-  obs_binary <- terra::ifel(is.na(obs_change), 0L, 1L)
-  sim_binary <- terra::ifel(is.na(sim_change), 0L, 1L)
+  weights <- .build_weight_matrix(window_size, use_exp_decay, decay_divisor)
+  obs_membership <- .change_membership(obs_change, weights)
+  sim_membership <- .change_membership(sim_change, weights)
 
-  # Compute fuzzy similarity
-  similarity <- calc_fuzzy_similarity(
-    obs_binary,
-    sim_binary,
-    window_size = window_size,
-    use_exp_decay = use_exp_decay,
-    decay_divisor = decay_divisor,
-    ignore_na = FALSE # We converted NA to 0
-  )
+  obs_to_sim_map <- terra::mask(sim_membership, obs_change)
+  sim_to_obs_map <- terra::mask(obs_membership, sim_change)
+
+  mean_over_changes <- function(membership_map, n_changed) {
+    if (n_changed == 0) {
+      return(NA_real_)
+    }
+    terra::global(membership_map, "mean", na.rm = TRUE)[1, 1]
+  }
+  sim_obs_to_sim <- mean_over_changes(obs_to_sim_map, n_obs)
+  sim_sim_to_obs <- mean_over_changes(sim_to_obs_map, n_sim)
 
   list(
     observed_change = obs_change,
     simulated_change = sim_change,
-    similarity = similarity$min_similarity,
-    sim_obs_to_sim = similarity$mean_sim1,
-    sim_sim_to_obs = similarity$mean_sim2,
-    similarity_map = similarity$sim1, # Can be used for visualization
+    similarity = min(sim_obs_to_sim, sim_sim_to_obs, na.rm = TRUE),
+    sim_obs_to_sim = sim_obs_to_sim,
+    sim_sim_to_obs = sim_sim_to_obs,
+    similarity_map = obs_to_sim_map,
     n_observed = n_obs,
     n_simulated = n_sim
   )
+}
+
+#' Distance-decayed membership in a change map
+#'
+#' @param change_map SpatRaster, non-`NA` where the change happened
+#' @param weight_matrix Matrix of distance weights, see [.build_weight_matrix()]
+#'
+#' @return SpatRaster with, for every cell, the weight of the nearest change within the window
+#'   (0 if there is none)
+#' @keywords internal
+.change_membership <- function(change_map, weight_matrix) {
+  changed <- terra::ifel(is.na(change_map), 0, 1)
+  terra::focal(changed, w = weight_matrix, fun = "max", na.rm = TRUE, fillvalue = 0)
 }

@@ -167,6 +167,53 @@ expect_equal(result_no_trans$n_observed, 0)
 expect_equal(result_no_trans$n_simulated, 0)
 expect_true(is.na(result_no_trans$similarity))
 
+# calc_transition_similarity only averages over changed cells, so the unchanged background
+# does not inflate it: change placed far from the observed change scores 0
+map_initial_large <- make_test_raster(nrow = 30, ncol = 30, values = rep(1, 900))
+vals_obs_far <- rep(1, 900)
+vals_obs_far[1:60] <- 2 # top two rows
+vals_sim_far <- rep(1, 900)
+vals_sim_far[841:900] <- 2 # bottom two rows
+result_far <- calc_transition_similarity(
+  initial_map = map_initial_large,
+  observed_map = make_test_raster(nrow = 30, ncol = 30, values = vals_obs_far),
+  simulated_map = make_test_raster(nrow = 30, ncol = 30, values = vals_sim_far),
+  from_class = 1,
+  to_class = 2,
+  window_size = 5L
+)
+expect_equal(result_far$similarity, 0)
+
+# a change displaced by one cell scores the decay at distance 1, in both directions
+vals_obs_one <- rep(1, 900)
+vals_obs_one[c(315, 615)] <- 2
+vals_sim_one <- rep(1, 900)
+vals_sim_one[c(316, 616)] <- 2
+result_one <- calc_transition_similarity(
+  initial_map = map_initial_large,
+  observed_map = make_test_raster(nrow = 30, ncol = 30, values = vals_obs_one),
+  simulated_map = make_test_raster(nrow = 30, ncol = 30, values = vals_sim_one),
+  from_class = 1,
+  to_class = 2,
+  window_size = 5L,
+  decay_divisor = 2
+)
+expect_equal(result_one$sim_obs_to_sim, exp(-1 / 2))
+expect_equal(result_one$sim_sim_to_obs, exp(-1 / 2))
+expect_equal(result_one$similarity, exp(-1 / 2))
+
+# observed change with no simulated change scores 0 rather than NA
+result_missing <- calc_transition_similarity(
+  initial_map = map_initial_large,
+  observed_map = make_test_raster(nrow = 30, ncol = 30, values = vals_obs_one),
+  simulated_map = map_initial_large,
+  from_class = 1,
+  to_class = 2,
+  window_size = 5L
+)
+expect_equal(result_missing$similarity, 0)
+expect_true(is.na(result_missing$sim_sim_to_obs))
+
 # Test exponential decay vs constant weight
 map_pattern1 <- make_test_raster(values = rep(1:4, length.out = 100))
 
