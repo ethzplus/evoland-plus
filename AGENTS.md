@@ -51,6 +51,7 @@ Non-exported functions need to be tested as `evoland:::private_function`, becaus
 Be parsimonious when constructing tests.
 Keep `test_<table>_t.R` files free of database logic: they test the `as_*_t` constructors and validation only.
 Tests that need a database belong in `test_db_*.R`; extend an instance those files already open rather than creating a new one.
+Tests that need a longer series of manipulations of the database (fitting models, allocating periods, evaluating runs) belong in `test_integ_*.R`.
 
 - Test the full package using `R -e "tinytest::build_test_install()"`.
 - Test individual files using `R -e "pkgload::load_all(); tinytest::run_test_file('inst/tinytest/somefile.R')"`
