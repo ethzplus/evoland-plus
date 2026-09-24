@@ -22,7 +22,7 @@ isometry_from_elongation(
 
 compute_alloc_params_single(lulc_ant, lulc_post, id_lulc_ant, id_lulc_post)
 
-create_alloc_params_t(self, n_perturbations = 5L, sd = 0.05)
+create_alloc_params_t(self)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -46,11 +46,6 @@ create_alloc_params_t(self, n_perturbations = 5L, sd = 0.05)
 \item{id_lulc_post}{Integer ID of the posterior LULC class}
 
 \item{self}{\link{evoland_db} instance to query}
-
-\item{n_perturbations}{Integer number of randomly perturbed parameter sets to create
-per transition (default: 5)}
-
-\item{sd}{Numeric standard deviation for random perturbations (default: 0.05)}
 }
 \value{
 A data.table of class "alloc_params_t" with columns:
@@ -97,9 +92,11 @@ parameter, c.f. fig. 3.10 in Mazy, 2022 https://theses.hal.science/tel-04382012v
 \item \code{compute_alloc_params_single()}: Compute allocation parameters for a single transition and period pair.
 This is an internal function used by \code{create_alloc_params_t}.
 
-\item \code{create_alloc_params_t()}: Create allocation parameters for each transition by
-estimating patch shape and expansion/patch ratio from observed periods, then
-aggregate and perturb parameters for use in runs.
+\item \code{create_alloc_params_t()}: Estimate allocation parameters for each viable transition from
+the observed periods, averaged across period pairs, and return them for the active \code{id_run}.
+Only the best estimate is returned: how to perturb it, e.g. to probe the sensitivity of an
+allocation to patch geometry, is left to the caller, who writes the perturbed sets onto
+runs of their own.
 
 }}
 \keyword{internal}

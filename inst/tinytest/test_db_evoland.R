@@ -25,6 +25,14 @@ expect_identical(
 )
 expect_equal(db$reporting_t["report_name", value], "evoland_scenario")
 
+# create_alloc_params_t() returns one best estimate per viable transition, on the active run
+db$id_run <- 1L
+expect_equal(
+  sort(db$alloc_params_t[["id_trans"]]),
+  sort(db$trans_meta_t[is_viable == TRUE, id_trans])
+)
+db$id_run <- 0L
+
 # active bindings without tables
 active_bindings <-
   Filter(
