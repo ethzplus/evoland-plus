@@ -56,12 +56,23 @@ make_test_db <- function(
     as_runs_t()
 
   if (include_alloc_params) {
-    suppressMessages(
-      db$alloc_params_t <- db$create_alloc_params_t(
-        n_perturbations = 2L,
-        sd = 0.1
-      )
-    )
+    db$id_run <- 1L
+    best_estimate <- suppressMessages(db$create_alloc_params_t())
+    db$id_run <- 0L
+    # runs 2 and 3 jitter frac_expander around the best estimate on run 1
+    perturbed <- lapply(2:3, function(perturbed_run) {
+      jittered <- best_estimate[["frac_expander"]] + stats::rnorm(nrow(best_estimate), sd = 0.1)
+      jittered <- pmax(0, pmin(1, jittered))
+      data.table::copy(best_estimate)[, `:=`(
+        id_run = perturbed_run,
+        frac_expander = jittered,
+        frac_patcher = 1 - jittered
+      )]
+    })
+    db$alloc_params_t <- as_alloc_params_t(data.table::rbindlist(
+      c(list(best_estimate), perturbed),
+      use.names = TRUE
+    ))
   }
 
   db

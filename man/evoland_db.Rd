@@ -465,19 +465,11 @@ to select model for extrapolation}
 \if{html}{\out{<a id="method-evoland_db-create_alloc_params_t"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-create_alloc_params_t}{}}}
 \subsection{\code{evoland_db$create_alloc_params_t()}}{
-  Computes allocation parameters for all viable transitions, see \code{\link[=create_alloc_params_t]{create_alloc_params_t()}}
+  Estimates allocation parameters for all viable transitions under the active \code{id_run},
+see \code{\link[=create_alloc_params_t]{create_alloc_params_t()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$create_alloc_params_t(n_perturbations = 5L, sd = 0.05)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{n_perturbations}}{Number of perturbed parameter sets to generate, each
-assigned to a in id_run in \link{runs_t}}
-      \item{\code{sd}}{Standard deviation for random perturbation of frac_expander}
-    }
+    \preformatted{evoland_db$create_alloc_params_t()}
     \if{html}{\out{</div>}}
   }
 }
