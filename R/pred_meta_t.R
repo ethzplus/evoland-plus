@@ -82,7 +82,7 @@ as_pred_meta_t <- function(x) {
 }
 
 
-#' @describeIn pred_meta_t Creates a `pred_meta_t` table from intervention
+#' @describeIn pred_meta_t Creates a `pred_meta_t` table from predictor
 #' specifications. Attributes incremental IDs to predictors, starting from
 #' `starting_id`. See examples for schema of `pred_spec`.
 #' @param pred_spec A list of predictor specifications, schema: see examples

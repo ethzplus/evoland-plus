@@ -40,10 +40,6 @@ Additional methods and active bindings are added to this class in separate files
 
     \item{\code{trans_rates_t}}{Get or upsert \link{trans_rates_t}}
 
-    \item{\code{intrv_meta_t}}{Get or upsert \link{intrv_meta_t}}
-
-    \item{\code{intrv_masks_t}}{Get or upsert \link{intrv_masks_t}}
-
     \item{\code{trans_models_t}}{Get or upsert \link{trans_models_t}}
 
     \item{\code{alloc_params_t}}{Get or upsert \link{alloc_params_t}}

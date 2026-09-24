@@ -1,0 +1,723 @@
+---
+title: "Representing policy mechanisms in scenarios"
+author: Jan Hartman
+date: last-modified
+vignette: >
+  %\VignetteIndexEntry{policy-mechanisms}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+number-sections: true
+---
+
+```{r}
+#| label: cleanup
+#| include: false
+unlink("policy-mechanisms.evolanddb", recursive = TRUE)
+
+set.seed(666)
+knitr::knit_hooks$set(seed = function(before, options, envir) {
+  if (before && !is.null(options$seed)) {
+    set.seed(options$seed)
+  }
+})
+```
+
+*This tutorial assumes the basic `evoland-plus` workflow from the introductory vignette and the
+use of `runs_t` from the [stochastic allocation](stochastic-allocation-sensitivity.html)
+vignette.*
+
+## Policy mechanisms and where they act
+
+Land use scenarios rarely differ in demand alone. Planning and policy also change *how* and
+*where* land is converted, and some changes follow processes that no statistical transition
+model captures. `evoland-plus` has no dedicated scenario machinery for this. Instead, each
+mechanism is expressed as a scenario-specific version of one of the tables the simulation
+already reads, written onto a run of its own:
+
+| Mechanism | Examples | What it changes | Where it goes |
+|---|---|---|---|
+| Settlement form | compact development, densification, dispersed sprawl | the size and shape of newly converted patches | `alloc_params_t` for the scenario run |
+| Spatial steering | building zones, nature conservation areas, agricultural priority areas | how likely each cell is to convert, before cells are allocated | `trans_pot_t` for the scenario run |
+| Exogenous change | infrastructure projects, reservoirs, deglaciation | the allocated map itself, for processes outside the statistical model | `lulc_data_t` after allocation |
+
+*How much* land changes is a fourth lever, the transition rates in `trans_rates_t`, and is
+deliberately kept apart from the three above: they decide how and where a given demand is met,
+not how large it is.
+
+Readers of the SSP-CH scenarios will recognise these as the "pre-allocation", "allocation" and
+"post-allocation" interventions there. The names used here describe the policy being
+represented rather than the model step, because the step labels are misleading: potentials are
+adjusted *before* anything is allocated.
+
+We build one small synthetic study, allocate one period under a business-as-usual run, and then
+apply each mechanism on a sibling run so its effect can be compared against that baseline.
+
+## Synthetic study
+
+The landscape, predictors, models and transition rates are exactly those of the
+[stochastic allocation](stochastic-allocation-sensitivity.html) vignette, where each step is
+explained; the code is folded here.
+
+```{r}
+#| fig-show: hide
+#| code-fold: true
+#| label: setup
+#| output: false
+library(evoland)
+library(data.table)
+library(terra)
+```
+
+```{r}
+#| fig-show: hide
+#| code-fold: true
+#| label: create-db
+#| collapse: true
+db <- evoland_db$new(path = "policy-mechanisms.evolanddb")
+
+db$lulc_meta_t <- create_lulc_meta_t(
+  list(
+    forest = list(pretty_name = "Forest"),
+    arable = list(pretty_name = "Arable Land"),
+    urban = list(pretty_name = "Urban Areas"),
+    static = list(pretty_name = "Immutable")
+  )
+)
+
+template_rast <- terra::rast(
+  crs = "EPSG:2056",
+  extent = terra::ext(c(
+    xmin = 2697000,
+    xmax = 2697000 + 30 * 100,
+    ymin = 1252000,
+    ymax = 1252000 + 30 * 100
+  )),
+  resolution = 100
+)
+
+db$coords_t <- create_coords_t_square(
+  epsg = terra::crs(template_rast, describe = TRUE)$code |> as.integer(),
+  extent = terra::ext(template_rast),
+  resolution = terra::res(template_rast)[1]
+)
+
+db$periods_t <- create_periods_t(
+  period_length_str = "P10Y",
+  start_observed = "1995-01-01",
+  end_observed = "2020-01-01",
+  end_extrapolated = "2030-01-01"
+)
+```
+
+```{r}
+#| fig-show: hide
+#| seed: 123
+#| label: synthesize-lulc
+#| code-fold: true
+#| fig-asp: 0.3
+n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
+noise1 <- runif(n_cells, min = -0.5, max = 4.2)
+noise2 <- noise1 + stats::rpois(n_cells, 0.1) - stats::rpois(n_cells, 0.1)
+noise3 <- noise2 + stats::rpois(n_cells, 0.1) - stats::rpois(n_cells, 0.1)
+
+synthetic_lulc <-
+  rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
+  focal(w = 3, fun = mean, na.rm = TRUE) |>
+  clamp(lower = 0, upper = 4) |>
+  classify(
+    rcl = data.frame(from = 0:3, to = 1:4, becomes = c(2, 1, 3, 4)),
+    right = FALSE
+  ) |>
+  setNames(paste0("synthetic LULC id_period=", 1:3))
+
+plot(
+  synthetic_lulc,
+  nc = 3,
+  col = data.frame(
+    value = 1:4,
+    color = c("#91B690", "#EB9486", "#F3DE8A", "#CBC6D2")
+  )
+)
+
+db$lulc_data_t <-
+  extract_using_coords_t(synthetic_lulc, db$coords_t)[,
+    .(
+      id_run = 0L,
+      id_coord,
+      id_period = substr(layer, 26, 26) |> as.integer(),
+      id_lulc = value
+    )
+  ] |>
+  as_lulc_data_t()
+```
+
+```{r}
+#| fig-show: hide
+#| label: predictors
+#| code-fold: true
+#| seed: 321
+#| fig-asp: 0.3
+# helper: scale raster to [0, 1]
+scale01 <- function(x) {
+  rng <- terra::global(x, c("min", "max"), na.rm = TRUE)
+  (x - rng[1, 1]) / (rng[1, 2] - rng[1, 1])
+}
+
+# helper: smooth random field
+smooth_field <- function(template, sd = 1, w = 7) {
+  terra::setValues(template, rnorm(terra::ncell(template), sd = sd)) |>
+    terra::focal(w = w, fun = mean, na.rm = TRUE) |>
+    scale01()
+}
+
+# coordinate-based gradients
+xy <- terra::crds(template_rast, df = TRUE)
+x_grad <- terra::setValues(template_rast, (xy$x - min(xy$x)) / (max(xy$x) - min(xy$x)))
+y_grad <- terra::setValues(template_rast, (xy$y - min(xy$y)) / (max(xy$y) - min(xy$y)))
+
+latent1 <- smooth_field(template_rast, sd = 1, w = 9)
+latent2 <- smooth_field(template_rast, sd = 1, w = 5)
+
+accessibility <- scale01(0.55 * (1 - x_grad) + 0.25 * (1 - y_grad) + 0.20 * latent1)
+site_quality <- scale01(0.50 * y_grad + 0.35 * latent2 + 0.15 * x_grad)
+
+c(accessibility, site_quality) |>
+  setNames(c("accessibility", "site_quality")) |>
+  plot()
+```
+
+```{r}
+#| fig-show: hide
+#| label: predictors2
+#| code-fold: true
+#| seed: 321
+#| fig-asp: 1
+as_indicator <- function(x, class) {
+  terra::app(x, fun = function(v) as.numeric(v %in% class))
+}
+
+forest_share <-
+  as_indicator(synthetic_lulc, class = 1) |>
+  terra::focal(w = 5, fun = mean, na.rm = TRUE) |>
+  terra::mean()
+arable_share <-
+  as_indicator(synthetic_lulc, class = 2) |>
+  terra::focal(w = 5, fun = mean, na.rm = TRUE) |>
+  terra::mean()
+urban_share <-
+  as_indicator(synthetic_lulc, class = 3) |>
+  terra::focal(w = 5, fun = mean, na.rm = TRUE)
+
+make_dynamic <- function(base_context, static1, static2, noise_weight = 0.10) {
+  out <- vector("list", terra::nlyr(base_context))
+  for (i in seq_len(terra::nlyr(base_context))) {
+    noise_i <- smooth_field(template_rast, sd = 1, w = 5)
+    # fmt: skip
+    out[[i]] <- scale01(
+      0.55 * base_context[[i]] +
+        0.25 * static1 +
+        0.10 * static2 + noise_weight * noise_i
+    )
+  }
+  terra::rast(out)
+}
+
+urban_pressure <-
+  make_dynamic(
+    base_context = urban_share,
+    static1 = accessibility,
+    static2 = 1 - site_quality
+  )
+add(urban_pressure) <-
+  # fmt: skip
+  scale01(
+    0.60 * urban_pressure[[3]] +
+      0.25 * urban_share[[3]] +
+      0.10 * accessibility +
+      0.05 * smooth_field(accessibility)
+  )
+names(urban_pressure) <-
+  paste0("urban_pressure id_period=", 1:4)
+
+forest_suitability <-
+  make_dynamic(
+    base_context = forest_share,
+    static1 = site_quality,
+    static2 = 1 - accessibility
+  ) |>
+  setNames("forest_suitability id_period=0")
+
+arable_yield <-
+  make_dynamic(
+    base_context = arable_share,
+    static1 = 1 - site_quality,
+    static2 = accessibility
+  ) |>
+  setNames("arable_yield id_period=0")
+
+# optional nuisance predictor that should usually score poorly
+random_nuisance <-
+  smooth_field(template_rast, sd = 1, w = 3) |>
+  setNames("random_nuisance id_period=0")
+
+plot(c(urban_pressure, forest_suitability, arable_yield, random_nuisance))
+```
+
+```{r}
+#| fig-show: hide
+#| label: predictors3
+#| code-fold: true
+#| seed: 321
+#| fig-asp: 0.3
+db$pred_meta_t <-
+  create_pred_meta_t(list(
+    urban_pressure = list(
+      description = "synthetic confabulation",
+      data_type = "float"
+    ),
+    forest_suitability = list(
+      description = "synthetic confabulation",
+      data_type = "float"
+    ),
+    arable_yield = list(
+      description = "synthetic confabulation",
+      data_type = "float"
+    ),
+    random_nuisance = list(
+      description = "synthetic confabulation",
+      data_type = "float"
+    )
+  ))
+
+db$pred_data_t <-
+  extract_using_coords_t(
+    c(urban_pressure, forest_suitability, arable_yield, random_nuisance),
+    db$coords_minimal
+  )[, layer := as.character(layer)][,
+    .(
+      id_coord,
+      id_run = 0L,
+      id_period = substr(layer, nchar(layer), nchar(layer)) |> as.integer(),
+      id_pred = fcase(
+        grepl("urban_pressure", layer)     , 1L ,
+        grepl("forest_suitability", layer) , 2L ,
+        grepl("arable_yield", layer)       , 3L ,
+        grepl("random_nuisance", layer)    , 4L
+      ),
+      value
+    )
+  ] |>
+  as_pred_data_t()
+```
+
+```{r}
+#| fig-show: hide
+#| label: predictors4
+#| code-fold: true
+db$set_neighbors(
+  max_distance = 1000,
+  distance_breaks = c(0, 300, 1000),
+  quiet = TRUE
+)
+db$generate_neighbor_predictors()
+```
+
+```{r}
+#| fig-show: hide
+#| code-fold: true
+#| label: transitions-and-predictors
+#| seed: 666
+db$trans_meta_t <- create_trans_meta_t(
+  db$trans_v,
+  min_cardinality_abs = 20,
+  exclude_anterior = 4 # exclude immutable class
+)
+
+db$set_full_trans_preds()
+
+trans_pred_scored <- db$get_pred_filter_score(
+  filter = mlr3filters::FilterImportance$new(
+    learner = mlr3::lrn("classif.rpart")
+  )
+)
+
+db$commit(
+  trans_pred_scored[order(-importance)][, head(.SD, 3), by = id_trans], # top three per id_trans
+  "trans_preds_t",
+  method = "overwrite"
+)
+```
+
+```{r}
+#| fig-show: hide
+#| code-fold: true
+#| label: fit-models
+#| seed: 666
+trans_models <- db$fit_full_models(learner = mlr3::lrn("classif.rpart"))
+
+# which transitions produced a usable model (non-null learner_full)? read this
+# from the returned object before committing it
+modeled_trans <- unique(
+  trans_models$id_trans[!vapply(trans_models$learner_full, is.null, logical(1L))]
+)
+
+db$trans_models_t <- trans_models
+```
+
+```{r}
+#| fig-show: hide
+#| code-fold: true
+#| label: reconcile-viable-transitions
+trans_meta_reconciled <- db$trans_meta_t
+trans_meta_reconciled[, is_viable := is_viable & id_trans %in% modeled_trans]
+db$trans_meta_t <- trans_meta_reconciled
+```
+
+```{r}
+#| fig-show: hide
+#| code-fold: true
+#| label: transition-rates
+#| seed: 666
+db$trans_rates_t <-
+  # fmt: skip
+  rowwiseDT(
+    id_trans = , rate = ,
+    1,           0.3,
+    2,           0.2,
+    3,           0.1,
+    4,           0,
+    5,           0,
+    6,           0.2
+  )[, `:=`(
+    id_run = 0L,
+    id_period = 4L,
+    count = n_cells * rate
+  )] |>
+  as_trans_rates_t()
+
+db$alloc_params_t <- db$create_alloc_params_t()
+```
+
+## Scenario runs
+
+Every scenario is a child of the base run `0`, so it inherits the observed data, models,
+transition rates and allocation parameters, and only overrides what its mechanism changes.
+
+```{r}
+#| label: register-runs
+runs <- data.table(
+  id_run = 0:4,
+  parent_id_run = c(NA, 0L, 0L, 0L, 0L),
+  description = c(
+    "base",
+    "business as usual",
+    "compact settlement",
+    "building zones and conservation",
+    "reservoir project"
+  )
+)
+db$commit(as_runs_t(runs), "runs_t", method = "overwrite")
+
+lulc_ids <- db$lulc_meta_t[, setNames(id_lulc, name)]
+urban_trans <- db$trans_meta_t[
+  is_viable == TRUE & id_lulc_posterior == lulc_ids[["urban"]],
+  id_trans
+]
+```
+
+Transition potentials depend only on the anterior state and the predictors, which all runs
+share, so we predict them once under the base run. Runs that do not edit them inherit these.
+
+```{r}
+#| label: predict-base
+#| output: false
+target_period <- 4L
+db$id_run <- 0L
+db$predict_trans_pot(
+  id_period_post = target_period,
+  select_score = "no.crossval",
+  select_maximize = TRUE
+)
+```
+
+Each run is allocated with `alloc_clumpy_one_period()`, which returns the map without
+committing it. That leaves room for the map edits of the last mechanism; for the others,
+`edit_map` does nothing. After committing, `upsert_new_neighbors()` refreshes the neighbourhood
+predictors, which a following period would be predicted from. The same seed for every run keeps
+the comparison about the mechanism rather than the draw.
+
+```{r}
+#| label: allocate-helper
+allocate_run <- function(id_run, edit_map = identity) {
+  db$id_run <- id_run
+  set.seed(42)
+  lulc <- alloc_clumpy_one_period(
+    db = db,
+    id_period_post = target_period,
+    select_score = "no.crossval",
+    select_maximize = TRUE
+  )
+  lulc <- edit_map(lulc)
+  db$commit(lulc, "lulc_data_t", method = "upsert")
+  db$upsert_new_neighbors(target_period)
+  invisible(lulc)
+}
+```
+
+## Business as usual
+
+```{r}
+#| label: allocate-bau
+#| output: false
+allocate_run(1L)
+```
+
+## Settlement form: compact development
+
+A compact-development policy concentrates new building land in fewer, larger developments
+instead of many scattered plots. In the allocation parameters this is the patch-size
+distribution of transitions into urban land. For the scenario run we take the base estimate and
+triple the mean size of new urban patches, scaling the variance so the spread of sizes grows
+with it.
+
+```{r}
+#| label: settlement-form
+compact <- copy(db$alloc_params_t)[, id_run := 2L]
+compact[
+  id_trans %in% urban_trans,
+  `:=`(
+    mean_patch_size = 3 * mean_patch_size,
+    patch_size_variance = 9 * patch_size_variance
+  )
+]
+db$alloc_params_t <- as_alloc_params_t(compact)
+```
+
+```{r}
+#| label: allocate-compact
+#| output: false
+allocate_run(2L)
+```
+
+With Dinamica EGO as the allocator, the same table also carries the share of change that
+expands existing patches (`frac_expander`); CLUMPY takes adjacency from the transition
+potentials instead, through the neighbourhood predictors.
+
+## Spatial steering: building zones and nature conservation
+
+Zoning and protected areas change *where* land may convert. We represent them as masks on the
+coordinates and adjust the transition potentials inside or outside them:
+
+- **building zones**: new urban land is strongly preferred on land adjoining existing
+  settlement (within 100 m, i.e. the neighbouring cells), so urban potentials outside that zone
+  are scaled by 0.1;
+- **nature conservation**: inside a protected area, no land converts to urban or arable use,
+  so those potentials are set to zero.
+
+```{r}
+#| label: masks
+lulc_anterior <- db$lulc_data_as_rast(id_period = target_period - 1L)
+
+distance_to_urban <- terra::distance(
+  terra::ifel(lulc_anterior == lulc_ids[["urban"]], 1, NA)
+)
+xy <- terra::crds(template_rast, df = TRUE)
+protected_area <- terra::setValues(
+  template_rast,
+  (xy$x - 2698500)^2 + (xy$y - 1253500)^2 < 700^2
+)
+
+masks <- extract_using_coords_t(
+  c(distance_to_urban <= 100, protected_area) |>
+    setNames(c("building_zone", "protected_area")),
+  db$coords_minimal
+) |>
+  dcast(id_coord ~ layer, value.var = "value")
+
+plot(
+  c(distance_to_urban <= 100, protected_area),
+  main = c("Building zone", "Protected area"),
+  legend = FALSE
+)
+```
+
+The adjustments are multiplicative. That matters because allocation rescales each transition's
+potentials to its demanded rate (see `adjusted_trans_pot_v()`): a factor states "k times as
+likely here as elsewhere", which survives that rescaling, while an absolute value such as "set
+to 0.1" would mean something different for every transition. A factor of zero is an exact
+exclusion. It also means these mechanisms **relocate** change under a fixed demand rather than
+adding or removing it; a policy that should change the amount belongs in the scenario's
+transition rates.
+
+The run inherits the base run's potentials slice by slice, one slice per transition and period.
+We therefore write back the complete slice for every transition we touch, not only the masked
+cells; a partial slice would hide the rest of the parent's.
+
+```{r}
+#| label: steer-potentials
+db$id_run <- 3L
+potentials <-
+  db$trans_pot_t[id_period_post == target_period][
+    masks,
+    on = "id_coord",
+    nomatch = NULL
+  ][
+    db$trans_meta_t[, .(id_trans, id_lulc_posterior)],
+    on = "id_trans",
+    nomatch = NULL
+  ]
+
+potentials[, factor := 1]
+potentials[
+  id_lulc_posterior == lulc_ids[["urban"]] & building_zone == 0,
+  factor := 0.1
+]
+potentials[
+  id_lulc_posterior %in% lulc_ids[c("urban", "arable")] & protected_area == 1,
+  factor := 0
+]
+
+db$trans_pot_t <- as_trans_pot_t(potentials[, .(
+  id_run = 3L,
+  id_trans,
+  id_period_post,
+  id_coord,
+  value = pmin(1, value * factor)
+)])
+```
+
+`alloc_clumpy_one_period()` finds these potentials for run 3 and uses them instead of
+predicting its own.
+
+```{r}
+#| label: allocate-steering
+#| output: false
+allocate_run(3L)
+```
+
+## Exogenous change: a reservoir project
+
+Some change is decided outside the land market and has no counterpart in the observed
+transitions the models learn from: a reservoir or road built to a plan, glacier retreat under a
+climate scenario. These are applied to the allocated map directly. Here a planned reservoir
+floods a strip of the landscape, turning it into immutable land.
+
+```{r}
+#| label: reservoir
+reservoir <- db$coords_minimal[
+  lat > 1252000 + 400 & lat < 1252000 + 900 & lon > 2697000 + 1200,
+  id_coord
+]
+
+flood <- function(lulc) {
+  lulc[id_coord %in% reservoir, id_lulc := lulc_ids[["static"]]]
+  lulc
+}
+```
+
+```{r}
+#| label: allocate-reservoir
+#| output: false
+allocate_run(4L, edit_map = flood)
+```
+
+The flooded cells are extra change on top of the demanded rates. If the scenario's land
+demand should already include them, subtract the project's conversions from that run's
+`trans_rates_t` before allocating.
+
+## Comparing the scenarios
+
+```{r}
+#| label: compare-maps
+#| fig-width: 9
+#| fig-asp: 0.85
+db$id_run <- NULL
+simulated <- db$fetch(
+  "lulc_data_t",
+  where = glue::glue("id_period = {target_period} and id_run between 1 and 4")
+)
+scenario_maps <- lapply(1:4, function(r) {
+  tabular_to_raster(simulated[id_run == r], coords = db$coords_minimal)
+}) |>
+  terra::rast() |>
+  setNames(c("Business as usual", "Compact settlement", "Zones + protection", "Reservoir"))
+
+plot(
+  scenario_maps,
+  nc = 2,
+  type = "classes",
+  levels = db$lulc_meta_t[order(id_lulc), pretty_name],
+  col = c("#91B690", "#EB9486", "#F3DE8A", "#CBC6D2"),
+  mar = c(2, 2, 2, 7)
+)
+```
+
+The table counts, per scenario, the cells that became urban, how many new urban patches they
+form and their mean size, the share of new urban land inside the building zone, the conversions
+to urban or arable land inside the protected area, and the cells flooded by the reservoir.
+
+```{r}
+#| label: compare-table
+anterior <- db$fetch(
+  "lulc_data_t",
+  where = glue::glue("id_run = 0 and id_period = {target_period - 1L}")
+)[, .(id_coord, id_lulc_anterior = id_lulc)]
+
+changes <- simulated[anterior, on = "id_coord"][masks, on = "id_coord"][
+  id_lulc != id_lulc_anterior
+]
+new_urban <- changes[id_lulc == lulc_ids[["urban"]]]
+
+patch_stats <- rbindlist(lapply(1:4, function(r) {
+  cells <- tabular_to_raster(
+    new_urban[id_run == r, .(id_coord, value = 1)],
+    coords = db$coords_minimal,
+    value_col = "value"
+  )
+  sizes <- table(terra::values(terra::patches(cells, directions = 4)))
+  data.table(id_run = r, new_patches = length(sizes), mean_patch_cells = mean(sizes))
+}))
+
+changes[,
+  .(
+    new_urban_cells = sum(id_lulc == lulc_ids[["urban"]]),
+    share_in_building_zone = round(
+      mean(building_zone[id_lulc == lulc_ids[["urban"]]] == 1),
+      2
+    ),
+    converted_in_protected_area = sum(
+      protected_area == 1 & id_lulc %in% lulc_ids[c("urban", "arable")]
+    ),
+    flooded_cells = sum(id_lulc == lulc_ids[["static"]])
+  ),
+  keyby = id_run
+][patch_stats, on = "id_run"][
+  runs[, .(id_run, scenario = description)],
+  on = "id_run",
+  nomatch = NULL
+]
+```
+
+Compared with business as usual:
+
+- **compact settlement** converts the same amount of land in far fewer, larger patches;
+- **building zones and conservation** keep a similar quantity of new urban land but move more of
+  it into the zone, and nothing converts to urban or arable land inside the protected area any
+  more; the quantity is not exactly equal because CLUMPY's single-cell allocation meets the
+  demanded rates in expectation;
+- **the reservoir project** floods its strip regardless of what the allocator did there,
+  overwriting some cells it had just converted to urban. In a following period, the
+  neighbourhood predictors would see the reservoir.
+
+## Summary
+
+| Mechanism | Scenario-specific table | When it is applied |
+|---|---|---|
+| Settlement form | `alloc_params_t` | written once for the run |
+| Spatial steering | `trans_pot_t` | after prediction, before allocation, per period |
+| Exogenous change | `lulc_data_t` | after allocation, before committing, per period |
+
+All three rely on the run lineage in `runs_t` to override only what differs from the parent
+run, and the per-period ones on the single-period allocators
+(`alloc_clumpy_one_period()`, `alloc_dinamica_one_period()`), which leave the loop to the
+caller.

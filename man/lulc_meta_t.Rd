@@ -16,7 +16,7 @@ create_lulc_meta_t(lulc_class_spec)
 \arguments{
 \item{x}{List-like coercible to \code{lulc_meta_t} via \code{\link[data.table:as.data.table]{data.table::as.data.table()}}}
 
-\item{lulc_class_spec}{A list of intervention specifications, see examples}
+\item{lulc_class_spec}{A named list of land use class specifications, see examples}
 
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
@@ -42,7 +42,7 @@ metadata describe the characteristics of land use classes.
 }}
 \section{Functions}{
 \itemize{
-\item \code{create_lulc_meta_t()}: Creates a lulc_meta_t table from intervention specifications
+\item \code{create_lulc_meta_t()}: Creates a lulc_meta_t table from land use class specifications
 
 }}
 \examples{
