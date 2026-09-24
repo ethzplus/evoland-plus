@@ -19,71 +19,6 @@ make_test_raster <- function(ncol = 10, nrow = 10, values = NULL) {
   r
 }
 
-# Test calc_fuzzy_similarity with perfect match
-map1 <- make_test_raster(values = rep(1:4, length.out = 100))
-map2 <- map1
-
-result_perfect <- calc_fuzzy_similarity(
-  map1,
-  map2,
-  window_size = 5L,
-  use_exp_decay = FALSE
-)
-
-expect_equal(result_perfect$min_similarity, 1.0, tolerance = 0.001)
-expect_equal(result_perfect$mean_sim1, 1.0, tolerance = 0.001)
-expect_equal(result_perfect$mean_sim2, 1.0, tolerance = 0.001)
-
-# Test calc_fuzzy_similarity with completely different maps
-map_a <- make_test_raster(values = rep(1, 100))
-map_b <- make_test_raster(values = rep(2, 100))
-
-result_diff <- calc_fuzzy_similarity(
-  map_a,
-  map_b,
-  window_size = 5L,
-  use_exp_decay = FALSE
-)
-
-expect_true(result_diff$min_similarity < 0.1)
-
-# Test calc_fuzzy_similarity with spatial shift
-vals1 <- rep(1, 100)
-vals1[45:55] <- 2
-map_shift1 <- make_test_raster(values = vals1)
-
-vals2 <- rep(1, 100)
-vals2[46:56] <- 2
-map_shift2 <- make_test_raster(values = vals2)
-
-result_shift <- calc_fuzzy_similarity(
-  map_shift1,
-  map_shift2,
-  window_size = 11L,
-  use_exp_decay = TRUE
-)
-
-expect_true(result_shift$min_similarity > 0.7)
-
-# Test window_size validation (must be odd)
-map_test1 <- make_test_raster(values = rep(1, 100))
-
-expect_error(
-  calc_fuzzy_similarity(map_test1, map_test1, window_size = 10L),
-  pattern = "window_size must be odd"
-)
-
-# Test dimension validation (maps must match)
-map_small <- make_test_raster(ncol = 10, nrow = 10)
-map_large <- make_test_raster(ncol = 20, nrow = 20)
-terra::values(map_small) <- 1
-terra::values(map_large) <- 1
-
-expect_error(
-  calc_fuzzy_similarity(map_small, map_large, window_size = 5L),
-  pattern = "extents do not match"
-)
-
 # Test create_change_map with no changes
 map_unchanged1 <- make_test_raster(values = rep(1, 100))
 map_unchanged2 <- make_test_raster(values = rep(1, 100))
@@ -214,29 +149,48 @@ result_missing <- calc_transition_similarity(
 expect_equal(result_missing$similarity, 0)
 expect_true(is.na(result_missing$sim_sim_to_obs))
 
-# Test exponential decay vs constant weight
-map_pattern1 <- make_test_raster(values = rep(1:4, length.out = 100))
+# calc_figure_of_merit, one cell of each kind:
+# 1: 1 -> 2 simulated as 2 (hit)      2: 1 -> 2 simulated as 1 (miss)
+# 3: 1 -> 1 simulated as 2 (false alarm)   4: 1 -> 1 simulated as 1 (correct persistence)
+# 5: 2 -> 1 simulated as 3 (wrong hit)     6: 2 -> 2 simulated as 2 (correct persistence)
+fom_initial <- c(1, 1, 1, 1, 2, 2)
+fom_observed <- c(2, 2, 1, 1, 1, 2)
+fom_simulated <- c(2, 1, 2, 1, 3, 2)
 
-vals_shifted <- rep(1:4, length.out = 100)
-vals_shifted <- c(vals_shifted[2:100], vals_shifted[1])
-map_pattern2 <- make_test_raster(values = vals_shifted)
-
-result_exp_decay <- calc_fuzzy_similarity(
-  map_pattern1,
-  map_pattern2,
-  window_size = 11L,
-  use_exp_decay = TRUE,
-  decay_divisor = 2.0
+fom <- calc_figure_of_merit(fom_initial, fom_observed, fom_simulated)
+expect_equal(
+  unlist(fom[, .(hits, wrong_hits, misses, false_alarms)]),
+  c(hits = 1, wrong_hits = 1, misses = 1, false_alarms = 1)
 )
+expect_equal(fom$figure_of_merit, 1 / 4)
+expect_equal(fom$producers_accuracy, 1 / 3)
+expect_equal(fom$users_accuracy, 1 / 3)
+# random allocation within class 1 (4 cells, 2 observed and 2 simulated 1 -> 2) expects one
+# hit over a union of 3; class 2 (2 cells, 2 -> 1 observed, 2 -> 3 simulated) no hit over 1.5
+expect_equal(fom$figure_of_merit_null, 1 / 4.5)
 
-result_const_weight <- calc_fuzzy_similarity(
-  map_pattern1,
-  map_pattern2,
-  window_size = 11L,
-  use_exp_decay = FALSE
+fom_trans <- calc_figure_of_merit(fom_initial, fom_observed, fom_simulated, by_transition = TRUE)
+expect_equal(fom_trans$id_lulc_anterior, c(1, 2, 2))
+expect_equal(fom_trans$id_lulc_posterior, c(2, 1, 3))
+expect_equal(fom_trans$figure_of_merit, c(1 / 3, 0, 0))
+expect_equal(fom_trans$figure_of_merit_null, c(1 / 3, 0, 0))
+
+# rasters give the same result as vectors, and an ensemble averages its members
+fom_rast <- calc_figure_of_merit(
+  make_test_raster(ncol = 3, nrow = 2, values = fom_initial),
+  make_test_raster(ncol = 3, nrow = 2, values = fom_observed),
+  make_test_raster(ncol = 3, nrow = 2, values = fom_simulated)
 )
+expect_equal(fom_rast, fom)
 
-expect_true(result_exp_decay$min_similarity > 0)
-expect_true(result_const_weight$min_similarity > 0)
-# Both decay functions should produce valid similarity values
-# The relationship between them depends on the spatial pattern
+fom_ensemble <- calc_figure_of_merit(
+  fom_initial,
+  fom_observed,
+  list(fom_simulated, fom_observed)
+)
+expect_equal(fom_ensemble$hits, (1 + 3) / 2)
+expect_equal(fom_ensemble$false_alarms, 1 / 2)
+expect_equal(
+  fom_ensemble$figure_of_merit,
+  2 / (2 + 0.5 + 0.5 + 0.5)
+)

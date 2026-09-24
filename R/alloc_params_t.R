@@ -20,7 +20,7 @@
 #'   - `frac_expander`: Fraction of transition cells adjacent to existing patches
 #'   - `frac_patcher`: Fraction of transition cells forming new patches
 #'   - `similarity`: Similarity metric for allocation parameters, see
-#'      [calc_fuzzy_similarity()] and [eval_alloc_params_t()]
+#'      [calc_transition_similarity()] and [eval_alloc_params_t()]
 #'
 #' @export
 as_alloc_params_t <- function(x) {
