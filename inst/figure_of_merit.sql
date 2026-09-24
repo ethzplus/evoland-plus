@@ -6,6 +6,7 @@ Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
 - {id_period_anterior}
 - {id_period_post}
+- {exclude_filter}: empty, or `and` conditions on a (initial) and o (observed) classes
 Data sources:
 - {reference_read_expr}: lulc_data_t of the reference run, holding the initial and observed map
 - {simulated_read_expr}: lulc_data_t rows (id_run, id_coord, id_lulc) of each simulated run's
@@ -37,6 +38,7 @@ with
       inner join ({simulated_read_expr}) s on s.id_coord = a.id_coord
     where
       a.id_period = {id_period_anterior}
+      {exclude_filter}
   ),
   n_initial as (
     select

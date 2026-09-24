@@ -151,6 +151,16 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
   )
 }
 
+#' @describeIn evoland_db_util Gets the read expression for a table as seen from a given run,
+#' through that run's lineage, without changing the active run.
+#' @param id_run Integer, the run whose view of the table is read
+get_run_read_expr <- function(self, table_name, id_run) {
+  active_id_run <- self$id_run
+  on.exit(self$id_run <- active_id_run)
+  self$id_run <- id_run
+  self$get_read_expr(table_name)
+}
+
 #' @describeIn evoland_db_util Run a worker function in parallel with an `evoland_db`
 #' instance; takes an (optional) worker cluster, a worker function, a set of
 #' items, and a parent `evoland_db` instance. If **no** cluster is passed, apply the

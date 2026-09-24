@@ -175,14 +175,32 @@ evoland_db <- R6::R6Class(
     #' @param id_run_simulated Integer vector, runs holding the simulated maps; defaults to
     #' the active run
     #' @param by_transition Logical; if `TRUE`, report per transition instead of overall.
+    #' @param exclude_id_lulc Integer vector of classes; cells whose initial or observed class
+    #' is one of them are ignored. Default none.
     figure_of_merit_v = function(
       id_period_anterior,
       id_period_post,
       id_run_reference,
       id_run_simulated = self$id_run,
-      by_transition = FALSE
+      by_transition = FALSE,
+      exclude_id_lulc = integer(0)
     ) {
       create_method_binding(figure_of_merit_v)
+    },
+
+    #' @description Cross-tabulation of land use between two periods, see [lulc_crosstab_v()]
+    #' @param id_period_anterior,id_period_post Integer, the two periods to compare
+    #' @param id_run_anterior Integer, run to read `id_period_anterior` from; defaults to the
+    #' active run
+    #' @param id_run_post Integer, run to read `id_period_post` from; defaults to
+    #' `id_run_anterior`
+    lulc_crosstab_v = function(
+      id_period_anterior,
+      id_period_post,
+      id_run_anterior = self$id_run,
+      id_run_post = id_run_anterior
+    ) {
+      create_method_binding(lulc_crosstab_v)
     },
 
     ### Allocation methods ---
