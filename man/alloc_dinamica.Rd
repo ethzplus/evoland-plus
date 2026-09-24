@@ -24,7 +24,8 @@ alloc_dinamica(
   work_dir = NULL,
   keep_intermediate = FALSE,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )
 
 eval_alloc_params_t(
@@ -60,6 +61,11 @@ under the parent run, so sibling runs share one set, e.g. for Monte-Carlo ensemb
 the period before the first is used as the anterior state.}
 
 \item{keep_intermediate}{Logical, whether to keep intermediate files from simulations}
+
+\item{update_neighbors}{Logical; whether to recompute neighbour predictors after the last
+requested period (default \code{TRUE}). Intermediate periods are always updated, since the next
+period's prediction reads them. Set \code{FALSE} when nothing is allocated onwards from the
+last period, e.g. for single-period ensembles.}
 }
 \value{
 \code{alloc_dinamica_one_period()}: an \link{lulc_data_t} with the simulated posterior LULC.

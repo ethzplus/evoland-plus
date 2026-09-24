@@ -372,7 +372,8 @@ EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
   work_dir = NULL,
   keep_intermediate = FALSE,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )}
     \if{html}{\out{</div>}}
   }
@@ -389,6 +390,8 @@ uses a temporary directory.}
       \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials}
       \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
 values already exist}
+      \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
+requested period. Intermediate periods are always updated.}
     }
     \if{html}{\out{</div>}}
   }
@@ -412,7 +415,8 @@ uSAM, otherwise uPAM.
   avoid_aggregation = TRUE,
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )}
     \if{html}{\out{</div>}}
   }
@@ -434,6 +438,8 @@ would merge fail and allocate nothing. Ignored for uSAM.}
 (useful for repeated allocation)}
       \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
 values already exist}
+      \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
+requested period. Intermediate periods are always updated.}
     }
     \if{html}{\out{</div>}}
   }

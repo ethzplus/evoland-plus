@@ -26,7 +26,8 @@ alloc_clumpy(
   avoid_aggregation = TRUE,
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )
 }
 \arguments{
@@ -59,6 +60,11 @@ under the parent run, so sibling runs share one set, e.g. for Monte-Carlo ensemb
 \item{self}{An \link{evoland_db} instance.}
 
 \item{id_periods}{Integer vector of contiguous posterior period IDs to simulate.}
+
+\item{update_neighbors}{Logical; whether to recompute neighbour predictors after the last
+requested period (default \code{TRUE}). Intermediate periods are always updated, since the next
+period's prediction reads them. Set \code{FALSE} when nothing is allocated onwards from the
+last period, e.g. for single-period ensembles.}
 }
 \value{
 \code{alloc_clumpy_one_period()}: an \link{lulc_data_t} with the simulated posterior LULC.

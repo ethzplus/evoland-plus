@@ -231,6 +231,10 @@ alloc_clumpy_one_period <- function(
 #'
 #' @param self An [evoland_db] instance.
 #' @param id_periods Integer vector of contiguous posterior period IDs to simulate.
+#' @param update_neighbors Logical; whether to recompute neighbour predictors after the last
+#'   requested period (default `TRUE`). Intermediate periods are always updated, since the next
+#'   period's prediction reads them. Set `FALSE` when nothing is allocated onwards from the
+#'   last period, e.g. for single-period ensembles.
 alloc_clumpy <- function(
   self,
   id_periods,
@@ -240,7 +244,8 @@ alloc_clumpy <- function(
   avoid_aggregation = TRUE,
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 ) {
   stopifnot(
     "id_periods must be a numeric vector" = is.numeric(id_periods),
@@ -274,7 +279,9 @@ alloc_clumpy <- function(
     )
 
     self$commit(lulc_result, "lulc_data_t", method = "upsert")
-    self$upsert_new_neighbors(id_period_post)
+    if (update_neighbors || id_period_post != max(id_periods)) {
+      self$upsert_new_neighbors(id_period_post)
+    }
   }
 
   message("CLUMPY allocation complete!")
