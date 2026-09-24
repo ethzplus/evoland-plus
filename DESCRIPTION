@@ -58,8 +58,6 @@ Collate:
     'fuzzy_similarity.R'
     'grrf_learner.r'
     'init.R'
-    'intrv_masks_t.R'
-    'intrv_meta_t.R'
     'lp_problem.R'
     'lulc_data_t.R'
     'lulc_meta_t.R'

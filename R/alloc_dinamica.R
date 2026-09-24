@@ -8,7 +8,7 @@
 #'   next period is predicted from. Use it for plain simulations.
 #' * `alloc_dinamica_one_period(db, id_period_post, ...)` allocates one period for the active
 #'   `id_run` and returns the map **without committing it**. Use it to write your own loop:
-#'   edit `trans_pot_t` between prediction and allocation (e.g. interventions), edit the
+#'   edit `trans_pot_t` between prediction and allocation, edit the
 #'   allocated map afterwards, or draw an ensemble of single-period realisations. The caller
 #'   then commits the map with `db$commit(x, "lulc_data_t", method = "upsert")` and, if a
 #'   later period follows, runs `db$upsert_new_neighbors(id_period_post)`, in that order.

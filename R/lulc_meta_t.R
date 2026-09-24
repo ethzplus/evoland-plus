@@ -34,8 +34,8 @@ as_lulc_meta_t <- function(x) {
   )
 }
 
-#' @describeIn lulc_meta_t Creates a lulc_meta_t table from intervention specifications
-#' @param lulc_class_spec A list of intervention specifications, see examples
+#' @describeIn lulc_meta_t Creates a lulc_meta_t table from land use class specifications
+#' @param lulc_class_spec A named list of land use class specifications, see examples
 #' @examples create_lulc_meta_t(list(
 #'   forest = list(
 #'     pretty_name = "Dense Forest",
