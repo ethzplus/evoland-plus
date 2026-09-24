@@ -92,6 +92,8 @@ flowchart TD
     subgraph calibration["3. Calibration"]
         direction LR
         varsel[Select Features]
+        %% TODO "markov" once meant the transition potential model conditioning on the previous
+        %% period (a single look-back only), not Markov-chain demand; question the term, rename node
         varsel --> markovmods
         markovmods["Train Transition<br> Potential Models"]
         markovmods --> parametrize_alloc
