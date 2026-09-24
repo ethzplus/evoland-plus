@@ -287,23 +287,36 @@ db$lulc_data_t <- fom_lulc(12L, 2L, c(2L, 2L, 1L, 1L, 1L, 2L))
 db$id_run <- 11L
 fom <- db$figure_of_merit_v(1L, 2L, id_run_reference = 10L, id_run_simulated = 11:12)
 expect_equal(db$id_run, 11L) # restored after reading each run's lineage
-expect_equal(fom$id_run, 11:12)
-expect_equal(fom$hits, c(1L, 3L))
-expect_equal(fom$wrong_hits, c(1L, 0L))
-expect_equal(fom$misses, c(1L, 0L))
-expect_equal(fom$false_alarms, c(1L, 0L))
-expect_equal(fom$figure_of_merit, c(1 / 4, 1))
-expect_equal(fom$producers_accuracy, c(1 / 3, 1))
-expect_equal(fom$users_accuracy, c(1 / 3, 1))
 # random allocation within class 1 (4 cells, 2 observed and 2 simulated 1 -> 2) expects one
-# hit over a union of 3; class 2 (2 cells, 2 -> 1 observed, 2 -> 3 simulated) no hit over 1.5
-expect_equal(fom$figure_of_merit_null[1], 1 / 4.5)
+# hit over a union of 3; class 2 (2 cells, 2 -> 1 observed, 2 -> 3 simulated) no hit over 1.5.
+# Run 12 expects 0.5 hits in class 2 (2 -> 1 observed and simulated once each) over 1.5.
+expect_equal(
+  fom,
+  data.table::data.table(
+    id_run = 11:12,
+    hits = c(1L, 3L),
+    wrong_hits = c(1L, 0L),
+    misses = c(1L, 0L),
+    false_alarms = c(1L, 0L),
+    figure_of_merit = c(1 / 4, 1),
+    producers_accuracy = c(1 / 3, 1),
+    users_accuracy = c(1 / 3, 1),
+    figure_of_merit_null = c(1 / 4.5, 1.5 / 4.5)
+  )
+)
 
 fom_trans <- db$figure_of_merit_v(1L, 2L, id_run_reference = 10L, by_transition = TRUE)
-expect_equal(fom_trans$id_run, rep(11L, 3))
-expect_equal(fom_trans$id_lulc_anterior, c(1L, 2L, 2L))
-expect_equal(fom_trans$id_lulc_posterior, c(2L, 1L, 3L))
-expect_equal(fom_trans$hits, c(1L, 0L, 0L))
-expect_equal(fom_trans$figure_of_merit, c(1 / 3, 0, 0))
-expect_equal(fom_trans$figure_of_merit_null, c(1 / 3, 0, 0))
+expect_equal(
+  fom_trans,
+  data.table::data.table(
+    id_run = 11L,
+    id_lulc_anterior = c(1L, 2L, 2L),
+    id_lulc_posterior = c(2L, 1L, 3L),
+    observed = c(2L, 1L, 0L),
+    simulated = c(2L, 0L, 1L),
+    hits = c(1L, 0L, 0L),
+    figure_of_merit = c(1 / 3, 0, 0),
+    figure_of_merit_null = c(1 / 3, 0, 0)
+  )
+)
 db$id_run <- 0L
