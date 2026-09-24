@@ -13,7 +13,8 @@ alloc_dinamica(
   work_dir = NULL,
   keep_intermediate = FALSE,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )
 
 eval_alloc_params_t(
@@ -38,6 +39,11 @@ anterior data)}
 
 \item{force_predict_trans_pot}{Logical; re-run prediction for trans_pot_t even if those
 values already exist}
+
+\item{update_neighbors}{Logical; whether to recompute neighbour predictors after the last
+requested period (default \code{TRUE}). Intermediate periods are always updated, since the next
+period's prediction reads them. Set \code{FALSE} when nothing is allocated onwards from the
+last period, e.g. for single-period ensembles.}
 }
 \description{
 Methods for running Dinamica EGO allocation simulations and evaluating

@@ -179,6 +179,8 @@ evoland_db <- R6::R6Class(
     #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
     #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
     #' values already exist
+    #' @param update_neighbors Logical; recompute neighbour predictors after the last
+    #' requested period. Intermediate periods are always updated.
     alloc_dinamica = function(
       id_periods,
       select_score,
@@ -186,7 +188,8 @@ evoland_db <- R6::R6Class(
       work_dir = NULL,
       keep_intermediate = FALSE,
       use_parent_trans_pot = FALSE,
-      force_predict_trans_pot = FALSE
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
     ) {
       create_method_binding(alloc_dinamica)
     },
@@ -210,6 +213,8 @@ evoland_db <- R6::R6Class(
     #' (useful for repeated allocation)
     #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
     #' values already exist
+    #' @param update_neighbors Logical; recompute neighbour predictors after the last
+    #' requested period. Intermediate periods are always updated.
     alloc_clumpy = function(
       id_periods,
       select_score,
@@ -218,7 +223,8 @@ evoland_db <- R6::R6Class(
       avoid_aggregation = TRUE,
       batch_size = 0L,
       use_parent_trans_pot = FALSE,
-      force_predict_trans_pot = FALSE
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
     ) {
       create_method_binding(alloc_clumpy)
     },

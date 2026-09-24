@@ -185,6 +185,32 @@ expect_equal(unique(lulc_single[["id_run"]]), 4L)
 expect_equal(db$row_count("lulc_data_t"), n_lulc_before)
 expect_equal(list.files(tempdir(), pattern = "^dinamica_"), dinamica_dirs_before)
 
+# update_neighbors = FALSE skips the neighbour predictors after the last requested period
+db$runs_t <- as_runs_t(rbind(
+  db$runs_t,
+  list(id_run = 5, parent_id_run = 3, description = "no neighbour update")
+))
+db$id_run <- 5
+count_run_5_preds <- function() {
+  db$get_query(
+    "select count(*) from dl_db.pred_data_t where id_run = 5 and id_period = 4",
+    as_atomic = TRUE
+  )
+}
+alloc_run_5 <- function(update_neighbors) {
+  db$alloc_clumpy(
+    id_periods = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    use_parent_trans_pot = TRUE,
+    update_neighbors = update_neighbors
+  )
+}
+suppressMessages(alloc_run_5(update_neighbors = FALSE))
+expect_equal(count_run_5_preds(), 0)
+suppressMessages(alloc_run_5(update_neighbors = TRUE))
+expect_true(count_run_5_preds() > 0)
+
 # --------------------------------------------------------------------------
 # Test error handling
 # --------------------------------------------------------------------------

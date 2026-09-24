@@ -234,6 +234,10 @@ alloc_dinamica_one_period <- function(
 #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
 #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
 #' values already exist
+#' @param update_neighbors Logical; whether to recompute neighbour predictors after the last
+#'   requested period (default `TRUE`). Intermediate periods are always updated, since the next
+#'   period's prediction reads them. Set `FALSE` when nothing is allocated onwards from the
+#'   last period, e.g. for single-period ensembles.
 alloc_dinamica <- function(
   self,
   id_periods,
@@ -242,7 +246,8 @@ alloc_dinamica <- function(
   work_dir = NULL,
   keep_intermediate = FALSE,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 ) {
   stopifnot(
     "id_periods must be a numeric vector" = is.numeric(id_periods),
@@ -283,7 +288,9 @@ alloc_dinamica <- function(
     )
 
     self$commit(lulc_result, "lulc_data_t", method = "upsert")
-    self$upsert_new_neighbors(id_period_post)
+    if (update_neighbors || id_period_post != max(id_periods)) {
+      self$upsert_new_neighbors(id_period_post)
+    }
   }
 
   message("Dinamica allocation complete!")
