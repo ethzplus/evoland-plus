@@ -27,13 +27,15 @@ db_active_id_run(self, private, y)
 \item{y}{(optional) scalar integerish or NULL; if provided, sets the active run ID and lineage}
 }
 \value{
-A data.table of class "runs_t" with columns:
+A data.table of class "runs_t" with at least the columns:
 \itemize{
-\item \code{id_run}: Foreign key to runs_t
-\item \code{id_period}: Foreign key to periods_t
-\item \code{id_trans}: Foreign key to trans_meta_t
-\item \code{rate}: Transition rate (0 to 1)
+\item \code{id_run}: Unique ID for each run
+\item \code{parent_id_run}: Foreign key to runs_t; the run this one inherits data from, \code{NA} for a
+root run
+\item \code{description}: Description of the run
 }
+
+Further columns (e.g. a seed or a scenario label) may be added and are kept.
 }
 \description{
 Creates a runs_t table that stores the identities, hierarchy, and description of

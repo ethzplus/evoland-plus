@@ -39,10 +39,12 @@ predict_trans_pot(
 \value{
 A data.table of class "trans_pot_t" with columns:
 \itemize{
+\item \code{id_run}: Foreign key to \link{runs_t}
 \item \code{id_trans}: Foreign key to \code{\link[=trans_meta_t]{trans_meta_t()}}
 \item \code{id_period_post}: Foreign key to \code{\link[=periods_t]{periods_t()}}
 \item \code{id_coord}: Foreign key to \code{\link[=coords_t]{coords_t()}}
-\item \code{value}: Map of model (hyper) parameters
+\item \code{value}: Raw transition potential, i.e. the transition model's predicted probability;
+see \code{adjusted_trans_pot_v()} for the allocation-ready values
 }
 
 \code{predict_trans_pot()}: called for side effect; commit \code{trans_pot_t} to database
