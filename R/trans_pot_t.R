@@ -293,8 +293,13 @@ predict_trans_pot_for_alloc <- function(
   stop(glue::glue_collapse(
     sep = "\n",
     c(
-      "No fitted model for viable transition(s): {toString(missing_models)}.",
-      "  Check that trans_models_t has a learner_full for each viable trans",
+      glue::glue(
+        "No fitted model for viable transition(s): {toString(missing_models)}."
+      ),
+      glue::glue(
+        "  Check that trans_models_t has a learner_full with a crossval_score ",
+        "'{select_score}' for each viable transition"
+      ),
       err_messages
     )
   ))

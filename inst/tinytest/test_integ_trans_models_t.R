@@ -347,7 +347,8 @@ expect_equal(
 # test prediction and trans rate based potential adjustment
 expect_error(
   db$predict_trans_pot(id_period_post = 4, select_score = "classif.auc", select_maximize = TRUE),
-  "No fitted model for viable transition"
+  "No fitted model for viable transition(s): 1, 2.",
+  fixed = TRUE
 )
 db$trans_models_t <- err_model_t1 # insert faulty models
 expect_error(
