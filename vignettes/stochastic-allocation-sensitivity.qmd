@@ -440,31 +440,20 @@ db$alloc_params_t <- db$create_alloc_params_t()
 
 The central idea of this tutorial is that **each stochastic allocation is a separate run**. We therefore create 30 run records and propagate the same baseline allocation parameters to each run.
 
-As with all evoland tables, `runs_t` only ensures a minimum set of columns, so we can add the `kind` and `seed` columns when overwriting.
+`db$add_runs()` registers them below the base run. It allocates the run ids itself, records each realisation's `kind`, its index within the ensemble (`member`) and its `seed`, and stamps when, by which evoland version and (via the option `evoland.created_by`) by what the runs were registered.
 
 ```{r}
 #| label: register-runs
-runs_new <-
-  data.table(
-    id_run = 0:30, # base run 0 & stochastic runs 1:30
-    parent_id_run = NA_integer_, # NA for the scenario root
-    description = "base",
-    kind = "synthetic 'historical' case",
-    seed = 666L
-  )[
-    id_run > 0,
-    `:=`(
-      parent_id_run = 0L,
-      description = paste("stochastic allocation", id_run),
-      kind = "allocation sensitivity",
-      seed = id_run + 100L
-    )
-  ]
-
-db$commit(as_runs_t(runs_new), "runs_t", method = "overwrite")
-
-runs_out <- db$runs_t[id_run > 0]
+options(evoland.created_by = "stochastic-allocation-sensitivity vignette")
+runs_out <- db$add_runs(
+  parent_id_run = 0L,
+  description = paste("stochastic allocation", 1:30),
+  kind = "realisation",
+  member = 1:30,
+  seed = 100L + 1:30
+)
 run_ids <- runs_out$id_run
+runs_out[, .(id_run, parent_id_run, kind, member, seed, created_by)]
 ```
 
 Note that we do **not** copy the allocation parameters into each run. Every stochastic run is registered with `parent_id_run = 0`, so the run lineage lets each one inherit the baseline `alloc_params_t` (and the rest of the calibration) from run `0` automatically. This guarantees that **all differences among runs arise from the allocator's stochasticity -- driven by the per-run `seed` -- and not from differing parameters**.
@@ -472,14 +461,13 @@ Note that we do **not** copy the allocation parameters into each run. Every stoc
 ## Running one extrapolated period 30 times
 
 We only allocate the first extrapolated period. This makes the comparison easier to interpret: every realization starts from the same observed state.
-We loop over the run records: for each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- and then allocate the single extrapolated period (`id_period = 4`) using that run's `seed`. Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
+We loop over the run records: for each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- and then allocate the single extrapolated period (`id_period = 4`). The allocator seeds R's random number generator from the run's `seed` itself, so each realisation can be reproduced from the database alone, without a `set.seed()` in the calling code. Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
 
 ```{r}
 #| label: allocate-realizations
 #| output: false
 for (i in seq_len(nrow(runs_out))) {
   db$id_run <- runs_out$id_run[i]
-  set.seed(runs_out$seed[i])
   db$alloc_clumpy(
     id_periods = 4, # first extrapolated period
     select_score = "no.crossval",

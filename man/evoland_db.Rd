@@ -82,6 +82,8 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-alloc_clumpy}{\code{evoland_db$alloc_clumpy()}}
     \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
     \item \href{#method-evoland_db-create_alloc_params_t}{\code{evoland_db$create_alloc_params_t()}}
+    \item \href{#method-evoland_db-add_runs}{\code{evoland_db$add_runs()}}
+    \item \href{#method-evoland_db-run_attributes_v}{\code{evoland_db$run_attributes_v()}}
     \item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
     \item \href{#method-evoland_db-fit_full_models}{\code{evoland_db$fit_full_models()}}
     \item \href{#method-evoland_db-fit_partial_models}{\code{evoland_db$fit_partial_models()}}
@@ -448,7 +450,8 @@ uSAM, otherwise uPAM.
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
   force_predict_trans_pot = FALSE,
-  update_neighbors = TRUE
+  update_neighbors = TRUE,
+  use_run_seed = TRUE
 )}
     \if{html}{\out{</div>}}
   }
@@ -472,6 +475,8 @@ would merge fail and allocate nothing. Ignored for uSAM.}
 values already exist}
       \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
 requested period. Intermediate periods are always updated.}
+      \item{\code{use_run_seed}}{Logical; seed R's random number generator from the active
+run's \code{seed} for each period (default \code{TRUE}), see \code{\link[=alloc_clumpy]{alloc_clumpy()}}.}
     }
     \if{html}{\out{</div>}}
   }
@@ -515,6 +520,60 @@ see \code{\link[=create_alloc_params_t]{create_alloc_params_t()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$create_alloc_params_t()}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-add_runs"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-add_runs}{}}}
+\subsection{\code{evoland_db$add_runs()}}{
+  Register runs below existing parents, with database-allocated ids
+and provenance, see \code{\link[=add_runs]{add_runs()}}.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$add_runs(
+  parent_id_run,
+  description,
+  kind = NA_character_,
+  member = NA_integer_,
+  seed = NA_integer_,
+  attributes = NULL,
+  created_by = getOption("evoland.created_by", NA_character_)
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{parent_id_run}}{Integer, the parent of each new run.}
+      \item{\code{description}}{Character, free text.}
+      \item{\code{kind}}{Character, the role of each run, see \link{runs_t}.}
+      \item{\code{member}}{Integer, index within the parent's ensemble, or \code{NA}.}
+      \item{\code{seed}}{Integer, seed for the run's stochastic steps, or \code{NA}.}
+      \item{\code{attributes}}{\code{NULL}, a named list, or a list of named lists.}
+      \item{\code{created_by}}{Character; defaults to the option \code{evoland.created_by}.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-run_attributes_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-run_attributes_v}{}}}
+\subsection{\code{evoland_db$run_attributes_v()}}{
+  Run attributes resolved along the lineage, nearest run first, see
+\code{\link[=run_attributes_v]{run_attributes_v()}}.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$run_attributes_v(wide = TRUE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{wide}}{Logical; one column per attribute key (default) or a long table.}
+    }
     \if{html}{\out{</div>}}
   }
 }

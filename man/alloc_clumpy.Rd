@@ -14,7 +14,8 @@ alloc_clumpy_one_period(
   avoid_aggregation = TRUE,
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  use_run_seed = TRUE
 )
 
 alloc_clumpy(
@@ -27,7 +28,8 @@ alloc_clumpy(
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
   force_predict_trans_pot = FALSE,
-  update_neighbors = TRUE
+  update_neighbors = TRUE,
+  use_run_seed = TRUE
 )
 }
 \arguments{
@@ -56,6 +58,14 @@ under the parent run, so sibling runs share one set, e.g. for Monte-Carlo ensemb
 
 \item{force_predict_trans_pot}{Logical; if TRUE, recompute transition potentials even if
 \code{trans_pot_t} already holds them for this run and period.}
+
+\item{use_run_seed}{Logical; if \code{TRUE} (default) and the active run has a \code{seed} in
+\link{runs_t}, seed R's random number generator for this period from it, so that a run
+reproduces from the database alone. The seed of a period is drawn from the stream of
+the run's seed, so allocating periods one by one and with \code{db$alloc_clumpy()} gives
+the same result, and runs with consecutive seeds do not share streams. The caller's
+random number state is restored afterwards. Runs without a seed use the current state,
+as before.}
 
 \item{self}{An \link{evoland_db} instance.}
 

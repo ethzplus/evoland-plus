@@ -134,7 +134,8 @@ expect_message(
 
 db$runs_t <- as_runs_t(rbind(
   db$runs_t,
-  list(id_run = 4, parent_id_run = 3, description = "stochastic alloc")
+  list(id_run = 4, parent_id_run = 3, description = "stochastic alloc"),
+  fill = TRUE
 ))
 db$id_run <- 4
 
@@ -163,7 +164,7 @@ expect_inherits(lulc_single, "lulc_data_t")
 expect_equal(unique(lulc_single[["id_run"]]), 4L)
 expect_equal(db$row_count("lulc_data_t"), n_lulc_before)
 
-# Same for Dinamica, which by default works in a temporary directory it removes afterwards
+
 dinamica_dirs_before <- list.files(tempdir(), pattern = "^dinamica_")
 alloc_dinamica_single <- function() {
   alloc_dinamica_one_period(
@@ -188,7 +189,8 @@ expect_equal(list.files(tempdir(), pattern = "^dinamica_"), dinamica_dirs_before
 # update_neighbors = FALSE skips the neighbour predictors after the last requested period
 db$runs_t <- as_runs_t(rbind(
   db$runs_t,
-  list(id_run = 5, parent_id_run = 3, description = "no neighbour update")
+  list(id_run = 5, parent_id_run = 3, description = "no neighbour update"),
+  fill = TRUE
 ))
 db$id_run <- 5
 count_run_5_preds <- function() {
@@ -255,3 +257,35 @@ expect_true(all(
   evaluated_params$similarity <= 1 &
     evaluated_params$similarity >= 0
 ))
+
+# A run with a seed in runs_t reproduces from the database alone: the caller's RNG state
+# does not matter, the same seed gives the same map, a different seed a different one
+seeded <- db$add_runs(
+  parent_id_run = 3L,
+  description = c("seed 11", "seed 11 again", "seed 12"),
+  kind = "realisation",
+  seed = c(11L, 11L, 12L)
+)
+alloc_seeded <- function(id, caller_seed) {
+  db$id_run <- id
+  set.seed(caller_seed)
+  suppressMessages(alloc_clumpy_one_period(
+    db = db,
+    id_period_post = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    use_parent_trans_pot = TRUE
+  ))[order(id_coord), id_lulc]
+}
+map_a <- alloc_seeded(seeded$id_run[1], caller_seed = 1L)
+map_b <- alloc_seeded(seeded$id_run[2], caller_seed = 999L)
+map_c <- alloc_seeded(seeded$id_run[3], caller_seed = 1L)
+expect_identical(map_a, map_b)
+expect_false(identical(map_a, map_c))
+# the caller's RNG stream continues as if the allocation had not drawn from it
+set.seed(5L)
+expected_next <- runif(1)
+set.seed(5L)
+invisible(alloc_seeded(seeded$id_run[1], caller_seed = 5L))
+expect_equal(runif(1), expected_next)
+db$id_run <- 4L

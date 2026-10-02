@@ -85,6 +85,13 @@ NULL
 #'   under the parent run, so sibling runs share one set, e.g. for Monte-Carlo ensembles.
 #' @param force_predict_trans_pot Logical; if TRUE, recompute transition potentials even if
 #'   `trans_pot_t` already holds them for this run and period.
+#' @param use_run_seed Logical; if `TRUE` (default) and the active run has a `seed` in
+#'   [runs_t], seed R's random number generator for this period from it, so that a run
+#'   reproduces from the database alone. The seed of a period is drawn from the stream of
+#'   the run's seed, so allocating periods one by one and with `db$alloc_clumpy()` gives
+#'   the same result, and runs with consecutive seeds do not share streams. The caller's
+#'   random number state is restored afterwards. Runs without a seed use the current state,
+#'   as before.
 #' @export
 alloc_clumpy_one_period <- function(
   db,
@@ -95,7 +102,8 @@ alloc_clumpy_one_period <- function(
   avoid_aggregation = TRUE,
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  use_run_seed = TRUE
 ) {
   id_period_ant <- id_period_post - 1L
   # 1. Predict and store raw transition potentials
@@ -177,7 +185,13 @@ alloc_clumpy_one_period <- function(
     "period {id_period_ant} -> {id_period_post}"
   ))
 
-  # 9. Run the full allocation routine in C++
+  # 9. Run the full allocation routine in C++, seeded from the run if it has a seed
+  if (use_run_seed) {
+    restore_rng <- seed_rng_from_active_run(db, id_period_post)
+    if (!is.null(restore_rng)) {
+      on.exit(restore_rng(), add = TRUE)
+    }
+  }
   post_vec <- allocate_clumpy_cpp(
     landscape = ant_vec,
     nrow = nrow_r,
@@ -245,7 +259,8 @@ alloc_clumpy <- function(
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
   force_predict_trans_pot = FALSE,
-  update_neighbors = TRUE
+  update_neighbors = TRUE,
+  use_run_seed = TRUE
 ) {
   stopifnot(
     "id_periods must be a numeric vector" = is.numeric(id_periods),
@@ -275,7 +290,8 @@ alloc_clumpy <- function(
       avoid_aggregation = avoid_aggregation,
       batch_size = batch_size,
       use_parent_trans_pot = use_parent_trans_pot,
-      force_predict_trans_pot = force_predict_trans_pot
+      force_predict_trans_pot = force_predict_trans_pot,
+      use_run_seed = use_run_seed
     )
 
     self$commit(lulc_result, "lulc_data_t", method = "upsert")

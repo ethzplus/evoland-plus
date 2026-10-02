@@ -60,7 +60,15 @@ evoland_db <- R6::R6Class(
         # tables or neither -- and costs one snapshot rather than two
         self$transaction({
           self$set_report(...)
-          self$commit(as_runs_t(), "runs_t", method = "upsert")
+          migrate_runs_t(self)
+          # insert the base run only if it is missing: an upsert would reset its
+          # description, kind and attributes every time the database is opened
+          has_base <- "runs_t" %in%
+            self$list_tables() &&
+            0L %in% self$fetch("runs_t", cols = "id_run")[["id_run"]]
+          if (!has_base) {
+            self$commit(as_runs_t(), "runs_t", method = "upsert")
+          }
         })
       }
       # ensure there is a minimal runs_t with base case
@@ -234,6 +242,8 @@ evoland_db <- R6::R6Class(
     #' values already exist
     #' @param update_neighbors Logical; recompute neighbour predictors after the last
     #' requested period. Intermediate periods are always updated.
+    #' @param use_run_seed Logical; seed R's random number generator from the active
+    #' run's `seed` for each period (default `TRUE`), see [alloc_clumpy()].
     alloc_clumpy = function(
       id_periods,
       select_score,
@@ -243,7 +253,8 @@ evoland_db <- R6::R6Class(
       batch_size = 0L,
       use_parent_trans_pot = FALSE,
       force_predict_trans_pot = FALSE,
-      update_neighbors = TRUE
+      update_neighbors = TRUE,
+      use_run_seed = TRUE
     ) {
       create_method_binding(alloc_clumpy)
     },
@@ -270,6 +281,34 @@ evoland_db <- R6::R6Class(
     #' see [create_alloc_params_t()]
     create_alloc_params_t = function() {
       create_method_binding(create_alloc_params_t)
+    },
+
+    #' @description Register runs below existing parents, with database-allocated ids
+    #' and provenance, see [add_runs()].
+    #' @param parent_id_run Integer, the parent of each new run.
+    #' @param description Character, free text.
+    #' @param kind Character, the role of each run, see [runs_t].
+    #' @param member Integer, index within the parent's ensemble, or `NA`.
+    #' @param seed Integer, seed for the run's stochastic steps, or `NA`.
+    #' @param attributes `NULL`, a named list, or a list of named lists.
+    #' @param created_by Character; defaults to the option `evoland.created_by`.
+    add_runs = function(
+      parent_id_run,
+      description,
+      kind = NA_character_,
+      member = NA_integer_,
+      seed = NA_integer_,
+      attributes = NULL,
+      created_by = getOption("evoland.created_by", NA_character_)
+    ) {
+      create_method_binding(add_runs)
+    },
+
+    #' @description Run attributes resolved along the lineage, nearest run first, see
+    #' [run_attributes_v()].
+    #' @param wide Logical; one column per attribute key (default) or a long table.
+    run_attributes_v = function(wide = TRUE) {
+      create_method_binding(run_attributes_v)
     },
 
     #' @description Retrieve LULC data as a SpatRaster object for a given

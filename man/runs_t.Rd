@@ -14,7 +14,8 @@ as_runs_t(x)
 db_active_id_run(self, private, y)
 }
 \arguments{
-\item{x}{A list or data.frame coercible to a data.table}
+\item{x}{A list or data.frame coercible to a data.table. Standard columns that are
+missing are added as \code{NA}.}
 
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
@@ -29,10 +30,22 @@ db_active_id_run(self, private, y)
 \value{
 A data.table of class "runs_t" with columns:
 \itemize{
-\item \code{id_run}: Foreign key to runs_t
-\item \code{id_period}: Foreign key to periods_t
-\item \code{id_trans}: Foreign key to trans_meta_t
-\item \code{rate}: Transition rate (0 to 1)
+\item \code{id_run}: Unique ID of the run
+\item \code{parent_id_run}: ID of the parent run; \code{NA} for the base run
+\item \code{description}: Free text
+\item \code{kind}: Role of the run. Suggested values: \code{"base"}, \code{"scenario"},
+\code{"parameters"}, \code{"reference"} (e.g. held-out observations), \code{"realisation"}
+(a member of a stochastic ensemble). Free text; not validated.
+\item \code{member}: Index of the run within its parent's ensemble, \verb{>= 1}, or \code{NA}
+\item \code{seed}: Integer seed for the run's stochastic steps, or \code{NA}. The CLUMPY
+allocators seed R's random number generator from it, see \code{\link[=alloc_clumpy]{alloc_clumpy()}}.
+Dinamica EGO allocates with its own generator, which this seed does not control.
+\item \code{created_by}: Who or what registered the run, e.g. the experiment step; \code{NA} if
+unknown. \code{\link[=add_runs]{add_runs()}} fills it from the option \code{evoland.created_by}.
+\item \code{created_at}: When the run was registered (UTC)
+\item \code{evoland_version}: evoland version that registered the run
+\item \code{attributes}: MAP of further run attributes (string keys and values), inherited
+along the lineage, see \code{\link[=run_attributes_v]{run_attributes_v()}}
 }
 }
 \description{
@@ -42,6 +55,18 @@ feature that allows one to label data that is either overriding base data (e.g.
 predictors being used for forecasting) or produced by a specific model experiment
 (e.g. a given allocation of land use change given a set of transition potential
 models and allocation parameters).
+}
+\details{
+Runs form a tree: every run except the base names a parent, and reading any table
+under a run resolves each data slice to the nearest ancestor that has it. A run
+therefore only stores what it changes.
+
+Besides the tree, \code{runs_t} carries a fixed set of columns that experiments need
+again and again (seeds, the role of a run, its index in an ensemble, provenance),
+and a map of free-form \code{attributes} for anything specific to one study, such as a
+scenario label. Further ad hoc columns are kept but not validated; prefer
+\code{attributes}, which keeps the schema fixed so that runs can be upserted, and which
+\code{\link[=run_attributes_v]{run_attributes_v()}} resolves along the lineage.
 }
 \section{Methods (by generic)}{
 \itemize{
