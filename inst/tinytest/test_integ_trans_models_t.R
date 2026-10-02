@@ -369,6 +369,13 @@ expect_message(
   "Found trans_pot_t for id_run=0/id_trans=2/id_period=4; set force=TRUE to recompute",
   fixed = TRUE
 )
+# potentials already in trans_pot_t (e.g. from an external estimator) need no model: a score
+# no model carries does not stop their reuse
+expect_message(
+  db$predict_trans_pot(id_period_post = 4, select_score = "classif.bogus", select_maximize = TRUE),
+  "Found trans_pot_t for id_run=0/id_trans=2/id_period=4",
+  fixed = TRUE
+)
 options("evoland.use_prefetch_predict" = TRUE)
 expect_message(
   db$predict_trans_pot(

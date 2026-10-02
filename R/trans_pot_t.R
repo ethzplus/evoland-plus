@@ -115,9 +115,19 @@ predict_trans_pot <- function(
   select_maximize,
   force = FALSE
 ) {
-  .check_viable_trans_models(self, select_score) # error on missing models
-
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
+
+  # potentials may come from outside evoland (written to trans_pot_t directly); models are only
+  # needed when something is left to predict
+  needs_prediction <- force ||
+    !all(vapply(
+      viable_trans[["id_trans"]],
+      function(id_trans) .has_predictions(self, id_trans, id_period_post),
+      logical(1L)
+    ))
+  if (needs_prediction) {
+    .check_viable_trans_models(self, select_score) # error on missing models
+  }
   message(glue::glue("Predicting transition potential for {nrow(viable_trans)} transitions"))
 
   use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
