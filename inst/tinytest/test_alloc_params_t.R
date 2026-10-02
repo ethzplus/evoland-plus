@@ -107,3 +107,15 @@ expect_equal(params_empty$mean_patch_size, 0)
 expect_equal(params_empty$frac_expander, 0)
 expect_equal(params_empty$frac_patcher, 0)
 expect_true(is.na(params_empty$patch_elongation))
+
+# Square cells with floating point noise in the resolution, as when a raster is rebuilt from
+# coords_t on a grid with a non-integer origin, are accepted
+lulc_ant_noisy <- lulc_ant
+terra::ext(lulc_ant_noisy) <- terra::ext(lulc_ant) + c(0, 1e-12, 0, 0)
+expect_false(terra::res(lulc_ant_noisy)[1] == terra::res(lulc_ant_noisy)[2])
+expect_silent(evoland:::compute_alloc_params_single(
+  lulc_ant = lulc_ant_noisy,
+  lulc_post = lulc_ant_noisy,
+  id_lulc_ant = 1L,
+  id_lulc_post = 2L
+))
