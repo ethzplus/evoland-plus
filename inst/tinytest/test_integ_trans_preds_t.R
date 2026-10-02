@@ -96,3 +96,15 @@ expect_equal(
   perf_results[id_trans == 1L],
   tol = 1e-7
 )
+
+# trans_preds_t has only key columns; an upsert of rows that already exist must
+# neither fail (empty `update set` in the MERGE) nor duplicate them
+n_before <- db$row_count("trans_preds_t")
+expect_silent(
+  db$commit(
+    as_trans_preds_t(db$fetch("trans_preds_t")[, .(id_run, id_pred, id_trans)]),
+    "trans_preds_t",
+    method = "upsert"
+  )
+)
+expect_equal(db$row_count("trans_preds_t"), n_before)

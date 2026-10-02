@@ -113,6 +113,17 @@ expect_equal(retrieved[id_key == 3]$value, 33.3)
 expect_equal(retrieved[id_key == 4]$name, "d")
 expect_equal(retrieved[id_key == 1]$name, "a") # unchanged
 
+# Test 11b: upsert on a table whose columns are all keys inserts only the missing rows
+# (a `when matched then update set` with nothing to set is a DuckDB syntax error)
+key_only <- function(ids) {
+  x <- data.table::data.table(id_a = ids, id_b = 1L)
+  data.table::setattr(x, "key_cols", c("id_a", "id_b"))
+}
+expect_silent(db$commit(key_only(1:3), "test_key_only", method = "upsert"))
+expect_silent(db$commit(key_only(2:5), "test_key_only", method = "upsert"))
+expect_equal(db$row_count("test_key_only"), 5L)
+expect_equal(sort(db$fetch("test_key_only")$id_a), 1:5)
+
 # Test 12: Fetch with WHERE clause
 result <- db$fetch("test_table_3", where = "id_key >= 3")
 expect_equal(nrow(result), 2L)

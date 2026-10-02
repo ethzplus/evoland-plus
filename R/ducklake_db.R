@@ -828,17 +828,26 @@ ducklake_db <- R6::R6Class(
       # Alternate keys identify the same rows as the primary key, so they are
       # never updated; excluding them keeps the mapping between the two intact.
       ordinary_cols <- setdiff(all_new_cols, c(key_cols, alternate_key_cols))
-      update_assign_expr <- glue::glue_sql_collapse(
-        private$sql("{`ordinary_cols`} = new_data_v.{`ordinary_cols`}"),
-        sep = ",\n "
-      )
+
+      # When every column is a key (e.g. a relation table like trans_preds_t), a matched
+      # row is already identical and there is nothing to update; `update set` with an
+      # empty list is a syntax error, so only insert the rows that are missing.
+      matched_clause <- if (length(ordinary_cols) == 0L) {
+        DBI::SQL("")
+      } else {
+        update_assign_expr <- glue::glue_sql_collapse(
+          private$sql("{`ordinary_cols`} = new_data_v.{`ordinary_cols`}"),
+          sep = ",\n "
+        )
+        private$sql("when matched then update set {update_assign_expr}")
+      }
 
       self$execute(
         r"{
         merge into dl_db.{`table_name`}
         using new_data_v
         using ({`key_cols`*}) -- natural join
-        when matched then update set {update_assign_expr}
+        {matched_clause}
         when not matched then insert by name
         }"
       )
