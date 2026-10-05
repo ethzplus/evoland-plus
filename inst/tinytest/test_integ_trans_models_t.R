@@ -417,7 +417,9 @@ expect_equal(
 
 # a seeded, row-order sensitive learner fits the same full model twice: fit_full_models() reads
 # its training data in a fixed order
-if (requireNamespace("ranger", quietly = TRUE) && requireNamespace("mlr3learners", quietly = TRUE)) {
+if (
+  requireNamespace("ranger", quietly = TRUE) && requireNamespace("mlr3learners", quietly = TRUE)
+) {
   seeded_forest <- function() {
     fitted <- suppressMessages(db$fit_full_models(
       learner = mlr3::lrn("classif.ranger", predict_type = "prob", num.trees = 20, seed = 1L),
