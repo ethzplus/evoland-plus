@@ -137,6 +137,22 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// distance_neighbors_chunked_cpp
+double distance_neighbors_chunked_cpp(DataFrame coords_t, double max_distance, NumericVector breaks, double chunk_rows, Function callback, bool quiet);
+RcppExport SEXP _evoland_distance_neighbors_chunked_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP breaksSEXP, SEXP chunk_rowsSEXP, SEXP callbackSEXP, SEXP quietSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< DataFrame >::type coords_t(coords_tSEXP);
+    Rcpp::traits::input_parameter< double >::type max_distance(max_distanceSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type breaks(breaksSEXP);
+    Rcpp::traits::input_parameter< double >::type chunk_rows(chunk_rowsSEXP);
+    Rcpp::traits::input_parameter< Function >::type callback(callbackSEXP);
+    Rcpp::traits::input_parameter< bool >::type quiet(quietSEXP);
+    rcpp_result_gen = Rcpp::wrap(distance_neighbors_chunked_cpp(coords_t, max_distance, breaks, chunk_rows, callback, quiet));
+    return rcpp_result_gen;
+END_RCPP
+}
 // calculate_class_stats_cpp
 DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize);
 RcppExport SEXP _evoland_calculate_class_stats_cpp(SEXP matSEXP, SEXP cellsizeSEXP) {
@@ -159,6 +175,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_evoland_allocate_clumpy_cpp", (DL_FUNC) &_evoland_allocate_clumpy_cpp, 17},
     {"_evoland_greedy_fill_cpp", (DL_FUNC) &_evoland_greedy_fill_cpp, 4},
     {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 3},
+    {"_evoland_distance_neighbors_chunked_cpp", (DL_FUNC) &_evoland_distance_neighbors_chunked_cpp, 6},
     {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
     {NULL, NULL, 0}
 };

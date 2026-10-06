@@ -149,18 +149,20 @@ print.neighbors_t <- function(x, nrow = 10, ...) {
 
 #' @describeIn neighbors_t Compute neighbor relationships between coordinates
 #' and store in `self$neighbors_t`. This uses a spatial hash map for efficiency
-#' and can produce a very large table depending on max_distance.
+#' and can produce a very large table depending on max_distance. The table is never held in
+#' memory as a whole: the neighbourhoods are computed and committed in chunks of complete
+#' neighbourhoods (all neighbours of a set of origins), inside one transaction.
 #' @param self An [evoland_db] object
 #' @param overwrite If FALSE and `neighbors_t` already exists, skip computation (default: FALSE)
-#' @param chunksize Number of rows to write per chunk when inserting into the database
-#' to avoid memory issues (default: 1e8)
+#' @param chunksize Number of neighbour pairs per chunk; bounds the memory used while
+#' computing and committing (default: 1e7, a few hundred MB)
 set_neighbors <- function(
   self,
   max_distance = 1000,
   distance_breaks = c(0, 100, 500, 1000),
   overwrite = FALSE,
   quiet = FALSE,
-  chunksize = 1e8
+  chunksize = 1e7
 ) {
   if (!overwrite && "neighbors_t" %in% self$list_tables()) {
     message("neighbors_t already exists. Use overwrite = TRUE to recompute.")
@@ -169,53 +171,54 @@ set_neighbors <- function(
 
   coords_minimal <- self$coords_minimal
 
-  # may produce a very large table
-  # cannot chunk here, because we cannot subset efficiently without spatial index
-  neighbors <- distance_neighbors_cpp(
-    coords_minimal,
-    max_distance = max_distance,
-    quiet = quiet
-  )
-  data.table::setkeyv(neighbors, c("id_coord_origin", "id_coord_neighbor"))
-  data.table::setalloccol(neighbors)
-
-  # Add distance class if breaks provided
-  if (!is.null(distance_breaks)) {
-    neighbors[,
-      distance_class := cut(
-        distance,
-        breaks = distance_breaks,
-        right = FALSE,
-        include.lowest = TRUE
-      )
-    ]
+  # labels exactly as cut() makes them, assigned to the integer codes the C++ side computes
+  class_labels <- if (!is.null(distance_breaks)) {
+    levels(cut(numeric(0), breaks = distance_breaks, right = FALSE, include.lowest = TRUE))
   }
 
-  # chunked insert to avoid memory issues (each chunk gets copied when registering to DB)
-  n_neighbors <- nrow(neighbors)
-  chunksize <- min(chunksize, n_neighbors)
-
-  # chunks are disjoint slices of a table that is unique by construction
+  # chunks hold disjoint sets of complete neighbourhoods of a table that is unique by
+  # construction
   previous_warning_option <- options(evoland.ducklake_db_append_warning = FALSE)
   on.exit(options(previous_warning_option), add = TRUE)
+
+  n_chunks <- 0L
+  commit_chunk <- function(chunk) {
+    chunk <- data.table::as.data.table(chunk)
+    if (!is.null(class_labels)) {
+      chunk[, distance_class := factor(class_labels[distance_class], levels = class_labels)]
+    }
+    self$commit(
+      as_neighbors_t(chunk),
+      table_name = "neighbors_t",
+      method = if (n_chunks == 0L) "overwrite" else "append"
+    )
+    n_chunks <<- n_chunks + 1L
+    invisible(NULL)
+  }
 
   # one transaction over all chunks: the overwrite goes first, so a failure
   # part-way through would otherwise leave a truncated neighbors_t behind --
   # which the guard above then takes for a complete one and skips
   self$transaction({
-    for (i in seq_len(ceiling(n_neighbors / chunksize))) {
-      slice_start <- (i - 1) * chunksize + 1
-      slice_end <- min(i * chunksize, n_neighbors)
-
-      self$commit(
-        as_neighbors_t(neighbors[slice_start:slice_end, ]),
-        table_name = "neighbors_t",
-        method = if (i == 1L) "overwrite" else "append"
-      )
+    n_neighbors <- distance_neighbors_chunked_cpp(
+      coords_minimal,
+      max_distance = max_distance,
+      breaks = if (is.null(distance_breaks)) numeric(0) else as.numeric(distance_breaks),
+      chunk_rows = chunksize,
+      callback = commit_chunk,
+      quiet = quiet
+    )
+    if (n_chunks == 0L) {
+      # no pairs within max_distance: still leave an (empty) table behind
+      empty <- as_neighbors_t()
+      if (!is.null(class_labels)) {
+        empty[, distance_class := factor(character(0), levels = class_labels)]
+      }
+      self$commit(empty, table_name = "neighbors_t", method = "overwrite")
     }
   })
 
-  message(glue::glue("Computed {n_neighbors} neighbor relationships"))
+  message(glue::glue("Computed {n_neighbors} neighbor relationships in {n_chunks} chunk(s)"))
   invisible(self)
 }
 

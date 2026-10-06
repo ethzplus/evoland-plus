@@ -107,7 +107,7 @@ evoland_db <- R6::R6Class(
       distance_breaks = NULL,
       overwrite = FALSE,
       quiet = FALSE,
-      chunksize = 1e8
+      chunksize = 1e7
     ) {
       create_method_binding(set_neighbors)
     },

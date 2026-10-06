@@ -146,6 +146,10 @@ distance_neighbors_cpp <- function(coords_t, max_distance, quiet = FALSE) {
     .Call(`_evoland_distance_neighbors_cpp`, coords_t, max_distance, quiet)
 }
 
+distance_neighbors_chunked_cpp <- function(coords_t, max_distance, breaks, chunk_rows, callback, quiet = FALSE) {
+    .Call(`_evoland_distance_neighbors_chunked_cpp`, coords_t, max_distance, breaks, chunk_rows, callback, quiet)
+}
+
 calculate_class_stats_cpp <- function(mat, cellsize) {
     .Call(`_evoland_calculate_class_stats_cpp`, mat, cellsize)
 }
