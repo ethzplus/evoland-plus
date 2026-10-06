@@ -123,6 +123,24 @@ allocate_clumpy_cpp <- function(landscape, nrow, ncol, trans_from, trans_to, pro
     .Call(`_evoland_allocate_clumpy_cpp`, landscape, nrow, ncol, trans_from, trans_to, prob_cell, prob_value, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist)
 }
 
+#' Greedy rank-and-fill walk
+#'
+#' Walks candidate (cell, transition) pairs in the given order and accepts a pair when its
+#' cell has not been claimed yet and its transition still has quota left. The caller decides
+#' the order (by potential across all transitions, or by transition priority, then potential),
+#' so this kernel only enforces "one change per cell" and "no more than the demanded count".
+#'
+#' @param cell Integer vector, cell (or coordinate) index of each candidate, 1-based and
+#'   dense (at most `n_cells`).
+#' @param trans Integer vector, transition index of each candidate, 1-based into `quota`.
+#' @param quota Integer vector, number of cells each transition may claim.
+#' @param n_cells Integer, the largest cell index.
+#' @return Logical vector, `TRUE` for the accepted candidates.
+#' @keywords internal
+greedy_fill_cpp <- function(cell, trans, quota, n_cells) {
+    .Call(`_evoland_greedy_fill_cpp`, cell, trans, quota, n_cells)
+}
+
 distance_neighbors_cpp <- function(coords_t, max_distance, quiet = FALSE) {
     .Call(`_evoland_distance_neighbors_cpp`, coords_t, max_distance, quiet)
 }

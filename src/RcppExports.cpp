@@ -110,6 +110,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// greedy_fill_cpp
+LogicalVector greedy_fill_cpp(IntegerVector cell, IntegerVector trans, IntegerVector quota, int n_cells);
+RcppExport SEXP _evoland_greedy_fill_cpp(SEXP cellSEXP, SEXP transSEXP, SEXP quotaSEXP, SEXP n_cellsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type cell(cellSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type trans(transSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type quota(quotaSEXP);
+    Rcpp::traits::input_parameter< int >::type n_cells(n_cellsSEXP);
+    rcpp_result_gen = Rcpp::wrap(greedy_fill_cpp(cell, trans, quota, n_cells));
+    return rcpp_result_gen;
+END_RCPP
+}
 // distance_neighbors_cpp
 List distance_neighbors_cpp(DataFrame coords_t, double max_distance, bool quiet);
 RcppExport SEXP _evoland_distance_neighbors_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP quietSEXP) {
@@ -143,6 +157,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_evoland_sample_normal_area_cpp", (DL_FUNC) &_evoland_sample_normal_area_cpp, 2},
     {"_evoland_grow_patch_cpp", (DL_FUNC) &_evoland_grow_patch_cpp, 14},
     {"_evoland_allocate_clumpy_cpp", (DL_FUNC) &_evoland_allocate_clumpy_cpp, 17},
+    {"_evoland_greedy_fill_cpp", (DL_FUNC) &_evoland_greedy_fill_cpp, 4},
     {"_evoland_distance_neighbors_cpp", (DL_FUNC) &_evoland_distance_neighbors_cpp, 3},
     {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
     {NULL, NULL, 0}
