@@ -30,7 +30,7 @@ set_neighbors(
   distance_breaks = c(0, 100, 500, 1000),
   overwrite = FALSE,
   quiet = FALSE,
-  chunksize = 1e+08
+  chunksize = 1e+07
 )
 
 generate_neighbor_predictors(self)
@@ -61,8 +61,8 @@ If provided, must have at least 2 elements defining interval breaks.}
 
 \item{overwrite}{If FALSE and \code{neighbors_t} already exists, skip computation (default: FALSE)}
 
-\item{chunksize}{Number of rows to write per chunk when inserting into the database
-to avoid memory issues (default: 1e8)}
+\item{chunksize}{Number of neighbour pairs per chunk; bounds the memory used while
+computing and committing (default: 1e7, a few hundred MB)}
 
 \item{id_period}{Integer period ID for which to generate predictors; if
 missing, only use non-extrapolated periods}
@@ -101,7 +101,9 @@ This uses a spatial hash map for efficiency.
 
 \item \code{set_neighbors()}: Compute neighbor relationships between coordinates
 and store in \code{self$neighbors_t}. This uses a spatial hash map for efficiency
-and can produce a very large table depending on max_distance.
+and can produce a very large table depending on max_distance. The table is never held in
+memory as a whole: the neighbourhoods are computed and committed in chunks of complete
+neighbourhoods (all neighbours of a set of origins), inside one transaction.
 
 \item \code{generate_neighbor_predictors()}: Generates neighbor predictors based on neighbor land
 use counts by distance class, e.g. "10 coordinate points within 200-500m are
