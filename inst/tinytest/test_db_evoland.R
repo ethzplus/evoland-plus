@@ -329,43 +329,11 @@ expect_equal(
 )
 db$id_run <- 0L
 
-# set_neighbors() streams the neighbourhoods in chunks of complete neighbourhoods: with chunks
-# far smaller than the table, the result equals the in-memory create_neighbors_t()
-neighbors_in_memory <- create_neighbors_t(
-  db$coords_t,
-  max_distance = 1000,
-  distance_breaks = c(0, 100, 500, 1000),
-  quiet = TRUE
-)
+# no pairs within max_distance still leaves an empty table
+expect_message(db$set_neighbors(max_distance = 1, overwrite = TRUE, quiet = TRUE), "Computed 0")
+expect_equal(db$row_count("neighbors_t"), 0L)
+# chunks far smaller than the table; restores the default neighbours for later tests
 expect_message(
   db$set_neighbors(overwrite = TRUE, quiet = TRUE, chunksize = 500),
   "in [0-9]+ chunk\\(s\\)"
 )
-neighbors_streamed <- db$neighbors_t
-expect_true(nrow(neighbors_in_memory) > 5000)
-expect_equal(
-  neighbors_streamed[
-    order(id_coord_origin, id_coord_neighbor),
-    .(
-      id_coord_origin,
-      id_coord_neighbor,
-      distance,
-      distance_class = as.character(distance_class)
-    )
-  ],
-  neighbors_in_memory[
-    order(id_coord_origin, id_coord_neighbor),
-    .(
-      id_coord_origin,
-      id_coord_neighbor,
-      distance,
-      distance_class = as.character(distance_class)
-    )
-  ],
-  check.attributes = FALSE
-)
-# no pairs within max_distance still leaves an empty table
-expect_message(db$set_neighbors(max_distance = 1, overwrite = TRUE, quiet = TRUE), "Computed 0")
-expect_equal(db$row_count("neighbors_t"), 0L)
-# restore the default neighbours for any later test in this file
-suppressMessages(db$set_neighbors(overwrite = TRUE, quiet = TRUE))

@@ -142,10 +142,6 @@ greedy_fill_cpp <- function(cell, trans, quota, n_cells) {
     .Call(`_evoland_greedy_fill_cpp`, cell, trans, quota, n_cells)
 }
 
-distance_neighbors_cpp <- function(coords_t, max_distance, quiet = FALSE) {
-    .Call(`_evoland_distance_neighbors_cpp`, coords_t, max_distance, quiet)
-}
-
 distance_neighbors_chunked_cpp <- function(coords_t, max_distance, breaks, chunk_rows, callback, quiet = FALSE) {
     .Call(`_evoland_distance_neighbors_chunked_cpp`, coords_t, max_distance, breaks, chunk_rows, callback, quiet)
 }

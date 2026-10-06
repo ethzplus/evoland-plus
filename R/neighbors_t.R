@@ -37,70 +37,6 @@ as_neighbors_t <- function(x) {
   )
 }
 
-#' @describeIn neighbors_t Compute neighboring coordinates within specified distances.
-#' This uses a spatial hash map for efficiency.
-#' @param coords_t A [coords_t] object containing coordinate points with `id_coord`,
-#' `lon`, and `lat` columns, and appropriate metadata attributes (epsg, extent,
-#' resolution).
-#' @param max_distance Maximum distance to search for neighbors (in same units as
-#' coordinates)
-#' @param distance_breaks Optional numeric vector defining distance class boundaries.
-#'   If NULL, no distance classification is performed.
-#'   If provided, must have at least 2 elements defining interval breaks.
-#' @param quiet If TRUE, suppress progress messages during neighbor computation
-#' @return A data.table with columns:
-#'   - id_coord_origin: ID of the origin coordinate
-#'   - id_coord_neighbor: ID of the neighboring coordinate
-#'   - distance: Distance between origin and neighbor
-#'   - distance_class: Factor indicating distance class (if distance_breaks provided)
-#' @export
-create_neighbors_t <- function(
-  coords_t,
-  max_distance,
-  distance_breaks = NULL,
-  quiet = FALSE
-) {
-  # Validate inputs
-  if (!inherits(coords_t, "coords_t")) {
-    stop("coords_t must be a coords_t object")
-  }
-
-  if (!is.numeric(max_distance) || length(max_distance) != 1 || max_distance <= 0) {
-    stop("max_distance must be a positive scalar numeric")
-  }
-
-  if (!is.null(distance_breaks)) {
-    if (!is.numeric(distance_breaks) || length(distance_breaks) < 2) {
-      stop("distance_breaks must be NULL or a numeric vector with at least 2 elements")
-    }
-  }
-
-  # Call C++ function
-  dt <- distance_neighbors_cpp(
-    coords_t = coords_t,
-    max_distance = max_distance,
-    quiet = quiet
-  )
-
-  data.table::setkeyv(dt, c("id_coord_origin", "id_coord_neighbor"))
-  data.table::setalloccol(dt)
-
-  # Add distance class if breaks provided
-  if (!is.null(distance_breaks)) {
-    dt[,
-      distance_class := cut(
-        distance,
-        breaks = distance_breaks,
-        right = FALSE,
-        include.lowest = TRUE
-      )
-    ]
-  }
-
-  as_neighbors_t(dt)
-}
-
-
 #' @describeIn neighbors_t Validate a neighbors_t object
 #' @export
 validate.neighbors_t <- function(x, ...) {
@@ -153,6 +89,12 @@ print.neighbors_t <- function(x, nrow = 10, ...) {
 #' memory as a whole: the neighbourhoods are computed and committed in chunks of complete
 #' neighbourhoods (all neighbours of a set of origins), inside one transaction.
 #' @param self An [evoland_db] object
+#' @param max_distance Maximum distance to search for neighbors (in same units as
+#' coordinates)
+#' @param distance_breaks Optional numeric vector defining distance class boundaries.
+#'   If NULL, no distance classification is performed.
+#'   If provided, must have at least 2 elements defining interval breaks.
+#' @param quiet If TRUE, suppress progress messages during neighbor computation
 #' @param overwrite If FALSE and `neighbors_t` already exists, skip computation (default: FALSE)
 #' @param chunksize Number of neighbour pairs per chunk; bounds the memory used while
 #' computing and committing (default: 1e7, a few hundred MB)
@@ -164,6 +106,14 @@ set_neighbors <- function(
   quiet = FALSE,
   chunksize = 1e7
 ) {
+  stopifnot(
+    "max_distance must be a positive scalar numeric" = {
+      is.numeric(max_distance) && length(max_distance) == 1L && max_distance > 0
+    },
+    "distance_breaks must be NULL or a numeric vector with at least 2 elements" = {
+      is.null(distance_breaks) || (is.numeric(distance_breaks) && length(distance_breaks) >= 2L)
+    }
+  )
   if (!overwrite && "neighbors_t" %in% self$list_tables()) {
     message("neighbors_t already exists. Use overwrite = TRUE to recompute.")
     return(invisible(self))
@@ -203,7 +153,7 @@ set_neighbors <- function(
     n_neighbors <- distance_neighbors_chunked_cpp(
       coords_minimal,
       max_distance = max_distance,
-      breaks = if (is.null(distance_breaks)) numeric(0) else as.numeric(distance_breaks),
+      breaks = as.numeric(distance_breaks),
       chunk_rows = chunksize,
       callback = commit_chunk,
       quiet = quiet
@@ -246,7 +196,7 @@ generate_neighbor_predictors <- function(self) {
       "pred_meta_t" %in% tables_present
     },
     "neighbors_t does not have distance_class column.
-    Run $create_neighbors_t() with distance_breaks" = {
+    Run $set_neighbors() with distance_breaks" = {
       "distance_class" %in% names(self$fetch("neighbors_t", limit = 0L))
     }
   )
