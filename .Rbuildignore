@@ -13,8 +13,10 @@
 ^.+\.toml$
 ^.+\.json$
 ^.+\.md$
+^styleguide$
 .lintr
 .clangd
+^\.clang-format$
 
 # build infra
 ^Meta$
