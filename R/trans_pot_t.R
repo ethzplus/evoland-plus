@@ -118,38 +118,27 @@ predict_trans_pot <- function(
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
   # potentials may come from outside evoland (written to trans_pot_t directly); models are only
-  # needed when something is left to predict
-  needs_prediction <- force ||
-    !all(vapply(
-      viable_trans[["id_trans"]],
-      function(id_trans) .has_predictions(self, id_trans, id_period_post),
-      logical(1L)
-    ))
-  if (needs_prediction) {
-    .check_viable_trans_models(self, select_score) # error on missing models
+  # needed for the transitions left to predict
+  to_predict <- viable_trans[["id_trans"]]
+  if (!force) {
+    # with verbose logging, report the transitions skipped here (pass force = TRUE to recompute)
+    to_predict <- Filter(function(id) !.has_predictions(self, id, id_period_post), to_predict)
   }
-  message(glue::glue("Predicting transition potential for {nrow(viable_trans)} transitions"))
+  if (length(to_predict) == 0L) {
+    return(invisible(NULL))
+  }
+  .check_viable_trans_models(self, select_score) # error on missing models
+  message(glue::glue("Predicting transition potential for {length(to_predict)} transitions"))
 
   use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
 
   pred_data_all <- NULL
 
-  for (id_trans in viable_trans[, id_trans]) {
-    has_predictions <- .has_predictions(self, id_trans, id_period_post)
-
-    if (has_predictions && !force) {
-      message(glue::glue(
-        "Found trans_pot_t for ",
-        "id_run={self$id_run}/id_trans={id_trans}/id_period={id_period_post}",
-        "; set force=TRUE to recompute"
-      ))
-      next
-    } else {
-      message(glue::glue(
-        "Predicting transition {which(viable_trans[, id_trans] == id_trans)}/",
-        "{nrow(viable_trans)} (id_trans={id_trans})"
-      ))
-    }
+  for (id_trans in to_predict) {
+    message(glue::glue(
+      "Predicting transition {which(to_predict == id_trans)}/",
+      "{length(to_predict)} (id_trans={id_trans})"
+    ))
 
     if (use_prefetch) {
       if (is.null(pred_data_all)) {
