@@ -19,7 +19,7 @@ expect_false(any(evoland:::greedy_fill(
   data.table::data.table(id_trans = 1L, quota = 0L)
 )))
 
-# the top-n rounds give the same result as walking the candidates one by one
+# greedy_fill gives the same result as walking the candidates one by one in R
 walk <- function(candidates, quota) {
   claimed <- integer(0)
   remaining <- stats::setNames(quota$quota, quota$id_trans)
@@ -58,3 +58,16 @@ identical_to_walk <- vapply(
   logical(1)
 )
 expect_true(all(identical_to_walk))
+
+# a candidate transition missing from quota is an error
+expect_error(
+  evoland:::greedy_fill(
+    data.table::data.table(id_trans = 2L, id_coord = 1L),
+    data.table::data.table(id_trans = 1L, quota = 1L)
+  ),
+  "quota must list every id_trans"
+)
+
+# the C++ kernel rejects indices out of range instead of writing past its arrays
+expect_error(evoland:::greedy_fill_cpp(5L, 1L, 1L, 4L), "cell index out of range")
+expect_error(evoland:::greedy_fill_cpp(1L, 2L, 1L, 4L), "transition index out of range")

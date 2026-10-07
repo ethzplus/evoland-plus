@@ -73,6 +73,8 @@ alloc_greedy_one_period <- function(
   arbitration <- match.arg(arbitration)
   id_period_ant <- id_period_post - 1L
 
+  # make sure trans_pot_t holds raw potentials for this period (predicting them if needed);
+  # adjusted_trans_pot_v() below reads them back scaled to the transition rates
   predict_trans_pot_for_alloc(
     db = db,
     id_period_post = id_period_post,
@@ -88,6 +90,7 @@ alloc_greedy_one_period <- function(
   ]
   data.table::setorder(viable_trans, id_trans)
 
+  # the map we start from: one row per cell, its class in the anterior period
   anterior <- db$fetch(
     "lulc_data_t",
     cols = c("id_coord", "id_lulc"),
@@ -95,7 +98,10 @@ alloc_greedy_one_period <- function(
   )
   stopifnot("No LULC data for the anterior period" = nrow(anterior) > 0L)
 
-  # demanded quantity per transition
+  # --- Quota: how many cells each transition must change ---
+  # trans_rates_t holds a cell count where it is known (e.g. observed demand); otherwise the
+  # rate, a share of the anterior class, which we turn into a count. Transitions without a
+  # rate get quota 0, so they take no cells.
   rates <- db$trans_rates_t[id_period == id_period_post, .(id_trans, count, rate)]
   n_anterior <- anterior[, .(n_anterior = .N), by = .(id_lulc_anterior = id_lulc)]
   quota <- rates[viable_trans, on = "id_trans"][
@@ -109,9 +115,12 @@ alloc_greedy_one_period <- function(
       as.integer(count)
     )
   ][is.na(quota), quota := 0L]
+  # one row per viable transition, also those whose anterior class is absent from the map
   quota <- quota[viable_trans[, .(id_trans)], on = "id_trans"][is.na(quota), quota := 0L]
 
-  # candidates: cells of the anterior class with a positive adjusted potential
+  # --- Candidates: (transition, cell) pairs that could be accepted ---
+  # a transition can only happen in cells of its anterior class, and only where its adjusted
+  # potential is positive
   candidates <- db$adjusted_trans_pot_v(id_period_post)[
     value > 0,
     .(id_trans, id_coord, value)
@@ -121,6 +130,12 @@ alloc_greedy_one_period <- function(
     nomatch = NULL
   ]
 
+  # --- Order: the walk accepts candidates first come, first served ---
+  # joint: one ranking of all pairs by potential, so a contested cell goes to whichever
+  # transition is most likely there; ties broken by id_trans, then id_coord, so the result does
+  # not depend on the order the rows were read in.
+  # ordered: transition by transition in priority order, each by potential, so earlier
+  # transitions win contested cells.
   if (arbitration == "joint") {
     data.table::setorder(candidates, -value, id_trans, id_coord)
   } else {
@@ -134,8 +149,10 @@ alloc_greedy_one_period <- function(
     "Running greedy allocation ({arbitration}): period {id_period_ant} -> {id_period_post}"
   ))
 
+  # --- Walk: accept candidates while their cell and their transition's quota are free ---
   accepted <- greedy_fill(candidates, quota)
 
+  # the posterior map: the anterior map with the accepted transitions applied
   posterior <- data.table::copy(anterior)
   posterior[
     candidates[accepted, .(id_coord, id_lulc_posterior)],
@@ -143,6 +160,8 @@ alloc_greedy_one_period <- function(
     id_lulc := i.id_lulc_posterior
   ]
 
+  # a transition falls short of its quota when it runs out of candidate cells, e.g. because
+  # other transitions took them first
   allocated <- candidates[accepted, .N, by = id_trans][quota, on = "id_trans"]
   short <- allocated[is.na(N) | N < quota]
   if (nrow(short) > 0L) {
@@ -209,42 +228,38 @@ alloc_greedy <- function(
   invisible(NULL)
 }
 
-#' Rank-and-fill as repeated top-n queries
+#' Rank-and-fill: walk the candidates in order, accept while cell and quota are free
 #'
-#' Accepts candidates as if walking them in row order, accepting a candidate when its cell is
-#' still unclaimed and its transition still has quota left, but in rounds of top-n queries:
-#' each transition takes its top `quota` remaining candidates; a cell taken by several keeps
-#' the earliest. The picks are final up to the first candidate a transition that lost a cell
-#' would take next (the "horizon"): before it, the walk sees exactly these picks. Picks before
-#' the horizon are accepted, their cells and quotas removed, and the next round starts. Each
-#' round accepts at least the earliest pick, and usually all of them.
+#' Accepts a candidate (a transition at a cell) when its cell has not changed yet and its
+#' transition still has quantity left, walking the candidates in row order. The caller sets the
+#' order: by adjusted potential across all transitions for joint arbitration, or by transition
+#' priority, then potential, for ordered arbitration.
 #'
-#' @param candidates data.table with `id_trans` and `id_coord`, unique per pair, ordered by
-#'   allocation priority.
-#' @param quota data.table with `id_trans` and `quota`, the number of cells per transition.
+#' @param candidates data.table with `id_trans` and `id_coord` (positive integers), one row
+#'   per pair, ordered by allocation priority.
+#' @param quota data.table with `id_trans` and `quota`, the number of cells each transition may
+#'   take; must list every `id_trans` in `candidates`.
 #' @return Logical vector along `candidates`, `TRUE` for the accepted rows.
 #' @keywords internal
 #' @noRd
 greedy_fill <- function(candidates, quota) {
-  cand <- candidates[, .(ord = .I, id_trans, id_coord)]
-  remaining <- quota[quota > 0L, .(id_trans, quota)]
-  accepted <- logical(nrow(candidates))
-  while (nrow(remaining) > 0L) {
-    cand <- cand[id_trans %in% remaining$id_trans]
-    if (nrow(cand) == 0L) {
-      break
-    }
-    cand[, rank_trans := data.table::rowid(id_trans)]
-    cand[remaining, on = "id_trans", n_quota := i.quota]
-    picks <- cand[rank_trans <= n_quota]
-    picks[, wins := ord == min(ord), by = id_coord]
-    losing <- picks[wins == FALSE, unique(id_trans)]
-    horizon <- cand[id_trans %in% losing & rank_trans == n_quota + 1L, min(ord, Inf)]
-    take <- picks[wins & ord < horizon]
-    accepted[take$ord] <- TRUE
-    remaining[take[, .N, by = id_trans], on = "id_trans", quota := quota - i.N]
-    remaining <- remaining[quota > 0L]
-    cand <- cand[!id_coord %in% take$id_coord]
-  }
-  accepted
+  # The walk is inherently sequential (whether a candidate is accepted depends on every
+  # candidate before it), so it runs as a single loop in C++, see greedy_fill_cpp(). An
+  # equivalent formulation as repeated top-n queries in data.table was about 10x slower on
+  # 4 M cells.
+
+  # The C++ loop keeps its bookkeeping in plain arrays indexed from 1:
+  # - cells: id_coord is already a positive integer, so it serves as the index directly; the
+  #   array of claimed cells is as long as the largest id_coord (one bit per cell)
+  # - transitions: the row of each candidate's id_trans in `quota`, whose quotas the loop
+  #   counts down
+  trans_index <- match(candidates[["id_trans"]], quota[["id_trans"]])
+  stopifnot("quota must list every id_trans in candidates" = !anyNA(trans_index))
+
+  greedy_fill_cpp(
+    cell = candidates[["id_coord"]],
+    trans = trans_index,
+    quota = quota[["quota"]],
+    n_cells = max(0L, candidates[["id_coord"]])
+  )
 }
