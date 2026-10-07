@@ -24,7 +24,7 @@ Applies to vignettes (`vignettes/*.qmd`), roxygen documentation, the README, cod
 
 ## Vignettes
 
-Vignettes are [tutorials or how-to guides](README.md#what-goes-where).
+Vignettes are [tutorials or how-to guides](../README.md#what-goes-where).
 A tutorial walks through a complete analysis; a how-to solves one task for a reader who already knows the workflow.
 Say which one a vignette is, and what it assumes, in an italic note at the top:
 

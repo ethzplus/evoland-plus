@@ -1,4 +1,4 @@
-# see styleguide/cpp.md; existing files predate this config; format changed lines with `git clang-format`
+# see devdocs/style/cpp.md; existing files predate this config; format changed lines with `git clang-format`
 BasedOnStyle: LLVM
 AllowShortIfStatementsOnASingleLine: WithoutElse
 AllowShortLoopsOnASingleLine: true

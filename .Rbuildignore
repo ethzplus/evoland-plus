@@ -13,7 +13,7 @@
 ^.+\.toml$
 ^.+\.json$
 ^.+\.md$
-^styleguide$
+^devdocs$
 .lintr
 .clangd
 ^\.clang-format$

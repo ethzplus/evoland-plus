@@ -51,7 +51,7 @@ This makes it easy to rapidly reload code when you've changed something.
 PRs are very welcome!
 It's probably best to first discuss the underlying issue; @mmyrte is very happy to help figure out a solution.
 Code should be autoformatted using [air](https://posit-dev.github.io/air/) before committing.
-Conventions for R, C++, SQL and prose are collected in the [style guide](styleguide/README.md); [AGENTS.md](AGENTS.md) has the project layout and development commands.
+Conventions for R, C++, SQL and prose are collected in the [style guide](devdocs/style/README.md); [AGENTS.md](AGENTS.md) has the project layout and development commands.
 Tests are written as `tinytest`s that can be run after package installation, ensuring that your system is set up correctly.
 
 ## Dinamica EGO
@@ -66,10 +66,8 @@ This package uses pkgdown, see <http://ethzplus.github.io/evoland-plus>.
 
 - **Tutorials & How-to Guides**: Package vignettes and examples in R man pages
 - **Reference Documentation**: R man pages using the standard `?function_name`
-- **Explanation & Design Rationale**: See the [project wiki](../../wiki) for
-  - Detailed explanation of the modeling approach
-  - Database schema and architecture decisions
-- **Development guidelines and coding standards**: See the [style guide](styleguide/README.md)
+- **Explanation & Design Rationale**: See [`devdocs/design/`](devdocs/design/) for the modelling workflow, the database schema and architecture decisions
+- **Development guidelines and coding standards**: See the [style guide](devdocs/style/README.md)
 
 ## License
 
