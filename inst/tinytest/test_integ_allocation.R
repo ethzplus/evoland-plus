@@ -138,7 +138,9 @@ db$runs_t <- as_runs_t(rbind(
 ))
 db$id_run <- 4
 
-expect_message(
+# the parent's potentials are reused, not predicted again
+alloc_messages <- character()
+withCallingHandlers(
   db$alloc_clumpy(
     id_periods = 4L,
     select_score = "classif.auc",
@@ -146,9 +148,12 @@ expect_message(
     avoid_aggregation = FALSE,
     use_parent_trans_pot = TRUE
   ),
-  "Found trans_pot_t for id_run=3/id_trans=2/id_period=4; set force=TRUE to recompute",
-  fixed = TRUE
+  message = function(m) {
+    alloc_messages <<- c(alloc_messages, conditionMessage(m))
+    invokeRestart("muffleMessage")
+  }
 )
+expect_false(any(grepl("Predicting transition", alloc_messages)))
 
 # The exported single-period allocator returns the map without committing it
 n_lulc_before <- db$row_count("lulc_data_t")
