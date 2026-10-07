@@ -154,8 +154,7 @@ evoland_db <- R6::R6Class(
     #' data.table, see [trans_pred_data_v()]
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_pred Optional integer vector of predictor IDs to include
-    #' @param ordered - if TRUE, order output by `id_coord` & `id_period`
-    trans_pred_data_v = function(id_trans, id_pred, ordered = FALSE) {
+    trans_pred_data_v = function(id_trans, id_pred) {
       create_method_binding(trans_pred_data_v)
     },
 

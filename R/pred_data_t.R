@@ -107,15 +107,13 @@ pred_data_available_v <- function(self) {
 #' @param id_trans Integer transition ID, see [trans_meta_t]
 #' @param id_pred Optional integer vector of predictor IDs to include; if
 #'        missing, use all predictor IDs from [pred_meta_t]
-#' @param ordered - if TRUE, order output by id_period then id_coord (otherwise no
-#'        guaranteed order; need ordering for reproducible subsampling)
 #' @return data.table with columns id_coord, id_period, did_transition (bool),
-#'         and one column per predictor (`id_pred_{n}`)
+#'         and one column per predictor (`id_pred_{n}`), ordered by id_coord and
+#'         id_period_anterior so that subsampling and order-sensitive learners replay
 trans_pred_data_v <- function(
   self,
   id_trans,
-  id_pred,
-  ordered = FALSE
+  id_pred
 ) {
   stopifnot(
     "id_trans must be a single integer" = {
@@ -144,10 +142,6 @@ trans_pred_data_v <- function(
     )
 
   set_pred_coltypes(result, pred_meta_t)
-
-  if (ordered) {
-    data.table::setkeyv(result, c("id_coord", "id_period_anterior"))
-  }
 
   result
 }
