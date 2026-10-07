@@ -323,7 +323,7 @@ underlying raw data, see \code{\link[=download_and_verify]{download_and_verify()
 data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$trans_pred_data_v(id_trans, id_pred, ordered = FALSE)}
+    \preformatted{evoland_db$trans_pred_data_v(id_trans, id_pred)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -331,9 +331,6 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
     \describe{
       \item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
       \item{\code{id_pred}}{Optional integer vector of predictor IDs to include}
-      \item{\code{ordered}}{\itemize{
-\item if TRUE, order output by \code{id_coord} & \code{id_period}
-}}
     }
     \if{html}{\out{</div>}}
   }

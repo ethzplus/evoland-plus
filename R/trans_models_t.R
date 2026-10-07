@@ -94,10 +94,7 @@ fit_partial_model_worker <- function(
       # Fetch ALL data into memory
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
-        id_pred = item[["id_pred"]][[1L]],
-
-        # if seed is set, we want ordering for reproducible sampling
-        ordered = !is.null(seed)
+        id_pred = item[["id_pred"]][[1L]]
       )[, -c("id_coord", "id_period_anterior")]
 
       if (nrow(trans_pred_data_full) == 0L) {
@@ -189,12 +186,10 @@ fit_partial_model_worker <- function(
 fit_full_model_worker <- function(item, db, learner = NULL) {
   tryCatch(
     {
-      # Fetch full data, ordered: DuckDB returns rows in no fixed order, and learners such as
-      # ranger fit a different model on reordered rows even with a fixed seed
+      # Fetch full data
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
-        id_pred = item[["id_pred"]][[1L]],
-        ordered = TRUE
+        id_pred = item[["id_pred"]][[1L]]
       )
 
       if (nrow(trans_pred_data_full) == 0L) {
