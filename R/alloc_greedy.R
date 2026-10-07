@@ -134,15 +134,7 @@ alloc_greedy_one_period <- function(
     "Running greedy allocation ({arbitration}): period {id_period_ant} -> {id_period_post}"
   ))
 
-  # dense 1-based indices for the C++ walk
-  coord_index <- match(candidates$id_coord, anterior$id_coord)
-  trans_index <- match(candidates$id_trans, quota$id_trans)
-  accepted <- greedy_fill_cpp(
-    cell = coord_index,
-    trans = trans_index,
-    quota = quota$quota,
-    n_cells = nrow(anterior)
-  )
+  accepted <- greedy_fill(candidates, quota)
 
   posterior <- data.table::copy(anterior)
   posterior[
@@ -215,4 +207,44 @@ alloc_greedy <- function(
   }
 
   invisible(NULL)
+}
+
+#' Rank-and-fill as repeated top-n queries
+#'
+#' Accepts candidates as if walking them in row order, accepting a candidate when its cell is
+#' still unclaimed and its transition still has quota left, but in rounds of top-n queries:
+#' each transition takes its top `quota` remaining candidates; a cell taken by several keeps
+#' the earliest. The picks are final up to the first candidate a transition that lost a cell
+#' would take next (the "horizon"): before it, the walk sees exactly these picks. Picks before
+#' the horizon are accepted, their cells and quotas removed, and the next round starts. Each
+#' round accepts at least the earliest pick, and usually all of them.
+#'
+#' @param candidates data.table with `id_trans` and `id_coord`, unique per pair, ordered by
+#'   allocation priority.
+#' @param quota data.table with `id_trans` and `quota`, the number of cells per transition.
+#' @return Logical vector along `candidates`, `TRUE` for the accepted rows.
+#' @keywords internal
+#' @noRd
+greedy_fill <- function(candidates, quota) {
+  cand <- candidates[, .(ord = .I, id_trans, id_coord)]
+  remaining <- quota[quota > 0L, .(id_trans, quota)]
+  accepted <- logical(nrow(candidates))
+  while (nrow(remaining) > 0L) {
+    cand <- cand[id_trans %in% remaining$id_trans]
+    if (nrow(cand) == 0L) {
+      break
+    }
+    cand[, rank_trans := data.table::rowid(id_trans)]
+    cand[remaining, on = "id_trans", n_quota := i.quota]
+    picks <- cand[rank_trans <= n_quota]
+    picks[, wins := ord == min(ord), by = id_coord]
+    losing <- picks[wins == FALSE, unique(id_trans)]
+    horizon <- cand[id_trans %in% losing & rank_trans == n_quota + 1L, min(ord, Inf)]
+    take <- picks[wins & ord < horizon]
+    accepted[take$ord] <- TRUE
+    remaining[take[, .N, by = id_trans], on = "id_trans", quota := quota - i.N]
+    remaining <- remaining[quota > 0L]
+    cand <- cand[!id_coord %in% take$id_coord]
+  }
+  accepted
 }
