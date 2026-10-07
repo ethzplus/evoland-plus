@@ -20,6 +20,19 @@
 #'   taking its best remaining cells; earlier transitions win contested cells. This is the
 #'   Ordered procedure of Fuchs et al. (2013), with transitions in place of classes.
 #'
+#' **Tie-breaking is arbitrary.** To be deterministic, the ranking needs a total order, so pairs
+#' with equal potential are ranked by secondary keys that carry no meaning:
+#' * `"joint"`: by `id_trans` (lower first), then `id_coord`. Where two transitions have equal
+#'   potential at a cell, the one with the lower `id_trans` gets it; where equally ranked pairs
+#'   compete for the last cells of a quota, those with the lower `id_coord` are taken. The
+#'   `"joint"` ranking is therefore not symmetric in the transitions: renumbering them can change
+#'   the result wherever potentials tie.
+#' * `"ordered"`: within a transition, by `id_coord`.
+#'
+#' Ties are rare for continuous potentials, but common for coarse ones (e.g. classification
+#' trees, or potentials rounded on input), and `id_coord` usually follows the raster's row
+#' order, so tied cells are taken from the top of the map first.
+#'
 #' The allocation works on `id_coord` rows only, not on a raster, so it applies to any
 #' tessellation `coords_t` can describe.
 #'
@@ -30,8 +43,8 @@
 #' The ranking uses the allocation-ready potentials of [adjusted_trans_pot_v()], which are
 #' scaled to each transition's rate, so that they are comparable across transitions. The
 #' quantity per transition is the `count` in `trans_rates_t`, or, where it is missing, the
-#' `rate` times the number of cells of the anterior class. Ties are broken by `id_trans`, then
-#' `id_coord`, so the result does not depend on the order rows are read in.
+#' `rate` times the number of cells of the anterior class. Because ties are broken by ids (see
+#' above), the result does not depend on the order rows are read in.
 #'
 #' @return `alloc_greedy_one_period()`: an [lulc_data_t] with the simulated posterior LULC.
 #'   `alloc_greedy()`: called for its side effects on `lulc_data_t` and `pred_data_t`.
@@ -52,7 +65,8 @@ NULL
 #' @param id_period_post Integer posterior period ID.
 #' @param select_score Character; mlr3 measure ID for model selection.
 #' @param select_maximize Logical; whether to maximise `select_score`.
-#' @param arbitration Character, `"joint"` (default) or `"ordered"`; see Description.
+#' @param arbitration Character, `"joint"` (default) or `"ordered"`; how transitions compete for
+#'   a cell. Both break ties in potential by ids, which is arbitrary; see Description.
 #' @param order Integer vector of `id_trans`, the priority for `arbitration = "ordered"`;
 #'   viable transitions not listed follow in `id_trans` order. Ignored for `"joint"`.
 #' @param use_parent_trans_pot Logical; if TRUE, predict (or reuse) transition potentials
@@ -132,10 +146,12 @@ alloc_greedy_one_period <- function(
 
   # --- Order: the walk accepts candidates first come, first served ---
   # joint: one ranking of all pairs by potential, so a contested cell goes to whichever
-  # transition is most likely there; ties broken by id_trans, then id_coord, so the result does
-  # not depend on the order the rows were read in.
+  # transition is most likely there. Ties are broken by id_trans, then id_coord: arbitrary,
+  # but needed for a result that does not depend on the order the rows were read in (and
+  # documented as such, see Description).
   # ordered: transition by transition in priority order, each by potential, so earlier
-  # transitions win contested cells.
+  # transitions win contested cells. Ties within a transition are broken by id_coord, again
+  # arbitrarily.
   if (arbitration == "joint") {
     data.table::setorder(candidates, -value, id_trans, id_coord)
   } else {

@@ -37,7 +37,8 @@ alloc_greedy(
 
 \item{select_maximize}{Logical; whether to maximise \code{select_score}.}
 
-\item{arbitration}{Character, \code{"joint"} (default) or \code{"ordered"}; see Description.}
+\item{arbitration}{Character, \code{"joint"} (default) or \code{"ordered"}; how transitions compete for
+a cell. Both break ties in potential by ids, which is arbitrary; see Description.}
 
 \item{order}{Integer vector of \code{id_trans}, the priority for \code{arbitration = "ordered"};
 viable transitions not listed follow in \code{id_trans} order. Ignored for \code{"joint"}.}
@@ -81,6 +82,21 @@ taking its best remaining cells; earlier transitions win contested cells. This i
 Ordered procedure of Fuchs et al. (2013), with transitions in place of classes.
 }
 
+\strong{Tie-breaking is arbitrary.} To be deterministic, the ranking needs a total order, so pairs
+with equal potential are ranked by secondary keys that carry no meaning:
+\itemize{
+\item \code{"joint"}: by \code{id_trans} (lower first), then \code{id_coord}. Where two transitions have equal
+potential at a cell, the one with the lower \code{id_trans} gets it; where equally ranked pairs
+compete for the last cells of a quota, those with the lower \code{id_coord} are taken. The
+\code{"joint"} ranking is therefore not symmetric in the transitions: renumbering them can change
+the result wherever potentials tie.
+\item \code{"ordered"}: within a transition, by \code{id_coord}.
+}
+
+Ties are rare for continuous potentials, but common for coarse ones (e.g. classification
+trees, or potentials rounded on input), and \code{id_coord} usually follows the raster's row
+order, so tied cells are taken from the top of the map first.
+
 The allocation works on \code{id_coord} rows only, not on a raster, so it applies to any
 tessellation \code{coords_t} can describe.
 
@@ -91,8 +107,8 @@ map without committing it.
 The ranking uses the allocation-ready potentials of \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}}, which are
 scaled to each transition's rate, so that they are comparable across transitions. The
 quantity per transition is the \code{count} in \code{trans_rates_t}, or, where it is missing, the
-\code{rate} times the number of cells of the anterior class. Ties are broken by \code{id_trans}, then
-\code{id_coord}, so the result does not depend on the order rows are read in.
+\code{rate} times the number of cells of the anterior class. Because ties are broken by ids (see
+above), the result does not depend on the order rows are read in.
 }
 \section{Functions}{
 \itemize{
