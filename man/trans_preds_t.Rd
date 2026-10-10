@@ -14,14 +14,7 @@ as_trans_preds_t(x)
 
 set_full_trans_preds(self, overwrite = FALSE)
 
-get_pred_filter_score(
-  self,
-  filter,
-  trans_preds = NULL,
-  cluster = NULL,
-  ordered_pred_data = FALSE,
-  ...
-)
+get_pred_filter_score(self, filter, trans_preds = NULL, cluster = NULL, ...)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a trans_preds_t object. If missing, an
@@ -45,9 +38,6 @@ directly instead of reading from the database, which is useful for targeted
 exploratory work on a subset of transitions or predictors.}
 
 \item{cluster}{An optional cluster object, see \link{run_parallel_evoland}}
-
-\item{ordered_pred_data}{Bool, should the predictor data be ordered? Needed
-for fully deterministic behavior}
 }
 \value{
 A data.table of class "trans_preds_t" with columns:

@@ -94,10 +94,7 @@ fit_partial_model_worker <- function(
       # Fetch ALL data into memory
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
-        id_pred = item[["id_pred"]][[1L]],
-
-        # if seed is set, we want ordering for reproducible sampling
-        ordered = !is.null(seed)
+        id_pred = item[["id_pred"]][[1L]]
       )[, -c("id_coord", "id_period_anterior")]
 
       if (nrow(trans_pred_data_full) == 0L) {
@@ -192,7 +189,7 @@ fit_full_model_worker <- function(item, db, learner = NULL) {
       # Fetch full data
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
-        id_pred = item[["id_pred"]][[1L]],
+        id_pred = item[["id_pred"]][[1L]]
       )
 
       if (nrow(trans_pred_data_full) == 0L) {
