@@ -328,3 +328,12 @@ expect_equal(
   )
 )
 db$id_run <- 0L
+
+# no pairs within max_distance still leaves an empty table
+expect_message(db$set_neighbors(max_distance = 1, overwrite = TRUE, quiet = TRUE), "Computed 0")
+expect_equal(db$row_count("neighbors_t"), 0L)
+# chunks far smaller than the table; restores the default neighbours for later tests
+expect_message(
+  db$set_neighbors(overwrite = TRUE, quiet = TRUE, chunksize = 500),
+  "in [0-9]+ chunk\\(s\\)"
+)

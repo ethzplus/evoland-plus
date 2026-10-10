@@ -227,7 +227,7 @@ as its key}
   distance_breaks = NULL,
   overwrite = FALSE,
   quiet = FALSE,
-  chunksize = 1e+08
+  chunksize = 1e+07
 )}
     \if{html}{\out{</div>}}
   }
