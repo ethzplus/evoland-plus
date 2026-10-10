@@ -266,27 +266,29 @@ predict_trans_pot_for_alloc <- function(
     split(by = c("id_trans", "learner_id"), keep.by = TRUE) |>
     sapply(function(df) {
       glue::glue(
-        "id_trans: {df[,id_trans]}, learner_id: {df[,learner_id]}",
+        "id_trans: {df[,id_trans]}, learner_id: {df[,learner_id]}\n",
         df[, error_message],
-        "\n"
+        "\n",
+        .trim = FALSE
       )
     }) |>
     gsub(pattern = "\\x1b\\[[0-9;]*m", replacement = "") # drop color codes
 
   err_messages <- if (length(err_messages) > 0) {
-    c("\nFound following failed models:", err_messages)
+    c("\nFound following failed models:\n", err_messages)
   } else {
     character()
   }
 
-  stop(glue::glue_collapse(
-    sep = "\n",
-    c(
-      "No fitted model for viable transition(s): {toString(missing_models)}.",
-      "  Check that trans_models_t has a learner_full for each viable trans",
-      err_messages
-    )
-  ))
+  stop(
+    glue::glue(
+      "No fitted model for viable transition(s): {toString(missing_models)}.\n",
+      "  Check that trans_models_t has a learner_full with a crossval_score ",
+      "'{select_score}' for each viable transition\n",
+      .trim = FALSE
+    ),
+    err_messages
+  )
 }
 
 # check that if we already have predictions for given id_run/id_trans/id_period_post
