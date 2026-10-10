@@ -247,6 +247,34 @@ evoland_db <- R6::R6Class(
       create_method_binding(alloc_clumpy)
     },
 
+    #' @description Runs deterministic greedy (rank-and-fill) allocation, see
+    #' [alloc_greedy()]: each transition's demand goes to the cells of highest adjusted
+    #' potential, every cell changes at most once.
+    #' @param id_periods Integer vector of period IDs to include in the simulation.
+    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
+    #' to select model for extrapolation.
+    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
+    #' @param arbitration Character; `"joint"` (default) ranks all transitions together,
+    #' `"ordered"` lets transitions claim cells in the priority given by `order`.
+    #' @param order Integer vector of `id_trans`, the priority for `"ordered"`.
+    #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
+    #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
+    #' values already exist
+    #' @param update_neighbors Logical; recompute neighbour predictors after the last
+    #' requested period. Intermediate periods are always updated.
+    alloc_greedy = function(
+      id_periods,
+      select_score,
+      select_maximize,
+      arbitration = c("joint", "ordered"),
+      order = NULL,
+      use_parent_trans_pot = FALSE,
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
+    ) {
+      create_method_binding(alloc_greedy)
+    },
+
     #' @description
     #' Evaluates allocation parameters in dinamica, see [eval_alloc_params_t()]
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used

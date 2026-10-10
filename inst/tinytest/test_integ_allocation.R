@@ -155,6 +155,94 @@ withCallingHandlers(
 )
 expect_false(any(grepl("Predicting transition", alloc_messages)))
 
+# Greedy (rank-and-fill) allocation, deterministic: run 3's potentials, single period
+greedy_joint <- suppressMessages(alloc_greedy_one_period(
+  db = db,
+  id_period_post = 4L,
+  select_score = "classif.auc",
+  select_maximize = TRUE,
+  use_parent_trans_pot = TRUE
+))
+expect_inherits(greedy_joint, "lulc_data_t")
+expect_equal(nrow(greedy_joint), 900L)
+# deterministic: the same map again
+expect_identical(
+  greedy_joint[order(id_coord), id_lulc],
+  suppressMessages(alloc_greedy_one_period(
+    db = db,
+    id_period_post = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    use_parent_trans_pot = TRUE
+  ))[order(id_coord), id_lulc]
+)
+# every transition gets exactly its demanded count (as far as candidates allow), no more
+greedy_changes <- db$fetch("lulc_data_t", where = "id_period = 3")[
+  greedy_joint,
+  on = "id_coord"
+][id_lulc != i.id_lulc, .N, by = .(id_lulc_anterior = id_lulc, id_lulc_posterior = i.id_lulc)][
+  db$trans_meta_t[is_viable == TRUE],
+  on = .(id_lulc_anterior, id_lulc_posterior),
+  nomatch = NULL
+]
+greedy_quota <- db$trans_rates_t[id_period == 4L, .(id_trans, count)]
+expect_true(all(greedy_changes[greedy_quota, on = "id_trans", N <= count, nomatch = NULL]))
+# the cells it changes are the most probable ones: within each transition, the changed cells'
+# adjusted potential is at least that of every candidate left unchanged
+greedy_pairs <- db$fetch("lulc_data_t", where = "id_period = 3")[
+  greedy_joint,
+  on = "id_coord"
+][, .(id_coord, id_lulc_anterior = id_lulc, id_lulc_posterior = i.id_lulc)][
+  db$trans_meta_t[is_viable == TRUE, .(id_trans, id_lulc_anterior, id_lulc_posterior)],
+  on = .(id_lulc_anterior, id_lulc_posterior),
+  nomatch = NULL
+]
+greedy_scored <- db$adjusted_trans_pot_v(4L)[
+  db$fetch("lulc_data_t", where = "id_period = 3")[, .(id_coord, id_lulc_anterior = id_lulc)],
+  on = "id_coord",
+  nomatch = NULL
+][
+  db$trans_meta_t[, .(id_trans, id_lulc_anterior)],
+  on = .(id_trans, id_lulc_anterior),
+  nomatch = NULL
+]
+greedy_scored[, changed := FALSE][greedy_pairs, on = .(id_trans, id_coord), changed := TRUE]
+# joint ranking: a cell is skipped only when another transition claimed it first, so check the
+# cells that did not change at all
+unchanged_cells <- setdiff(greedy_scored$id_coord, greedy_pairs$id_coord)
+expect_true(all(
+  greedy_scored[,
+    .(
+      ok = !any(changed) ||
+        min(value[changed]) >= max(c(-Inf, value[!changed & id_coord %in% unchanged_cells]))
+    ),
+    by = id_trans
+  ]$ok
+))
+# ordered arbitration with a priority runs and differs from joint at most in contested cells
+greedy_ordered <- suppressMessages(alloc_greedy_one_period(
+  db = db,
+  id_period_post = 4L,
+  select_score = "classif.auc",
+  select_maximize = TRUE,
+  arbitration = "ordered",
+  order = rev(db$trans_meta_t[is_viable == TRUE, id_trans]),
+  use_parent_trans_pot = TRUE
+))
+expect_equal(nrow(greedy_ordered), 900L)
+expect_error(
+  alloc_greedy_one_period(
+    db = db,
+    id_period_post = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    arbitration = "ordered",
+    order = 999L,
+    use_parent_trans_pot = TRUE
+  ),
+  "order must list viable id_trans only"
+)
+
 # The exported single-period allocator returns the map without committing it
 n_lulc_before <- db$row_count("lulc_data_t")
 lulc_single <- alloc_clumpy_one_period(
