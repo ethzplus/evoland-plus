@@ -118,7 +118,7 @@ predict_trans_pot <- function(
   .check_viable_trans_models(self, select_score) # error on missing models
 
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
-  message(glue::glue("Predicting transition potential for {length(viable_trans)} transitions"))
+  message(glue::glue("Predicting transition potential for {nrow(viable_trans)} transitions"))
 
   use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
 
