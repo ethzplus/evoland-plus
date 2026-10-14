@@ -3,6 +3,8 @@
 #' @description
 #' Compare a simulated map against the observed one, both starting from the same initial map:
 #'
+#' - [lulc_crosstab_v()] (`evoland_db$lulc_crosstab_v()`): cross-tabulation of land use between
+#'   two periods, of one run or of two;
 #' - [figure_of_merit_v()] (`evoland_db$figure_of_merit_v()`): Pontius' figure of merit and its
 #'   components, cell by cell, with the value expected from random allocation for comparison;
 #' - [calc_transition_similarity()]: fuzzy similarity of differences for one transition, which
@@ -32,6 +34,74 @@ create_change_map <- function(initial_map, final_map, from_class = NULL, to_clas
   initial_map == from_class & final_map == to_class
 }
 
+#' Cross-tabulation of land use between two periods
+#'
+#' @description
+#' Counts the cells by their land use class in one period and in another: the transition
+#' matrix, in long form. Each period is read from its own run, through that run's lineage, so
+#' the same call gives observed change (both periods from one run), simulated change (a
+#' simulated run from its initial period), or agreement between an observed and a simulated
+#' map of the same period (two runs, one period).
+#'
+#' @param self An [evoland_db] instance
+#' @param id_period_anterior,id_period_post Integer, the two periods to compare
+#' @param id_run_anterior Integer, run to read `id_period_anterior` from; defaults to the active
+#'   run
+#' @param id_run_post Integer, run to read `id_period_post` from; defaults to `id_run_anterior`
+#'
+#' @return A [data.table::data.table()] with `id_lulc_anterior`, `id_lulc_posterior` and
+#'   `n_cells`, one row per pair of classes that occurs. Cells missing from either map are
+#'   ignored. Use [data.table::dcast()] for the matrix form.
+#'
+#' @keywords internal
+lulc_crosstab_v <- function(
+  self,
+  id_period_anterior,
+  id_period_post,
+  id_run_anterior = self$id_run,
+  id_run_post = id_run_anterior
+) {
+  stopifnot(
+    "id_period_anterior must be a single integer" = {
+      length(id_period_anterior) == 1L && as.integer(id_period_anterior) == id_period_anterior
+    },
+    "id_period_post must be a single integer" = {
+      length(id_period_post) == 1L && as.integer(id_period_post) == id_period_post
+    },
+    "id_run_anterior must be a single integer; set an active run or pass it" = {
+      length(id_run_anterior) == 1L && as.integer(id_run_anterior) == id_run_anterior
+    },
+    "id_run_post must be a single integer" = {
+      length(id_run_post) == 1L && as.integer(id_run_post) == id_run_post
+    }
+  )
+
+  self$get_query(
+    r"{
+    select
+      a.id_lulc as id_lulc_anterior,
+      p.id_lulc as id_lulc_posterior,
+      count(*)::integer as n_cells
+    from
+      {anterior_read_expr} a
+      inner join {post_read_expr} p using (id_coord)
+    where
+      a.id_period = {id_period_anterior}
+      and p.id_period = {id_period_post}
+    group by
+      a.id_lulc,
+      p.id_lulc
+    order by
+      a.id_lulc,
+      p.id_lulc
+    }",
+    anterior_read_expr = get_run_read_expr(self, "lulc_data_t", id_run_anterior),
+    post_read_expr = get_run_read_expr(self, "lulc_data_t", id_run_post),
+    id_period_anterior = as.integer(id_period_anterior),
+    id_period_post = as.integer(id_period_post)
+  )
+}
+
 #' Figure of merit of simulated land use change
 #'
 #' @description
@@ -52,6 +122,10 @@ create_change_map <- function(initial_map, final_map, from_class = NULL, to_clas
 #' it against `figure_of_merit_null`, the value expected when the simulated quantity of each
 #' transition is placed at random among the cells of its initial class.
 #'
+#' Cells whose change is not the model's to get right, such as a class whose transitions are
+#' imposed deterministically, can be left out with `exclude_id_lulc`: a cell is ignored if its
+#' initial or its observed class is one of them.
+#'
 #' For an ensemble of runs, the expected counts are the means of the per-run counts; recompute
 #' the ratios from those means rather than averaging the per-run ratios.
 #'
@@ -62,6 +136,8 @@ create_change_map <- function(initial_map, final_map, from_class = NULL, to_clas
 #' @param id_run_simulated Integer vector, runs holding the simulated maps; defaults to the
 #'   active run
 #' @param by_transition Logical; if `TRUE`, report per transition instead of overall.
+#' @param exclude_id_lulc Integer vector of classes; cells whose initial or observed class is
+#'   one of them are ignored. Default none.
 #'
 #' @return A [data.table::data.table()] with one row per simulated `id_run` (and transition).
 #'   Overall (`by_transition = FALSE`): `hits`, `wrong_hits`, `misses`, `false_alarms`,
@@ -83,7 +159,8 @@ figure_of_merit_v <- function(
   id_period_post,
   id_run_reference,
   id_run_simulated = self$id_run,
-  by_transition = FALSE
+  by_transition = FALSE,
+  exclude_id_lulc = integer(0)
 ) {
   stopifnot(
     "id_period_anterior must be a single integer" = {
@@ -97,17 +174,14 @@ figure_of_merit_v <- function(
     },
     "id_run_simulated must be an integer vector" = {
       length(id_run_simulated) >= 1L && all(as.integer(id_run_simulated) == id_run_simulated)
+    },
+    "exclude_id_lulc must be an integer vector" = {
+      all(as.integer(exclude_id_lulc) == exclude_id_lulc)
     }
   )
 
-  # each run is read through its own lineage, so switch the active run while collecting them
-  active_id_run <- self$id_run
-  on.exit(self$id_run <- active_id_run)
-  lulc_read_expr <- function(id_run) {
-    self$id_run <- id_run
-    self$get_read_expr("lulc_data_t")
-  }
-  reference_read_expr <- lulc_read_expr(id_run_reference)
+  # each run is read through its own lineage
+  lulc_read_expr <- function(id_run) get_run_read_expr(self, "lulc_data_t", id_run)
   simulated_read_expr <- glue::glue_sql_collapse(
     lapply(id_run_simulated, function(id_run) {
       glue::glue_sql(
@@ -118,11 +192,21 @@ figure_of_merit_v <- function(
     }),
     sep = " union all "
   )
+  exclude_filter <- if (length(exclude_id_lulc) > 0L) {
+    glue::glue_sql(
+      "and a.id_lulc not in ({exclude_id_lulc*}) and o.id_lulc not in ({exclude_id_lulc*})",
+      exclude_id_lulc = as.integer(exclude_id_lulc),
+      .con = self$connection
+    )
+  } else {
+    DBI::SQL("")
+  }
 
   self$get_query(
     read_sql("figure_of_merit.sql"),
-    reference_read_expr = reference_read_expr,
+    reference_read_expr = lulc_read_expr(id_run_reference),
     simulated_read_expr = simulated_read_expr,
+    exclude_filter = exclude_filter,
     id_period_anterior = as.integer(id_period_anterior),
     id_period_post = as.integer(id_period_post),
     result = if (by_transition) "per_transition" else "overall"
