@@ -7,6 +7,7 @@ Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
 - {id_trans}
 - {id_pred*}
+- {id_period_anterior_filter}: SQL condition on id_period, `true` to train on all periods
 Data sources:
 - {lulc_data_read_expr}
 - {period_read_expr}
@@ -19,16 +20,24 @@ with
     -- exclude the last period, since we won't have lulc data for the subsequent period
     -- to determine transition status
     select
-      id_period as id_period_anterior
+      id_period_anterior
     from
-      {period_read_expr}
+      (
+        select
+          id_period as id_period_anterior
+        from
+          {period_read_expr}
+        where
+          not is_extrapolated
+        qualify
+          lead (id_period) over (
+            order by
+              id_period
+          ) is not null
+      )
     where
-      not is_extrapolated
-    qualify
-      lead (id_period) over (
-        order by
-          id_period
-      ) is not null
+      -- caller's restriction, e.g. to hold out the last observed transition
+      {id_period_anterior_filter}
   ),
   trans_select as (
     select

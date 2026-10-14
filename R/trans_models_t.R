@@ -83,7 +83,8 @@ fit_partial_model_worker <- function(
   learner,
   measures,
   seed = NULL,
-  sample_frac = 0.7
+  sample_frac = 0.7,
+  id_period_anterior = NULL
 ) {
   id_run_orig <- db$id_run
   on.exit(db$id_run <- id_run_orig, add = TRUE)
@@ -94,7 +95,8 @@ fit_partial_model_worker <- function(
       # Fetch ALL data into memory
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
-        id_pred = item[["id_pred"]][[1L]]
+        id_pred = item[["id_pred"]][[1L]],
+        id_period_anterior = id_period_anterior
       )[, -c("id_coord", "id_period_anterior")]
 
       if (nrow(trans_pred_data_full) == 0L) {
@@ -183,13 +185,14 @@ fit_partial_model_worker <- function(
 # Operates in two modes depending on whether `learner` is NULL:
 #  - direct mode (learner != NULL): train the passed learner clone on full data
 #  - score-select mode (learner == NULL): reconstruct from item$learner_spec and retrain
-fit_full_model_worker <- function(item, db, learner = NULL) {
+fit_full_model_worker <- function(item, db, learner = NULL, id_period_anterior = NULL) {
   tryCatch(
     {
       # Fetch full data
       trans_pred_data_full <- db$trans_pred_data_v(
         id_trans = item[["id_trans"]],
-        id_pred = item[["id_pred"]][[1L]]
+        id_pred = item[["id_pred"]][[1L]],
+        id_period_anterior = id_period_anterior
       )
 
       if (nrow(trans_pred_data_full) == 0L) {
@@ -300,6 +303,10 @@ fit_full_model_worker <- function(item, db, learner = NULL) {
 #'   directly instead of reading `trans_preds_t` from the database.
 #' @param trans_meta Optional [trans_meta_t] object. When supplied, it is used
 #'   directly instead of reading `trans_meta_t` from the database.
+#' @param id_period_anterior Optional integer vector of anterior period IDs; only the
+#'   transitions observed from these periods are used for training and scoring, e.g. to
+#'   hold out the last observed transition for a backcast. `NULL` (default) uses every
+#'   observed period.
 fit_partial_models <- function(
   self,
   learner,
@@ -308,7 +315,8 @@ fit_partial_models <- function(
   seed = NULL,
   cluster = NULL,
   trans_preds = NULL,
-  trans_meta = NULL
+  trans_meta = NULL,
+  id_period_anterior = NULL
 ) {
   # Accept either a character vector of measure IDs or a list of Measure objects
   if (is.character(measures)) {
@@ -370,7 +378,8 @@ fit_partial_models <- function(
       learner = learner,
       measures = measures,
       seed = seed,
-      sample_frac = sample_frac
+      sample_frac = sample_frac,
+      id_period_anterior = id_period_anterior
     ) |>
     data.table::rbindlist() |>
     as_trans_models_t()
@@ -404,6 +413,10 @@ fit_partial_models <- function(
 #' @param trans_meta Optional [trans_meta_t] object. When supplied in direct-learner
 #'   mode, it is used directly instead of reading `trans_meta_t` from the database.
 #'   Ignored in score-select mode.
+#' @param id_period_anterior Optional integer vector of anterior period IDs; only the
+#'   transitions observed from these periods are used for training. In score-select mode
+#'   this should match what was passed to [fit_partial_models()]. `NULL` (default) uses
+#'   every observed period.
 fit_full_models <- function(
   self,
   learner = NULL,
@@ -411,7 +424,8 @@ fit_full_models <- function(
   select_maximize = TRUE,
   cluster = NULL,
   trans_preds = NULL,
-  trans_meta = NULL
+  trans_meta = NULL,
+  id_period_anterior = NULL
 ) {
   has_learner <- !is.null(learner)
   has_score <- !is.null(select_score)
@@ -464,7 +478,8 @@ fit_full_models <- function(
         worker_fun = fit_full_model_worker,
         parent_db = self,
         cluster = cluster,
-        learner = learner
+        learner = learner,
+        id_period_anterior = id_period_anterior
       ) |>
       data.table::rbindlist() |>
       as_trans_models_t()
@@ -533,7 +548,8 @@ fit_full_models <- function(
         items = _,
         worker_fun = fit_full_model_worker,
         parent_db = self,
-        cluster = cluster
+        cluster = cluster,
+        id_period_anterior = id_period_anterior
       ) |>
       data.table::rbindlist() |>
       as_trans_models_t()

@@ -154,7 +154,8 @@ evoland_db <- R6::R6Class(
     #' data.table, see [trans_pred_data_v()]
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_pred Optional integer vector of predictor IDs to include
-    trans_pred_data_v = function(id_trans, id_pred) {
+    #' @param id_period_anterior Optional integer vector of anterior periods to include
+    trans_pred_data_v = function(id_trans, id_pred, id_period_anterior = NULL) {
       create_method_binding(trans_pred_data_v)
     },
 
@@ -295,7 +296,9 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Estimates allocation parameters for all viable transitions under the active `id_run`,
     #' see [create_alloc_params_t()]
-    create_alloc_params_t = function() {
+    #' @param id_period_post Optional integer vector; estimate only from the period pairs
+    #'   ending in these periods. `NULL` (default) uses every observed pair.
+    create_alloc_params_t = function(id_period_post = NULL) {
       create_method_binding(create_alloc_params_t)
     },
 
@@ -321,13 +324,16 @@ evoland_db <- R6::R6Class(
     #'   direct-learner mode. Ignored in score-select mode.
     #' @param trans_meta Optional [trans_meta_t]; bypasses the database read in
     #'   direct-learner mode. Ignored in score-select mode.
+    #' @param id_period_anterior Optional integer vector; train only on transitions
+    #'   observed from these anterior periods. `NULL` (default) uses all observed periods.
     fit_full_models = function(
       learner = NULL,
       select_score = NULL,
       select_maximize = TRUE,
       cluster = NULL,
       trans_preds = NULL,
-      trans_meta = NULL
+      trans_meta = NULL,
+      id_period_anterior = NULL
     ) {
       create_method_binding(fit_full_models)
     },
@@ -345,6 +351,9 @@ evoland_db <- R6::R6Class(
     #'   database read.
     #' @param trans_meta Optional [trans_meta_t]; bypasses the `trans_meta_t`
     #'   database read.
+    #' @param id_period_anterior Optional integer vector; train and score only on
+    #'   transitions observed from these anterior periods. `NULL` (default) uses all
+    #'   observed periods.
     fit_partial_models = function(
       learner,
       measures,
@@ -352,7 +361,8 @@ evoland_db <- R6::R6Class(
       seed = NULL,
       cluster = NULL,
       trans_preds = NULL,
-      trans_meta = NULL
+      trans_meta = NULL,
+      id_period_anterior = NULL
     ) {
       create_method_binding(fit_partial_models)
     },
