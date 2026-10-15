@@ -17,7 +17,7 @@ as_pred_data_t(x)
 
 pred_data_available_v(self)
 
-trans_pred_data_v(self, id_trans, id_pred, ordered = FALSE)
+trans_pred_data_v(self, id_trans, id_pred)
 
 pred_data_wide_v(self, id_trans, id_period_anterior)
 
@@ -48,11 +48,6 @@ add_predictor(
 
 \item{id_pred}{Optional integer vector of predictor IDs to include; if
 missing, use all predictor IDs from \link{pred_meta_t}}
-
-\item{ordered}{\itemize{
-\item if TRUE, order output by id_period then id_coord (otherwise no
-guaranteed order; need ordering for reproducible subsampling)
-}}
 
 \item{id_period_anterior}{Scalar integerish of anterior period ID, i.e. we
 get the predictors that explain the processes over the next N years}
@@ -95,7 +90,8 @@ A data.table of class "pred_data_t" with columns:
 }
 
 data.table with columns id_coord, id_period, did_transition (bool),
-and one column per predictor (\verb{id_pred_\{n\}})
+and one column per predictor (\verb{id_pred_\{n\}}), ordered by id_coord and
+id_period_anterior so that subsampling and order-sensitive learners replay
 }
 \description{
 Construct and validate a \code{pred_data_t} objects, which are used to store predictor

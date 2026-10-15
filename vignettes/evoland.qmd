@@ -492,9 +492,9 @@ We can also show the cumulative difference like so:
 #| label: visualization-changes
 changes <-
   c(
-    create_change_map(plot_maps[[1]], plot_maps[[2]]),
-    create_change_map(plot_maps[[1]], plot_maps[[3]]),
-    create_change_map(plot_maps[[1]], plot_maps[[4]])
+    ifel(plot_maps[[1]] != plot_maps[[2]], plot_maps[[2]], NA),
+    ifel(plot_maps[[1]] != plot_maps[[3]], plot_maps[[3]], NA),
+    ifel(plot_maps[[1]] != plot_maps[[4]], plot_maps[[4]], NA)
   ) |>
   categories(
     layer = 0,

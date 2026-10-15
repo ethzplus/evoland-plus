@@ -3,7 +3,6 @@
 \name{neighbors_t}
 \alias{neighbors_t}
 \alias{as_neighbors_t}
-\alias{create_neighbors_t}
 \alias{validate.neighbors_t}
 \alias{print.neighbors_t}
 \alias{set_neighbors}
@@ -12,13 +11,6 @@
 \title{Create Neighbors Table}
 \usage{
 as_neighbors_t(x)
-
-create_neighbors_t(
-  coords_t,
-  max_distance,
-  distance_breaks = NULL,
-  quiet = FALSE
-)
 
 \method{validate}{neighbors_t}(x, ...)
 
@@ -30,7 +22,7 @@ set_neighbors(
   distance_breaks = c(0, 100, 500, 1000),
   overwrite = FALSE,
   quiet = FALSE,
-  chunksize = 1e+08
+  chunksize = 1e+07
 )
 
 generate_neighbor_predictors(self)
@@ -40,9 +32,11 @@ upsert_new_neighbors(self, id_period)
 \arguments{
 \item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
 
-\item{coords_t}{A \link{coords_t} object containing coordinate points with \code{id_coord},
-\code{lon}, and \code{lat} columns, and appropriate metadata attributes (epsg, extent,
-resolution).}
+\item{...}{Passed to \code{\link[data.table:print.data.table]{data.table::print.data.table()}} resp. \code{\link[=validate]{validate()}}}
+
+\item{nrow}{Maximum number of rows to print}
+
+\item{self}{An evoland_db object}
 
 \item{max_distance}{Maximum distance to search for neighbors (in same units as
 coordinates)}
@@ -51,18 +45,12 @@ coordinates)}
 If NULL, no distance classification is performed.
 If provided, must have at least 2 elements defining interval breaks.}
 
-\item{quiet}{If TRUE, suppress progress messages during neighbor computation}
-
-\item{...}{Passed to \code{\link[data.table:print.data.table]{data.table::print.data.table()}} resp. \code{\link[=validate]{validate()}}}
-
-\item{nrow}{Maximum number of rows to print}
-
-\item{self}{An evoland_db object}
-
 \item{overwrite}{If FALSE and \code{neighbors_t} already exists, skip computation (default: FALSE)}
 
-\item{chunksize}{Number of rows to write per chunk when inserting into the database
-to avoid memory issues (default: 1e8)}
+\item{quiet}{If TRUE, suppress progress messages during neighbor computation}
+
+\item{chunksize}{Number of neighbour pairs per chunk; bounds the memory used while
+computing and committing (default: 1e7, a few hundred MB)}
 
 \item{id_period}{Integer period ID for which to generate predictors; if
 missing, only use non-extrapolated periods}
@@ -74,14 +62,6 @@ A data.table of class "neighbors_t" with columns:
 \item \code{id_coord_neighbor}: Foreign key to coords_t (neighbor coordinate)
 \item \code{distance}: Numeric distance between coordinates
 \item \code{distance_class}: Optional factor representing distance intervals
-}
-
-A data.table with columns:
-\itemize{
-\item id_coord_origin: ID of the origin coordinate
-\item id_coord_neighbor: ID of the neighboring coordinate
-\item distance: Distance between origin and neighbor
-\item distance_class: Factor indicating distance class (if distance_breaks provided)
 }
 }
 \description{
@@ -96,12 +76,11 @@ Creates a \code{neighbors_t} table and validates that it matches the schema.
 }}
 \section{Functions}{
 \itemize{
-\item \code{create_neighbors_t()}: Compute neighboring coordinates within specified distances.
-This uses a spatial hash map for efficiency.
-
 \item \code{set_neighbors()}: Compute neighbor relationships between coordinates
 and store in \code{self$neighbors_t}. This uses a spatial hash map for efficiency
-and can produce a very large table depending on max_distance.
+and can produce a very large table depending on max_distance. The table is never held in
+memory as a whole: the neighbourhoods are computed and committed in chunks of complete
+neighbourhoods (all neighbours of a set of origins), inside one transaction.
 
 \item \code{generate_neighbor_predictors()}: Generates neighbor predictors based on neighbor land
 use counts by distance class, e.g. "10 coordinate points within 200-500m are

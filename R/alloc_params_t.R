@@ -20,7 +20,7 @@
 #'   - `frac_expander`: Fraction of transition cells adjacent to existing patches
 #'   - `frac_patcher`: Fraction of transition cells forming new patches
 #'   - `similarity`: Similarity metric for allocation parameters, see
-#'      [calc_fuzzy_similarity()] and [eval_alloc_params_t()]
+#'      [calc_transition_similarity()] and [eval_alloc_params_t()]
 #'
 #' @export
 as_alloc_params_t <- function(x) {
@@ -169,7 +169,8 @@ compute_alloc_params_single <- function(
   id_lulc_post
 ) {
   stopifnot(
-    "cells must be square" = terra::res(lulc_ant)[1] == terra::res(lulc_ant)[2]
+    # rasters rebuilt from coords_t carry floating point noise in their resolution
+    "cells must be square" = isTRUE(all.equal(terra::res(lulc_ant)[1], terra::res(lulc_ant)[2]))
   )
   # Create binary raster of transition cells (anterior class -> posterior class)
   # 1 = cells that transitioned from id_lulc_ant to id_lulc_post

@@ -347,7 +347,8 @@ expect_equal(
 # test prediction and trans rate based potential adjustment
 expect_error(
   db$predict_trans_pot(id_period_post = 4, select_score = "classif.auc", select_maximize = TRUE),
-  "No fitted model for viable transition"
+  "No fitted model for viable transition(s): 1, 2.",
+  fixed = TRUE
 )
 db$trans_models_t <- err_model_t1 # insert faulty models
 expect_error(
@@ -364,10 +365,14 @@ expect_message(
   "Predicting transition 2/2 (id_trans=2)",
   fixed = TRUE
 )
-expect_message(
-  db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE),
-  "Found trans_pot_t for id_run=0/id_trans=2/id_period=4; set force=TRUE to recompute",
-  fixed = TRUE
+# potentials already in trans_pot_t are reused without a word
+expect_silent(
+  db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE)
+)
+# potentials already in trans_pot_t (e.g. from an external estimator) need no model: a score
+# no model carries does not stop their reuse
+expect_silent(
+  db$predict_trans_pot(id_period_post = 4, select_score = "classif.bogus", select_maximize = TRUE)
 )
 options("evoland.use_prefetch_predict" = TRUE)
 expect_message(
@@ -406,3 +411,19 @@ expect_equal(
     ]
   )
 )
+
+# a seeded, row-order sensitive learner fits the same full model twice: fit_full_models() reads
+# its training data in a fixed order
+if (
+  requireNamespace("ranger", quietly = TRUE) && requireNamespace("mlr3learners", quietly = TRUE)
+) {
+  seeded_forest <- function() {
+    fitted <- suppressMessages(db$fit_full_models(
+      learner = mlr3::lrn("classif.ranger", predict_type = "prob", num.trees = 20, seed = 1L),
+      trans_preds = db$trans_preds_t[id_trans == 1L],
+      trans_meta = db$trans_meta_t[id_trans == 1L]
+    ))
+    qs2::qs_deserialize(fitted$learner_full[[1L]])$model$forest$split.values
+  }
+  expect_identical(seeded_forest(), seeded_forest())
+}
