@@ -32,72 +32,121 @@ Because other tools may read and write the catalog, the schema should be conside
 - `neighbors_t`: Neighbor relationships between coordinates
 - `trans_pot_t`: Per-coordinate transition potential, per run
 
+<!-- BEGIN GENERATED ER DIAGRAM: run `Rscript devdocs/er_diagram.R`, do not edit -->
 ```mermaid
 erDiagram
-    reporting_t {
-        string key PK
-        string value
+    alloc_params_t {
+        int id_run PK, FK
+        int id_trans PK, FK
+        float mean_patch_size
+        float patch_size_variance
+        float patch_elongation
+        float patch_isometry
+        float frac_expander
+        float frac_patcher
+        float similarity
     }
     coords_t {
         int id_coord PK
         float lon
         float lat
-        float elevation
-        polygon geom_polygon
+    }
+    intrv_masks_t {
+        int id_run PK, FK
+        int id_intrv PK, FK
+        int id_coord PK, FK
+    }
+    intrv_meta_t {
+        int id_intrv PK
+        list id_period_list
+        list id_trans_list
+        bool pre_allocation
+        string name
+        string pretty_name
+        string description
+        list sources
+        map params
+        int id_run PK, FK
+    }
+    lulc_data_t {
+        int id_run PK, FK
+        int id_coord PK, FK
+        int id_lulc FK
+        int id_period PK, FK
+    }
+    lulc_meta_t {
+        int id_lulc UK
+        string name PK
+        string pretty_name
+        string description
+        list src_classes
+    }
+    neighbors_t {
+        int id_coord_origin PK, FK
+        int id_coord_neighbor PK, FK
+        float distance
     }
     periods_t {
-        int id_period PK
-        date start_date
-        date end_date
+        int id_period UK
+        date start_date PK
+        date end_date PK
         date mean_date
         int period_length_d
         bool is_extrapolated
+    }
+    pred_data_t {
+        int id_run PK, FK
+        int id_period PK, FK
+        int id_pred PK, FK
+        int id_coord PK, FK
+        float value
+    }
+    pred_meta_t {
+        int id_pred UK
+        string name PK
+        string pretty_name
+        string description
+        string orig_format
+        list sources
+        string unit
+        list factor_levels
+        factor data_type
+        string fill_value
+    }
+    reporting_t {
+        string key PK
+        string value
     }
     runs_t {
         int id_run PK
         int parent_id_run FK
         string description
     }
-    lulc_meta_t {
-        int id_lulc PK
-        string name
-        string pretty_name
-        string description
-        list src_classes
-    }
-    lulc_data_t {
-        int id_run FK
-        int id_coord FK
-        int id_lulc FK
-        int id_period FK
-    }
-    pred_meta_t {
-        int id_pred PK
-        string name
-        string pretty_name
-        string description
-        string orig_format
-        list sources
-        string unit
-        factor data_type
-        value fill_value
-        list factor_levels
-    }
-    pred_data_t {
-        int id_run FK
-        int id_period FK
-        int id_pred FK
-        int id_coord FK
-        float value
-    }
     trans_meta_t {
-        int id_trans PK
-        int id_lulc_anterior FK
-        int id_lulc_posterior FK
+        int id_trans UK
+        int id_lulc_anterior PK, FK
+        int id_lulc_posterior PK, FK
         int cardinality
         float frequency_rel
         float frequency_abs
         bool is_viable
+    }
+    trans_models_t {
+        int id_run PK, FK
+        int id_trans PK, FK
+        string learner_id PK
+        map learner_params
+        list learner_spec
+        map crossval_score
+        list crossval_predictions
+        list learner_full
+    }
+    trans_pot_t {
+        int id_run PK, FK
+        int id_trans PK, FK
+        int id_period_post PK, FK
+        int id_coord PK, FK
+        float value
     }
     trans_preds_t {
         int id_run PK, FK
@@ -111,100 +160,40 @@ erDiagram
         int count
         float rate
     }
-    intrv_meta_t {
-        int id_run PK, FK
-        int id_intrv PK
-        list id_period_list
-        list id_trans_list
-        bool pre_allocation
-        string name
-        string pretty_name
-        string description
-        list sources
-        map params
-    }
-    intrv_masks_t {
-        int id_run PK, FK
-        int id_intrv PK, FK
-        int id_coord PK, FK
-    }
-    trans_models_t {
-        int id_run PK, FK
-        int id_trans PK, FK
-        string learner_id PK
-        map learner_params
-        blob learner_spec
-        map crossval_score
-        blob crossval_predictions
-        blob learner_full
-    }
-    alloc_params_t {
-        int id_run PK, FK
-        int id_trans PK, FK
-        float mean_patch_size
-        float patch_size_variance
-        float patch_elongation
-        float patch_isometry
-        float frac_expander
-        float frac_patcher
-        float similarity
-    }
-    neighbors_t {
-        int id_coord_origin PK, FK
-        int id_coord_neighbor PK, FK
-        float distance
-        factor distance_class
-    }
-    trans_pot_t {
-        int id_run PK, FK
-        int id_trans PK, FK
-        int id_period_post PK, FK
-        int id_coord PK, FK
-        float value
-    }
 
-    lulc_data_t zero or more to 1 coords_t : "id_coord"
-    lulc_data_t zero or more to 1 lulc_meta_t : "id_lulc"
-    lulc_data_t zero or more to 1 periods_t : "id_period"
-    lulc_data_t zero or more to 1 runs_t : "id_run"
-
-    pred_data_t zero or more to 1 pred_meta_t : "id_pred"
-    pred_data_t zero or more to 1 coords_t : "id_coord"
-    pred_data_t zero or more to 1 periods_t : "id_period"
-    pred_data_t zero or more to 1 runs_t : "id_run"
-
-    trans_meta_t zero or more to 1 lulc_meta_t : "id_lulc_anterior"
-    trans_meta_t zero or more to 1 lulc_meta_t : "id_lulc_posterior"
-
-    trans_preds_t zero or more to 1 pred_meta_t : "id_pred"
-    trans_preds_t zero or more to 1 trans_meta_t : "id_trans"
-    trans_preds_t zero or more to 1 runs_t : "id_run"
-
-    trans_rates_t zero or more to 1 periods_t : "id_period"
-    trans_rates_t zero or more to 1 trans_meta_t : "id_trans"
-    trans_rates_t zero or more to 1 runs_t : "id_run"
-
-    intrv_meta_t zero or more to 1 runs_t : "id_run"
-    intrv_masks_t zero or more to 1 runs_t : "id_run"
-    intrv_masks_t zero or more to 1 intrv_meta_t : "id_intrv"
-    intrv_masks_t zero or more to 1 coords_t : "id_coord"
-
-    trans_models_t zero or more to 1 trans_meta_t : "id_trans"
-    trans_models_t zero or more to 1 runs_t : "id_run"
-
-    alloc_params_t zero or more to 1 trans_meta_t : "id_trans"
-    alloc_params_t zero or more to 1 runs_t : "id_run"
-
-    neighbors_t zero or more to 1 coords_t : "id_coord_origin"
-    neighbors_t zero or more to 1 coords_t : "id_coord_neighbor"
-
-    trans_pot_t zero or more to 1 trans_meta_t : "id_trans"
-    trans_pot_t zero or more to 1 periods_t : "id_period_post"
-    trans_pot_t zero or more to 1 coords_t : "id_coord"
-    trans_pot_t zero or more to 1 runs_t : "id_run"
-
-    runs_t zero or more to 1 runs_t : "parent_id_run"
+    alloc_params_t }o--|| runs_t : "id_run"
+    alloc_params_t }o--|| trans_meta_t : "id_trans"
+    intrv_masks_t }o--|| runs_t : "id_run"
+    intrv_masks_t }o--|| intrv_meta_t : "id_intrv"
+    intrv_masks_t }o--|| coords_t : "id_coord"
+    intrv_meta_t }o--|| runs_t : "id_run"
+    lulc_data_t }o--|| runs_t : "id_run"
+    lulc_data_t }o--|| coords_t : "id_coord"
+    lulc_data_t }o--|| lulc_meta_t : "id_lulc"
+    lulc_data_t }o--|| periods_t : "id_period"
+    neighbors_t }o--|| coords_t : "id_coord_origin"
+    neighbors_t }o--|| coords_t : "id_coord_neighbor"
+    pred_data_t }o--|| runs_t : "id_run"
+    pred_data_t }o--|| periods_t : "id_period"
+    pred_data_t }o--|| pred_meta_t : "id_pred"
+    pred_data_t }o--|| coords_t : "id_coord"
+    runs_t }o--o| runs_t : "parent_id_run"
+    trans_meta_t }o--|| lulc_meta_t : "id_lulc_anterior"
+    trans_meta_t }o--|| lulc_meta_t : "id_lulc_posterior"
+    trans_models_t }o--|| runs_t : "id_run"
+    trans_models_t }o--|| trans_meta_t : "id_trans"
+    trans_pot_t }o--|| runs_t : "id_run"
+    trans_pot_t }o--|| trans_meta_t : "id_trans"
+    trans_pot_t }o--|| periods_t : "id_period_post"
+    trans_pot_t }o--|| coords_t : "id_coord"
+    trans_preds_t }o--|| runs_t : "id_run"
+    trans_preds_t }o--|| pred_meta_t : "id_pred"
+    trans_preds_t }o--|| trans_meta_t : "id_trans"
+    trans_rates_t }o--|| runs_t : "id_run"
+    trans_rates_t }o--|| periods_t : "id_period"
+    trans_rates_t }o--|| trans_meta_t : "id_trans"
 ```
+<!-- END GENERATED ER DIAGRAM -->
 
 ### `reporting_t`
 

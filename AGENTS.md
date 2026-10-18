@@ -38,7 +38,7 @@ Before writing or editing a file, read the part of the style guide that applies:
 | R code in `R/`, tests in `inst/tinytest/`   | `devdocs/style/r.md`        |
 | C++ in `src/`                               | `devdocs/style/cpp.md`      |
 | SQL in `inst/*.sql` or inline in R          | `devdocs/style/sql.md`      |
-| Vignettes, roxygen text, comments, commits  | `devdocs/style/prose.md`    |
+| Vignettes, roxygen text, Markdown, commits  | `devdocs/style/prose.md`    |
 
 The rules that apply everywhere:
 
@@ -90,5 +90,6 @@ Only write Rcpp-free headers when the code should also compile as a standalone p
 - Domain specific database elements are in `R/evoland_db.R`; `evoland_db` inherits from `ducklake_db`.
   - The schema for this database is (for now) distributed across the class definitions: all `R/*_t.R` files contain `as_*_t` class constructors using `as_ducklake_db_t`.
   - Because the catalog may be read and written from external tools, it should be considered part of the API. Schema changes should be avoided as much as possible.
+  - After changing a table's columns or keys, regenerate the ER diagram with `Rscript devdocs/er_diagram.R`; CI fails if it is out of date.
   - Ad-hoc views are suffixed `_v` and generally exposed as active bindings, or as methods if they are parameterized.
   - Every new method must be added in `R/evoland_db.R` and _not_ with `$set`. This is because the roxygen documentation routine for R6 objects relies on all documentation being available in a single file.
