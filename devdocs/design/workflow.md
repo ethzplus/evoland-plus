@@ -8,54 +8,34 @@ Further features, such as one- or two-way coupling to other models, build on thi
 config:
   theme: neutral
 ---
+flowchart LR
+    setup["<b>i. Setup</b><br>LULC categorization<br>Spatial domain<br>Temporal domain"]
+    data["<b>ii. Data</b><br>LULC observations<br>Predictors<br>Quantization"]
+    calibration["<b>iii. Calibration</b><br>Feature selection<br>Transition potential models"]
+    allocation["<b>iv. Allocation</b><br>Demand<br>Allocation parameters<br>Stochastic allocation"]
+    projection@{shape: doc, label: "LULC map @ t+1"}
 
-flowchart TD
-    ts@{shape : brace, label: " Timesteps: \n t = now \n t-1 = one step in the past \n t+1 = one step in the future"}
-    style ts stroke:#ccc, stroke-width:2px
+    setup --> data --> calibration --> allocation --> projection
+    projection -->|"t+1 becomes t"| allocation
 
-    subgraph preparation["1\. Data Preparation"]
-        direction LR
-        config@{shape : doc, label: "Parameters"}
-        predictors@{shape : docs, label: "Predictors"}
-        lulc_data@{shape : doc, label: "LULC data \n @ {t, t-1, t-2, ...}"}
-        config --- predictors
-        predictors --- lulc_data
-        linkStyle 0,1 stroke-opacity:0
-    end
-    preparation --> calibration
+    setup_variants["usually fixed"]
+    data_variants["data variants"]
+    model_variants["model variants"]
+    allocation_variants["transition rates<br>allocation algorithm<br>patch shapes<br>seeds"]
+    setup -.- setup_variants
+    data -.- data_variants
+    calibration -.- model_variants
+    allocation -.- allocation_variants
 
-    subgraph calibration["2\. Calibration Phase"]
-        direction LR
-        varsel["Select Features"]
-        varsel --> markovmods
-        markovmods["Train Markovian Models"]
-        markovmods --> parametrize_alloc
-        parametrize_alloc["Parameterize Allocation Strategy"]
-    end
-
-    calibration --> estimation
-
-    subgraph estimation["3\. Prediction + Allocation"]
-        direction LR
-        evalmodel["`Evaluate Models @ t`"]
-        Predictions["Transition Potential Maps @ t+1"]
-        evalmodel --> Predictions
-        Changes["Allocate projected LULCC <br> (patch / expand)"]
-        Predictions --> Changes
-    end
-
-    estimation --> projection
-    projection@{shape : terminal, label: "LULC projection\n @ t+1"}
-    projection -->|Next iteration with t+1 as t| estimation
-
-    classDef phase fill:#f9f9f990,stroke:#333,stroke-dasharray:2 4,color:#000000
-    classDef data fill:#ddf1d5,stroke:#82b366,color:#000000
-    classDef user_input fill:#fff2cc,stroke:#d6b655,color:#000000
-
-    class calibration,preparation,estimation,allocation phase
-    class predictors,lulc_data,projection data
-    class config user_input
+    classDef variant fill:#f7dce8,stroke:#e377c2,stroke-dasharray:3 3,color:#555
+    class setup_variants,data_variants,model_variants,allocation_variants variant
 ```
+
+Calibration happens once, on the observed periods.
+Extrapolation is autoregressive: each allocated map is the starting point for the next period, so neighborhood predictors are recomputed from it before the transition potentials for the next period are predicted with the already calibrated models.
+
+The pink boxes are what may vary between runs (`runs_t`).
+A child run inherits everything it does not override from its parent, so an ensemble of allocations, data or model variants shares the work done upstream of where it diverges.
 
 Every phase reads its inputs from and writes its results to the database described in [database.md](database.md), so that each step can be rerun, inspected or replaced by another tool independently.
 The [getting-started vignette](../../vignettes/evoland.qmd) walks through the phases with the functions that implement them.
