@@ -8,7 +8,7 @@ Every rule is short enough to apply mechanically, and the reasoning is given whe
 | R code in `R/`, tests in `inst/tinytest/`   | [r.md](r.md)           |
 | C++ in `src/`                               | [cpp.md](cpp.md)       |
 | SQL in `inst/*.sql` or inline in R          | [sql.md](sql.md)       |
-| Vignettes, roxygen text, comments, commits  | [prose.md](prose.md)   |
+| Vignettes, roxygen text, Markdown, commits  | [prose.md](prose.md)   |
 
 ## Precedence
 
@@ -23,7 +23,6 @@ Every rule is short enough to apply mechanically, and the reasoning is given whe
 | R          | [air](https://posit-dev.github.io/air/) (`air format .`)  | `air.toml`            | lintr (`.lintr`)             |
 | C++        | clang-format (`git clang-format` on changed lines)        | `.clang-format`       | clang-tidy via `.clangd`     |
 | SQL        | [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) | `.sql-formatter.json` | none                         |
-| Quarto     | none; see [prose.md](prose.md)                            |                       |                              |
 
 CI suggests air formatting on pull requests (`.github/workflows/format-suggest.yaml`).
 The other formatters are not enforced in CI; run them on the files you change.
