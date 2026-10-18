@@ -1,8 +1,8 @@
 # Package structure
 
 The data model in [database.md](database.md) could in principle be written by any software that speaks DuckLake.
-Statistical model objects (random forests, regressions) have no language-agnostic representation, though, so the logic that fits and applies them is tied to one environment: an R package.
-It follows the conventions of [R Packages](https://r-pkgs.org/) by Hadley Wickham and Jennifer Bryan.
+Statistical model objects (random forests, regressions) have no language-agnostic representation, though, so the logic that fits and applies them is tied to one environment: an R package making use of parts of the [mlr3 ecosystem](https://mlr-org.com/).
+It follows the conventions of [r-pkgs.org](https://r-pkgs.org/).
 For where each kind of file lives, see the project layout in [AGENTS.md](../../AGENTS.md).
 
 ## Classes

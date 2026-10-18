@@ -8,28 +8,21 @@ By default a database is one folder: the catalog in `<path>/catalog.sqlite`, the
 The catalog can also live in PostgreSQL and the data in object storage (S3 and similar), so several machines can work on one database.
 
 DuckLake was chosen over plain Parquet files because it gives atomic writes and snapshot isolation: several processes can write to one database concurrently, and a reader never sees a half-written table.
-It supports no constraints, keys, indexes or ENUM types, so `ducklake_db$commit()` enforces key uniqueness itself, and factors are stored as strings and cast back by the `as_*_t()` constructors.
-The keys, partitioning and map columns of each table are declared by its `as_*_t()` constructor and stored as metadata on the catalog table.
+It supports no constraints, keys, or indexes so `ducklake_db$commit()` enforces key uniqueness itself.
+The keys, partitioning and map columns of each table are declared by its `as_*_t()` constructor and stored as table comments.
+DuckLake also does not support ENUMs, so R factors are stored as strings and cast back by the `as_*_t()` constructors.
 
-Because other tools may read and write the catalog, table and column names are part of the package's API; see [../style/r.md](../style/r.md#schema-names).
-
-> [!TIP]
-> Managing model state is, in theory, possible by using declarative configuration files. During
-> early development of the package, it became clear that configuration files would need to be
-> hyperspecific to adequately describe all assumptions that go into a specific analysis. Adequately
-> implementing e.g. data ingestion for multiple sources would lead to a massive scope expansion of
-> the package. Hence, there is not currently a concept of declarative configuration in this database.
-> This may need to be revised.
+Because other tools may read and write the catalog, the schema should be considered to be part of the package's API; see [../style/r.md](../style/r.md#schema-names).
 
 ## Tables
 
-- `reporting_t`: Key-value store for report metadata
-- `coords_t`: Landscape tessellation (base grid, polygons, centroids)
+- `reporting_t`: Key-value store for reporting metadata (authors etc.)
+- `coords_t`: Landscape tessellation (regular tiling: rectangular, triangular, hexagonal grid; polygon centroids)
 - `periods_t`: Time periods metadata
 - `runs_t`: Scenario/run hierarchy for multi-run simulations
 - `lulc_data_t` + `lulc_meta_t`: LULC data and metadata
 - `pred_data_t` + `pred_meta_t`: Predictor data and metadata
-- `trans_meta_t`: Transition metadata, indicating the viability of modelling them from a statistical or conceptual point
+- `trans_meta_t`: Transition metadata, indicating the viability of modelling each from a statistical or conceptual point
 - `trans_preds_t`: Transitions and their associations to predictors (m to n relation)
 - `trans_rates_t`: Transition rates by period
 - `intrv_masks_t` + `intrv_meta_t`: Interventions (masks, values) with their parameters (struct/json)
@@ -246,18 +239,11 @@ The `coords_t` table specifies the basic coordinates at which the model is set u
 Because these coordinates will often also refer to a surface, a polygon describing each surface may be stored alongside the lat/lon coordinates.
 This table is either constructed based on reference grid specification (e.g. existing LULC data) or derived from parameters (e.g. a hexagonal grid with edge length S and origin at (P, Q)).
 
-An optional `region` column of type factor may also be present; it is preserved and cast if supplied.
-
-Additional attributes are stored as table metadata (via `setattr`):
+Additional attributes are stored as table metadata:
 
 - `epsg`: EPSG code for the coordinate reference system
 - `xmin`, `xmax`, `ymin`, `ymax`: Bounding box extent
 - `resolution`: Grid resolution (for regular grids)
-
-> [!NOTE]
-> The CRS is currently stored only as a table attribute, not as a persisted column. There is no
-> dedicated column for it in `coords_t`. This may need to be revisited for full round-trip
-> reproducibility.
 
 ### `periods_t`
 

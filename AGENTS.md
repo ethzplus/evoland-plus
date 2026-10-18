@@ -47,6 +47,7 @@ The rules that apply everywhere:
 - Let errors propagate naturally; only add early guards when the default error message would confuse the user.
 - Format what you change: `air format .` for R, `git clang-format` for C++, sql-formatter for SQL.
 - Don't reformat or rewrite code unrelated to your change.
+- Use descriptive git branch names; don't use container or session names.
 
 ## Testing
 
