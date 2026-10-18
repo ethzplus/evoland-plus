@@ -125,9 +125,9 @@ diagram <- c(
 document <- readLines(target_file)
 begin <- which(document == begin_marker)
 end <- which(document == end_marker)
+has_one_marker_pair <- length(begin) == 1L && length(end) == 1L && begin < end
 stopifnot(
-  "database.md must contain the begin and end markers exactly once, in order" =
-    length(begin) == 1L && length(end) == 1L && begin < end
+  "database.md must contain the begin and end markers exactly once, in order" = has_one_marker_pair
 )
 writeLines(
   c(document[seq_len(begin - 1L)], diagram, document[-seq_len(end)]),
