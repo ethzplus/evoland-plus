@@ -72,8 +72,10 @@ evoland_db <- R6::R6Class(
     #' Get SQL expression to read a table, respecting active run hierarchy. For each
     #' data slice, returns data from the closest ancestor run that has it.
     #' @param table_name Character string table name
+    #' @param id_run Integer, the run whose lineage is read; defaults to the active run. Another
+    #' run can be read without changing the active one.
     #' @return Character string SQL expression (a composable subquery)
-    get_read_expr = function(table_name) {
+    get_read_expr = function(table_name, id_run = self$id_run) {
       create_method_binding(get_evoland_db_read_expr, with_super = TRUE)
     },
 
@@ -174,14 +176,33 @@ evoland_db <- R6::R6Class(
     #' @param id_run_simulated Integer vector, runs holding the simulated maps; defaults to
     #' the active run
     #' @param by_transition Logical; if `TRUE`, report per transition instead of overall.
+    #' @param exclude_id_lulc Integer vector of classes; cells whose class in the reference
+    #' run, at `id_period_anterior` or `id_period_post`, is one of them are ignored. Default
+    #' none.
     figure_of_merit_v = function(
       id_period_anterior,
       id_period_post,
       id_run_reference,
       id_run_simulated = self$id_run,
-      by_transition = FALSE
+      by_transition = FALSE,
+      exclude_id_lulc = integer(0)
     ) {
       create_method_binding(figure_of_merit_v)
+    },
+
+    #' @description Cross-tabulation of land use between two periods, see [lulc_crosstab_v()]
+    #' @param id_period_anterior,id_period_post Integer, the two periods to compare
+    #' @param id_run_anterior Integer, run to read `id_period_anterior` from; defaults to the
+    #' active run
+    #' @param id_run_post Integer, run to read `id_period_post` from; defaults to
+    #' `id_run_anterior`
+    lulc_crosstab_v = function(
+      id_period_anterior,
+      id_period_post,
+      id_run_anterior = self$id_run,
+      id_run_post = id_run_anterior
+    ) {
+      create_method_binding(lulc_crosstab_v)
     },
 
     ### Allocation methods ---

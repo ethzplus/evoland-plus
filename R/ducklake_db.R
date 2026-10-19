@@ -121,7 +121,7 @@ ducklake_db <- R6::R6Class(
       derives_from_path <- is.null(catalog) || is.null(data_path)
       stopifnot(
         "`path` is required unless both `catalog` and `data_path` are given" = !derives_from_path ||
-          (is.character(path) && length(path) == 1L)
+          is_scalar_character(path)
       )
 
       if (derives_from_path) {
@@ -612,10 +612,9 @@ ducklake_db <- R6::R6Class(
     #' @return Integer vector of length `n`, the allocated ids. Side effect: increment
     #' counter in DB.
     next_id = function(table_name, column_name, n = 1L) {
-      n <- as.integer(n)
       stopifnot(
         "database is attached read-only" = !self$read_only,
-        "`n` must be a positive count" = length(n) == 1L && !is.na(n) && n >= 1L,
+        "`n` must be a positive count" = is_scalar_integerish(n) && n >= 1L,
         "`$next_id()` only allocates safely inside `$transaction()`" = private$in_transaction
       )
 
@@ -668,8 +667,9 @@ ducklake_db <- R6::R6Class(
     #' @description Get SQL expression to read a table, potentially with additional
     #' filtering applied. [evoland_db] uses it to inject its own state based filter.
     #' @param table_name Character string table name
+    #' @param ... Ignored here; lets subclasses add their own filters, see [evoland_db]
     #' @return Character string SQL expression
-    get_read_expr = function(table_name) {
+    get_read_expr = function(table_name, ...) {
       private$sql("dl_db.{`table_name`}")
     }
   ),

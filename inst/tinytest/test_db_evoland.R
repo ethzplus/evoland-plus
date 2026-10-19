@@ -327,6 +327,56 @@ expect_equal(
     figure_of_merit_null = c(1 / 3, 0, 0)
   )
 )
+# the exclusion is decided on the reference run 10 alone: class 2 is the initial or observed
+# class of cells 1, 2, 5 and 6 there, which leaves cells 3 and 4 (1 -> 1 in run 10). Run 11
+# simulates cell 3 as 2, so what remains is one false alarm.
+fom_excl <- db$figure_of_merit_v(
+  1L,
+  2L,
+  id_run_reference = 10L,
+  id_run_simulated = 11L,
+  exclude_id_lulc = 2L
+)
+expect_equal(
+  unlist(fom_excl[, .(hits, wrong_hits, misses, false_alarms, figure_of_merit)]),
+  c(hits = 0, wrong_hits = 0, misses = 0, false_alarms = 1, figure_of_merit = 0)
+)
+fom_excl <- db$figure_of_merit_v(
+  1L,
+  2L,
+  id_run_reference = 10L,
+  id_run_simulated = 11L,
+  exclude_id_lulc = 3L # absent: nothing is left out
+)
+expect_equal(fom_excl, fom[id_run == 11L])
+
+# lulc_crosstab_v: observed change within run 10, simulated change of run 11 from the initial map
+# it inherits, and observed against simulated at period 2
+expect_equal(
+  db$lulc_crosstab_v(1L, 2L, id_run_anterior = 10L),
+  data.table::data.table(
+    id_lulc_anterior = c(1L, 1L, 2L, 2L),
+    id_lulc_posterior = c(1L, 2L, 1L, 2L),
+    n_cells = c(2L, 2L, 1L, 1L)
+  )
+)
+expect_equal(
+  db$lulc_crosstab_v(1L, 2L), # active run 11, inheriting period 1 from run 10
+  data.table::data.table(
+    id_lulc_anterior = c(1L, 1L, 2L, 2L),
+    id_lulc_posterior = c(1L, 2L, 2L, 3L),
+    n_cells = c(2L, 2L, 1L, 1L)
+  )
+)
+expect_equal(
+  db$lulc_crosstab_v(2L, 2L, id_run_anterior = 10L, id_run_post = 11L),
+  data.table::data.table(
+    id_lulc_anterior = c(1L, 1L, 1L, 2L, 2L),
+    id_lulc_posterior = c(1L, 2L, 3L, 1L, 2L),
+    n_cells = c(1L, 1L, 1L, 1L, 2L)
+  )
+)
+expect_equal(db$id_run, 11L)
 db$id_run <- 0L
 
 # no pairs within max_distance still leaves an empty table

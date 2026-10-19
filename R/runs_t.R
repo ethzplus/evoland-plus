@@ -93,9 +93,7 @@ db_active_id_run <- function(self, private, y) {
     return(invisible(NULL))
   }
   stopifnot(
-    "id_run must be scalar integerish or NULL" = {
-      length(y) == 1L && as.integer(y) == y
-    }
+    "id_run must be scalar integerish or NULL" = is_scalar_integerish(y)
   )
 
   y <- as.integer(y)

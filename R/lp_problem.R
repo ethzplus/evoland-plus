@@ -72,7 +72,7 @@ lp_problem <- R6::R6Class(
     add_constraints = function(block, constraints) {
       constraints <- data.table::as.data.table(constraints)
       stopifnot(
-        "block must be a single name" = is.character(block) && length(block) == 1L,
+        "block must be a single name" = is_scalar_character(block),
         "block was already added" = !(block %chin% private$.constraints[["block"]]),
         "constraints needs id_row, id_var, coefficient, dir and rhs" = all(
           c("id_row", "id_var", "coefficient", "dir", "rhs") %in% names(constraints)

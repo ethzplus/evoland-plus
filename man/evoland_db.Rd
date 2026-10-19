@@ -78,6 +78,7 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
     \item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
     \item \href{#method-evoland_db-figure_of_merit_v}{\code{evoland_db$figure_of_merit_v()}}
+    \item \href{#method-evoland_db-lulc_crosstab_v}{\code{evoland_db$lulc_crosstab_v()}}
     \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
     \item \href{#method-evoland_db-alloc_clumpy}{\code{evoland_db$alloc_clumpy()}}
     \item \href{#method-evoland_db-alloc_greedy}{\code{evoland_db$alloc_greedy()}}
@@ -161,13 +162,15 @@ initialization; if TRUE, the catalog is attached read-only.}
 data slice, returns data from the closest ancestor run that has it.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$get_read_expr(table_name)}
+    \preformatted{evoland_db$get_read_expr(table_name, id_run = self$id_run)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{table_name}}{Character string table name}
+      \item{\code{id_run}}{Integer, the run whose lineage is read; defaults to the active run. Another
+run can be read without changing the active one.}
     }
     \if{html}{\out{</div>}}
   }
@@ -369,7 +372,8 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
   id_period_post,
   id_run_reference,
   id_run_simulated = self$id_run,
-  by_transition = FALSE
+  by_transition = FALSE,
+  exclude_id_lulc = integer(0)
 )}
     \if{html}{\out{</div>}}
   }
@@ -382,6 +386,37 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
       \item{\code{id_run_simulated}}{Integer vector, runs holding the simulated maps; defaults to
 the active run}
       \item{\code{by_transition}}{Logical; if \code{TRUE}, report per transition instead of overall.}
+      \item{\code{exclude_id_lulc}}{Integer vector of classes; cells whose class in the reference
+run, at \code{id_period_anterior} or \code{id_period_post}, is one of them are ignored. Default
+none.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-lulc_crosstab_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-lulc_crosstab_v}{}}}
+\subsection{\code{evoland_db$lulc_crosstab_v()}}{
+  Cross-tabulation of land use between two periods, see \code{\link[=lulc_crosstab_v]{lulc_crosstab_v()}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$lulc_crosstab_v(
+  id_period_anterior,
+  id_period_post,
+  id_run_anterior = self$id_run,
+  id_run_post = id_run_anterior
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_period_anterior, id_period_post}}{Integer, the two periods to compare}
+      \item{\code{id_run_anterior}}{Integer, run to read \code{id_period_anterior} from; defaults to the
+active run}
+      \item{\code{id_run_post}}{Integer, run to read \code{id_period_post} from; defaults to
+\code{id_run_anterior}}
     }
     \if{html}{\out{</div>}}
   }
