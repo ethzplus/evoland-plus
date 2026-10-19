@@ -28,8 +28,8 @@ active run}
 
 \item{by_transition}{Logical; if \code{TRUE}, report per transition instead of overall.}
 
-\item{exclude_id_lulc}{Integer vector of classes; cells whose initial or observed class is
-one of them are ignored. Default none.}
+\item{exclude_id_lulc}{Integer vector of classes; cells whose class in the reference run, at
+\code{id_period_anterior} or \code{id_period_post}, is one of them are ignored. Default none.}
 }
 \value{
 A \code{\link[data.table:data.table]{data.table::data.table()}} with one row per simulated \code{id_run} (and transition).
@@ -60,8 +60,10 @@ it against \code{figure_of_merit_null}, the value expected when the simulated qu
 transition is placed at random among the cells of its initial class.
 
 Cells whose change is not the model's to get right, such as a class whose transitions are
-imposed deterministically, can be left out with \code{exclude_id_lulc}: a cell is ignored if its
-initial or its observed class is one of them.
+imposed deterministically, can be left out with \code{exclude_id_lulc}. Which cells are left out
+is decided on the reference run alone: a cell is ignored, in every simulated run, if its class
+in the reference run's initial or observed map is one of them. Its simulated class does not
+matter.
 
 For an ensemble of runs, the expected counts are the means of the per-run counts; recompute
 the ratios from those means rather than averaging the per-run ratios.

@@ -486,9 +486,8 @@ fit_full_models <- function(
   } else {
     # Score-select mode
     stopifnot(
-      "select_score must be a character string" = is.character(select_score) &&
-        length(select_score) == 1L,
-      "select_maximize must be TRUE or FALSE" = isTRUE(select_maximize) || isFALSE(select_maximize),
+      "select_score must be a character string" = is_scalar_character(select_score),
+      "select_maximize must be TRUE or FALSE" = is_scalar_logical(select_maximize),
       "trans_models_t is missing" = self$row_count("trans_models_t") > 0L
     )
 

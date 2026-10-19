@@ -110,6 +110,55 @@ require_suggested <- function(package, purpose) {
   )
 }
 
+#' Argument predicates
+#'
+#' Type checks for function arguments, meant as the conditions of a named [stopifnot()], whose
+#' name is the message the user sees:
+#'
+#' ```r
+#' stopifnot("id_period must be a single integer" = is_scalar_integerish(id_period))
+#' ```
+#'
+#' None of them accepts `NA`.
+#'
+#' - `is_integerish()`: a numeric vector of finite whole numbers, of any length including 0;
+#'   `1` and `1L` both qualify, so callers need not write `1L`.
+#' - `is_scalar_integerish()`: one finite whole number.
+#' - `is_scalar_numeric()`: one number.
+#' - `is_scalar_character()`: one string.
+#' - `is_scalar_logical()`: `TRUE` or `FALSE`.
+#'
+#' @param x Object to check
+#' @return `TRUE` or `FALSE`
+#' @name arg_predicates
+#' @keywords internal
+NULL
+
+#' @rdname arg_predicates
+is_integerish <- function(x) {
+  is.numeric(x) && all(is.finite(x)) && all(x == trunc(x))
+}
+
+#' @rdname arg_predicates
+is_scalar_integerish <- function(x) {
+  length(x) == 1L && is_integerish(x)
+}
+
+#' @rdname arg_predicates
+is_scalar_numeric <- function(x) {
+  is.numeric(x) && length(x) == 1L && !is.na(x)
+}
+
+#' @rdname arg_predicates
+is_scalar_character <- function(x) {
+  is.character(x) && length(x) == 1L && !is.na(x)
+}
+
+#' @rdname arg_predicates
+is_scalar_logical <- function(x) {
+  is.logical(x) && length(x) == 1L && !is.na(x)
+}
+
 #' @describeIn util Print a dataframe in a row-wise yaml style
 #' @param df A data.frame or data.table to print
 #' @export

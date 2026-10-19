@@ -62,18 +62,12 @@ lulc_crosstab_v <- function(
   id_run_post = id_run_anterior
 ) {
   stopifnot(
-    "id_period_anterior must be a single integer" = {
-      length(id_period_anterior) == 1L && as.integer(id_period_anterior) == id_period_anterior
-    },
-    "id_period_post must be a single integer" = {
-      length(id_period_post) == 1L && as.integer(id_period_post) == id_period_post
-    },
-    "id_run_anterior must be a single integer; set an active run or pass it" = {
-      length(id_run_anterior) == 1L && as.integer(id_run_anterior) == id_run_anterior
-    },
-    "id_run_post must be a single integer" = {
-      length(id_run_post) == 1L && as.integer(id_run_post) == id_run_post
-    }
+    "id_period_anterior must be a single integer" = is_scalar_integerish(id_period_anterior),
+    "id_period_post must be a single integer" = is_scalar_integerish(id_period_post),
+    "id_run_anterior must be a single integer; set an active run or pass it" = is_scalar_integerish(
+      id_run_anterior
+    ),
+    "id_run_post must be a single integer" = is_scalar_integerish(id_run_post)
   )
 
   self$get_query(
@@ -95,10 +89,8 @@ lulc_crosstab_v <- function(
       a.id_lulc,
       p.id_lulc
     }",
-    anterior_read_expr = get_run_read_expr(self, "lulc_data_t", id_run_anterior),
-    post_read_expr = get_run_read_expr(self, "lulc_data_t", id_run_post),
-    id_period_anterior = as.integer(id_period_anterior),
-    id_period_post = as.integer(id_period_post)
+    anterior_read_expr = self$get_read_expr("lulc_data_t", id_run = id_run_anterior),
+    post_read_expr = self$get_read_expr("lulc_data_t", id_run = id_run_post)
   )
 }
 
@@ -123,8 +115,10 @@ lulc_crosstab_v <- function(
 #' transition is placed at random among the cells of its initial class.
 #'
 #' Cells whose change is not the model's to get right, such as a class whose transitions are
-#' imposed deterministically, can be left out with `exclude_id_lulc`: a cell is ignored if its
-#' initial or its observed class is one of them.
+#' imposed deterministically, can be left out with `exclude_id_lulc`. Which cells are left out
+#' is decided on the reference run alone: a cell is ignored, in every simulated run, if its class
+#' in the reference run's initial or observed map is one of them. Its simulated class does not
+#' matter.
 #'
 #' For an ensemble of runs, the expected counts are the means of the per-run counts; recompute
 #' the ratios from those means rather than averaging the per-run ratios.
@@ -136,8 +130,8 @@ lulc_crosstab_v <- function(
 #' @param id_run_simulated Integer vector, runs holding the simulated maps; defaults to the
 #'   active run
 #' @param by_transition Logical; if `TRUE`, report per transition instead of overall.
-#' @param exclude_id_lulc Integer vector of classes; cells whose initial or observed class is
-#'   one of them are ignored. Default none.
+#' @param exclude_id_lulc Integer vector of classes; cells whose class in the reference run, at
+#'   `id_period_anterior` or `id_period_post`, is one of them are ignored. Default none.
 #'
 #' @return A [data.table::data.table()] with one row per simulated `id_run` (and transition).
 #'   Overall (`by_transition = FALSE`): `hits`, `wrong_hits`, `misses`, `false_alarms`,
@@ -163,25 +157,18 @@ figure_of_merit_v <- function(
   exclude_id_lulc = integer(0)
 ) {
   stopifnot(
-    "id_period_anterior must be a single integer" = {
-      length(id_period_anterior) == 1L && as.integer(id_period_anterior) == id_period_anterior
+    "id_period_anterior must be a single integer" = is_scalar_integerish(id_period_anterior),
+    "id_period_post must be a single integer" = is_scalar_integerish(id_period_post),
+    "id_run_reference must be a single integer" = is_scalar_integerish(id_run_reference),
+    "id_run_simulated must be a non-empty vector of integers" = {
+      length(id_run_simulated) >= 1L && is_integerish(id_run_simulated)
     },
-    "id_period_post must be a single integer" = {
-      length(id_period_post) == 1L && as.integer(id_period_post) == id_period_post
-    },
-    "id_run_reference must be a single integer" = {
-      length(id_run_reference) == 1L && as.integer(id_run_reference) == id_run_reference
-    },
-    "id_run_simulated must be an integer vector" = {
-      length(id_run_simulated) >= 1L && all(as.integer(id_run_simulated) == id_run_simulated)
-    },
-    "exclude_id_lulc must be an integer vector" = {
-      all(as.integer(exclude_id_lulc) == exclude_id_lulc)
-    }
+    "exclude_id_lulc must be a vector of integers" = is_integerish(exclude_id_lulc)
   )
 
   # each run is read through its own lineage
-  lulc_read_expr <- function(id_run) get_run_read_expr(self, "lulc_data_t", id_run)
+  lulc_read_expr <- function(id_run) self$get_read_expr("lulc_data_t", id_run = id_run)
+  reference_read_expr <- lulc_read_expr(id_run_reference)
   simulated_read_expr <- glue::glue_sql_collapse(
     lapply(id_run_simulated, function(id_run) {
       glue::glue_sql(
@@ -195,7 +182,6 @@ figure_of_merit_v <- function(
   exclude_filter <- if (length(exclude_id_lulc) > 0L) {
     glue::glue_sql(
       "and a.id_lulc not in ({exclude_id_lulc*}) and o.id_lulc not in ({exclude_id_lulc*})",
-      exclude_id_lulc = as.integer(exclude_id_lulc),
       .con = self$connection
     )
   } else {
@@ -204,11 +190,6 @@ figure_of_merit_v <- function(
 
   self$get_query(
     read_sql("figure_of_merit.sql"),
-    reference_read_expr = lulc_read_expr(id_run_reference),
-    simulated_read_expr = simulated_read_expr,
-    exclude_filter = exclude_filter,
-    id_period_anterior = as.integer(id_period_anterior),
-    id_period_post = as.integer(id_period_post),
     result = if (by_transition) "per_transition" else "overall"
   )
 }
