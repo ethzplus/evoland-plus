@@ -37,10 +37,7 @@ ducklake_db$new(
     \item{\code{read_only}}{If true, the catalog is attached read-only}
 
     \item{\code{retry_timeout}}{Numeric, how long in seconds to keep retrying a
-contended catalog operation before giving up. This, not \code{retry_max}, is
-the limit that normally applies: how many attempts fit in the budget
-depends on how long each contended attempt blocks, which is not
-something a caller can predict.}
+contended catalog operation before giving up.}
 
     \item{\code{retry_wait}}{Numeric, base wait in seconds for the retry backoff,
 which doubles per attempt up to 64 times this}
@@ -261,9 +258,7 @@ constructs.}
 \if{latex}{\out{\hypertarget{method-ducklake_db-get_table_metadata}{}}}
 \subsection{\code{ducklake_db$get_table_metadata()}}{
   Get table metadata, stored as a comment on the catalog table. A table with no
-metadata, and one that does not exist, both have none, so both give an empty
-list -- the callers that need a missing table to be an error, \verb{$fetch()} and
-\verb{$commit()}, say so themselves and more usefully.
+metadata, and one that does not exist, both return an empty list
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{ducklake_db$get_table_metadata(table_name)}
