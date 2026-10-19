@@ -1,6 +1,6 @@
 # R style
 
-Base: the [tidyverse style guide](https://style.tidyverse.org/), as enforced by air (`air.toml`, line width 100) and lintr (`.lintr`).
+Base: the [tidyverse style guide](https://style.tidyverse.org/), as enforced by air (`air.toml`, line width 100).
 This file covers what those don't decide, and where this package deliberately differs.
 
 ## Dependencies
@@ -30,6 +30,16 @@ Column names are part of the database schema and therefore of the API; see [Sche
 ## Syntax
 
 - Pipe with the native `|>`, using the `_` placeholder for non-first arguments: `grep(pattern = "_t$", x = _)`.
+- Don't name an intermediate result that is only used on the next line; continue the pipe instead, and give the rationale in a short comment where it isn't obvious. The flow of data should be visible in the shape of the code:
+
+  ```r
+  named_table_out <-
+    named_table_in |>
+    transformation() |>
+    # keep only the cells that can still change
+    filter_step() |>
+    ...
+  ```
 - `\(x)` for one-line anonymous functions, `function(x) { ... }` when the body spans lines.
 - Subset lists and data.frame columns with `[["name"]]`, not `$name`, which partially matches. `$` is for R6 members (`self$connection`, `db$runs_t`).
 
@@ -39,6 +49,9 @@ Column names are part of the database schema and therefore of the API; see [Sche
 - Columns used in non-standard evaluation (`i`, `j`, `by`, `on`) must be declared in `utils::globalVariables()` in `R/init.R`, or R CMD check reports a NOTE. Regenerate the list with `tools:::.check_code_usage_in_package("evoland")`.
 
 ## Errors and messages
+
+These use R's own `message()`, `warning()` and `stop()` for now; a logging tool with levels and timestamps is planned in ethzplus/evoland-plus#75.
+
 
 - Assertions use the named `stopifnot()` form; the name is the message the user sees:
 
@@ -71,22 +84,25 @@ Every table follows the shape of `R/periods_t.R`:
   },
   ```
 
-  The implementation is a plain function in the domain file, taking `self` (plus `private` or `super` via `with_private = TRUE` / `with_super = TRUE`) as its first arguments. This keeps all R6 documentation in one file for roxygen, while the logic sits next to the table it works on.
-- Don't add methods with `$set()`. (`R/evoland_db_views.R` still does; it predates this rule and should be migrated.)
+  The implementation is a plain function in the domain file, taking `self` (plus `private` or `super` via `with_private = TRUE` / `with_super = TRUE`) as its first arguments. This is the canonical way to bind methods (ethzplus/evoland-plus#28):
+  - all R6 documentation stays in one file, which roxygen requires;
+  - the logic sits next to the table it works on;
+  - the implementation is a named function that receives `self` explicitly, so linters see no undefined symbols and language servers can jump to it.
+- Don't add methods with `$set()`. `R/evoland_db_views.R` still does; it predates this rule and is to be migrated (ethzplus/evoland-plus#28).
 - Group methods with section comments (`## Public Methods ----`), which editors show in their outline.
-- Parameterless views are active bindings; views with parameters are methods.
+- Parameterless views are active bindings; views with parameters are methods. A view longer than a few lines of SQL keeps its query in `inst/<name>.sql`, see [sql.md](sql.md).
 
 ## Schema names
 
 Table names, column names, column types and key columns are read by external tools through the DuckLake catalog.
-Don't rename or retype a column, or change a table's keys, as a side effect of other work; make it its own change and say so in the pull request.
+Don't rename or retype a column, or change a table's keys, as a side effect of other work; make it its own change.
 Check the existing `R/*_t.R` files for a column that already means the same thing before adding one.
 
 ## Documentation (roxygen)
 
 - Run `roxygen2::roxygenize()` after changing any `#'` block and commit the resulting `man/` and `NAMESPACE` changes.
 - For tables, `@return` lists every column with its meaning, in the canonical column order.
-- Group a table's functions on one help page with `@name <entity>_t` on the first and `@describeIn <entity>_t <one line>` on the rest.
+- Group a table's functions on one help page with `@name <entity>_t`. Much of the existing documentation uses `@describeIn` for the other functions; treat that as legacy and prefer a manual structure with sections that fit the content, see [prose.md](prose.md#roxygen).
 - Documented internal helpers get `@keywords internal`.
 
 ## Tests

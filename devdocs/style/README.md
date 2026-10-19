@@ -20,7 +20,7 @@ Every rule is short enough to apply mechanically, and the reasoning is given whe
 
 | Language   | Formatter                                                 | Config                | Linter                       |
 | ---------- | --------------------------------------------------------- | --------------------- | ---------------------------- |
-| R          | [air](https://posit-dev.github.io/air/) (`air format .`)  | `air.toml`            | lintr (`.lintr`)             |
+| R          | [air](https://posit-dev.github.io/air/) (`air format .`)  | `air.toml`            | none                         |
 | C++        | clang-format (`git clang-format` on changed lines)        | `.clang-format`       | clang-tidy via `.clangd`     |
 | SQL        | [sql-formatter](https://github.com/sql-formatter-org/sql-formatter) | `.sql-formatter.json` | none                         |
 

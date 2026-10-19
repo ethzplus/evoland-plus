@@ -20,7 +20,8 @@ The package declares no C++ standard, so code must compile with the default of t
 
 ## Indices
 
-- R is 1-based, C++ 0-based. Convert once at the boundary, and name variables to say which is which (`cells_1based`) where both are in play.
+- Keep index logic on one side of the boundary. Pass R-native data (vectors, lists, data frames keyed by `id_*` columns) to C++ and let C++ compute the positions it needs, rather than computing positions in R (e.g. with `which()` or `match()`) and passing them across for C++ to offset again. Code that does its own indexing in one language is easier to read than index arithmetic split between two.
+- Where positions must cross the boundary anyway, remember R is 1-based and C++ 0-based: convert once, at the boundary, and name variables to say which is which (`cells_1based`).
 - Cell and row indices are `int`, matching R's 32-bit integers, which caps rasters at ~2.1e9 cells. Where a computation could overflow `int` (products of dimensions, squared coordinates), use `long long` or `double` and comment why.
 
 ## Organization and naming

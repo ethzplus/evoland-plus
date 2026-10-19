@@ -43,7 +43,7 @@ Before writing or editing a file, read the part of the style guide that applies:
 The rules that apply everywhere:
 
 - Avoid new dependencies; prefer base R, and avoid the tidyverse (unstable APIs) and niche, seldom-maintained packages.
-- Prefer explanatory names over comments; comment why, not what.
+- Comment why, not what. In R, prefer an unbroken pipe with a short comment over naming intermediate results that are used only once.
 - Let errors propagate naturally; only add early guards when the default error message would confuse the user.
 - Format what you change: `air format .` for R, `git clang-format` for C++, sql-formatter for SQL.
 - Don't reformat or rewrite code unrelated to your change.
