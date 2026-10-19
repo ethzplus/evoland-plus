@@ -29,6 +29,7 @@ A data.table of class "lulc_meta_t" with columns:
 \item \code{name}: Name for use in code and queries
 \item \code{pretty_name}: Long name for plots/output
 \item \code{description}: Long description / operationalisation
+\item \code{src_classes}: List of source class IDs aggregated into this class
 }
 }
 \description{

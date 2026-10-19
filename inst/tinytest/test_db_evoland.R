@@ -196,6 +196,14 @@ expect_equal(
   )[is.na(id_pred_1)]),
   0L # there should not be any rows with missing id_pred_1 in fixture
 )
+# trans_pred_data_v always returns rows in a fixed order, so that subsampling replays
+trans_pred_order <- precedence_db$trans_pred_data_v(id_trans = 1L, id_pred = 1:2)[,
+  .(id_coord, id_period_anterior)
+]
+expect_identical(
+  trans_pred_order,
+  trans_pred_order[order(id_coord, id_period_anterior)]
+)
 
 
 n_lulc_ant <-
@@ -369,3 +377,12 @@ expect_equal(
 )
 expect_equal(db$id_run, 11L)
 db$id_run <- 0L
+
+# no pairs within max_distance still leaves an empty table
+expect_message(db$set_neighbors(max_distance = 1, overwrite = TRUE, quiet = TRUE), "Computed 0")
+expect_equal(db$row_count("neighbors_t"), 0L)
+# chunks far smaller than the table; restores the default neighbours for later tests
+expect_message(
+  db$set_neighbors(overwrite = TRUE, quiet = TRUE, chunksize = 500),
+  "in [0-9]+ chunk\\(s\\)"
+)

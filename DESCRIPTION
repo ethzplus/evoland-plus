@@ -49,6 +49,7 @@ Collate:
     'trans_models_t.R'
     'alloc_dinamica.R'
     'alloc_clumpy.R'
+    'alloc_greedy.R'
     'coords_t.R'
     'ducklake_db.R'
     'ducklake_db_utils.R'

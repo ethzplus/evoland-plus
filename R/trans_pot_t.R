@@ -8,10 +8,11 @@
 #' @param id_period_post Integer, period to estimate transition potential to
 #'
 #' @return A data.table of class "trans_pot_t" with columns:
+#'   - `id_run`: Foreign key to [runs_t()]
 #'   - `id_trans`: Foreign key to [trans_meta_t()]
-#'   - `id_period_post`: Foreign key to [periods_t()]
+#'   - `id_period_post`: Foreign key to [periods_t()], the posterior period
 #'   - `id_coord`: Foreign key to [coords_t()]
-#'   - `value`: Map of model (hyper) parameters
+#'   - `value`: Raw transition potential in \[0, 1\], as predicted by the transition's model
 #' @export
 as_trans_pot_t <- function(x) {
   if (missing(x)) {
@@ -115,31 +116,30 @@ predict_trans_pot <- function(
   select_maximize,
   force = FALSE
 ) {
-  .check_viable_trans_models(self, select_score) # error on missing models
-
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
-  message(glue::glue("Predicting transition potential for {length(viable_trans)} transitions"))
+
+  # potentials may come from outside evoland (written to trans_pot_t directly); models are only
+  # needed for the transitions left to predict
+  to_predict <- viable_trans[["id_trans"]]
+  if (!force) {
+    # with verbose logging, report the transitions skipped here (pass force = TRUE to recompute)
+    to_predict <- Filter(function(id) !.has_predictions(self, id, id_period_post), to_predict)
+  }
+  if (length(to_predict) == 0L) {
+    return(invisible(NULL))
+  }
+  .check_viable_trans_models(self, select_score) # error on missing models
+  message(glue::glue("Predicting transition potential for {length(to_predict)} transitions"))
 
   use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
 
   pred_data_all <- NULL
 
-  for (id_trans in viable_trans[, id_trans]) {
-    has_predictions <- .has_predictions(self, id_trans, id_period_post)
-
-    if (has_predictions && !force) {
-      message(glue::glue(
-        "Found trans_pot_t for ",
-        "id_run={self$id_run}/id_trans={id_trans}/id_period={id_period_post}",
-        "; set force=TRUE to recompute"
-      ))
-      next
-    } else {
-      message(glue::glue(
-        "Predicting transition {which(viable_trans[, id_trans] == id_trans)}/",
-        "{nrow(viable_trans)} (id_trans={id_trans})"
-      ))
-    }
+  for (id_trans in to_predict) {
+    message(glue::glue(
+      "Predicting transition {which(to_predict == id_trans)}/",
+      "{length(to_predict)} (id_trans={id_trans})"
+    ))
 
     if (use_prefetch) {
       if (is.null(pred_data_all)) {
@@ -267,27 +267,29 @@ predict_trans_pot_for_alloc <- function(
     split(by = c("id_trans", "learner_id"), keep.by = TRUE) |>
     sapply(function(df) {
       glue::glue(
-        "id_trans: {df[,id_trans]}, learner_id: {df[,learner_id]}",
+        "id_trans: {df[,id_trans]}, learner_id: {df[,learner_id]}\n",
         df[, error_message],
-        "\n"
+        "\n",
+        .trim = FALSE
       )
     }) |>
     gsub(pattern = "\\x1b\\[[0-9;]*m", replacement = "") # drop color codes
 
   err_messages <- if (length(err_messages) > 0) {
-    c("\nFound following failed models:", err_messages)
+    c("\nFound following failed models:\n", err_messages)
   } else {
     character()
   }
 
-  stop(glue::glue_collapse(
-    sep = "\n",
-    c(
-      "No fitted model for viable transition(s): {toString(missing_models)}.",
-      "  Check that trans_models_t has a learner_full for each viable trans",
-      err_messages
-    )
-  ))
+  stop(
+    glue::glue(
+      "No fitted model for viable transition(s): {toString(missing_models)}.\n",
+      "  Check that trans_models_t has a learner_full with a crossval_score ",
+      "'{select_score}' for each viable transition\n",
+      .trim = FALSE
+    ),
+    err_messages
+  )
 }
 
 # check that if we already have predictions for given id_run/id_trans/id_period_post

@@ -12,10 +12,9 @@
 #' @param x A list or data.frame coercible to a data.table
 #'
 #' @return A data.table of class "runs_t" with columns:
-#'   - `id_run`: Foreign key to runs_t
-#'   - `id_period`: Foreign key to periods_t
-#'   - `id_trans`: Foreign key to trans_meta_t
-#'   - `rate`: Transition rate (0 to 1)
+#'   - `id_run`: Unique ID for each run; 0 is the base run
+#'   - `parent_id_run`: The run this run inherits data from; `NA` for the base run
+#'   - `description`: Human-readable description of the run
 #' @export
 as_runs_t <- function(x) {
   if (missing(x)) {

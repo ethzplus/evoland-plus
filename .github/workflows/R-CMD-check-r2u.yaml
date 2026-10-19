@@ -43,6 +43,16 @@ jobs:
       - name: Install dependencies as apt binaries
         run: ./run.sh install_all
 
+      # shares the dependency setup above rather than repeating it in a workflow of its own
+      - name: ER diagram in devdocs/design/database.md is up to date
+        run: |
+          R CMD INSTALL --clean --no-docs --no-multiarch .
+          Rscript devdocs/er_diagram.R
+          if ! git diff --exit-code devdocs/design/database.md; then
+            echo "::error file=devdocs/design/database.md::ER diagram is out of date; run 'Rscript devdocs/er_diagram.R' and commit the result"
+            exit 1
+          fi
+
       # Run tinytest directly (at_home=TRUE) and to get per-file results in the log
       - name: Unit and integration tests (tinytest)
         run: |

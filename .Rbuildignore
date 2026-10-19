@@ -13,8 +13,9 @@
 ^.+\.toml$
 ^.+\.json$
 ^.+\.md$
-.lintr
+^devdocs$
 .clangd
+^\.clang-format$
 
 # build infra
 ^Meta$

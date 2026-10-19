@@ -116,7 +116,7 @@ set_full_trans_preds <- function(self, overwrite = FALSE) {
 
 # Worker function for parallel mlr3filter::Filter
 # Not exported; used internally by get_pred_filter_score
-pred_filter_worker <- function(item, db, filter, ordered_pred_data = FALSE) {
+pred_filter_worker <- function(item, db, filter) {
   stopifnot(inherits(filter, "Filter"), inherits(item, "data.frame"))
   # item has constant id_run and id_trans; extract first value into scalar
   id_run <- item[["id_run"]][1L]
@@ -129,8 +129,7 @@ pred_filter_worker <- function(item, db, filter, ordered_pred_data = FALSE) {
       # Get wide transition-predictor data
       trans_pred_data_v <- db$trans_pred_data_v(
         id_trans = id_trans,
-        id_pred = id_pred,
-        ordered = ordered_pred_data
+        id_pred = id_pred
       )[, -c("id_coord", "id_period_anterior")]
 
       if (nrow(trans_pred_data_v) == 0L) {
@@ -184,15 +183,12 @@ pred_filter_worker <- function(item, db, filter, ordered_pred_data = FALSE) {
 #' directly instead of reading from the database, which is useful for targeted
 #' exploratory work on a subset of transitions or predictors.
 #' @param cluster An optional cluster object, see [run_parallel_evoland]
-#' @param ordered_pred_data Bool, should the predictor data be ordered? Needed
-#' for fully deterministic behavior
 #' @param ... Additional arguments passed to `flt` if `filter` is a character string
 get_pred_filter_score <- function(
   self,
   filter,
   trans_preds = NULL,
   cluster = NULL,
-  ordered_pred_data = FALSE,
   ...
 ) {
   # Accept either a character vector of measure IDs or a list of Measure objects
@@ -216,8 +212,7 @@ get_pred_filter_score <- function(
     worker_fun = pred_filter_worker,
     parent_db = self,
     cluster = cluster,
-    filter = filter,
-    ordered_pred_data = ordered_pred_data
+    filter = filter
   ) |>
     data.table::rbindlist(use.names = TRUE) |>
     as_trans_preds_t()
