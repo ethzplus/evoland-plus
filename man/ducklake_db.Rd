@@ -444,13 +444,14 @@ counter in DB.
 filtering applied. \link{evoland_db} uses it to inject its own state based filter.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$get_read_expr(table_name)}
+    \preformatted{ducklake_db$get_read_expr(table_name, ...)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{table_name}}{Character string table name}
+      \item{\code{...}}{Ignored here; lets subclasses add their own filters, see \link{evoland_db}}
     }
     \if{html}{\out{</div>}}
   }

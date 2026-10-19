@@ -162,13 +162,15 @@ initialization; if TRUE, the catalog is attached read-only.}
 data slice, returns data from the closest ancestor run that has it.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$get_read_expr(table_name)}
+    \preformatted{evoland_db$get_read_expr(table_name, id_run = self$id_run)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{table_name}}{Character string table name}
+      \item{\code{id_run}}{Integer, the run whose lineage is read; defaults to the active run. Another
+run can be read without changing the active one.}
     }
     \if{html}{\out{</div>}}
   }
@@ -384,8 +386,9 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
       \item{\code{id_run_simulated}}{Integer vector, runs holding the simulated maps; defaults to
 the active run}
       \item{\code{by_transition}}{Logical; if \code{TRUE}, report per transition instead of overall.}
-      \item{\code{exclude_id_lulc}}{Integer vector of classes; cells whose initial or observed class
-is one of them are ignored. Default none.}
+      \item{\code{exclude_id_lulc}}{Integer vector of classes; cells whose class in the reference
+run, at \code{id_period_anterior} or \code{id_period_post}, is one of them are ignored. Default
+none.}
     }
     \if{html}{\out{</div>}}
   }

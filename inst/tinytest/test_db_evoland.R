@@ -327,8 +327,9 @@ expect_equal(
     figure_of_merit_null = c(1 / 3, 0, 0)
   )
 )
-# leaving out class 2 drops every cell that starts or ends there (1, 2, 5, 6); cells 3 and 4
-# persist as class 1 and hold one false alarm
+# the exclusion is decided on the reference run 10 alone: class 2 is the initial or observed
+# class of cells 1, 2, 5 and 6 there, which leaves cells 3 and 4 (1 -> 1 in run 10). Run 11
+# simulates cell 3 as 2, so what remains is one false alarm.
 fom_excl <- db$figure_of_merit_v(
   1L,
   2L,

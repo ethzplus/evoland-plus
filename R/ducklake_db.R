@@ -668,8 +668,9 @@ ducklake_db <- R6::R6Class(
     #' @description Get SQL expression to read a table, potentially with additional
     #' filtering applied. [evoland_db] uses it to inject its own state based filter.
     #' @param table_name Character string table name
+    #' @param ... Ignored here; lets subclasses add their own filters, see [evoland_db]
     #' @return Character string SQL expression
-    get_read_expr = function(table_name) {
+    get_read_expr = function(table_name, ...) {
       private$sql("dl_db.{`table_name`}")
     }
   ),
