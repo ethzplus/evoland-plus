@@ -169,7 +169,8 @@ compute_alloc_params_single <- function(
   id_lulc_post
 ) {
   stopifnot(
-    "cells must be square" = terra::res(lulc_ant)[1] == terra::res(lulc_ant)[2]
+    # rasters rebuilt from coords_t carry floating point noise in their resolution
+    "cells must be square" = isTRUE(all.equal(terra::res(lulc_ant)[1], terra::res(lulc_ant)[2]))
   )
   # Create binary raster of transition cells (anterior class -> posterior class)
   # 1 = cells that transitioned from id_lulc_ant to id_lulc_post

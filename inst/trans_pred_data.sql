@@ -142,4 +142,9 @@ select
 from
   trans_result as tr
   left join pred_data_wide as pdata on tr.id_coord = pdata.id_coord
-  and tr.id_period = pdata.id_period;
+  and tr.id_period = pdata.id_period
+-- DuckDB returns rows in no fixed order; subsampling and order-sensitive learners (ranger)
+-- replay only on a fixed one
+order by
+  tr.id_coord,
+  tr.id_period;

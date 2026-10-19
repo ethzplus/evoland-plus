@@ -80,6 +80,7 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-figure_of_merit_v}{\code{evoland_db$figure_of_merit_v()}}
     \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
     \item \href{#method-evoland_db-alloc_clumpy}{\code{evoland_db$alloc_clumpy()}}
+    \item \href{#method-evoland_db-alloc_greedy}{\code{evoland_db$alloc_greedy()}}
     \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
     \item \href{#method-evoland_db-create_alloc_params_t}{\code{evoland_db$create_alloc_params_t()}}
     \item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
@@ -226,7 +227,7 @@ as its key}
   distance_breaks = NULL,
   overwrite = FALSE,
   quiet = FALSE,
-  chunksize = 1e+08
+  chunksize = 1e+07
 )}
     \if{html}{\out{</div>}}
   }
@@ -322,7 +323,7 @@ underlying raw data, see \code{\link[=download_and_verify]{download_and_verify()
 data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$trans_pred_data_v(id_trans, id_pred, ordered = FALSE)}
+    \preformatted{evoland_db$trans_pred_data_v(id_trans, id_pred)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -330,9 +331,6 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
     \describe{
       \item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
       \item{\code{id_pred}}{Optional integer vector of predictor IDs to include}
-      \item{\code{ordered}}{\itemize{
-\item if TRUE, order output by \code{id_coord} & \code{id_period}
-}}
     }
     \if{html}{\out{</div>}}
   }
@@ -468,6 +466,47 @@ would merge fail and allocate nothing. Ignored for uSAM.}
 (\code{1} = strict uPAM); \verb{< 0} = all candidates in one pass. Ignored for uSAM.}
       \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials
 (useful for repeated allocation)}
+      \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
+values already exist}
+      \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
+requested period. Intermediate periods are always updated.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-alloc_greedy"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-alloc_greedy}{}}}
+\subsection{\code{evoland_db$alloc_greedy()}}{
+  Runs deterministic greedy (rank-and-fill) allocation, see
+\code{\link[=alloc_greedy]{alloc_greedy()}}: each transition's demand goes to the cells of highest adjusted
+potential, every cell changes at most once.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$alloc_greedy(
+  id_periods,
+  select_score,
+  select_maximize,
+  arbitration = c("joint", "ordered"),
+  order = NULL,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_periods}}{Integer vector of period IDs to include in the simulation.}
+      \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
+to select model for extrapolation.}
+      \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
+      \item{\code{arbitration}}{Character; \code{"joint"} (default) ranks all transitions together,
+\code{"ordered"} lets transitions claim cells in the priority given by \code{order}.}
+      \item{\code{order}}{Integer vector of \code{id_trans}, the priority for \code{"ordered"}.}
+      \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials}
       \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
 values already exist}
       \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
