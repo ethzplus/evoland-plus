@@ -29,10 +29,9 @@ db_active_id_run(self, private, y)
 \value{
 A data.table of class "runs_t" with columns:
 \itemize{
-\item \code{id_run}: Foreign key to runs_t
-\item \code{id_period}: Foreign key to periods_t
-\item \code{id_trans}: Foreign key to trans_meta_t
-\item \code{rate}: Transition rate (0 to 1)
+\item \code{id_run}: Unique ID for each run; 0 is the base run
+\item \code{parent_id_run}: The run this run inherits data from; \code{NA} for the base run
+\item \code{description}: Human-readable description of the run
 }
 }
 \description{
