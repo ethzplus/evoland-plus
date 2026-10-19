@@ -28,13 +28,15 @@ flowchart LR
     allocation -.- allocation_variants
 
     classDef variant fill:#f7dce8,stroke:#e377c2,stroke-dasharray:3 3,color:#555
-    class setup_variants,data_variants,model_variants,allocation_variants variant
+    classDef fixed fill:#f4f4f4,stroke:#aaa,stroke-dasharray:3 3,color:#555
+    class data_variants,model_variants,allocation_variants variant
+    class setup_variants fixed
 ```
 
 Calibration happens once, on the observed periods.
 Extrapolation is autoregressive: each allocated map is the starting point for the next period, so neighborhood predictors are recomputed from it before the transition potentials for the next period are predicted with the already calibrated models.
 
-The pink boxes are what may vary between runs (`runs_t`).
+The pink boxes are what may vary between runs (`runs_t`). The setup tables (`coords_t`, `periods_t`, `lulc_meta_t`) are not keyed on `id_run`, so they are the same for every run.
 A child run inherits everything it does not override from its parent, so an ensemble of allocations, data or model variants shares the work done upstream of where it diverges.
 
 Every phase reads its inputs from and writes its results to the database described in [database.md](database.md), so that each step can be rerun, inspected or replaced by another tool independently.

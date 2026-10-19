@@ -13,10 +13,10 @@ An [R6](https://r6.r-lib.org/) class (`R/ducklake_db.R`) that knows nothing abou
 It opens a DuckLake catalog in an in-memory DuckDB connection and moves `data.table`s in and out of it: `$commit()` (append, upsert or overwrite, with an explicit uniqueness check), `$fetch()`, `$execute()` and `$get_query()` (with `glue_sql()` interpolation), `$transaction()`, and `$next_id()` for allocating ids.
 
 Writes to the catalog can collide when several processes share a database.
-DuckLake retries conflicting commits itself, but not contention on the catalog's own lock, so `ducklake_db` wraps every catalog operation in a retry with exponential backoff.
+DuckLake retries conflicting commits itself, but not contention on the catalog's own lock, so `ducklake_db` wraps every catalog operation in a retry. The wait before each attempt is drawn uniformly between zero and a ceiling that doubles per attempt up to 64 times `retry_wait` (exponential backoff with full jitter), until `retry_timeout` or `retry_max` is reached.
 Which errors count as transient depends on the catalog backend; they are listed in `TRANSIENT_CATALOG_ERRORS`.
 
-Keeping this layer generic means it can be tested on its own (`test_db_ducklake.R`) and reused outside `evoland-plus`.
+Keeping this layer generic means it can be tested on its own (`test_db_ducklake.R`) and reused outside `evoland-plus`; it might eventually be spun out into a package of its own.
 
 ### `evoland_db`: the domain database
 
@@ -27,9 +27,11 @@ Keeping this layer generic means it can be tested on its own (`test_db_ducklake.
 - the active run (`db$id_run`) and its lineage, through which every read of a run-dependent table is resolved: `$get_read_expr()` returns, for each slice of data, the closest ancestor run that has it;
 - the workflow steps: ingesting predictors, fitting models, predicting transition potentials, allocating.
 
-All methods are declared in the class body in `R/evoland_db.R`, because roxygen documents an R6 class only from a single file.
-Their implementations live as ordinary functions next to the table they work on (`set_full_trans_preds()` in `R/trans_preds_t.R`) and are bound with `create_method_binding()`.
+The aim is for all methods to be declared in the class body in `R/evoland_db.R`, because roxygen documents an R6 class only from a single file.
+Their implementations live as ordinary named functions next to the table they work on (`set_full_trans_preds()` in `R/trans_preds_t.R`) and are bound with `create_method_binding()`.
 This keeps the class definition readable as an index of what the database can do, while the logic stays close to its data.
+Because the implementations are named functions that take `self` explicitly, linters see no undefined symbols and language servers can jump to them.
+Not all methods follow this yet: the views in `R/evoland_db_views.R` are still added with `$set()`; see ethzplus/evoland-plus#28.
 
 ### Table classes
 
@@ -42,19 +44,21 @@ The class is defined in `R/<table>_t.R`, which holds:
 - `print.<table>_t()`, which prints a summary before the data.
 
 Because `ducklake_db` reads keys and partitioning from these attributes, the schema is defined in R, one file per table, and `ducklake_db` itself needs no knowledge of it.
+This also leaves room for ad-hoc adaptations in a specific analysis: a table can carry an additional column that is useful in one scenario while keeping the guarantees of the schema, and entirely new tables can be committed with `as_ducklake_db_t()` or even as a plain `data.table`.
 
 ## Allocation backends
 
-Allocation (placing the projected quantity of change on the map) has two interchangeable backends:
+Allocation (placing the projected quantity of change on the map) has three interchangeable backends:
 
-- [Dinamica EGO](https://dinamicaego.com/) (`R/alloc_dinamica.R`), run as an external process with models in `inst/dinamica_models/`. It is the established reference, but only runs on Linux x86.
-- A C++ implementation of the [CLUMPY](https://github.com/mmyrte/clumpy) allocation methods (`R/alloc_clumpy.R`, `src/alloc_clumpy.cpp`), which runs everywhere R does.
+- A C++ implementation of the CLUMPY allocation methods (`R/alloc_clumpy.R`, `src/alloc_clumpy.cpp`), which runs everywhere R does. It reimplements the stochastic patch allocation of [CLUMPY](https://github.com/mmyrte/clumpy); that repository also documents the reimplementation effort and the comparison against the original.
+- A greedy rank-and-fill allocator (`R/alloc_greedy.R`), which fills each transition's demand with the cells of highest potential. It is deterministic and has no patch geometry, which makes it a useful baseline for the stochastic allocators.
+- [Dinamica EGO](https://dinamicaego.com/) (`R/alloc_dinamica.R`), run as an external process with models in `inst/dinamica_models/`. It is the established reference, but only runs on Linux x86 and is optional.
 
-Both read transition potentials and allocation parameters from the database and write the resulting land use map back to `lulc_data_t` under the active run.
+All three read transition potentials (and, where they use them, allocation parameters) from the database and write the resulting land use map back to `lulc_data_t` under the active run.
 
 ## Dependencies
 
-Dependencies are kept few, because every one is a maintenance and installation cost for users.
+Owing to the complexity of this software, there are quite some dependencies. They were selected in the hope that they would be maintained for a long time into the future.
 
 | Package               | Why                                                                     |
 | --------------------- | ----------------------------------------------------------------------- |
@@ -66,7 +70,7 @@ Dependencies are kept few, because every one is a maintenance and installation c
 | `qs2`                 | Fast serialization of model objects into blob columns                   |
 | `Rcpp`                | C++ for the neighbor search and allocation loops                        |
 | `glue`                | String and SQL interpolation                                            |
-| `curl`                | Downloading predictor sources                                           |
+| `curl`                | Downloading predictor sources; to be replaced by base R (ethzplus/evoland-plus#79) |
 
-Learners (`ranger`, `rpart`), solvers (`lpSolve`), `processx` (for Dinamica) and the documentation and test tooling are in `Suggests` and checked for when needed.
+Learners (`ranger`, and `rpart` for demonstrations, see ethzplus/evoland-plus#80), solvers (`lpSolve`), `processx` (for Dinamica) and the documentation and test tooling are in `Suggests` and checked for when needed.
 See [../style/r.md](../style/r.md#dependencies) for the rules on adding dependencies.
