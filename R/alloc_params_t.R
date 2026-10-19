@@ -263,6 +263,7 @@ create_alloc_params_t <- function(self, id_period_post = NULL) {
   # Get observed periods (not extrapolated, and > 1 since we need period - 1)
   periods <- self$periods_t[is_extrapolated == FALSE & id_period > 1]
   if (!is.null(id_period_post)) {
+    stopifnot("id_period_post must be integerish or NULL" = is_integerish(id_period_post))
     periods <- periods[id_period %in% id_period_post]
   }
   viable_trans <- self$trans_meta_t[is_viable == TRUE]

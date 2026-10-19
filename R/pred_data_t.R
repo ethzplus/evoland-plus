@@ -153,8 +153,8 @@ id_period_anterior_filter <- function(self, id_period_anterior) {
     return(DBI::SQL("true"))
   }
   stopifnot(
-    "id_period_anterior must be a non-empty integerish vector" = length(id_period_anterior) > 0L &&
-      all(as.integer(id_period_anterior) == id_period_anterior)
+    "id_period_anterior must be a non-empty integerish vector or NULL" =
+      length(id_period_anterior) > 0L && is_integerish(id_period_anterior)
   )
   glue::glue_sql(
     "id_period_anterior in ({as.integer(id_period_anterior)*})",
