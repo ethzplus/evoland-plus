@@ -57,10 +57,12 @@ These use R's own `message()`, `warning()` and `stop()` for now; a logging tool 
 
   ```r
   stopifnot(
-    "id_run must be scalar integerish or NULL" = length(y) == 1L && as.integer(y) == y,
+    "id_run must be scalar integerish or NULL" = is_scalar_integerish(y),
     "periods must not overlap" = nrow(overlapping) == 0
   )
   ```
+
+- Check argument types with the predicates in `R/util.R` instead of spelling the test out: `is_integerish()`, `is_scalar_integerish()`, `is_scalar_numeric()`, `is_scalar_character()`, `is_scalar_logical()`. None of them accepts `NA`.
 
 - Other errors use `stop(glue::glue(...), call. = FALSE)`, saying what was expected and what was found.
 - Progress goes through `message()`, so callers can silence it with `suppressMessages()`; `cat()` is only for `print.*` methods. Indent sub-steps by two spaces.

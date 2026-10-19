@@ -217,7 +217,7 @@ alloc_greedy <- function(
   update_neighbors = TRUE
 ) {
   stopifnot(
-    "id_periods must be a numeric vector" = is.numeric(id_periods),
+    "id_periods must be integers" = is_integerish(id_periods),
     "id_periods must be contiguous" = all(diff(id_periods) == 1L),
     "id_run must be set" = !is.null(self$id_run),
     "id_periods must be in periods_t" = all(id_periods %in% self$periods_t$id_period)

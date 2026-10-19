@@ -62,18 +62,12 @@ lulc_crosstab_v <- function(
   id_run_post = id_run_anterior
 ) {
   stopifnot(
-    "id_period_anterior must be a single integer" = {
-      length(id_period_anterior) == 1L && as.integer(id_period_anterior) == id_period_anterior
-    },
-    "id_period_post must be a single integer" = {
-      length(id_period_post) == 1L && as.integer(id_period_post) == id_period_post
-    },
-    "id_run_anterior must be a single integer; set an active run or pass it" = {
-      length(id_run_anterior) == 1L && as.integer(id_run_anterior) == id_run_anterior
-    },
-    "id_run_post must be a single integer" = {
-      length(id_run_post) == 1L && as.integer(id_run_post) == id_run_post
-    }
+    "id_period_anterior must be a single integer" = is_scalar_integerish(id_period_anterior),
+    "id_period_post must be a single integer" = is_scalar_integerish(id_period_post),
+    "id_run_anterior must be a single integer; set an active run or pass it" = is_scalar_integerish(
+      id_run_anterior
+    ),
+    "id_run_post must be a single integer" = is_scalar_integerish(id_run_post)
   )
 
   self$get_query(
@@ -163,21 +157,13 @@ figure_of_merit_v <- function(
   exclude_id_lulc = integer(0)
 ) {
   stopifnot(
-    "id_period_anterior must be a single integer" = {
-      length(id_period_anterior) == 1L && as.integer(id_period_anterior) == id_period_anterior
+    "id_period_anterior must be a single integer" = is_scalar_integerish(id_period_anterior),
+    "id_period_post must be a single integer" = is_scalar_integerish(id_period_post),
+    "id_run_reference must be a single integer" = is_scalar_integerish(id_run_reference),
+    "id_run_simulated must be a non-empty vector of integers" = {
+      length(id_run_simulated) >= 1L && is_integerish(id_run_simulated)
     },
-    "id_period_post must be a single integer" = {
-      length(id_period_post) == 1L && as.integer(id_period_post) == id_period_post
-    },
-    "id_run_reference must be a single integer" = {
-      length(id_run_reference) == 1L && as.integer(id_run_reference) == id_run_reference
-    },
-    "id_run_simulated must be an integer vector" = {
-      length(id_run_simulated) >= 1L && all(as.integer(id_run_simulated) == id_run_simulated)
-    },
-    "exclude_id_lulc must be an integer vector" = {
-      all(as.integer(exclude_id_lulc) == exclude_id_lulc)
-    }
+    "exclude_id_lulc must be a vector of integers" = is_integerish(exclude_id_lulc)
   )
 
   # each run is read through its own lineage

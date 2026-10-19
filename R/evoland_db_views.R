@@ -119,9 +119,7 @@ evoland_db$set(
   overwrite = TRUE,
   function(id_period) {
     stopifnot(
-      "id_period must be a single integer" = {
-        length(id_period) == 1L && id_period == as.integer(id_period)
-      }
+      "id_period must be a single integer" = is_scalar_integerish(id_period)
     )
 
     rates_read_expr <- self$get_read_expr("trans_rates_t")
@@ -168,9 +166,7 @@ evoland_db$set(
   overwrite = TRUE,
   function(id_period_post) {
     stopifnot(
-      "id_period_post must be a single integer" = {
-        length(id_period_post) == 1L && id_period_post == as.integer(id_period_post)
-      }
+      "id_period_post must be a single integer" = is_scalar_integerish(id_period_post)
     )
 
     pot_read_expr <- self$get_read_expr("trans_pot_t")
