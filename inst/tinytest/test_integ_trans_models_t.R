@@ -134,6 +134,19 @@ expect_message(
 )
 expect_equal(partial_t1$id_trans, 1L)
 
+# fit_partial_models: id_period_anterior holds out the later transitions, so fewer rows
+# are scored than with every observed period
+partial_t1_held_out <- suppressMessages(db$fit_partial_models(
+  learner = test_learner,
+  measures = test_measures,
+  sample_frac = 0.7,
+  seed = 123,
+  trans_preds = trans_preds_t1,
+  id_period_anterior = 1L
+))
+n_scored <- function(models) length(qs2::qs_deserialize(models$crossval_predictions[[1L]])$row_ids)
+expect_true(n_scored(partial_t1_held_out) < n_scored(partial_t1))
+
 # fit_partial_models: supply trans_meta restricted to id_trans == 1
 trans_meta_t1 <- db$trans_meta_t[id_trans == 1L]
 expect_message(

@@ -254,11 +254,18 @@ compute_alloc_params_single <- function(
 #' allocation to patch geometry, is left to the caller, who writes the perturbed sets onto
 #' runs of their own.
 #' @param self [evoland_db] instance to query
-create_alloc_params_t <- function(self) {
+#' @param id_period_post Optional integer vector of posterior period IDs; only the period
+#'   pairs ending in these periods are estimated from, e.g. to hold out the last observed
+#'   transition for a backcast. `NULL` (default) uses every observed pair.
+create_alloc_params_t <- function(self, id_period_post = NULL) {
   stopifnot("id_run must be set" = !is.null(self$id_run))
 
   # Get observed periods (not extrapolated, and > 1 since we need period - 1)
   periods <- self$periods_t[is_extrapolated == FALSE & id_period > 1]
+  if (!is.null(id_period_post)) {
+    stopifnot("id_period_post must be integerish or NULL" = is_integerish(id_period_post))
+    periods <- periods[id_period %in% id_period_post]
+  }
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
   # validate DB inputs

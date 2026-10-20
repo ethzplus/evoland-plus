@@ -19,7 +19,8 @@ fit_partial_models(
   seed = NULL,
   cluster = NULL,
   trans_preds = NULL,
-  trans_meta = NULL
+  trans_meta = NULL,
+  id_period_anterior = NULL
 )
 
 fit_full_models(
@@ -29,7 +30,8 @@ fit_full_models(
   select_maximize = TRUE,
   cluster = NULL,
   trans_preds = NULL,
-  trans_meta = NULL
+  trans_meta = NULL,
+  id_period_anterior = NULL
 )
 
 \method{print}{trans_models_t}(x, ...)
@@ -67,6 +69,11 @@ Ignored in score-select mode.}
 \item{trans_meta}{Optional \link{trans_meta_t} object. When supplied in direct-learner
 mode, it is used directly instead of reading \code{trans_meta_t} from the database.
 Ignored in score-select mode.}
+
+\item{id_period_anterior}{Optional integer vector of anterior period IDs; only the
+transitions observed from these periods are used for training. In score-select mode
+this should match what was passed to \code{\link[=fit_partial_models]{fit_partial_models()}}. \code{NULL} (default) uses
+every observed period.}
 
 \item{select_score}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used to
 rank partial models in score-select mode. Must be \code{NULL} when \code{learner} is provided.}
