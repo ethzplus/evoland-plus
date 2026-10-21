@@ -8,7 +8,7 @@ The scope of `evoland-plus` is to:
 - **Gather and process** LULCC and predictor data from multiple sources into a clearly defined database structure.
 - **Calibrate statistical models** to understand historical land use transitions
 - **Project future land use patterns** using predictive models and allocation algorithms
-- **Support scenario analysis** through interventions and parameter modifications
+- **Support scenario analysis** through scenario-specific runs, transition rates, allocation parameters and transition potentials; see the [policy mechanisms](https://ethzplus.github.io/evoland-plus/articles/policy-mechanisms.html) vignette
 
 ## Installation
 
