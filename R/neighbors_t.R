@@ -108,7 +108,7 @@ set_neighbors <- function(
 ) {
   stopifnot(
     "max_distance must be a positive scalar numeric" = {
-      is.numeric(max_distance) && length(max_distance) == 1L && max_distance > 0
+      is_scalar_numeric(max_distance) && max_distance > 0
     },
     "distance_breaks must be NULL or a numeric vector with at least 2 elements" = {
       is.null(distance_breaks) || (is.numeric(distance_breaks) && length(distance_breaks) >= 2L)
@@ -324,9 +324,7 @@ generate_neighbor_predictors <- function(self) {
 upsert_new_neighbors <- function(self, id_period) {
   stopifnot(
     "id_run must be set" = !is.null(self$id_run),
-    "id_period must be a single integer" = {
-      length(id_period) == 1L && as.integer(id_period) == id_period
-    }
+    "id_period must be a single integer" = is_scalar_integerish(id_period)
   )
 
   self$execute(

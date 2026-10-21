@@ -259,7 +259,7 @@ alloc_dinamica <- function(
   update_neighbors = TRUE
 ) {
   stopifnot(
-    "id_periods must be a numeric vector" = is.numeric(id_periods),
+    "id_periods must be integers" = is_integerish(id_periods),
     "id_periods must be contiguous" = all(diff(id_periods) == 1L),
     "id_run must be set" = !is.null(self$id_run),
     "id_periods must be in periods_t" = all(id_periods %in% self$periods_t$id_period)
@@ -337,10 +337,8 @@ eval_alloc_params_t <- function(
   self$id_run <- orig_id_run
 
   stopifnot(
-    "select_score must be a single string" = {
-      is.character(select_score) && length(select_score) == 1L
-    },
-    "select_maximize must be TRUE or FALSE" = (select_maximize || !select_maximize),
+    "select_score must be a single string" = is_scalar_character(select_score),
+    "select_maximize must be TRUE or FALSE" = is_scalar_logical(select_maximize),
     "need at least 2 historical periods for evaluation" = {
       length(posterior_historical_periods) >= 1L
     },

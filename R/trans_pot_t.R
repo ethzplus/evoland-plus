@@ -8,10 +8,11 @@
 #' @param id_period_post Integer, period to estimate transition potential to
 #'
 #' @return A data.table of class "trans_pot_t" with columns:
+#'   - `id_run`: Foreign key to [runs_t()]
 #'   - `id_trans`: Foreign key to [trans_meta_t()]
-#'   - `id_period_post`: Foreign key to [periods_t()]
+#'   - `id_period_post`: Foreign key to [periods_t()], the posterior period
 #'   - `id_coord`: Foreign key to [coords_t()]
-#'   - `value`: Map of model (hyper) parameters
+#'   - `value`: Raw transition potential in \[0, 1\], as predicted by the transition's model
 #' @export
 as_trans_pot_t <- function(x) {
   if (missing(x)) {

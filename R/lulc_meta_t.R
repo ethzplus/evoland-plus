@@ -11,6 +11,7 @@
 #'   - `name`: Name for use in code and queries
 #'   - `pretty_name`: Long name for plots/output
 #'   - `description`: Long description / operationalisation
+#'   - `src_classes`: List of source class IDs aggregated into this class
 #' @export
 as_lulc_meta_t <- function(x) {
   if (missing(x)) {

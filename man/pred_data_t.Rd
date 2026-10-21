@@ -19,12 +19,13 @@ pred_data_available_v(self)
 
 trans_pred_data_v(self, id_trans, id_pred)
 
-pred_data_wide_v(self, id_trans, id_period_anterior)
+pred_data_wide_v(self, private, id_trans, id_period_anterior)
 
 set_pred_coltypes(result, pred_meta_t)
 
 add_predictor(
   self,
+  private,
   pred_data_raw,
   name,
   fill_value,

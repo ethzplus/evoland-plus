@@ -9,13 +9,14 @@ NULL
 #' @describeIn evoland_db_util Gets the read expression for a given table, taking into
 #' account the run lineage and distinctness columns. If the table has no `id_run` column
 #' or is the `runs_t` table itself, falls back to the default read expression.
-#' Otherwise, constructs a read expression that filters for the active `id_run` and its lineage,
+#' Otherwise, constructs a read expression that filters for `id_run` and its lineage,
 #' using the distinctness columns to determine which slices of data to include.
 #' @param self The `evoland_db` instance
 #' @param super The superclass (parent class) environment.
 #' @param table_name The name of the table to read from
+#' @param id_run Integer, the run whose lineage is read; defaults to the active run
 #' @return A SQL expression string to read most specific data for slice
-get_evoland_db_read_expr <- function(self, super, table_name) {
+get_evoland_db_read_expr <- function(self, super, table_name, id_run = self$id_run) {
   base_read_expr <- super$get_read_expr(table_name)
   all_cols <- self$get_query(
     "select column_name from (describe {base_read_expr})",
@@ -23,7 +24,7 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
   )
 
   if (
-    is.null(self$id_run) || # no active id_run
+    is.null(id_run) || # no run to read
       !("id_run" %in% all_cols) || # no id_run in table
       table_name == "runs_t" # runs_t table itself
   ) {
@@ -46,11 +47,16 @@ get_evoland_db_read_expr <- function(self, super, table_name) {
 
   # .envir, or the statement would be interpolated in this helper's frame
   sql <- function(...) glue::glue_sql(..., .con = self$connection, .envir = parent.frame())
-  run_lineage <- self$run_lineage
+  # the active run's lineage is cached; another run's is looked up
+  run_lineage <- if (isTRUE(id_run == self$id_run)) {
+    self$run_lineage
+  } else {
+    get_lineage(self$runs_t, as.integer(id_run))
+  }
 
   # Single run in lineage: just filter for active id_run
   if (length(run_lineage) == 1L) {
-    return(sql("(select * from {base_read_expr} where id_run = {self$id_run})"))
+    return(sql("(select * from {base_read_expr} where id_run = {id_run})"))
   }
 
   # map each id_run in lineage to its distance from the active run; used to
