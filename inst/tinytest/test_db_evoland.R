@@ -387,3 +387,45 @@ expect_message(
   db$set_neighbors(overwrite = TRUE, quiet = TRUE, chunksize = 500),
   "in [0-9]+ chunk\\(s\\)"
 )
+
+# runs_t seeds ####
+db$runs_t <- as_runs_t(list(
+  id_run = c(0L, 20L, 21L),
+  parent_id_run = c(NA_integer_, 0L, 0L),
+  description = c("Calibration base", "Seeded", "Unseeded"),
+  seed = c(NA_integer_, 7L, NA_integer_)
+))
+
+# reopening the database keeps the base run as registered rather than resetting it
+reopened <- evoland_db$new(catalog = db$catalog, data_path = db$data_path)
+expect_equal(reopened$runs_t[id_run == 0L, description], "Calibration base")
+rm(reopened)
+
+# a seeded run draws from its own seed, and leaves the caller's random stream where it was
+db$id_run <- 20L
+set.seed(7L)
+expected_draw <- stats::runif(1L)
+set.seed(1L)
+expected_after <- stats::runif(2L)[[2L]]
+set.seed(1L)
+stats::runif(1L)
+expect_equal(evoland:::with_run_seed(db, stats::runif(1L)), expected_draw)
+expect_equal(stats::runif(1L), expected_after)
+
+# an unseeded run draws from the current state
+db$id_run <- 21L
+set.seed(1L)
+expect_equal(evoland:::with_run_seed(db, stats::runif(2L)[[2L]]), expected_after)
+db$id_run <- 0L
+
+# a database whose runs_t predates the seed column gains it on opening
+legacy_path <- tempfile("legacy_evolanddb_")
+legacy <- ducklake_db$new(legacy_path)
+legacy$commit(
+  data.table::data.table(id_run = 0L, parent_id_run = NA_integer_, description = "Base"),
+  "runs_t"
+)
+rm(legacy)
+migrated <- evoland_db$new(legacy_path)
+expect_identical(migrated$runs_t[["seed"]], NA_integer_)
+rm(migrated)

@@ -32,6 +32,7 @@ A data.table of class "runs_t" with columns:
 \item \code{id_run}: Unique ID for each run; 0 is the base run
 \item \code{parent_id_run}: The run this run inherits data from; \code{NA} for the base run
 \item \code{description}: Human-readable description of the run
+\item \code{seed}: Seed for the run's random number generator; \code{NA} for none
 }
 }
 \description{
@@ -41,6 +42,11 @@ feature that allows one to label data that is either overriding base data (e.g.
 predictors being used for forecasting) or produced by a specific model experiment
 (e.g. a given allocation of land use change given a set of transition potential
 models and allocation parameters).
+}
+\details{
+A run's \code{seed} belongs to that run alone and is not inherited: \code{\link[=alloc_clumpy]{alloc_clumpy()}} seeds R's
+random number generator with it before allocating, so that a run replays from the
+database. Runs without a seed (\code{NA}) draw from the generator's current state.
 }
 \section{Methods (by generic)}{
 \itemize{

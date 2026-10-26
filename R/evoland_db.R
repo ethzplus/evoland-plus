@@ -60,7 +60,7 @@ evoland_db <- R6::R6Class(
         # tables or neither -- and costs one snapshot rather than two
         self$transaction({
           self$set_report(...)
-          self$commit(as_runs_t(), "runs_t", method = "upsert")
+          ensure_base_run(self)
         })
       }
       # ensure there is a minimal runs_t with base case

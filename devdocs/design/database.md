@@ -129,6 +129,7 @@ erDiagram
         int id_run PK
         int parent_id_run FK
         string description
+        int seed
     }
     trans_meta_t {
         int id_trans UK
@@ -258,11 +259,16 @@ They can then be stored and joined like time-varying predictors.
 | \*         | id_run        | int           | Unique ID for each run (0 = base)             |
 |            | parent_id_run | int, nullable | The run this run inherits from                |
 |            | description   | str           | Human-readable description of the run         |
+|            | seed          | int, nullable | Seed for the run's random number generator    |
 
 Runs label data that either overrides base data (e.g. predictors for a scenario) or is produced by a specific experiment (e.g. one allocation in an ensemble).
 Run 0 is the base run.
 A child run inherits every slice of data it does not override: reading a run-dependent table under a run returns, for each slice, the data of the closest run in its lineage that has it.
 For instance, a run that only overrides one predictor reads all other predictors from its parent, and so on up to the base run.
+
+`seed` belongs to its run alone and is not inherited.
+`alloc_clumpy()` seeds R's random number generator with it for the whole sequence of periods, and restores the previous state afterwards, so that a realization replays from the database.
+The package does not track the software environment; pin it with a project library manager such as renv or rv.
 
 ### `lulc_meta_t` + `lulc_data_t`
 

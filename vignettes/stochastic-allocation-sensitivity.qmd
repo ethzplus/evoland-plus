@@ -440,7 +440,8 @@ db$alloc_params_t <- db$create_alloc_params_t()
 
 The central idea of this tutorial is that **each stochastic allocation is a separate run**. We therefore create 30 run records and propagate the same baseline allocation parameters to each run.
 
-As with all evoland tables, `runs_t` only ensures a minimum set of columns, so we can add the `kind` and `seed` columns when overwriting.
+Each run gets its own `seed`: `db$alloc_clumpy()` seeds the random number generator with it, so every realization can be replayed from the database.
+As with all evoland tables, `runs_t` only ensures a minimum set of columns, so we can add a `kind` column of our own when overwriting.
 
 ```{r}
 #| label: register-runs
@@ -472,14 +473,13 @@ Note that we do **not** copy the allocation parameters into each run. Every stoc
 ## Running one extrapolated period 30 times
 
 We only allocate the first extrapolated period. This makes the comparison easier to interpret: every realization starts from the same observed state.
-We loop over the run records: for each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- and then allocate the single extrapolated period (`id_period = 4`) using that run's `seed`. Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
+We loop over the run records: for each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from, the `id_run` stamped on the results it writes, and the `seed` the allocator uses -- and then allocate the single extrapolated period (`id_period = 4`). Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
 
 ```{r}
 #| label: allocate-realizations
 #| output: false
 for (i in seq_len(nrow(runs_out))) {
   db$id_run <- runs_out$id_run[i]
-  set.seed(runs_out$seed[i])
   db$alloc_clumpy(
     id_periods = 4, # first extrapolated period
     select_score = "no.crossval",

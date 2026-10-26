@@ -228,6 +228,8 @@ alloc_clumpy_one_period <- function(
 
 #' @describeIn alloc_clumpy Allocate a contiguous sequence of periods, committing each one
 #' and recomputing neighbour predictors in between; the method behind `db$alloc_clumpy()`.
+#' If the active run has a `seed` in [runs_t], R's random number generator is seeded with it
+#' for the whole sequence and restored afterwards.
 #'
 #' @param self An [evoland_db] instance.
 #' @param id_periods Integer vector of contiguous posterior period IDs to simulate.
@@ -261,28 +263,31 @@ alloc_clumpy <- function(
     "  Run: {self$id_run}"
   ))
 
-  for (id_period_post in id_periods) {
-    message(glue::glue(
-      "\n=== Period {which(id_period_post == id_periods)}/{length(id_periods)} ==="
-    ))
+  # seeded once for the whole sequence: a run's periods are one draw, replayed from its seed
+  with_run_seed(self, {
+    for (id_period_post in id_periods) {
+      message(glue::glue(
+        "\n=== Period {which(id_period_post == id_periods)}/{length(id_periods)} ==="
+      ))
 
-    lulc_result <- alloc_clumpy_one_period(
-      db = self,
-      id_period_post = id_period_post,
-      select_score = select_score,
-      select_maximize = select_maximize,
-      area_dist = area_dist,
-      avoid_aggregation = avoid_aggregation,
-      batch_size = batch_size,
-      use_parent_trans_pot = use_parent_trans_pot,
-      force_predict_trans_pot = force_predict_trans_pot
-    )
+      lulc_result <- alloc_clumpy_one_period(
+        db = self,
+        id_period_post = id_period_post,
+        select_score = select_score,
+        select_maximize = select_maximize,
+        area_dist = area_dist,
+        avoid_aggregation = avoid_aggregation,
+        batch_size = batch_size,
+        use_parent_trans_pot = use_parent_trans_pot,
+        force_predict_trans_pot = force_predict_trans_pot
+      )
 
-    self$commit(lulc_result, "lulc_data_t", method = "upsert")
-    if (update_neighbors || id_period_post != max(id_periods)) {
-      self$upsert_new_neighbors(id_period_post)
+      self$commit(lulc_result, "lulc_data_t", method = "upsert")
+      if (update_neighbors || id_period_post != max(id_periods)) {
+        self$upsert_new_neighbors(id_period_post)
+      }
     }
-  }
+  })
 
   message("CLUMPY allocation complete!")
   invisible(NULL)

@@ -87,6 +87,7 @@ utils::globalVariables(c(
   "period_length_y",
   "rate",
   "rate_annual",
+  "seed",
   "shape",
   "sources",
   "start_date",

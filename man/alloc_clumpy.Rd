@@ -127,6 +127,8 @@ committing it; see Description for when to use which.
 
 \item \code{alloc_clumpy()}: Allocate a contiguous sequence of periods, committing each one
 and recomputing neighbour predictors in between; the method behind \code{db$alloc_clumpy()}.
+If the active run has a \code{seed} in \link{runs_t}, R's random number generator is seeded with it
+for the whole sequence and restored afterwards.
 
 }}
 \references{

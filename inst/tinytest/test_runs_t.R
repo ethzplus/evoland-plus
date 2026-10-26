@@ -2,7 +2,8 @@
 x <- data.table::data.table(
   id_run = 0L,
   parent_id_run = NA_integer_,
-  description = "Base"
+  description = "Base",
+  seed = NA_integer_
 )
 
 data.table::setattr(x, "class", c("runs_t", "ducklake_db_t", "data.table", "data.frame"))
@@ -19,6 +20,13 @@ runs_t <-
     description = c("Base", "Scenario 1")
   ) |>
   as_runs_t()
+
+# runs registered without a seed get NA, so older scripts and databases still validate
+expect_identical(runs_t[["seed"]], c(NA_integer_, NA_integer_))
+expect_identical(
+  as_runs_t(data.frame(id_run = 0, parent_id_run = NA, description = "Base", seed = 42))[["seed"]],
+  42L
+)
 
 # Test Validation Logic
 runs_t$id_run <- as.double(runs_t$id_run)

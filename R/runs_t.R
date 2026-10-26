@@ -7,6 +7,10 @@
 #' (e.g. a given allocation of land use change given a set of transition potential
 #' models and allocation parameters).
 #'
+#' A run's `seed` belongs to that run alone and is not inherited: [alloc_clumpy()] seeds R's
+#' random number generator with it before allocating, so that a run replays from the
+#' database. Runs without a seed (`NA`) draw from the generator's current state.
+#'
 #' @name runs_t
 #'
 #' @param x A list or data.frame coercible to a data.table
@@ -15,19 +19,28 @@
 #'   - `id_run`: Unique ID for each run; 0 is the base run
 #'   - `parent_id_run`: The run this run inherits data from; `NA` for the base run
 #'   - `description`: Human-readable description of the run
+#'   - `seed`: Seed for the run's random number generator; `NA` for none
 #' @export
 as_runs_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
       id_run = 0L,
       parent_id_run = NA_integer_,
-      description = "Base"
+      description = "Base",
+      seed = NA_integer_
     )
   }
 
-  data.table::setDT(x) |>
+  data.table::setDT(x)
+  # runs registered before the seed column existed have none
+  if (!"seed" %in% names(x)) {
+    x[, seed := NA_integer_]
+  }
+
+  x |>
     cast_dt_col("id_run", "int") |>
-    cast_dt_col("parent_id_run", "int")
+    cast_dt_col("parent_id_run", "int") |>
+    cast_dt_col("seed", "int")
 
   as_ducklake_db_t(
     x,
@@ -45,13 +58,15 @@ validate.runs_t <- function(x, ...) {
     c(
       "id_run",
       "parent_id_run",
-      "description"
+      "description",
+      "seed"
     )
   )
 
   stopifnot(
     "id_run is not integer" = is.integer(x[["id_run"]]),
     "parent_id_run is not integer" = is.integer(x[["parent_id_run"]]),
+    "seed is not integer" = is.integer(x[["seed"]]),
     "all parent_id_run must be in id_run or NA" = all(
       is.na(x[["parent_id_run"]]) | x[["parent_id_run"]] %in% x[["id_run"]]
     ),
@@ -137,4 +152,65 @@ get_lineage <- function(runs_t, id_run) {
   }
 
   lineage
+}
+
+# Create runs_t with the base run, or add what an older database lacks: the seed column
+# and the base run itself. Never upserts the base run, which would reset its description
+# and seed each time the database is opened.
+ensure_base_run <- function(self) {
+  if (!"runs_t" %in% self$list_tables()) {
+    return(self$commit(as_runs_t(), "runs_t", method = "overwrite"))
+  }
+
+  columns <- self$get_query(
+    "select column_name from (describe dl_db.runs_t)",
+    as_atomic = TRUE
+  )
+  if (!"seed" %in% columns) {
+    self$execute("alter table dl_db.runs_t add column seed integer")
+  }
+
+  has_base <- self$get_query(
+    "select exists (select 1 from dl_db.runs_t where id_run = 0)",
+    as_atomic = TRUE
+  )
+  if (!has_base) {
+    self$commit(as_runs_t(), "runs_t", method = "upsert")
+  }
+
+  invisible(NULL)
+}
+
+# The seed registered for `id_run` in runs_t, NA if it has none
+get_run_seed <- function(self, id_run = self$id_run) {
+  seed <- self$get_query(
+    "select seed from {self$get_read_expr('runs_t')} where id_run = {id_run}",
+    as_atomic = TRUE
+  )
+  if (length(seed) == 0L) NA_integer_ else as.integer(seed)
+}
+
+# Evaluate `expr` with R's random number generator seeded from the active run's seed, and
+# restore the generator's previous state afterwards, so that seeding one run does not fix
+# the draws of whatever the caller does next. Without a seed, `expr` draws from the current
+# state, as before the seed column existed.
+with_run_seed <- function(self, expr) {
+  seed <- get_run_seed(self)
+  if (is.na(seed)) {
+    return(expr)
+  }
+
+  had_seed <- exists(".Random.seed", envir = globalenv(), inherits = FALSE)
+  previous_seed <- if (had_seed) get(".Random.seed", envir = globalenv())
+  on.exit(
+    if (had_seed) {
+      assign(".Random.seed", previous_seed, envir = globalenv())
+    } else {
+      rm(".Random.seed", envir = globalenv())
+    },
+    add = TRUE
+  )
+
+  set.seed(seed)
+  expr
 }
