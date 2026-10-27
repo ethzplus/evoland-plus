@@ -90,28 +90,30 @@ print.trans_preds_t <- function(x, nrow = 10, ...) {
   invisible(x)
 }
 
-#' @describeIn trans_preds_t Set an initial full set of transition / predictor relations
-#' @param overwrite Bool, should a potentially existing table be overwritten?
+#' @describeIn trans_preds_t Set an initial full set of transition / predictor relations for
+#' the active run: every predictor for every viable transition
+#' @param overwrite Bool, replace predictor sets the active run already holds?
 set_full_trans_preds <- function(self, overwrite = FALSE) {
-  exists <- self$row_count("trans_preds_t") > 0
+  exists <- "trans_preds_t" %in% self$list_tables() &&
+    self$get_query(
+      "select exists (from dl_db.trans_preds_t where id_run = {self$id_run})",
+      as_atomic = TRUE
+    )
   if (exists && !overwrite) {
-    stop("`trans_preds_t` already exists; you can use overwrite=TRUE")
+    stop("`trans_preds_t` already holds predictor sets for this run; use overwrite = TRUE")
   }
   p <- self$pred_meta_t
   t <- self$trans_meta_t[is_viable == TRUE]
 
   full <- expand.grid(
-    id_run = 0L,
+    id_run = self$id_run,
     id_pred = p[["id_pred"]],
     id_trans = t[["id_trans"]],
     KEEP.OUT.ATTRS = FALSE
   )
 
-  self$commit(
-    as_trans_preds_t(full),
-    "trans_preds_t",
-    method = "overwrite"
-  )
+  # replaces the active run's predictor sets of the viable transitions only
+  commit_replace_slices(self, as_trans_preds_t(full), "trans_preds_t", c("id_run", "id_trans"))
 }
 
 # Worker function for parallel mlr3filter::Filter
@@ -172,9 +174,10 @@ pred_filter_worker <- function(item, db, filter) {
 #' @describeIn trans_preds_t Get a filter score for all transition-predictor
 #' relationships based on mlr3filters. Returns trans_preds_t with an additional
 #' column named after the filter$id. The filter score can be used for feature
-#' selection: simply subset according to the score and overwrite trans_preds_t
-#' in the database using `db$trans_preds_t <- trans_preds_t[score > threshold]`
-#' or similar.
+#' selection: simply subset according to the score and write it back using
+#' `db$trans_preds_t <- trans_preds_t[score > threshold]` or similar. The assignment
+#' replaces the predictor set of each run and transition in the subset, and leaves other runs
+#' and transitions alone.
 #' @param filter An [mlr3filters::Filter] object or a character string
 #' specifying the filter method, retrieved via [mlr3filters::flt]. Note that your
 #' filter must be compatible with the feature data types; compare your

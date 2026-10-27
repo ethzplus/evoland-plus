@@ -93,3 +93,29 @@ expect_equal(
   perf_results[id_trans == 1L],
   tol = 1e-7
 )
+
+# assigning a predictor set replaces it for the runs and transitions it holds, and leaves the
+# others alone (#97)
+db$set_full_trans_preds(overwrite = TRUE)
+full_preds <- db$trans_preds_t
+db$trans_preds_t <- importance_results[id_trans == 1L & importance > 100]
+expect_equal(nrow(db$trans_preds_t[id_trans == 1L]), 2L)
+expect_equal(db$trans_preds_t[id_trans == 2L, id_pred], full_preds[id_trans == 2L, id_pred])
+
+# a child run's predictor set leaves the base run's alone
+db$runs_t <- as_runs_t(rbind(
+  db$runs_t,
+  list(id_run = 4L, parent_id_run = 0L, description = "own predictor sets")
+))
+db$id_run <- 4L
+db$set_full_trans_preds() # run 4 holds no predictor sets of its own yet
+expect_equal(
+  db$get_query("select count(*) from dl_db.trans_preds_t where id_run = 4", as_atomic = TRUE),
+  nrow(full_preds)
+)
+expect_equal(
+  db$get_query("select count(*) from dl_db.trans_preds_t where id_run = 0", as_atomic = TRUE),
+  nrow(full_preds[id_trans == 2L]) + 2
+)
+expect_error(db$set_full_trans_preds(), "already holds predictor sets for this run")
+db$id_run <- 0L

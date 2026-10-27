@@ -10,6 +10,7 @@
 \alias{list_to_kv_df}
 \alias{kv_df_to_list}
 \alias{create_table_binding}
+\alias{commit_replace_slices}
 \alias{create_method_binding}
 \title{DuckLake database utility functions}
 \usage{
@@ -36,12 +37,17 @@ kv_df_to_list(x)
 
 create_table_binding(
   table_name,
-  mode = c("write_once", "upsert", "append", "overwrite")
+  mode = c("write_once", "upsert", "append", "overwrite", "replace_slices"),
+  slice_cols = NULL
 )
+
+commit_replace_slices(self, x, table_name, slice_cols)
 
 create_method_binding(fun, with_private = FALSE, with_super = FALSE)
 }
 \arguments{
+\item{x}{A data.table holding \code{slice_cols}.}
+
 \item{class_name}{Optional class name to prepend before "ducklake_db_t". Used
 to create more specific subclasses.}
 
@@ -77,7 +83,14 @@ hive style partitioning of the data files.}
 
 \item{mode}{The mode of the binding, which determines the behavior when
 committing data. Options are: "write_once" (default, only allows writing if
-table doesn't exist), "upsert", "append", and "overwrite".}
+table doesn't exist), "upsert", "append", "overwrite", and "replace_slices" (replace
+the rows of every slice, a combination of \code{slice_cols}, that the data holds; see
+\code{\link[=commit_replace_slices]{commit_replace_slices()}}).}
+
+\item{slice_cols}{Character vector, the columns that define a slice for
+\code{mode = "replace_slices"}.}
+
+\item{self}{A \link{ducklake_db} instance.}
 
 \item{fun}{The underlying function to bind as an R6 method, which must have a \code{self} argument}
 
@@ -116,7 +129,13 @@ named list.
 
 \item \code{create_table_binding()}: Create a binding function for a table, which can be used
 to fetch or commit data to that table. The active binding either returns the table
-(missing argument), or upserts to it (assignment operation)
+(missing argument), or commits to it (assignment operation)
+
+\item \code{commit_replace_slices()}: Replace whole slices of a table: delete the rows of every
+slice (a combination of values of \code{slice_cols}) that \code{x} holds, then insert \code{x}, in one
+transaction. Slices the table does not hold yet are added; slices \code{x} does not hold are
+left alone. Columns of \code{x} that an existing table does not have, such as the filter scores
+of \code{\link[=get_pred_filter_score]{get_pred_filter_score()}}, are dropped with a message.
 
 \item \code{create_method_binding()}: Helper function to bind a function as a method to an R6
 generator. Simply passes the R6 method's arguments as-is to the underlying "pure"

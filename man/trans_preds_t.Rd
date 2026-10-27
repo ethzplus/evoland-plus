@@ -26,7 +26,7 @@ empty table will be created.}
 
 \item{self}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
 
-\item{overwrite}{Bool, should a potentially existing table be overwritten?}
+\item{overwrite}{Bool, replace predictor sets the active run already holds?}
 
 \item{filter}{An \link[mlr3filters:Filter]{mlr3filters::Filter} object or a character string
 specifying the filter method, retrieved via \link[mlr3filters:flt]{mlr3filters::flt}. Note that your
@@ -59,13 +59,15 @@ modelling each transition type.
 }}
 \section{Functions}{
 \itemize{
-\item \code{set_full_trans_preds()}: Set an initial full set of transition / predictor relations
+\item \code{set_full_trans_preds()}: Set an initial full set of transition / predictor relations for
+the active run: every predictor for every viable transition
 
 \item \code{get_pred_filter_score()}: Get a filter score for all transition-predictor
 relationships based on mlr3filters. Returns trans_preds_t with an additional
 column named after the filter$id. The filter score can be used for feature
-selection: simply subset according to the score and overwrite trans_preds_t
-in the database using \code{db$trans_preds_t <- trans_preds_t[score > threshold]}
-or similar.
+selection: simply subset according to the score and write it back using
+\code{db$trans_preds_t <- trans_preds_t[score > threshold]} or similar. The assignment
+replaces the predictor set of each run and transition in the subset, and leaves other runs
+and transitions alone.
 
 }}
