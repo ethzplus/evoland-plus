@@ -153,16 +153,18 @@ trans_pred_data_v <- function(
 #' prediction (cols `id_coord, id_pred_{n}`)
 #' @param id_period_anterior Scalar integerish of anterior period ID, i.e. we
 #' get the predictors that explain the processes over the next N years
+#' @param id_run Integer, the run whose predictors and anterior map are read
 pred_data_wide_v <- function(
   self,
   private,
   id_trans,
-  id_period_anterior
+  id_period_anterior,
+  id_run = self$id_run
 ) {
   stopifnot(
     "id_trans must be a single integer or NA" = is.na(id_trans) || is_scalar_integerish(id_trans),
     "id_period_anterior must be a single integer" = is_scalar_integerish(id_period_anterior),
-    "id_run must be set" = !is.null(self$id_run)
+    "id_run must be a single integer" = is_scalar_integerish(id_run)
   )
 
   if (is.na(id_trans)) {
@@ -175,7 +177,7 @@ pred_data_wide_v <- function(
     trans_filter <- private$sql("where {trans_condition}")
   }
 
-  trans_preds_read_expr <- self$get_read_expr("trans_preds_t")
+  trans_preds_read_expr <- self$get_read_expr("trans_preds_t", id_run = id_run)
   # the pivot needs its columns spelled out, see inst/pred_data_wide.sql
   id_pred <- self$get_query(
     "select distinct id_pred from {trans_preds_read_expr} {trans_filter} order by id_pred",
@@ -188,8 +190,8 @@ pred_data_wide_v <- function(
       read_sql("pred_data_wide.sql"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       trans_preds_read_expr = trans_preds_read_expr,
-      lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
-      pred_data_read_expr = self$get_read_expr("pred_data_t"),
+      lulc_data_read_expr = self$get_read_expr("lulc_data_t", id_run = id_run),
+      pred_data_read_expr = self$get_read_expr("pred_data_t", id_run = id_run),
       trans_condition = trans_condition,
       trans_filter = trans_filter,
       id_period_anterior = id_period_anterior,

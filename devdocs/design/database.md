@@ -423,7 +423,7 @@ Multiclass learners (ethzplus/evoland-plus#58) would fit one model per anterior 
 Patch statistics measured on the observed transitions, used to parameterize allocation.
 `create_alloc_params_t()` estimates one set per viable transition on the active run; perturbed variants for sensitivity analysis go on child runs.
 
-The CLUMPY allocator reads `mean_patch_size`, `patch_size_variance` and `patch_elongation` (through `alloc_params_clumpy_v`).
+The CLUMPY allocator reads `mean_patch_size`, `patch_size_variance` and `patch_elongation`.
 `patch_isometry`, `frac_expander` and `frac_patcher` are only used by the Dinamica allocator; whether CLUMPY should split allocation into expansion and new patches too is open in ethzplus/evoland-plus#78.
 
 ### `neighbors_t`
@@ -451,7 +451,7 @@ Raw potentials are not calibrated to the demanded rates, and the potentials of a
 The `adjusted_trans_pot_v` view makes them allocation-ready (see [Views](#views)).
 
 The table is written by `$predict_trans_pot()`.
-It carries `id_run` so that each run can use its own potentials; with `use_parent_trans_pot = TRUE`, sibling runs (e.g. a Monte Carlo ensemble) share the potentials predicted under their parent run.
+It carries `id_run` so that each run can use its own potentials; with `allocate(..., potentials_from = <parent run>)`, sibling runs (e.g. a Monte Carlo ensemble) share the potentials predicted under their parent run.
 Potentials can also be computed outside the package and written to the table directly.
 It is partitioned by `id_run`.
 
@@ -476,8 +476,6 @@ They are exposed on `evoland_db` as active bindings, or as methods if they take 
 | `trans_pred_data_v(id_trans, id_pred)`                 | The design matrix for fitting one transition's model: `id_coord`, `id_period_anterior`, `did_transition`, and one `id_pred_<n>` column per predictor.                            |
 | `pred_data_wide_v(id_trans, id_period_anterior)`       | The same predictors in wide format for one period, as input to prediction.                                                                                                      |
 | `adjusted_trans_pot_v(id_period_post)`                 | Allocation-ready potentials: each transition's raw potentials scaled so their mean matches the demanded rate, then divided by the cell's total wherever that exceeds 1.          |
-| `trans_rates_dinamica_v(id_period)`                    | Rates of the viable transitions in the format Dinamica EGO reads.                                                                                                               |
-| `alloc_params_clumpy_v`                                | `alloc_params_t` mapped to the CLUMPY patcher's parameters (`area_mean`, `area_var`, `elongation`).                                                                             |
 | `figure_of_merit_v(...)`                               | Pontius' figure of merit of simulated against observed change, per run and optionally per transition.                                                                            |
 | `coords_minimal`, `extent`                             | `coords_t` reduced to `id_coord`, `lon`, `lat` with grid metadata, and its extent as a `terra::SpatExtent`.                                                                     |
 

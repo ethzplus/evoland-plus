@@ -115,31 +115,7 @@ tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = 
     "coords must have epsg attribute" = !is.null(attr(coords, "epsg"))
   )
 
-  # Determine resolution if not provided
-  if (is.null(resolution)) {
-    resolution <- attr(coords, "resolution")
-    if (is.null(resolution)) {
-      # estimate from first 1000 points
-      resolution <-
-        coords[seq_len(min(1000L, nrow(coords))), .(lon, lat)] |>
-        stats::dist() |> # lower triangular distance matrix
-        min() # minimum distance
-    }
-  }
-
-  extent <- terra::ext(
-    min(coords$lon) - resolution / 2,
-    max(coords$lon) + resolution / 2,
-    min(coords$lat) - resolution / 2,
-    max(coords$lat) + resolution / 2
-  )
-
-  # Create raster template
-  rast_template <- terra::rast(
-    x = extent,
-    crs = paste0("epsg:", attr(coords, "epsg")),
-    resolution = resolution
-  )
+  rast_template <- coords_rast_template(coords, resolution)
 
   # if more than 2 columns, we have columns that are not id_coord or value
   is_multilayer <- length(names(data)) > 2L
@@ -185,4 +161,33 @@ tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = 
   ) |>
     terra::rast() |>
     stats::setNames(layernames)
+}
+
+# An empty raster covering coords, with the grid's resolution and CRS; the resolution is
+# estimated from the closest points if coords carries none
+coords_rast_template <- function(coords, resolution = NULL) {
+  # Determine resolution if not provided
+  if (is.null(resolution)) {
+    resolution <- attr(coords, "resolution")
+    if (is.null(resolution)) {
+      # estimate from first 1000 points
+      resolution <-
+        coords[seq_len(min(1000L, nrow(coords))), .(lon, lat)] |>
+        stats::dist() |> # lower triangular distance matrix
+        min() # minimum distance
+    }
+  }
+
+  extent <- terra::ext(
+    min(coords$lon) - resolution / 2,
+    max(coords$lon) + resolution / 2,
+    min(coords$lat) - resolution / 2,
+    max(coords$lat) + resolution / 2
+  )
+
+  terra::rast(
+    x = extent,
+    crs = paste0("epsg:", attr(coords, "epsg")),
+    resolution = resolution
+  )
 }

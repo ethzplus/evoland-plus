@@ -375,3 +375,42 @@ res_auto <- evoland:::allocate_clumpy_cpp(
 expect_length(res_auto, big2 * big2)
 # quota-bounded: changed count should be near rate * pool, not wildly over
 expect_true(sum(res_auto == 2L) <= ceiling(0.3 * big2 * big2) + 10L)
+
+# --- alloc_clumpy_spec() on a hand-built allocation context -----------------
+# a 10 x 10 grid of class 1 with one viable transition 1 -> 2 at rate 0.2, mono-pixel patches
+# (uSAM): every cell stays in classes 1 or 2, and about 20 cells change
+grid_coords <- data.table::CJ(lat = seq(5, 95, 10), lon = seq(5, 95, 10))[,
+  .(id_coord = .I, lon, lat)
+]
+data.table::setattr(grid_coords, "epsg", 2056L)
+data.table::setattr(grid_coords, "resolution", 10)
+grid <- evoland:::coords_grid(grid_coords)
+clumpy_ctx <- list(
+  anterior = grid_coords[, .(id_coord, id_lulc = 1L)],
+  viable_trans = data.table::data.table(
+    id_trans = 1L,
+    id_lulc_anterior = 1L,
+    id_lulc_posterior = 2L
+  ),
+  quota = data.table::data.table(id_trans = 1L, rate = 0.2, n_anterior = 100L, quota = 20L),
+  potentials = grid_coords[, .(id_trans = 1L, id_coord, value = 0.2)],
+  alloc_params = data.table::data.table(
+    id_trans = 1L,
+    mean_patch_size = 1,
+    patch_size_variance = 0,
+    patch_elongation = NA_real_
+  ),
+  grid = function() grid
+)
+set.seed(3L)
+clumpy_posterior <- alloc_clumpy_spec()$one_period(clumpy_ctx)
+expect_equal(nrow(clumpy_posterior), 100L)
+expect_true(all(clumpy_posterior$id_lulc %in% 1:2))
+expect_true(abs(sum(clumpy_posterior$id_lulc == 2L) - 20L) <= 10L)
+
+# the grid round-trips values per coordinate point
+expect_equal(
+  evoland:::rast_to_grid(grid, evoland:::grid_to_rast(grid, 1:100, as.numeric(100:1)))$value,
+  as.numeric(100:1)
+)
+expect_error(alloc_clumpy_spec(default_elongation = 2), "default_elongation")

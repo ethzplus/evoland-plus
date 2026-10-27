@@ -79,9 +79,6 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
     \item \href{#method-evoland_db-figure_of_merit_v}{\code{evoland_db$figure_of_merit_v()}}
     \item \href{#method-evoland_db-lulc_crosstab_v}{\code{evoland_db$lulc_crosstab_v()}}
-    \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
-    \item \href{#method-evoland_db-alloc_clumpy}{\code{evoland_db$alloc_clumpy()}}
-    \item \href{#method-evoland_db-alloc_greedy}{\code{evoland_db$alloc_greedy()}}
     \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
     \item \href{#method-evoland_db-create_alloc_params_t}{\code{evoland_db$create_alloc_params_t()}}
     \item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
@@ -92,9 +89,7 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-get_pred_filter_score}{\code{evoland_db$get_pred_filter_score()}}
     \item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
     \item \href{#method-evoland_db-get_obs_trans_rates}{\code{evoland_db$get_obs_trans_rates()}}
-    \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
     \item \href{#method-evoland_db-adjusted_trans_pot_v}{\code{evoland_db$adjusted_trans_pot_v()}}
-    \item \href{#method-evoland_db-alloc_params_clumpy_v}{\code{evoland_db$alloc_params_clumpy_v()}}
     \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
   }
 }
@@ -268,13 +263,14 @@ distance X are of type Y", see \code{\link[=generate_neighbor_predictors]{genera
 generate_neighbor_predictors() having been run.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$upsert_new_neighbors(id_period)}
+    \preformatted{evoland_db$upsert_new_neighbors(id_period, id_run = self$id_run)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{id_period}}{Period to calculate predictors for}
+      \item{\code{id_run}}{Run whose map is counted and under which the predictors are written}
     }
     \if{html}{\out{</div>}}
   }
@@ -346,7 +342,7 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
   Retrieve a wide view of the predictor data, see \code{\link[=pred_data_wide_v]{pred_data_wide_v()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$pred_data_wide_v(id_trans, id_period_anterior)}
+    \preformatted{evoland_db$pred_data_wide_v(id_trans, id_period_anterior, id_run = self$id_run)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -354,6 +350,7 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
     \describe{
       \item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
       \item{\code{id_period_anterior}}{Integer ID of period to retrieve data for}
+      \item{\code{id_run}}{Integer, the run whose predictors and anterior map are read}
     }
     \if{html}{\out{</div>}}
   }
@@ -423,146 +420,17 @@ active run}
 }
 
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-alloc_dinamica"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-alloc_dinamica}{}}}
-\subsection{\code{evoland_db$alloc_dinamica()}}{
-  Runs a path-dependent Monte Carlo simulation using Dinamica
-EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$alloc_dinamica(
-  id_periods,
-  select_score,
-  select_maximize,
-  work_dir = NULL,
-  keep_intermediate = FALSE,
-  use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE,
-  update_neighbors = TRUE
-)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{id_periods}}{Integer vector of period IDs to include in the simulation.}
-      \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
-to select model for extrapolation}
-      \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{work_dir}}{Character path for Dinamica working directory; \code{NULL} (default)
-uses a temporary directory.}
-      \item{\code{keep_intermediate}}{Logical, keep intermediate Dinamica files? Default FALSE.}
-      \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials}
-      \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
-values already exist}
-      \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
-requested period. Intermediate periods are always updated.}
-    }
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-alloc_clumpy"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-alloc_clumpy}{}}}
-\subsection{\code{evoland_db$alloc_clumpy()}}{
-  Runs CLUMPY-style LULC allocation, see \code{\link[=alloc_clumpy]{alloc_clumpy()}}.
-The method (uSAM vs uPAM) is selected automatically from the patch
-parameters: mono-pixel patches (\code{area_mean == 1}, \code{area_var == 0}) use
-uSAM, otherwise uPAM.
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$alloc_clumpy(
-  id_periods,
-  select_score,
-  select_maximize,
-  area_dist = "lognormal",
-  avoid_aggregation = TRUE,
-  batch_size = 0L,
-  use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE,
-  update_neighbors = TRUE
-)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{id_periods}}{Integer vector of period IDs to include in the simulation.}
-      \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
-to select model for extrapolation.}
-      \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{area_dist}}{Character; patch-area distribution, \code{"lognormal"}
-(default) or \code{"normal"}. See \code{\link[=alloc_clumpy]{alloc_clumpy()}}.}
-      \item{\code{avoid_aggregation}}{Logical; if \code{TRUE} (default) uPAM patches that
-would merge fail and allocate nothing. Ignored for uSAM.}
-      \item{\code{batch_size}}{Integer; uPAM pivots attempted per MuST re-draw. \code{0}
-(default) auto-scales with the source pool; \verb{> 0} is an explicit cap
-(\code{1} = strict uPAM); \verb{< 0} = all candidates in one pass. Ignored for uSAM.}
-      \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials
-(useful for repeated allocation)}
-      \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
-values already exist}
-      \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
-requested period. Intermediate periods are always updated.}
-    }
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-alloc_greedy"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-alloc_greedy}{}}}
-\subsection{\code{evoland_db$alloc_greedy()}}{
-  Runs deterministic greedy (rank-and-fill) allocation, see
-\code{\link[=alloc_greedy]{alloc_greedy()}}: each transition's demand goes to the cells of highest adjusted
-potential, every cell changes at most once.
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$alloc_greedy(
-  id_periods,
-  select_score,
-  select_maximize,
-  arbitration = c("joint", "ordered"),
-  order = NULL,
-  use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE,
-  update_neighbors = TRUE
-)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{id_periods}}{Integer vector of period IDs to include in the simulation.}
-      \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
-to select model for extrapolation.}
-      \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{arbitration}}{Character; \code{"joint"} (default) ranks all transitions together,
-\code{"ordered"} lets transitions claim cells in the priority given by \code{order}.}
-      \item{\code{order}}{Integer vector of \code{id_trans}, the priority for \code{"ordered"}.}
-      \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials}
-      \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
-values already exist}
-      \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
-requested period. Intermediate periods are always updated.}
-    }
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-eval_alloc_params_t"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-eval_alloc_params_t}{}}}
 \subsection{\code{evoland_db$eval_alloc_params_t()}}{
-  Evaluates allocation parameters in dinamica, see \code{\link[=eval_alloc_params_t]{eval_alloc_params_t()}}
+  Evaluates allocation parameters by simulating the observed periods for every run in
+\code{alloc_params_t}, see \code{\link[=eval_alloc_params_t]{eval_alloc_params_t()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$eval_alloc_params_t(
   select_score,
   select_maximize,
-  work_dir = NULL,
-  keep_intermediate = FALSE
+  allocator = alloc_dinamica_spec()
 )}
     \if{html}{\out{</div>}}
   }
@@ -572,9 +440,7 @@ requested period. Intermediate periods are always updated.}
       \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
 to select model for extrapolation}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{work_dir}}{Character path for Dinamica working directory; \code{NULL} (default)
-uses a temporary directory.}
-      \item{\code{keep_intermediate}}{Logical, keep intermediate Dinamica files? Default FALSE.}
+      \item{\code{allocator}}{An allocator specification, see \code{\link[=allocate]{allocate()}}; Dinamica by default.}
     }
     \if{html}{\out{</div>}}
   }
@@ -774,7 +640,8 @@ to obtain column-scaled, row-closed values.
   id_period_post,
   select_score,
   select_maximize,
-  force = FALSE
+  force = FALSE,
+  id_run = self$id_run
 )}
     \if{html}{\out{</div>}}
   }
@@ -785,6 +652,9 @@ to obtain column-scaled, row-closed values.
       \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
 to select model for extrapolation}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
+      \item{\code{force}}{Logical; predict even if \code{trans_pot_t} already holds potentials for
+\code{id_run} and the period.}
+      \item{\code{id_run}}{Integer; the run to predict for, and to write the potentials under.}
     }
     \if{html}{\out{</div>}}
   }
@@ -803,34 +673,16 @@ to select model for extrapolation}
 }
 
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
-\subsection{\code{evoland_db$trans_rates_dinamica_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$trans_rates_dinamica_v(id_period)}
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-adjusted_trans_pot_v"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-adjusted_trans_pot_v}{}}}
 \subsection{\code{evoland_db$adjusted_trans_pot_v()}}{
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$adjusted_trans_pot_v(id_period_post)}
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-alloc_params_clumpy_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-alloc_params_clumpy_v}{}}}
-\subsection{\code{evoland_db$alloc_params_clumpy_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$alloc_params_clumpy_v()}
+    \preformatted{evoland_db$adjusted_trans_pot_v(
+  id_period_post,
+  id_run = self$id_run,
+  id_run_trans_pot = id_run
+)}
     \if{html}{\out{</div>}}
   }
 }

@@ -457,8 +457,10 @@ does not require the presence of [DinamicaEGO](install-dinamica.html) as an exte
 
 ```{r}
 #| label: allocation
-db$alloc_clumpy(
-  id_period = db$periods_t[is_extrapolated == TRUE, id_period], # select all extrapolation periods
+allocate(
+  db,
+  id_periods = db$periods_t[is_extrapolated == TRUE, id_period], # all extrapolation periods
+  allocator = alloc_clumpy_spec(),
   select_score = "classif.auc",
   select_maximize = TRUE
 )

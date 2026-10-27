@@ -6,9 +6,7 @@
 \alias{pred_sources_v}
 \alias{trans_v}
 \alias{coords_minimal}
-\alias{trans_rates_dinamica_v}
 \alias{adjusted_trans_pot_v}
-\alias{alloc_params_clumpy_v}
 \title{Views on the evoland-plus data model}
 \description{
 This file adds view active bindings and methods to the \code{evoland_db} class using R6's \verb{$set()}
@@ -30,13 +28,9 @@ method. These provide computed views on the database without storing additional 
 \itemize{
 \item \code{trans_pred_data_v(id_trans)} - Returns wide table of transition results and predictor data for
 a specific transition. Used as input to covariance filtering.
-\item \code{trans_rates_dinamica_v(id_period)} - Returns transition rates formatted for Dinamica export
-for a specific period.
 \item \code{adjusted_trans_pot_v(id_period_post)} - Returns allocation-ready transition potentials:
 column-scaled to match target transition rates, then row-closed so per-cell change
 probabilities sum to at most 1.
-\item \code{alloc_params_clumpy_v()} - Returns allocation parameters in CLUMPY format
-(area_mean, area_var, elongation per transition).
 }
 }
 
