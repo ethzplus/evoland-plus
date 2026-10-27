@@ -158,6 +158,18 @@ expect_equal(nrow(somethingelse_data_roundtrip), 900L)
 expect_inherits(somethingelse_data_roundtrip$value, "numeric")
 expect_length(unique(somethingelse_data_roundtrip$value), 5L)
 
+# adding a predictor again under the same name keeps its id_pred and updates its data
+db$add_predictor(
+  pred_data_raw = somethingelse_data[, .(id_coord, id_period, value = factor("e", letters[1:5]))],
+  name = "somethingelse",
+  fill_value = "a",
+  unit = "letters, updated"
+)
+expect_equal(db$pred_meta_t[name == "somethingelse", id_pred], 11L)
+expect_equal(db$pred_meta_t[name == "somethingelse", unit], "letters, updated")
+expect_equal(db$pred_data_t[id_pred == 11L, unique(value)], 5) # "e", the fifth level
+expect_false(12L %in% db$pred_data_t[["id_pred"]])
+
 # try adding predictor to DB without pred_meta_t
 empty_db <- evoland_db$new(tempfile("empty_evolanddb_"))
 empty_db$add_predictor(
