@@ -2,11 +2,14 @@
 % Please edit documentation in R/util_dinamica.R
 \name{util_dinamica}
 \alias{util_dinamica}
+\alias{check_dinamica}
 \alias{exec_dinamica}
 \alias{run_alloc_dinamica}
 \alias{process_dinamica_script}
 \title{Dinamica Utility Functions}
 \usage{
+check_dinamica(quiet = FALSE)
+
 exec_dinamica(
   model_path,
   disable_parallel = TRUE,
@@ -24,6 +27,8 @@ run_alloc_dinamica(
 process_dinamica_script(infile, outfile, mode = "encode", check = TRUE)
 }
 \arguments{
+\item{quiet}{bool, suppress the message summarising the result?}
+
 \item{model_path}{Path to the .ego model file to run. Any submodels must be included
 in a directory of the exact form \verb{basename(modelpath)_ego_Submodels}, \href{https://csr.ufmg.br/dinamica/dokuwiki/doku.php?id=submodels}{see wiki}}
 
@@ -50,11 +55,21 @@ in a directory of the exact form \verb{basename(modelpath)_ego_Submodels}, \href
 
 \item{check}{Default TRUE, simple check to ensure that you're handling what you're expecting}
 }
+\value{
+\code{check_dinamica()}: a list with character vectors \code{required} and \code{recommended}
+naming the problems found, invisibly; both are empty for a complete setup.
+}
 \description{
 Interact with Dinamica from R, see \strong{Functions} section below.
 }
 \section{Functions}{
 \itemize{
+\item \code{check_dinamica()}: Check that Dinamica EGO is installed and configured as the
+\code{install-dinamica} vignette describes. Problems that stop evoland from running Dinamica
+at all (platform, \code{DinamicaConsole} on the \code{PATH}, \code{DINAMICA_EGO_8_HOME} and its
+libraries) are \emph{required}; those that make a run fail inside Dinamica (temporary
+directory, configuration file, Dinamica's R package) are \emph{recommended}.
+
 \item \code{exec_dinamica()}: Execute a Dinamica .ego file using \code{DinamicaConsole}
 
 \item \code{run_alloc_dinamica()}: Set up evoland-specific Dinamica EGO files; execute using
