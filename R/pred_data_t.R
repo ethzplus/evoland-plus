@@ -125,6 +125,12 @@ trans_pred_data_v <- function(
   if (missing(id_pred)) {
     id_pred <- pred_meta_t[["id_pred"]]
   }
+  # a predictor without metadata cannot be cast or filled; with the pivot's columns
+  # spelled out (see inst/trans_pred_data.sql), it would otherwise come back as NULLs
+  id_pred <- intersect(sort(unique(as.integer(id_pred))), pred_meta_t[["id_pred"]])
+  if (length(id_pred) == 0L) {
+    stop("No predictor columns: none of the requested id_pred is in pred_meta_t", call. = FALSE)
+  }
 
   result <-
     self$get_query(
@@ -134,7 +140,8 @@ trans_pred_data_v <- function(
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       id_trans = id_trans,
-      id_pred = id_pred
+      id_pred = id_pred,
+      pred_cols = paste0("id_pred_", id_pred)
     )
 
   set_pred_coltypes(result, pred_meta_t)
@@ -168,16 +175,25 @@ pred_data_wide_v <- function(
     trans_filter <- private$sql("where {trans_condition}")
   }
 
+  trans_preds_read_expr <- self$get_read_expr("trans_preds_t")
+  # the pivot needs its columns spelled out, see inst/pred_data_wide.sql
+  id_pred <- self$get_query(
+    "select distinct id_pred from {trans_preds_read_expr} {trans_filter} order by id_pred",
+    as_atomic = TRUE
+  )
+  stopifnot("no predictors in trans_preds_t for the transition(s)" = length(id_pred) > 0L)
+
   result <-
     self$get_query(
       read_sql("pred_data_wide.sql"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
-      trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
+      trans_preds_read_expr = trans_preds_read_expr,
       lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
       trans_condition = trans_condition,
       trans_filter = trans_filter,
-      id_period_anterior = id_period_anterior
+      id_period_anterior = id_period_anterior,
+      pred_cols = paste0("id_pred_", id_pred)
     )
 
   set_pred_coltypes(result, self$pred_meta_t)

@@ -7,6 +7,8 @@ Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
 - {id_trans}
 - {id_pred*}
+Columns:
+- {pred_cols*}: the pivoted column names, `id_pred_<n>` for each of `id_pred`
 Data sources:
 - {lulc_data_read_expr}
 - {period_read_expr}
@@ -128,8 +130,18 @@ with
       pred_src_present p
       using (id_pred, id_period, src_period)
   ),
+  -- the explicit column list fixes the design matrix's columns, also for a predictor
+  -- without data, and DuckDB (>= 2.0) cannot infer the pivot values of a CTE
   pred_data_wide as (
-    pivot pred_data_resolved on 'id_pred_' || id_pred using first(value)
+    pivot (
+      select
+        id_coord,
+        id_period,
+        'id_pred_' || id_pred as pred_col,
+        value
+      from
+        pred_data_resolved
+    ) on pred_col in ({pred_cols*}) using first(value)
     group by
       id_coord,
       id_period

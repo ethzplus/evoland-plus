@@ -8,6 +8,10 @@ Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
 - {trans_condition}
 - {id_period_anterior}
+Columns:
+- {pred_cols*}: the pivoted column names, `id_pred_<n>` for every predictor of the
+  transition(s). Listing them explicitly fixes the design matrix's columns, and DuckDB
+  (>= 2.0) cannot infer the pivot values of a CTE.
 Data sources:
 - {trans_meta_read_expr}
 - {trans_preds_read_expr}
@@ -94,34 +98,19 @@ with
           preds_select
       )
   ),
-  -- a resolved slice need not cover any of the coordinates selected above. Record
-  -- those predictors as explicit NULLs, so that the pivot still yields a column for
-  -- them: dropping out entirely would leave the model short of a feature, which is a
-  -- worse failure than an absent value.
-  pred_data_complete as (
-    select
-      id_coord,
-      id_pred,
-      "value"
-    from
-      pred_data_long
-    union all
-    select
-      ac.id_coord,
-      missing.id_pred,
-      null as "value"
-    from
-      (
-        select
-          ps.id_pred
-        from
-          pred_slice ps
-          anti join pred_data_long l on l.id_pred = ps.id_pred
-      ) as missing
-      cross join anterior_coords ac
-  ),
+  -- a resolved slice need not cover any of the coordinates selected above, and a predictor
+  -- may have no slice at all. The explicit column list still yields a column for each of
+  -- them, filled with NULL: dropping out entirely would leave the model short of a feature,
+  -- which is a worse failure than an absent value.
   pred_data_wide as (
-    pivot pred_data_complete on 'id_pred_' || id_pred using first("value")
+    pivot (
+      select
+        id_coord,
+        'id_pred_' || id_pred as pred_col,
+        "value"
+      from
+        pred_data_long
+    ) on pred_col in ({pred_cols*}) using first("value")
     group by
       id_coord
   )
