@@ -22,18 +22,11 @@ The Linux AppImage path described in this vignette is well-tested; the Windows i
 has **not been tested** with `evoland-plus`.
 :::
 
-If you are on an unsupported platform, your best option is to build the Docker image from
+If you are on an unsupported platform, you can run Dinamica in a Docker image built from
 <https://github.com/ethzplus/rocker-geospatial-dinamica/>.
 Because Dinamica EGO cannot be redistributed, the image is not pre-built; you must clone
 that repository and build it locally.
-The `evoland-plus` repository ships a [devcontainer](https://containers.dev/) configuration, so once the
-image is built you can open the project directly inside the container from VS Code or any
-other IDE that supports the devcontainer specification — just make sure a Docker-compatible
-runtime is running first (e.g.
-[Docker Desktop](https://www.docker.com/products/docker-desktop/),
-[OrbStack](https://orbstack.dev/),
-[Colima](https://github.com/abiosoft/colima), or
-[Portainer](https://www.portainer.io/)).
+Dinamica is optional: the other allocators (`alloc_clumpy()`, `alloc_greedy()`) run wherever R does.
 
 ## Installing on Linux x86 / amd64
 
@@ -147,7 +140,14 @@ DinamicaConsole --version
 ```
 
 You should see version information printed to the terminal.
-From R, run the Dinamica-specific test file that ships with `evoland` to confirm the
+From R, `check_dinamica()` lists anything missing from the steps above; the Dinamica allocators run the same check before they start and stop with this list if Dinamica cannot run at all:
+
+```r
+library(evoland)
+check_dinamica()
+```
+
+Then run the Dinamica-specific test file that ships with `evoland` to confirm the
 full integration works:
 
 ```r
@@ -180,6 +180,5 @@ tinytest::test_package("evoland")
 : An R startup file (`~/.Renviron`, `Renviron.site`) sets `DINAMICA_EGO_8_TEMP_DIR` and
   overrides the per-run directory Dinamica passes to R; remove it from there (see step 5).
 
-**Dinamica falls back to the anterior LULC map with a warning**
-: The `DINAMICA_EGO_CLI` environment variable is not set or points to a wrong path.
-  Double-check the path with `echo $DINAMICA_EGO_CLI` and that the file is executable.
+**`Dinamica EGO setup is incomplete`**
+: Work through the listed items; each corresponds to one of the steps above.
