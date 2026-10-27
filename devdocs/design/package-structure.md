@@ -16,7 +16,7 @@ Writes to the catalog can collide when several processes share a database.
 DuckLake retries conflicting commits itself, but not contention on the catalog's own lock, so `ducklake_db` wraps every catalog operation in a retry. The wait before each attempt is drawn uniformly between zero and a ceiling that doubles per attempt up to 64 times `retry_wait` (exponential backoff with full jitter), until `retry_timeout` or `retry_max` is reached.
 Which errors count as transient depends on the catalog backend; they are listed in `TRANSIENT_CATALOG_ERRORS`.
 
-Keeping this layer generic means it can be tested on its own (`test_db_ducklake.R`) and reused outside `evoland-plus`; it might eventually be spun out into a package of its own.
+Keeping this layer generic means it can be tested on its own (`test_db_ducklake.R`) and reused outside `evoland.plus`; it might eventually be spun out into a package of its own.
 
 ### `evoland_db`: the domain database
 
@@ -31,7 +31,7 @@ The aim is for all methods to be declared in the class body in `R/evoland_db.R`,
 Their implementations live as ordinary named functions next to the table they work on (`set_full_trans_preds()` in `R/trans_preds_t.R`) and are bound with `create_method_binding()`.
 This keeps the class definition readable as an index of what the database can do, while the logic stays close to its data.
 Because the implementations are named functions that take `self` explicitly, linters see no undefined symbols and language servers can jump to them.
-Not all methods follow this yet: the views in `R/evoland_db_views.R` are still added with `$set()`; see ethzplus/evoland-plus#28.
+Not all methods follow this yet: the views in `R/evoland_db_views.R` are still added with `$set()`; see ethzplus/evoland.plus#28.
 
 ### Table classes
 
@@ -70,7 +70,7 @@ Owing to the complexity of this software, there are quite some dependencies. The
 | `qs2`                 | Fast serialization of model objects into blob columns                   |
 | `Rcpp`                | C++ for the neighbor search and allocation loops                        |
 | `glue`                | String and SQL interpolation                                            |
-| `curl`                | Downloading predictor sources; to be replaced by base R (ethzplus/evoland-plus#79) |
+| `curl`                | Downloading predictor sources; to be replaced by base R (ethzplus/evoland.plus#79) |
 
-Learners (`ranger`, and `rpart` for demonstrations, see ethzplus/evoland-plus#80), solvers (`lpSolve`), `processx` (for Dinamica) and the documentation and test tooling are in `Suggests` and checked for when needed.
+Learners (`ranger`, and `rpart` for demonstrations, see ethzplus/evoland.plus#80), solvers (`lpSolve`), `processx` (for Dinamica) and the documentation and test tooling are in `Suggests` and checked for when needed.
 See [../style/r.md](../style/r.md#dependencies) for the rules on adding dependencies.

@@ -47,7 +47,7 @@ local({
 })
 ```
 
-*Note: this tutorial assumes that you already know the basic `evoland-plus` workflow and the concepts of transition potentials, constrained demand, and patch-based allocation. The preceding tutorial introduced those ideas; here we focus on some advantages of evoland-style sensitivity analyses.*
+*Note: this tutorial assumes that you already know the basic `evoland.plus` workflow and the concepts of transition potentials, constrained demand, and patch-based allocation. The preceding tutorial introduced those ideas; here we focus on some advantages of evoland-style sensitivity analyses.*
 
 ## Why another tutorial?
 
@@ -69,7 +69,7 @@ This is useful whenever you want to distinguish **structurally robust change**, 
 ```{r}
 #| label: setup
 #| output: false
-library(evoland)
+library(evoland.plus)
 library(data.table)
 library(terra)
 ```
@@ -440,7 +440,7 @@ db$alloc_params_t <- db$create_alloc_params_t()
 
 The central idea of this tutorial is that **each stochastic allocation is a separate run**. We therefore create 30 run records and propagate the same baseline allocation parameters to each run.
 
-As with all evoland tables, `runs_t` only ensures a minimum set of columns, so we can add the `kind` and `seed` columns when overwriting.
+As with all evoland.plus tables, `runs_t` only ensures a minimum set of columns, so we can add the `kind` and `seed` columns when overwriting.
 
 ```{r}
 #| label: register-runs

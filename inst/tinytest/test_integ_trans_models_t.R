@@ -34,7 +34,7 @@ if (!at_home()) {
 
 # Load fixtures via helper
 source(file.path(
-  system.file("tinytest", package = "evoland"),
+  system.file("tinytest", package = "evoland.plus"),
   "helper_testdb.R"
 ))
 db <- make_test_db(
@@ -359,7 +359,7 @@ expect_message(
   db$trans_models_t <- db$fit_full_models(learner = mlr3::lrn("classif.rpart")),
   "Fitting full"
 )
-options("evoland.use_prefetch_predict" = FALSE)
+options("evoland.plus.use_prefetch_predict" = FALSE)
 expect_message(
   db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE),
   "Predicting transition 2/2 (id_trans=2)",
@@ -374,7 +374,7 @@ expect_silent(
 expect_silent(
   db$predict_trans_pot(id_period_post = 4, select_score = "classif.bogus", select_maximize = TRUE)
 )
-options("evoland.use_prefetch_predict" = TRUE)
+options("evoland.plus.use_prefetch_predict" = TRUE)
 expect_message(
   db$predict_trans_pot(
     id_period_post = 4,

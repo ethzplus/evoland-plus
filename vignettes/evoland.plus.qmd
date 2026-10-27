@@ -1,5 +1,5 @@
 ---
-title: "`evoland-plus` tutorial"
+title: "`evoland.plus` tutorial"
 author: Jan Hartman
 date: last-modified
 vignette: >
@@ -52,8 +52,8 @@ local({
 
 *Note: This tutorial expects that you already know about geodata and some central principles of pattern-based land use change modelling.*
 
-This file introduces the `evoland-plus` R package, or `evoland` for short.
-`evoland-plus` builds on the idea that land use change can be predicted from observed change patterns.
+This file introduces the `evoland.plus` R package.
+`evoland.plus` builds on the idea that land use change can be predicted from observed change patterns.
 The likelihood that a location and its neighbors will change state is called *transition potential* and is estimated per location.
 A concrete realization of all possible transitions (e.g. forest->grass, grass->forest, etc.) is realized in an *allocation* across all locations and classes.
 Because the transition potential is spatially and temporally autocorrelated, an extrapolation must be autoregressive.
@@ -131,12 +131,12 @@ We'll use the following packages:
 ```{r}
 #| label: setup
 #| output: false
-library(evoland)
+library(evoland.plus)
 library(data.table)
 library(terra)
 ```
 
-## Creating an `evoland` database
+## Creating an `evoland.plus` database
 
 First, we load the package and create an `evoland_db` database object: unlike most R objects (e.g. `data.frame`), this is a mutable object[^r6], meaning we can alter its state like we would with a Python object.
 This nicely mirrors our persistent database on disk.
@@ -325,13 +325,13 @@ db$trans_v[id_lulc_anterior != id_lulc_posterior]
 
 You have seen above how [`extract_using_coords_t`](../reference/util_terra.html) can be used to transform a `SpatRaster` into a tabular form.
 It can also be used with `SpatVector` objects, and the resulting tables need not just be LULC data: we could also use it to extract predictor information.
-For demo purposes, we'll use test data that comes with `evoland`.
+For demo purposes, we'll use test data that comes with `evoland.plus`.
 Note that the metadata holds a `fill_value` used to define what value should be used at a coordinate point with no explicit data set - e.g. if a square kilometre does not have a population count set, we can infer that it should be zero.
 
 ```{r}
 #| label: add-predictors
-db$pred_meta_t <- evoland:::test_pred_meta_t
-db$pred_data_t <- evoland:::test_pred_data_t
+db$pred_meta_t <- evoland.plus:::test_pred_meta_t
+db$pred_data_t <- evoland.plus:::test_pred_data_t
 ```
 
 Statistical models like GLMs or random forests lack inherent spatial concepts, so we explicitly calculate neighborhood relations for each coordinate to create spatial predictors (e.g., "number of neighboring forest cells within 100m").
@@ -358,7 +358,7 @@ db$pred_meta_t
 
 # Calibration
 
-For consistency across different model packages, `evoland-plus` uses the [`mlr3`](https://mlr-org.com/) machine learning and statistics environment.
+For consistency across different model packages, `evoland.plus` uses the [`mlr3`](https://mlr-org.com/) machine learning and statistics environment.
 For a hands-on introduction, see [mlr3 by Example](https://mlr3book.mlr-org.com/chapters/chapter1/introduction_and_overview.html#mlr3-by-example).
 
 ## Eligible Transitions and Predictor Pruning

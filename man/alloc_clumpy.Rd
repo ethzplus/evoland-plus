@@ -105,7 +105,7 @@ allocated as a single cell.  Quantity of change is enforced in
 expectation.
 \item \strong{uPAM} (Unbiased Patch Allocation Method, Mazy sec. 3.4.2, Fig. 3.2)
 otherwise: iterative MuST with a per-transition pixel quota and sampling
-without replacement.  Affordable here because evoland's potentials come
+without replacement.  Affordable here because evoland.plus's potentials come
 from a fixed fitted model, so the marginal density does not need to be
 re-estimated between patches.
 }

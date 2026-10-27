@@ -46,7 +46,7 @@
 #'
 #' # Installation
 #'
-#' Solving needs `lpSolve`, which evoland only suggests: most of the package never solves a
+#' Solving needs `lpSolve`, which evoland.plus only suggests: most of the package never solves a
 #' linear program. `trans_rate_lp$new()` fails with an actionable message if it is missing,
 #' so install it before constructing one -- `install.packages("lpSolve")`.
 #'

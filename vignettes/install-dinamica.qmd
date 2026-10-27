@@ -10,7 +10,7 @@ execute:
   enabled: false
 ---
 
-`evoland-plus` uses [Dinamica EGO](https://dinamicaego.com/) as its spatial allocation engine.
+`evoland.plus` uses [Dinamica EGO](https://dinamicaego.com/) as its spatial allocation engine.
 This vignette explains how to install it so the package can find and use it.
 
 ## Platform Support
@@ -19,14 +19,14 @@ This vignette explains how to install it so the package can find and use it.
 Dinamica EGO is distributed as a **Linux x86 / amd64 AppImage** and a **Windows installer**.
 It does **not** run on ARM architectures (e.g. Apple Silicon, Raspberry Pi) or on macOS.
 The Linux AppImage path described in this vignette is well-tested; the Windows installer
-has **not been tested** with `evoland-plus`.
+has **not been tested** with `evoland.plus`.
 :::
 
 If you are on an unsupported platform, your best option is to build the Docker image from
 <https://github.com/ethzplus/rocker-geospatial-dinamica/>.
 Because Dinamica EGO cannot be redistributed, the image is not pre-built; you must clone
 that repository and build it locally.
-The `evoland-plus` repository ships a [devcontainer](https://containers.dev/) configuration, so once the
+The `evoland.plus` repository ships a [devcontainer](https://containers.dev/) configuration, so once the
 image is built you can open the project directly inside the container from VS Code or any
 other IDE that supports the devcontainer specification — just make sure a Docker-compatible
 runtime is running first (e.g.
@@ -101,7 +101,7 @@ export PATH="$PATH:/opt/dinamica/usr/bin"
 
 ::: {.callout-note}
 `LD_LIBRARY_PATH` does **not** need to be set manually.
-`evoland` automatically prepends `/opt/dinamica/usr/lib` (derived from
+`evoland.plus` automatically prepends `/opt/dinamica/usr/lib` (derived from
 `DINAMICA_EGO_8_HOME`) to `LD_LIBRARY_PATH` when it invokes `DinamicaConsole`, so
 your system-wide library path is never affected.
 :::
@@ -126,7 +126,7 @@ mkdir -p /tmp/dinamica
 
 Dinamica looks for a per-user configuration file in your home directory.
 Create `~/.dinamica_ego_8.conf` with at least the following content.
-The `AlternativePathForR` key must point to the `Rscript` binary that `evoland` uses;
+The `AlternativePathForR` key must point to the `Rscript` binary that `evoland.plus` uses;
 verify the correct path with `which Rscript` in your terminal and update the value
 accordingly.
 Adjust the CRAN mirror if you prefer a different one:
@@ -147,13 +147,13 @@ DinamicaConsole --version
 ```
 
 You should see version information printed to the terminal.
-From R, run the Dinamica-specific test file that ships with `evoland` to confirm the
+From R, run the Dinamica-specific test file that ships with `evoland.plus` to confirm the
 full integration works:
 
 ```r
-library(evoland)
+library(evoland.plus)
 tinytest::run_test_file(
-  system.file("tinytest", "test_util_dinamica.R", package = "evoland")
+  system.file("tinytest", "test_util_dinamica.R", package = "evoland.plus")
 )
 ```
 
@@ -161,7 +161,7 @@ Alternatively, run the full test suite (takes longer but validates the complete
 installation):
 
 ```r
-tinytest::test_package("evoland")
+tinytest::test_package("evoland.plus")
 ```
 
 ## Troubleshooting
@@ -171,7 +171,7 @@ tinytest::test_package("evoland")
   shell profile.
 
 **Shared library errors (`libXXX.so not found`)**
-: `evoland` sets `LD_LIBRARY_PATH` to `$DINAMICA_EGO_8_HOME/usr/lib` for every
+: `evoland.plus` sets `LD_LIBRARY_PATH` to `$DINAMICA_EGO_8_HOME/usr/lib` for every
   `DinamicaConsole` call. If you still see library errors, verify that
   `DINAMICA_EGO_8_HOME` is set correctly with `echo $DINAMICA_EGO_8_HOME` and that
   the shared libraries exist under that path.

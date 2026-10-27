@@ -9,7 +9,7 @@
 \alias{trans_rates_dinamica_v}
 \alias{adjusted_trans_pot_v}
 \alias{alloc_params_clumpy_v}
-\title{Views on the evoland-plus data model}
+\title{Views on the evoland.plus data model}
 \description{
 This file adds view active bindings and methods to the \code{evoland_db} class using R6's \verb{$set()}
 method. These provide computed views on the database without storing additional data.

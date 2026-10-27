@@ -7,7 +7,7 @@ if (!at_home()) {
 
 # Fixture
 source(file.path(
-  system.file("tinytest", package = "evoland"),
+  system.file("tinytest", package = "evoland.plus"),
   "helper_testdb.R"
 ))
 db <- make_test_db(

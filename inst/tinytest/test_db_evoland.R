@@ -2,7 +2,7 @@
 library(tinytest)
 
 # evoland_db initialization with reporting
-source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
+source(file.path(system.file("tinytest", package = "evoland.plus"), "helper_testdb.R"))
 expect_silent(db <- make_test_db())
 expect_inherits(db, c("evoland_db", "ducklake_db"))
 expect_stdout(print(db), "Active Run: 0")

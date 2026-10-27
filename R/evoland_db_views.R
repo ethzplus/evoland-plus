@@ -1,4 +1,4 @@
-#' Views on the evoland-plus data model
+#' Views on the evoland.plus data model
 #'
 #' @description
 #' This file adds view active bindings and methods to the `evoland_db` class using R6's `$set()`

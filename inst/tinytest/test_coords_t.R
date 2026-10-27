@@ -32,5 +32,5 @@ expect_equal(
     )),
     resolution = 100
   ),
-  evoland:::test_coords_t
+  evoland.plus:::test_coords_t
 )

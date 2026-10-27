@@ -32,7 +32,7 @@
 #' fairness across classes) are implemented as their L1 or minimax equivalents, which are
 #' linear.
 #'
-#' `lpSolve` is a *suggested* dependency, because most of evoland never solves a linear
+#' `lpSolve` is a *suggested* dependency, because most of evoland.plus never solves a linear
 #' program: [trans_rate_bounds()] and [trans_rate_areas()] work without it, while
 #' [trans_rate_reachability()] and [solve_trans_rates()] need it installed and say so if it
 #' is missing.

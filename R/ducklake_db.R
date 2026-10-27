@@ -411,13 +411,13 @@ ducklake_db <- R6::R6Class(
         # if there are no key columns to join on, upsert becomes append
         if (
           length(specs[["key_cols"]]) &&
-            getOption("evoland.ducklake_db_append_warning", TRUE)
+            getOption("evoland.plus.ducklake_db_append_warning", TRUE)
         ) {
           warning(
             "!! No uniqueness checks are performed when appending.\n",
             "  Only use if you need high speed _and_ know you're not introducing duplicates\n",
             "  Use upsert to be safe.\n",
-            "  Set option 'evoland.ducklake_db_append_warning' to FALSE to disable this warning."
+            "  Set option 'evoland.plus.ducklake_db_append_warning' to FALSE to disable this warning."
           )
         }
         # "by name" tolerates columns missing from the new data

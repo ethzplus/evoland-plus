@@ -36,9 +36,9 @@ Script {{
 '
 # nolint end
 
-# Test: evoland:::process_dinamica_script encodes correctly
+# Test: evoland.plus:::process_dinamica_script encodes correctly
 expect_error(
-  evoland:::process_dinamica_script(
+  evoland.plus:::process_dinamica_script(
     I(sample_dinamica_script_encoded),
     mode = "encode"
   ),
@@ -46,16 +46,16 @@ expect_error(
 )
 
 expect_match(
-  evoland:::process_dinamica_script(
+  evoland.plus:::process_dinamica_script(
     I(sample_dinamica_script_encoded),
     mode = "decode"
   ),
   'output <- v1\\*2\\noutputDouble\\("output_number", output\\)'
 )
 
-# Test: evoland:::process_dinamica_script decodes correctly
+# Test: evoland.plus:::process_dinamica_script decodes correctly
 expect_error(
-  evoland:::process_dinamica_script(
+  evoland.plus:::process_dinamica_script(
     I(sample_dinamica_script_decoded),
     mode = "decode"
   ),
@@ -63,21 +63,21 @@ expect_error(
 )
 
 expect_match(
-  evoland:::process_dinamica_script(
+  evoland.plus:::process_dinamica_script(
     I(sample_dinamica_script_decoded),
     mode = "encode"
   ),
   "c3RvcCgicnVuY2libGUgc3Bvb24iKQ=="
 )
 
-# Test: evoland:::process_dinamica_script is idempotent
+# Test: evoland.plus:::process_dinamica_script is idempotent
 expect_equal(
   {
     sample_dinamica_script_encoded |>
       I() |>
-      evoland:::process_dinamica_script(mode = "decode") |>
+      evoland.plus:::process_dinamica_script(mode = "decode") |>
       I() |>
-      evoland:::process_dinamica_script(mode = "encode")
+      evoland.plus:::process_dinamica_script(mode = "encode")
   },
   sample_dinamica_script_encoded
 )
@@ -86,9 +86,9 @@ expect_equal(
   {
     sample_dinamica_script_decoded |>
       I() |>
-      evoland:::process_dinamica_script(mode = "encode") |>
+      evoland.plus:::process_dinamica_script(mode = "encode") |>
       I() |>
-      evoland:::process_dinamica_script(mode = "decode")
+      evoland.plus:::process_dinamica_script(mode = "decode")
   },
   sample_dinamica_script_decoded
 )
@@ -133,7 +133,7 @@ if (Sys.which("DinamicaConsole") != "") {
 
   # Test: exec_dinamica fails
   tmpfile_ego <- tempfile(fileext = ".ego")
-  evoland:::process_dinamica_script(I(sample_dinamica_script_decoded), tmpfile_ego)
+  evoland.plus:::process_dinamica_script(I(sample_dinamica_script_decoded), tmpfile_ego)
 
   # capture the R error for the Dinamica CalculateRExpression (via stdout)
   expect_stdout(

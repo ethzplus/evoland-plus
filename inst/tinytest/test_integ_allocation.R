@@ -5,7 +5,7 @@ if (!at_home()) {
   exit_file("Integration tests skipped (not at_home)")
 }
 
-source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
+source(file.path(system.file("tinytest", package = "evoland.plus"), "helper_testdb.R"))
 db <- make_test_db()
 db$trans_rates_t <- db$get_obs_trans_rates()
 db$trans_rates_t <- extrapolate_trans_rates(
@@ -119,7 +119,7 @@ expect_message(
 # Period 4 should now be populated
 expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
 
-options("evoland.use_prefetch_predict" = TRUE)
+options("evoland.plus.use_prefetch_predict" = TRUE)
 expect_message(
   db$alloc_clumpy(
     id_periods = 4L,

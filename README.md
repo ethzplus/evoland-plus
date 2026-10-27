@@ -1,9 +1,9 @@
-# evoland-plus <img src="man/figures/evoland-plus-logo.svg" alt="plus shaped logo" height="150" width="150" align="right" />
+# evoland.plus <img src="man/figures/evoland-plus-logo.svg" alt="plus shaped logo" height="150" width="150" align="right" />
 
 ## Overview
 
-The `evoland-plus` R package (`evoland` for evolving land use, `plus` for [plus.ethz.ch](https://plus.ethz.ch/)) provides tools for land use change simulations. The package implements a statistically calibrated, constrained model for predicting locations of future land use / land cover change (LULCC).
-The scope of `evoland-plus` is to:
+The `evoland.plus` R package (`evoland` for evolving land use, `plus` for [plus.ethz.ch](https://plus.ethz.ch/)) provides tools for land use change simulations. The package implements a statistically calibrated, constrained model for predicting locations of future land use / land cover change (LULCC).
+The scope of `evoland.plus` is to:
 
 - **Gather and process** LULCC and predictor data from multiple sources into a clearly defined database structure.
 - **Calibrate statistical models** to understand historical land use transitions
@@ -16,8 +16,8 @@ Install the development version from GitHub:
 
 ```r
 # install.packages("remotes")
-remotes::install_github("ethzplus/evoland-plus")
-library(evoland)
+remotes::install_github("ethzplus/evoland.plus")
+library(evoland.plus)
 ```
 
 The package compiles C++ code, so you need a working build toolchain (Rtools on Windows, Xcode command line tools on macOS), and [terra](https://rspatial.github.io/terra/) needs GDAL and PROJ.
@@ -26,7 +26,7 @@ If you manage project libraries with [rv](https://a2-ai.github.io/rv-docs/), add
 
 ```toml
 dependencies = [
-    { name = "evoland", git = "https://github.com/ethzplus/evoland-plus/", branch = "main" },
+    { name = "evoland.plus", git = "https://github.com/ethzplus/evoland.plus/", branch = "main" },
 ]
 ```
 
@@ -43,7 +43,7 @@ To work on the package itself with rv, install only its dependencies and load th
 ```toml
 dependencies = [
     # only install dependencies declared in DESCRIPTION
-    { name = "evoland", path = "~/path/to/local/repo", dependencies_only = true, install_suggestions = true },
+    { name = "evoland.plus", path = "~/path/to/local/repo", dependencies_only = true, install_suggestions = true },
     "devtools", # sundry development tasks
     "mirai", # modern multiprocessing
     "httpgd", # webview plotting
@@ -51,19 +51,19 @@ dependencies = [
 ]
 ```
 
-`devtools::load_all()` then acts as though you were calling `library(evoland)` on an installed package, which makes it easy to reload code after a change.
+`devtools::load_all()` then acts as though you were calling `library(evoland.plus)` on an installed package, which makes it easy to reload code after a change.
 
 ## Allocation
 
-`evoland-plus` places projected land use change on the map with one of three allocators:
+`evoland.plus` places projected land use change on the map with one of three allocators:
 
 - `db$alloc_clumpy()`: stochastic patch-based allocation after [CLUMPY](https://github.com/mmyrte/clumpy), implemented in C++ and available wherever the package installs.
 - `db$alloc_greedy()`: deterministic rank-and-fill allocation, a baseline for comparison.
-- `db$alloc_dinamica()`: allocation with [Dinamica EGO](https://dinamicaego.com/), which is optional. Dinamica only runs on **Linux x86 / amd64** (the Windows installer exists but is untested with `evoland-plus`); see the [Installing Dinamica EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html) vignette, or use the [Docker container](https://github.com/ethzplus/rocker-geospatial-dinamica/) on other platforms.
+- `db$alloc_dinamica()`: allocation with [Dinamica EGO](https://dinamicaego.com/), which is optional. Dinamica only runs on **Linux x86 / amd64** (the Windows installer exists but is untested with `evoland.plus`); see the [Installing Dinamica EGO](https://ethzplus.github.io/evoland.plus/articles/install-dinamica.html) vignette, or use the [Docker container](https://github.com/ethzplus/rocker-geospatial-dinamica/) on other platforms.
 
 ## Documentation
 
-This package uses pkgdown, see <http://ethzplus.github.io/evoland-plus>.
+This package uses pkgdown, see <http://ethzplus.github.io/evoland.plus>.
 
 - **Tutorials & How-to Guides**: Package vignettes and examples in R man pages
 - **Reference Documentation**: R man pages using the standard `?function_name`

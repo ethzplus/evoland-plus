@@ -92,4 +92,4 @@ importFrom(data.table,
 )
 importFrom(duckdb,duckdb)
 importFrom(paradox,ps)
-useDynLib(evoland, .registration = TRUE)
+useDynLib(evoland.plus, .registration = TRUE)

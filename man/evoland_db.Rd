@@ -5,7 +5,7 @@
 \title{\code{evoland_db} - R6 Class for lulc data management}
 \description{
 An R6 class that provides an interface to a folder-based data storage system
-for the evoland package. This class uses DuckDB for in-memory SQL operations
+for the evoland.plus package. This class uses DuckDB for in-memory SQL operations
 while persisting data to a DuckLake catalog on disk.
 
 Inherits from \link{ducklake_db} for generic database operations.
@@ -17,7 +17,7 @@ Additional methods and active bindings are added to this class in separate files
 }
 }
 \section{Super class}{
-\code{\link[evoland:ducklake_db]{ducklake_db}} -> \code{evoland_db}
+\code{\link[evoland.plus:ducklake_db]{ducklake_db}} -> \code{evoland_db}
 }
 \section{Active bindings}{
   \if{html}{\out{<div class="r6-active-bindings">}}
@@ -100,17 +100,17 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
 }
 \if{html}{\out{<details><summary>Inherited methods</summary>
 <ul>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="checkpoint"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-checkpoint'><code>ducklake_db$checkpoint()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="commit"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-commit'><code>ducklake_db$commit()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="delete_from"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-delete_from'><code>ducklake_db$delete_from()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="execute"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-execute'><code>ducklake_db$execute()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="fetch"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-fetch'><code>ducklake_db$fetch()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_query"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_query'><code>ducklake_db$get_query()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_table_metadata"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_table_metadata'><code>ducklake_db$get_table_metadata()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="list_tables"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-list_tables'><code>ducklake_db$list_tables()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="next_id"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-next_id'><code>ducklake_db$next_id()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="row_count"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-row_count'><code>ducklake_db$row_count()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="transaction"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-transaction'><code>ducklake_db$transaction()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="checkpoint"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-checkpoint'><code>ducklake_db$checkpoint()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="commit"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-commit'><code>ducklake_db$commit()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="delete_from"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-delete_from'><code>ducklake_db$delete_from()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="execute"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-execute'><code>ducklake_db$execute()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="fetch"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-fetch'><code>ducklake_db$fetch()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="get_query"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-get_query'><code>ducklake_db$get_query()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="get_table_metadata"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-get_table_metadata'><code>ducklake_db$get_table_metadata()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="list_tables"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-list_tables'><code>ducklake_db$list_tables()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="next_id"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-next_id'><code>ducklake_db$next_id()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="row_count"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-row_count'><code>ducklake_db$row_count()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="ducklake_db" data-id="transaction"><a href='../../evoland.plus/html/ducklake_db.html#method-ducklake_db-transaction'><code>ducklake_db$transaction()</code></a></span></li>
 </ul>
 </details>}}
 \if{html}{\out{<hr>}}

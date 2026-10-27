@@ -1,4 +1,4 @@
-# Test cases for evoland:::filename_cd_header function
+# Test cases for evoland.plus:::filename_cd_header function
 library(tinytest)
 
 # Helper function to create mock curl response
@@ -71,7 +71,7 @@ for (i in seq_along(test_cases)) {
   mock_response <- create_mock_response(test_case$cd)
 
   # Test the function
-  result <- evoland:::filename_cd_header(mock_response)
+  result <- evoland.plus:::filename_cd_header(mock_response)
 
   # Check if result matches expected
   expect_equal(
@@ -87,14 +87,14 @@ mock_response_no_cd <- list(
 )
 
 expect_null(
-  evoland:::filename_cd_header(mock_response_no_cd),
+  evoland.plus:::filename_cd_header(mock_response_no_cd),
   info = "Should return NULL when no Content-Disposition header"
 )
 
 # Test case for Content-Disposition without filename
 mock_response_no_filename <- create_mock_response("inline")
 expect_null(
-  evoland:::filename_cd_header(mock_response_no_filename),
+  evoland.plus:::filename_cd_header(mock_response_no_filename),
   info = "Should return NULL when Content-Disposition has no filename"
 )
 
@@ -103,10 +103,10 @@ dir <- tempdir()
 df_in <- data.frame(
   url = file.path(
     "file:/",
-    system.file("tinytest", "test_util_download.R", package = "evoland")
+    system.file("tinytest", "test_util_download.R", package = "evoland.plus")
   ),
   md5sum = tools::md5sum(
-    system.file("tinytest", "test_util_download.R", package = "evoland")
+    system.file("tinytest", "test_util_download.R", package = "evoland.plus")
   ),
   additional_data = "this data should pass through"
 )

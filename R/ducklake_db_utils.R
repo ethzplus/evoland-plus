@@ -162,7 +162,7 @@ validate.ducklake_db_t <- function(x, ...) {
 #' file are filled from the named arguments given alongside it.
 #' @param file Name of a SQL file in the installed package.
 read_sql <- function(file) {
-  paste(readLines(system.file(file, package = "evoland")), collapse = "\n")
+  paste(readLines(system.file(file, package = "evoland.plus")), collapse = "\n")
 }
 
 #' @describeIn ducklake_db_utils Serialize a named list of atomic vectors into the

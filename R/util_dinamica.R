@@ -144,7 +144,7 @@ run_alloc_dinamica <- function(
   # find raw ego files with decoded R/Python code chunks
   decoded_files <-
     list.files(
-      path = system.file("dinamica_models", package = "evoland"),
+      path = system.file("dinamica_models", package = "evoland.plus"),
       full.names = TRUE,
       recursive = TRUE
     ) |>
@@ -152,7 +152,7 @@ run_alloc_dinamica <- function(
 
   lapply(decoded_files, function(decoded_file) {
     # Determine relative path and new output path with .ego extension
-    base_dir <- system.file("dinamica_models", package = "evoland")
+    base_dir <- system.file("dinamica_models", package = "evoland.plus")
     rel_path <- substring(decoded_file, nchar(base_dir) + 2)
     out_path <- sub("\\.ego-decoded$", ".ego", file.path(work_dir, rel_path))
     ensure_dir(dirname(out_path))

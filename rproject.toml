@@ -1,5 +1,5 @@
 [project]
-name = "evoland-plus"
+name = "evoland.plus"
 r_version = "4.6"
 
 repositories = [
@@ -7,7 +7,7 @@ repositories = [
 ]
 
 dependencies = [
-  { name = "evoland", path = ".", install_suggestions = true },
+  { name = "evoland.plus", path = ".", install_suggestions = true },
   # dev dependencies
   "devtools",
   "mirai",

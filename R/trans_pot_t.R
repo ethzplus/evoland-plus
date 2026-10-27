@@ -99,7 +99,7 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' potentials are per-transition MLR3 model probabilities; they are **not** yet allocation-ready
 #' (not column-scaled to target rates, not row-closed to max probability of 1). Use
 #' [adjusted_trans_pot_v()] to obtain allocation-ready values. Set
-#' `options(evoland.use_prefetch_predict=TRUE)` to prefetch all predictors; this causes higher
+#' `options(evoland.plus.use_prefetch_predict=TRUE)` to prefetch all predictors; this causes higher
 #' memory pressure but only needs to go to disk once. The learners have
 #' `parallel_predict` enabled, see [mlr3::Learner]: the prediction task is automatically
 #' chunked out to any [future](https://future.futureverse.org/) workers available.
@@ -118,7 +118,7 @@ predict_trans_pot <- function(
 ) {
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
-  # potentials may come from outside evoland (written to trans_pot_t directly); models are only
+  # potentials may come from outside evoland.plus (written to trans_pot_t directly); models are only
   # needed for the transitions left to predict
   to_predict <- viable_trans[["id_trans"]]
   if (!force) {
@@ -131,7 +131,7 @@ predict_trans_pot <- function(
   .check_viable_trans_models(self, select_score) # error on missing models
   message(glue::glue("Predicting transition potential for {length(to_predict)} transitions"))
 
-  use_prefetch <- getOption("evoland.use_prefetch_predict", default = FALSE)
+  use_prefetch <- getOption("evoland.plus.use_prefetch_predict", default = FALSE)
 
   pred_data_all <- NULL
 
