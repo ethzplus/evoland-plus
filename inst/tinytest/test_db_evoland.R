@@ -387,3 +387,26 @@ expect_message(
   db$set_neighbors(overwrite = TRUE, quiet = TRUE, chunksize = 500),
   "in [0-9]+ chunk\\(s\\)"
 )
+
+# a run's predictor set for a transition is one slice: a child run that keeps two of its
+# parent's predictors sees two, not the parent's full set (#93)
+base_preds <- db$trans_preds_t
+child_trans <- base_preds[["id_trans"]][1L]
+expect_true(nrow(base_preds[id_trans == child_trans]) > 2L)
+db$runs_t <- as_runs_t(rbind(
+  db$runs_t,
+  list(id_run = 13L, parent_id_run = 10L, description = "fewer predictors")
+))
+db$commit(
+  as_trans_preds_t(base_preds[id_trans == child_trans][1:2][, id_run := 13L]),
+  "trans_preds_t",
+  method = "append"
+)
+db$id_run <- 13L
+expect_equal(nrow(db$trans_preds_t[id_trans == child_trans]), 2L)
+# the other transitions are still inherited whole
+expect_equal(
+  nrow(db$trans_preds_t[id_trans != child_trans]),
+  nrow(base_preds[id_trans != child_trans])
+)
+db$id_run <- 0L

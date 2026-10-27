@@ -6,6 +6,15 @@
 #' @name evoland_db_util
 NULL
 
+# Tables whose inheritance slice is coarser than the columns found above. A run's predictor
+# set for a transition is one slice, so that a child run replaces it as a whole, including with
+# fewer predictors; per (id_trans, id_pred) pair, a predictor the child drops would be inherited
+# from the parent (ethzplus/evoland-plus#93). To be folded into a per-table schema declaration
+# (ethzplus/evoland-plus#105).
+INHERITANCE_SLICE_COLS <- list(
+  trans_preds_t = "id_trans"
+)
+
 #' @describeIn evoland_db_util Gets the read expression for a given table, taking into
 #' account the run lineage and distinctness columns. If the table has no `id_run` column
 #' or is the `runs_t` table itself, falls back to the default read expression.
@@ -42,7 +51,11 @@ get_evoland_db_read_expr <- function(self, super, table_name, id_run = self$id_r
     "id_trans",
     "id_pred"
   )
-  distinctness_cols <- intersect(all_cols, theoretical_distinctness_cols)
+  distinctness_cols <- c(
+    "id_run",
+    INHERITANCE_SLICE_COLS[[table_name]] %||% intersect(all_cols, theoretical_distinctness_cols)
+  ) |>
+    unique()
   inheritance_key_cols <- setdiff(distinctness_cols, "id_run")
 
   # .envir, or the statement would be interpolated in this helper's frame
