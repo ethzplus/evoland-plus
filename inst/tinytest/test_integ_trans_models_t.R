@@ -427,3 +427,25 @@ if (
   }
   expect_identical(seeded_forest(), seeded_forest())
 }
+
+# under a child run, fitting and filtering inherit the base run's predictor sets but label
+# their results with the child run, so they cannot overwrite the base run's (#94)
+db$id_run <- 2L
+expect_equal(db$run_lineage, c(2L, 0L))
+expect_equal(unique(db$trans_preds_t[["id_run"]]), 0L)
+child_partial <- suppressMessages(db$fit_partial_models(
+  learner = test_learner,
+  measures = test_measures,
+  seed = 1L
+))
+expect_equal(unique(child_partial[["id_run"]]), 2L)
+db$trans_models_t <- child_partial
+child_full <- suppressMessages(db$fit_full_models(
+  select_score = "classif.auc",
+  select_maximize = TRUE
+))
+expect_equal(unique(child_full[["id_run"]]), 2L)
+expect_true(all(!vapply(child_full[["learner_full"]], is.null, logical(1L))))
+child_scores <- suppressMessages(db$get_pred_filter_score(filter = "correlation"))
+expect_equal(unique(child_scores[["id_run"]]), 2L)
+db$id_run <- 0L
