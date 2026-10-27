@@ -106,7 +106,7 @@ evoland_db <- R6::R6Class(
     #' @param chunksize Integer, chunksize for writing; keeps down memory pressure
     set_neighbors = function(
       max_distance = 1000,
-      distance_breaks = NULL,
+      distance_breaks = c(0, 100, 500, 1000),
       overwrite = FALSE,
       quiet = FALSE,
       chunksize = 1e7
@@ -146,7 +146,7 @@ evoland_db <- R6::R6Class(
       pretty_name = name,
       description = NA_character_,
       orig_format = NA_character_,
-      sources = data.frame(url = character(0), md5sum = character(0)),
+      sources = list(),
       unit = NA_character_
     ) {
       create_method_binding(add_predictor, with_private = TRUE)

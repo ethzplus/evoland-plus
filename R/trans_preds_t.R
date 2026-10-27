@@ -186,7 +186,7 @@ pred_filter_worker <- function(item, db, filter) {
 #' @param ... Additional arguments passed to `flt` if `filter` is a character string
 get_pred_filter_score <- function(
   self,
-  filter,
+  filter = "correlation",
   trans_preds = NULL,
   cluster = NULL,
   ...
