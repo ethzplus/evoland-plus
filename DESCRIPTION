@@ -70,6 +70,7 @@ Collate:
     'pred_meta_t.R'
     'reporting_t.R'
     'runs_t.R'
+    'synthetic_landscape.R'
     'trans_meta_t.R'
     'trans_models_t.R'
     'trans_pot_t.R'
