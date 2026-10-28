@@ -71,8 +71,8 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
     \item \href{#method-evoland_db-upsert_new_neighbors}{\code{evoland_db$upsert_new_neighbors()}}
     \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
-    \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
-    \item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
+    \item \href{#method-evoland_db-pred_wide_train_v}{\code{evoland_db$pred_wide_train_v()}}
+    \item \href{#method-evoland_db-pred_wide_predict_v}{\code{evoland_db$pred_wide_predict_v()}}
     \item \href{#method-evoland_db-figure_of_merit_v}{\code{evoland_db$figure_of_merit_v()}}
     \item \href{#method-evoland_db-lulc_crosstab_v}{\code{evoland_db$lulc_crosstab_v()}}
     \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
@@ -315,14 +315,14 @@ underlying raw data, see \code{\link[=download_and_verify]{download_and_verify()
 }
 
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-trans_pred_data_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-trans_pred_data_v}{}}}
-\subsection{\code{evoland_db$trans_pred_data_v()}}{
+\if{html}{\out{<a id="method-evoland_db-pred_wide_train_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-pred_wide_train_v}{}}}
+\subsection{\code{evoland_db$pred_wide_train_v()}}{
   Get transitions along with their predictor data in a wide
-data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
+data.table, see \code{\link[=pred_wide_train_v]{pred_wide_train_v()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$trans_pred_data_v(id_trans, id_pred)}
+    \preformatted{evoland_db$pred_wide_train_v(id_trans, id_pred)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -336,13 +336,13 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
 }
 
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-pred_data_wide_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-pred_data_wide_v}{}}}
-\subsection{\code{evoland_db$pred_data_wide_v()}}{
-  Retrieve a wide view of the predictor data, see \code{\link[=pred_data_wide_v]{pred_data_wide_v()}}
+\if{html}{\out{<a id="method-evoland_db-pred_wide_predict_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-pred_wide_predict_v}{}}}
+\subsection{\code{evoland_db$pred_wide_predict_v()}}{
+  Retrieve a wide view of the predictor data, see \code{\link[=pred_wide_predict_v]{pred_wide_predict_v()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$pred_data_wide_v(id_trans, id_period_anterior)}
+    \preformatted{evoland_db$pred_wide_predict_v(id_trans, id_period_anterior)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{

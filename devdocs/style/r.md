@@ -47,6 +47,21 @@ Column names are part of the database schema and therefore of the API; see [Sche
 
 - Work by reference: `setDT()`, `setorder()`, `setcolorder()`, `setattr()`, `:=`, `set()`. Copy (`data.table::copy()`) only when the caller's object must not change, and say so in a comment.
 - Columns used in non-standard evaluation (`i`, `j`, `by`, `on`) must be declared in `utils::globalVariables()` in `R/init.R`, or R CMD check reports a NOTE. Regenerate the list with `tools:::.check_code_usage_in_package("evoland")`.
+- As with pipes, chained `data.table[column == "a", column := "b"][,.(column, column2)]` statements should be visually structured like so:
+  
+  ```r
+  assignment <- 
+    data.table[
+      column == "a", 
+      column := "b"
+    ][,
+      .(
+        column, 
+        column2
+      )
+    ]
+  ```
+  
 
 ## Errors and messages
 
