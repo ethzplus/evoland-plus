@@ -104,7 +104,7 @@ print.trans_pot_t <- function(x, nrow = 10, ...) {
 #' `parallel_predict` enabled, see [mlr3::Learner]: the prediction task is automatically
 #' chunked out to any [future](https://future.futureverse.org/) workers available.
 #' @param self an [evoland_db] instance
-#' @param id_period_post scalar integerish, passed to [pred_data_wide_v()]
+#' @param id_period_post scalar integerish, passed to [pred_wide_predict_v()]
 #' @param select_score character scalar, name of score/measure to identify best fitting model
 #' @param select_maximize logical scalar, whether to maximize or minimize `select_score`
 #' @param force logical, Force prediction even if a prediction is found
@@ -143,7 +143,7 @@ predict_trans_pot <- function(
 
     if (use_prefetch) {
       if (is.null(pred_data_all)) {
-        pred_data_all <- self$pred_data_wide_v(
+        pred_data_all <- self$pred_wide_predict_v(
           id_trans = NA,
           id_period_anterior = id_period_post - 1
         )
@@ -156,7 +156,7 @@ predict_trans_pot <- function(
       pred_data_post <- pred_data_all[id_lulc == id_lulc_anterior, !"id_lulc"]
     } else {
       # Get predictor data for id_period_post at coords with id_lulc_ant at id_period_post - 1
-      pred_data_post <- self$pred_data_wide_v(
+      pred_data_post <- self$pred_wide_predict_v(
         id_trans = id_trans,
         id_period_anterior = id_period_post - 1
       )
