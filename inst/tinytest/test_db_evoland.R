@@ -176,28 +176,28 @@ expect_equivalent(
   )])
 )
 
-# pred_data_wide_v and trans_pred_data_v both should return timed (selected
+# pred_wide_predict_v and pred_wide_train_v both should return timed (selected
 # id_period) data, if it is available for that id_pred id_period slice.
 # otherwise, fall back to static (id_period=0)
 
 precedence_db <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
 
 expect_equal(
-  nrow(precedence_db$pred_data_wide_v(
+  nrow(precedence_db$pred_wide_predict_v(
     id_trans = 1L,
     id_period_anterior = 1L
   )[is.na(id_pred_1)]),
   0L # there should not be any rows with missing id_pred_1 in fixture
 )
 expect_equal(
-  nrow(precedence_db$trans_pred_data_v(
+  nrow(precedence_db$pred_wide_train_v(
     id_trans = 1L,
     id_pred = 1:2
   )[is.na(id_pred_1)]),
   0L # there should not be any rows with missing id_pred_1 in fixture
 )
-# trans_pred_data_v always returns rows in a fixed order, so that subsampling replays
-trans_pred_order <- precedence_db$trans_pred_data_v(id_trans = 1L, id_pred = 1:2)[,
+# pred_wide_train_v always returns rows in a fixed order, so that subsampling replays
+trans_pred_order <- precedence_db$pred_wide_train_v(id_trans = 1L, id_pred = 1:2)[,
   .(id_coord, id_period_anterior)
 ]
 expect_identical(
@@ -231,7 +231,7 @@ precedence_db$pred_data_t <- as_pred_data_t(data.table::data.table(
 
 # get predictor data for the transition starting at id_lulc=1
 expect_equal(
-  precedence_db$pred_data_wide_v(
+  precedence_db$pred_wide_predict_v(
     id_trans = 1L,
     id_period_anterior = 1L
   )[
@@ -241,7 +241,7 @@ expect_equal(
   n_lulc_ant[id_trans == 1L, N] - 1L # all rows but 1 should be NA
 )
 expect_equal(
-  precedence_db$trans_pred_data_v(
+  precedence_db$pred_wide_train_v(
     id_trans = 1L,
     id_pred = 1L
   )[
@@ -253,7 +253,7 @@ expect_equal(
 
 # get predictor data for the transition starting at id_lulc=2
 expect_equal(
-  precedence_db$pred_data_wide_v(
+  precedence_db$pred_wide_predict_v(
     id_trans = 2L,
     id_period_anterior = 1L
   )[
@@ -263,7 +263,7 @@ expect_equal(
   n_lulc_ant[id_trans == 2L, N] # all rows should be NA
 )
 expect_equal(
-  precedence_db$trans_pred_data_v(
+  precedence_db$pred_wide_train_v(
     id_trans = 2L,
     id_pred = 1L
   )[

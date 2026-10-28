@@ -153,18 +153,18 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description Get transitions along with their predictor data in a wide
-    #' data.table, see [trans_pred_data_v()]
+    #' data.table, see [pred_wide_train_v()]
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_pred Optional integer vector of predictor IDs to include
-    trans_pred_data_v = function(id_trans, id_pred) {
-      create_method_binding(trans_pred_data_v)
+    pred_wide_train_v = function(id_trans, id_pred) {
+      create_method_binding(pred_wide_train_v)
     },
 
-    #' @description Retrieve a wide view of the predictor data, see [pred_data_wide_v()]
+    #' @description Retrieve a wide view of the predictor data, see [pred_wide_predict_v()]
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_period_anterior Integer ID of period to retrieve data for
-    pred_data_wide_v = function(id_trans, id_period_anterior) {
-      create_method_binding(pred_data_wide_v, with_private = TRUE)
+    pred_wide_predict_v = function(id_trans, id_period_anterior) {
+      create_method_binding(pred_wide_predict_v, with_private = TRUE)
     },
 
     ### Validation methods ---

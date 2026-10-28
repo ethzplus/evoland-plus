@@ -23,7 +23,7 @@ Keeping this layer generic means it can be tested on its own (`test_db_ducklake.
 `evoland_db` (`R/evoland_db.R`) inherits from `ducklake_db` and adds the land use domain:
 
 - an active binding per table (`db$periods_t`), which reads the table on get and validates and commits on assignment; tables that define the model's frame (`coords_t`, `periods_t`) can be written only once, the others are upserted;
-- views (`db$trans_v`, `db$pred_data_wide_v(...)`), see [database.md](database.md#views);
+- views (`db$trans_v`, `db$pred_wide_predict_v(...)`), see [database.md](database.md#views);
 - the active run (`db$id_run`) and its lineage, through which every read of a run-dependent table is resolved: `$get_read_expr()` returns, for each slice of data, the closest ancestor run that has it;
 - the workflow steps: ingesting predictors, fitting models, predicting transition potentials, allocating.
 

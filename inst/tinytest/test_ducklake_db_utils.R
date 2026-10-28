@@ -94,7 +94,11 @@ expect_identical(
 # ---- convert_list_cols ----
 x_conv <- data.table::data.table(map_col = list(list(a = 1, b = "x"), list(a = 2, b = "y")))
 expect_identical(
-  evoland.plus:::convert_list_cols(x_conv, cols = "map_col", fn = evoland.plus:::list_to_kv_df)[[1]][[1]],
+  evoland.plus:::convert_list_cols(
+    x_conv,
+    cols = "map_col",
+    fn = evoland.plus:::list_to_kv_df
+  )[[1]][[1]],
   data.frame(key = c("a", "b"), value = c("1", "x"))
 )
 

@@ -14,7 +14,7 @@
 #'
 #' @section Methods Added:
 #'
-#' - `trans_pred_data_v(id_trans)` - Returns wide table of transition results and predictor data for
+#' - `pred_wide_train_v(id_trans)` - Returns wide table of transition results and predictor data for
 #'   a specific transition. Used as input to covariance filtering.
 #' - `trans_rates_dinamica_v(id_period)` - Returns transition rates formatted for Dinamica export
 #'   for a specific period.
