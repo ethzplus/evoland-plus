@@ -99,9 +99,6 @@ if (Sys.which("DinamicaConsole") != "") {
     !is.na(Sys.getenv("DINAMICA_EGO_CLI", unset = NA)),
     !is.na(Sys.getenv("DINAMICA_EGO_8_HOME", unset = NA))
   )
-  Sys.setenv(
-    "DINAMICA_EGO_8_TEMP_DIR" = tempdir()
-  )
   # Test: exec_dinamica works
   tmpfile_ego <- tempfile(fileext = ".ego")
   writeChar(
@@ -152,17 +149,11 @@ if (Sys.which("DinamicaConsole") != "") {
 
 # check_dinamica: an unset installation directory is a required problem, and the entry
 # points stop on it with the list of problems unless the test fallback is enabled
-env_before <- Sys.getenv(c("DINAMICA_EGO_8_HOME", "DINAMICA_EGO_8_TEMP_DIR"), unset = NA)
-Sys.setenv(
-  DINAMICA_EGO_8_HOME = file.path(tempdir(), "no-dinamica-here"),
-  DINAMICA_EGO_8_TEMP_DIR = file.path(tempdir(), "no-dinamica-temp-here")
-)
+env_before <- Sys.getenv("DINAMICA_EGO_8_HOME", unset = NA, names = TRUE)
+Sys.setenv(DINAMICA_EGO_8_HOME = file.path(tempdir(), "no-dinamica-here"))
 problems <- evoland::check_dinamica(quiet = TRUE)
 expect_true(
   "`DINAMICA_EGO_8_HOME` is not set to an existing directory" %in% problems[["required"]]
-)
-expect_true(
-  "`DINAMICA_EGO_8_TEMP_DIR` is not set to an existing directory" %in% problems[["recommended"]]
 )
 expect_message(evoland::check_dinamica(), "Dinamica EGO setup is incomplete")
 
