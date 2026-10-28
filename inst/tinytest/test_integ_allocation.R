@@ -317,4 +317,3 @@ expect_true(all(
   evaluated_params$similarity <= 1 &
     evaluated_params$similarity >= 0
 ))
-
