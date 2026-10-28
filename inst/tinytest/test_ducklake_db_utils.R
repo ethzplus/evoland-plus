@@ -151,7 +151,10 @@ caller_formals <- function(fun) {
 first_match <- function(text, pattern) {
   regmatches(text, regexpr(pattern, text, perl = TRUE))
 }
-bound_methods <- c(evoland.plus::evoland_db$public_methods, evoland.plus::ducklake_db$public_methods)
+bound_methods <- c(
+  evoland.plus::evoland_db$public_methods,
+  evoland.plus::ducklake_db$public_methods
+)
 for (method in names(bound_methods)) {
   implementation <-
     bound_methods[[method]] |>
