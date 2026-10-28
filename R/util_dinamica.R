@@ -8,8 +8,10 @@ NULL
 #' @describeIn util_dinamica Check that Dinamica EGO is installed and configured as the
 #' `install-dinamica` vignette describes. Problems that stop evoland from running Dinamica
 #' at all (platform, `DinamicaConsole` on the `PATH`, `DINAMICA_EGO_8_HOME` and its
-#' libraries) are *required*; those that make a run fail inside Dinamica (temporary
-#' directory, configuration file, Dinamica's R package) are *recommended*.
+#' libraries) are *required*; those that make a run fail inside Dinamica (configuration
+#' file, Dinamica's R package) are *recommended*. `DINAMICA_EGO_8_TEMP_DIR` is not checked:
+#' Dinamica sets it for each R process it starts, and a value set by the user breaks that
+#' coupling.
 #' @param quiet bool, suppress the message summarising the result?
 #' @return `check_dinamica()`: a list with character vectors `required` and `recommended`
 #' naming the problems found, invisibly; both are empty for a complete setup.
@@ -17,7 +19,6 @@ NULL
 check_dinamica <- function(quiet = FALSE) {
   sysinfo <- Sys.info()
   home <- Sys.getenv("DINAMICA_EGO_8_HOME")
-  temp_dir <- Sys.getenv("DINAMICA_EGO_8_TEMP_DIR")
 
   required <- c(
     "evoland runs Dinamica EGO on Linux x86-64 only" = {
@@ -32,9 +33,6 @@ check_dinamica <- function(quiet = FALSE) {
     }
   )
   recommended <- c(
-    "`DINAMICA_EGO_8_TEMP_DIR` is not set to an existing directory" = {
-      nzchar(temp_dir) && dir.exists(temp_dir)
-    },
     "`~/.dinamica_ego_8.conf` does not exist" = {
       file.exists(path.expand("~/.dinamica_ego_8.conf"))
     },

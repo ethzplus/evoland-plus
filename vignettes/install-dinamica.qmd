@@ -88,7 +88,6 @@ or log out and back in:
 export DINAMICA_EGO_8_INSTALLATION_DIRECTORY="/opt/dinamica/usr/bin"
 export DINAMICA_EGO_CLI="/opt/dinamica/usr/bin/DinamicaConsole"
 export DINAMICA_EGO_8_HOME="/opt/dinamica"
-export DINAMICA_EGO_8_TEMP_DIR="/tmp/dinamica"
 export PATH="$PATH:/opt/dinamica/usr/bin"
 ```
 
@@ -100,20 +99,14 @@ your system-wide library path is never affected.
 :::
 
 ::: {.callout-warning}
-Set these in your **shell** profile, not in `~/.Renviron`.
+Do **not** set `DINAMICA_EGO_8_TEMP_DIR`, neither in your shell profile nor in an R startup
+file (`~/.Renviron`, `Renviron.site`).
 For every `Calculate R Expression` it runs, Dinamica starts `Rscript` with
 `DINAMICA_EGO_8_TEMP_DIR` pointing to a per-run subdirectory, where it places the message
 queues it shares with that R process.
-R reads `~/.Renviron` at startup and would reset the variable to the top-level directory, so
-the R side cannot find the queues and the model fails with
-`Failed to send message, session is closed`.
+A value set by you can override that directory, so the R side cannot find the queues and
+the model fails with `Failed to send message, session is closed`.
 :::
-
-Create the temporary directory Dinamica uses at runtime:
-
-```bash
-mkdir -p /tmp/dinamica
-```
 
 ### 6. Create the Dinamica configuration file
 
@@ -177,8 +170,8 @@ tinytest::test_package("evoland")
   the shared libraries exist under that path.
 
 **`Failed to send message, session is closed` in a Dinamica log**
-: An R startup file (`~/.Renviron`, `Renviron.site`) sets `DINAMICA_EGO_8_TEMP_DIR` and
-  overrides the per-run directory Dinamica passes to R; remove it from there (see step 5).
+: `DINAMICA_EGO_8_TEMP_DIR` is set somewhere (shell profile, `~/.Renviron`, `Renviron.site`)
+  and overrides the per-run directory Dinamica passes to R; remove it (see step 5).
 
 **`Dinamica EGO setup is incomplete`**
 : Work through the listed items; each corresponds to one of the steps above.
