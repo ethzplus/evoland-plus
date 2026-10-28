@@ -36,6 +36,9 @@ jobs:
       R_CHECK_ARGS: "--no-manual --as-cran"
       # tests/tinytest.R runs the integration tests only at home
       NOT_CRAN: "true"
+      # --as-cran caps parallel at two workers; test_db_parallel.R runs four concurrent
+      # writers, and CRAN's limit on shared machines doesn't apply to a CI runner
+      _R_CHECK_LIMIT_CORES_: "false"
       # hardening flags from the Ubuntu R build; the package ships no Makevars
       _R_CHECK_COMPILATION_FLAGS_KNOWN_: >-
         -Wdate-time -Werror=format-security -Wformat -Wformat-security
