@@ -127,22 +127,22 @@ pred_filter_worker <- function(item, db, filter) {
   tryCatch(
     {
       # Get wide transition-predictor data
-      trans_pred_data_v <- db$trans_pred_data_v(
+      pred_wide_train <- db$pred_wide_train_v(
         id_trans = id_trans,
         id_pred = id_pred
       )[, -c("id_coord", "id_period_anterior")]
 
-      if (nrow(trans_pred_data_v) == 0L) {
+      if (nrow(pred_wide_train) == 0L) {
         stop(glue::glue(
           "No data for transition {id_trans}; not pruning"
         ))
       }
 
       # Coerce target; mlr3 uses factors internally also for twoclass classification
-      trans_pred_data_v[, did_transition := factor(did_transition, levels = c("FALSE", "TRUE"))]
+      pred_wide_train[, did_transition := factor(did_transition, levels = c("FALSE", "TRUE"))]
 
       filter_task <- mlr3::as_task_classif(
-        trans_pred_data_v,
+        pred_wide_train,
         target = "did_transition",
         positive = "TRUE"
       )
