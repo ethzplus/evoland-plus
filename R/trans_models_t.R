@@ -93,19 +93,19 @@ fit_partial_model_worker <- function(
   tryCatch(
     {
       # Fetch ALL data into memory
-      trans_pred_data_full <- db$trans_pred_data_v(
+      pred_wide_train <- db$pred_wide_train_v(
         id_trans = item[["id_trans"]],
         id_pred = item[["id_pred"]][[1L]],
         id_period_anterior = id_period_anterior
       )[, -c("id_coord", "id_period_anterior")]
 
-      if (nrow(trans_pred_data_full) == 0L) {
+      if (nrow(pred_wide_train) == 0L) {
         stop(glue::glue(
           "No data for transition {item[['id_trans']]}, skipping"
         ))
       }
 
-      pred_cols <- grep("^id_pred_", names(trans_pred_data_full), value = TRUE)
+      pred_cols <- grep("^id_pred_", names(pred_wide_train), value = TRUE)
       if (length(pred_cols) == 0L) {
         stop(glue::glue(
           "No predictor columns for transition {item[['id_trans']]}, skipping"
@@ -114,7 +114,7 @@ fit_partial_model_worker <- function(
 
       # Build mlr3 task and train a fresh clone of the learner
       full_task <- mlr3::as_task_classif(
-        trans_pred_data_full,
+        pred_wide_train,
         target = "did_transition",
         positive = "TRUE"
       )
@@ -189,21 +189,21 @@ fit_full_model_worker <- function(item, db, learner = NULL, id_period_anterior =
   tryCatch(
     {
       # Fetch full data
-      trans_pred_data_full <- db$trans_pred_data_v(
+      pred_wide_train <- db$pred_wide_train_v(
         id_trans = item[["id_trans"]],
         id_pred = item[["id_pred"]][[1L]],
         id_period_anterior = id_period_anterior
       )
 
-      if (nrow(trans_pred_data_full) == 0L) {
+      if (nrow(pred_wide_train) == 0L) {
         stop(glue::glue(
           "No data for transition {item[['id_trans']]}, skipping"
         ))
       }
 
-      pred_cols <- grep("^id_pred_", names(trans_pred_data_full), value = TRUE)
+      pred_cols <- grep("^id_pred_", names(pred_wide_train), value = TRUE)
       task_cols <- c("did_transition", pred_cols)
-      task_data <- trans_pred_data_full[, .SD, .SDcols = task_cols]
+      task_data <- pred_wide_train[, .SD, .SDcols = task_cols]
       task_data[, did_transition := factor(did_transition, levels = c("FALSE", "TRUE"))]
 
       full_task <- mlr3::as_task_classif(

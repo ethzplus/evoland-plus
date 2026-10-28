@@ -306,7 +306,7 @@ expect_warning(
       measures = test_measures,
       sample_frac = 0.7
     ),
-  "No predictor columns for transition 1, skipping"
+  "No predictor columns: none of the requested id_pred is in pred_meta_t"
 )
 expect_equal(partial_models_error$learner_id, "classif.featureless")
 
