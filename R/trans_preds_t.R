@@ -94,7 +94,8 @@ print.trans_preds_t <- function(x, nrow = 10, ...) {
 #' the active run: every predictor for every viable transition
 #' @param overwrite Bool, replace predictor sets the active run already holds?
 set_full_trans_preds <- function(self, overwrite = FALSE) {
-  exists <- "trans_preds_t" %in% self$list_tables() &&
+  has_table <- "trans_preds_t" %in% self$list_tables()
+  exists <- has_table &&
     self$get_query(
       "select exists (from dl_db.trans_preds_t where id_run = {self$id_run})",
       as_atomic = TRUE
