@@ -82,7 +82,7 @@ with
     select
       ac.id_coord,
       pd.id_pred,
-      pd."value"
+      pd.value
     from
       {pred_data_read_expr} pd
       -- pred_slice picks the winning one of the two, but restate the candidates so that
@@ -100,15 +100,10 @@ with
   -- a resolved slice need not cover any of the coordinates selected above, and a
   -- predictor may have no slice at all. The explicit column list still yields a column
   -- for each absent slice, filled with NULL. application side substitutes a fill value.
-  pred_data_wide as (
-    pivot (
-      select
-        id_coord,
-        'id_pred_' || id_pred as pred_col,
-        "value"
-      from
-        pred_data_long
-    ) on pred_col in ({pred_cols*}) using first("value")
+  -- The parentheses matter: without them, the IN list binds to id_pred alone, and DuckDB
+  -- (>= 2.0) cannot infer the pivot values of a CTE.
+  pred_wide as (
+    pivot pred_data_long on ('id_pred_' || id_pred) in ({pred_cols*}) using first(value)
     group by
       id_coord
   )
@@ -120,4 +115,4 @@ select
   pdata.* exclude (id_coord)
 from
   anterior_coords ac
-  left join pred_data_wide pdata on pdata.id_coord = ac.id_coord
+  left join pred_wide pdata on pdata.id_coord = ac.id_coord
