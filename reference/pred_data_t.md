@@ -14,14 +14,15 @@ print(x, nrow = 10, ...)
 
 pred_data_available_v(self)
 
-trans_pred_data_v(self, id_trans, id_pred, ordered = FALSE)
+pred_wide_train_v(self, id_trans, id_pred)
 
-pred_data_wide_v(self, id_trans, id_period_anterior)
+pred_wide_predict_v(self, private, id_trans, id_period_anterior)
 
 set_pred_coltypes(result, pred_meta_t)
 
 add_predictor(
   self,
+  private,
   pred_data_raw,
   name,
   fill_value,
@@ -64,11 +65,6 @@ add_predictor(
   Optional integer vector of predictor IDs to include; if missing, use
   all predictor IDs from
   [pred_meta_t](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md)
-
-- ordered:
-
-  - if TRUE, order output by id_period then id_coord (otherwise no
-    guaranteed order; need ordering for reproducible subsampling)
 
 - id_period_anterior:
 
@@ -146,7 +142,9 @@ A data.table of class "pred_data_t" with columns:
   [pred_meta_t](https://ethzplus.github.io/evoland-plus/reference/pred_meta_t.md))
 
 data.table with columns id_coord, id_period, did_transition (bool), and
-one column per predictor (`id_pred_{n}`)
+one column per predictor (`id_pred_{n}`), ordered by id_coord and
+id_period_anterior so that subsampling and order-sensitive learners
+replay
 
 ## Methods (by generic)
 
@@ -161,10 +159,10 @@ one column per predictor (`id_pred_{n}`)
   is either present in period 0 or for all other periods for a given
   run.
 
-- `trans_pred_data_v()`: Get transitions along with their predictor data
+- `pred_wide_train_v()`: Get transitions along with their predictor data
   in a wide data.table
 
-- `pred_data_wide_v()`: Get predictor data in a wide data.table for
+- `pred_wide_predict_v()`: Get predictor data in a wide data.table for
   transition potential prediction (cols `id_coord, id_pred_{n}`)
 
 - `set_pred_coltypes()`: In-place casting of predictor columns to their

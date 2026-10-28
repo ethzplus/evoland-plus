@@ -328,7 +328,7 @@ db$generate_neighbor_predictors()
 
 Messages
 
-    Computed 208360 neighbor relationships
+    Computed 208360 neighbor relationships in 1 chunk(s)
     Appended 8 neighbor predictor variables with 16759 data points
 
 ## 5 Calibration
@@ -450,8 +450,7 @@ db$trans_rates_t <-
   )] |>
   as_trans_rates_t()
 
-db$alloc_params_t <-
-  db$create_alloc_params_t(n_perturbations = 0)[, id_run := 0L]
+db$alloc_params_t <- db$create_alloc_params_t()
 ```
 
 Messages
@@ -460,8 +459,7 @@ Messages
       Processing period 1 -> 2
       Processing period 2 -> 3
     Aggregating parameters across periods...
-    Creating 0 randomly perturbed versions per transition...
-    Successfully computed 3 allocation parameter sets (3 transitions x (0 perturbations + best estimate))
+    Computed allocation parameters for 3 transitions (id_run=0)
 
 ## 6 Registering stochastic realizations in `runs_t`
 

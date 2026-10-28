@@ -1,8 +1,6 @@
-# Create change/difference map between two time periods
+# Where land use changed between two maps
 
-Creates a map showing only cells that changed between two time periods.
-Cells that did not change are set to NA. This is used in the "similarity
-of differences" approach.
+Where land use changed between two maps
 
 ## Usage
 
@@ -12,24 +10,16 @@ create_change_map(initial_map, final_map, from_class = NULL, to_class = NULL)
 
 ## Arguments
 
-- initial_map:
+- initial_map, final_map:
 
-  SpatRaster, initial time period
+  SpatRasters on the same grid
 
-- final_map:
+- from_class, to_class:
 
-  SpatRaster, final time period
-
-- from_class:
-
-  Integer, optional filter for initial class (for specific transition)
-
-- to_class:
-
-  Integer, optional filter for final class (for specific transition)
+  Integer, optional: only count this transition. Give both or neither.
 
 ## Value
 
-SpatRaster showing only changed cells. For general changes, values are
-the final class. For specific transitions, values indicate presence (1)
-or absence (NA) of that transition.
+Logical SpatRaster: `TRUE` where the land use changed (from `from_class`
+to `to_class`, if given), `FALSE` where it did not, `NA` where either
+map is `NA`.

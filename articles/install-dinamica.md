@@ -100,6 +100,16 @@ export PATH="$PATH:/opt/dinamica/usr/bin"
 > `DINAMICA_EGO_8_HOME`) to `LD_LIBRARY_PATH` when it invokes
 > `DinamicaConsole`, so your system-wide library path is never affected.
 
+> **Warning**
+>
+> Set these in your **shell** profile, not in `~/.Renviron`. For every
+> `Calculate R Expression` it runs, Dinamica starts `Rscript` with
+> `DINAMICA_EGO_8_TEMP_DIR` pointing to a per-run subdirectory, where it
+> places the message queues it shares with that R process. R reads
+> `~/.Renviron` at startup and would reset the variable to the top-level
+> directory, so the R side cannot find the queues and the model fails
+> with `Failed to send message, session is closed`.
+
 Create the temporary directory Dinamica uses at runtime:
 
 ``` bash
@@ -164,6 +174,12 @@ tinytest::test_package("evoland")
   that `DINAMICA_EGO_8_HOME` is set correctly with
   `echo $DINAMICA_EGO_8_HOME` and that the shared libraries exist under
   that path.
+
+- **`Failed to send message, session is closed` in a Dinamica log**:
+
+  An R startup file (`~/.Renviron`, `Renviron.site`) sets
+  `DINAMICA_EGO_8_TEMP_DIR` and overrides the per-run directory Dinamica
+  passes to R; remove it from there (see step 5).
 
 - **Dinamica falls back to the anterior LULC map with a warning**:
 

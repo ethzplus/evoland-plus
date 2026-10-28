@@ -14,14 +14,7 @@ print(x, nrow = 10, ...)
 
 set_full_trans_preds(self, overwrite = FALSE)
 
-get_pred_filter_score(
-  self,
-  filter,
-  trans_preds = NULL,
-  cluster = NULL,
-  ordered_pred_data = FALSE,
-  ...
-)
+get_pred_filter_score(self, filter, trans_preds = NULL, cluster = NULL, ...)
 ```
 
 ## Arguments
@@ -71,11 +64,6 @@ get_pred_filter_score(
 
   An optional cluster object, see
   [run_parallel_evoland](https://ethzplus.github.io/evoland-plus/reference/evoland_db_util.md)
-
-- ordered_pred_data:
-
-  Bool, should the predictor data be ordered? Needed for fully
-  deterministic behavior
 
 ## Value
 

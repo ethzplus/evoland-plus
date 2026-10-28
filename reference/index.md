@@ -5,9 +5,18 @@
 - [`LearnerClassifGrrf`](https://ethzplus.github.io/evoland-plus/reference/LearnerClassifGrrf.md)
   : Guided Regularized Random Forest Learner
 
-- [`calc_fuzzy_similarity()`](https://ethzplus.github.io/evoland-plus/reference/calc_fuzzy_similarity.md)
-  : Compute fuzzy neighborhood similarity between two categorical
-  rasters
+- [`alloc_clumpy_one_period()`](https://ethzplus.github.io/evoland-plus/reference/alloc_clumpy.md)
+  [`alloc_clumpy()`](https://ethzplus.github.io/evoland-plus/reference/alloc_clumpy.md)
+  : CLUMPY-style Allocation Methods
+
+- [`alloc_dinamica_one_period()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+  [`alloc_dinamica()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+  [`eval_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+  : Dinamica EGO Allocation Methods
+
+- [`alloc_greedy_one_period()`](https://ethzplus.github.io/evoland-plus/reference/alloc_greedy.md)
+  [`alloc_greedy()`](https://ethzplus.github.io/evoland-plus/reference/alloc_greedy.md)
+  : Greedy (rank-and-fill) Allocation Methods
 
 - [`calc_transition_similarity()`](https://ethzplus.github.io/evoland-plus/reference/calc_transition_similarity.md)
   : Compute fuzzy similarity of differences for transition validation
@@ -17,8 +26,8 @@
   [`create_coords_t_square()`](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
   : Coordinate Tables
 
-- [`create_change_map()`](https://ethzplus.github.io/evoland-plus/reference/create_change_map.md)
-  : Create change/difference map between two time periods
+- [`ducklake_db`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.md)
+  : R6 Base Class for DuckLake-Backed Storage
 
 - [`evoland_db`](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
   :
@@ -41,9 +50,6 @@
   [`alloc_params_clumpy_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   : Views on the evoland-plus data model
 
-- [`fuzzy_similarity`](https://ethzplus.github.io/evoland-plus/reference/fuzzy_similarity.md)
-  : Fuzzy Similarity for Spatial Validation
-
 - [`as_intrv_masks_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
   [`print(`*`<intrv_masks_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
   : Create Intervention Masks Table
@@ -62,16 +68,12 @@
   : Create LULC Metadata Table
 
 - [`as_neighbors_t()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
-  [`create_neighbors_t()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`validate(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`print(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`set_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`generate_neighbor_predictors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`upsert_new_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   : Create Neighbors Table
-
-- [`parquet_db`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
-  : R6 Base Class for Parquet-Backed DuckDB Storage
 
 - [`as_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
   [`create_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
@@ -139,3 +141,6 @@
 - [`extract_using_coords_t()`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
   [`tabular_to_raster()`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
   : evoland utility functions to work with terra objects
+
+- [`validation`](https://ethzplus.github.io/evoland-plus/reference/validation.md)
+  : Validation of simulated land use change

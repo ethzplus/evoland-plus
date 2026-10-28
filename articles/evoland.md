@@ -96,9 +96,10 @@ unlike most R objects (e.g. `data.frame`), this is a mutable object[^1],
 meaning we can alter its state like we would with a Python object. This
 nicely mirrors our persistent database on disk.
 
-If there is no directory at `path`, we’ll create a new DB: a set of
-parquet files following clearly defined parquet files. If there *is* a
-directory, we resume from where we left off.
+If there is no directory at `path`, we’ll create a new DB: a
+self-contained folder holding a catalog and its data files, with clearly
+defined tables. If there *is* a directory, we resume from where we left
+off.
 
 ``` r
 
@@ -116,9 +117,10 @@ metadata for producing graphs and tables.
 db
 ```
 
-    <evoland_db> Object. Inherits from <parquet_db>
-     | Database: firstmodel.evolanddb
-     | Write Options: format parquet, compression zstd
+    <evoland_db> Object. Inherits from <ducklake_db>
+     | Catalog: sqlite:firstmodel.evolanddb/catalog.sqlite
+     | Data Path: firstmodel.evolanddb/data/
+     | Read Only: FALSE
      | Active Run: 0
      | Lineage: 0
 
@@ -126,17 +128,17 @@ db
       reporting_t, runs_t
 
     DB Methods:
-      column_max, commit, delete_from, execute, fetch, get_query, get_read_expr,
-      get_table_metadata, get_table_path, list_tables, row_count
+      checkpoint, commit, delete_from, execute, fetch, get_query, get_read_expr,
+      get_table_metadata, list_tables, next_id, row_count, transaction
 
     Public Methods:
       add_predictor, adjusted_trans_pot_v, alloc_clumpy, alloc_dinamica,
-      alloc_params_clumpy_v, create_alloc_params_t, eval_alloc_params_t,
-      fit_full_models, fit_partial_models, generate_neighbor_predictors,
-      get_crossval_plots, get_obs_trans_rates, get_pred_filter_score,
-      lulc_data_as_rast, pred_data_wide_v, predict_trans_pot, set_full_trans_preds,
-      set_neighbors, set_report, trans_pred_data_v, trans_rates_dinamica_v,
-      upsert_new_neighbors
+      alloc_greedy, alloc_params_clumpy_v, create_alloc_params_t,
+      eval_alloc_params_t, figure_of_merit_v, fit_full_models, fit_partial_models,
+      generate_neighbor_predictors, get_crossval_plots, get_obs_trans_rates,
+      get_pred_filter_score, lulc_crosstab_v, lulc_data_as_rast, pred_wide_predict_v,
+      pred_wide_train_v, predict_trans_pot, set_full_trans_preds, set_neighbors,
+      set_report, trans_rates_dinamica_v, upsert_new_neighbors
 
     Active Bindings:
       coords_minimal, extent, id_run, lulc_meta_long_v, pred_sources_v, run_lineage,
@@ -225,19 +227,19 @@ db$coords_t[lon == 2699650]
     longitude (x) range: [2699650, 2699650]
     latitude  (y) range: [1252050, 1254950]
     Key: <id_coord>
-        id_coord     lon     lat elevation geom_polygon
-           <int>   <num>   <num>     <num>       <list>
-     1:       27 2699650 1254950        NA       [NULL]
-     2:       57 2699650 1254850        NA       [NULL]
-     3:       87 2699650 1254750        NA       [NULL]
-     4:      117 2699650 1254650        NA       [NULL]
-     5:      147 2699650 1254550        NA       [NULL]
+        id_coord     lon     lat
+           <int>   <num>   <num>
+     1:       27 2699650 1254950
+     2:       57 2699650 1254850
+     3:       87 2699650 1254750
+     4:      117 2699650 1254650
+     5:      147 2699650 1254550
     ---
-    26:      777 2699650 1252450        NA       [NULL]
-    27:      807 2699650 1252350        NA       [NULL]
-    28:      837 2699650 1252250        NA       [NULL]
-    29:      867 2699650 1252150        NA       [NULL]
-    30:      897 2699650 1252050        NA       [NULL]
+    26:      777 2699650 1252450
+    27:      807 2699650 1252350
+    28:      837 2699650 1252250
+    29:      867 2699650 1252150
+    30:      897 2699650 1252050
 
 We can also retrieve a minimal representation (id, lat, lon) using an
 active binding, i.e. a method tied to the database that dynamically
@@ -411,7 +413,7 @@ db$generate_neighbor_predictors()
 
 Messages
 
-    Computed 208360 neighbor relationships
+    Computed 208360 neighbor relationships in 1 chunk(s)
     Appended 8 neighbor predictor variables with 21583 data points
 
 Have a look at the predictor metadata we have defined, it now contains
@@ -573,19 +575,15 @@ We estimate allocation parameters, which determine the shape and size of
 new patches, respectively which fraction of converted land use is in new
 versus expanded patches. This estimation procedure is not unbiased and
 hence a single estimate may not be enough: normally, we would perturb
-the estimate and use multiple `id_run`s to identify the best
-parametrization. For simplicity, we now just take the estimates for
-granted and assign `id_run=0`, i.e. the base run ID.
+the estimate, write each perturbed set onto an `id_run` of its own, and
+identify the best parametrization. For simplicity, we now just take the
+estimate for granted;
+[`create_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_params_t.md)
+returns it for the active run, here the base run `id_run=0`.
 
 ``` r
 
-alloc_for_eval <- db$create_alloc_params_t(n_perturbations = 0)
-```
-
-``` r
-
-alloc_for_eval[, id_run := 0L] # overwrite id_run=1
-db$alloc_params_t <- alloc_for_eval
+db$alloc_params_t <- db$create_alloc_params_t() # estimated for the active id_run 0
 ```
 
 Messages
@@ -594,8 +592,7 @@ Messages
       Processing period 1 -> 2
       Processing period 2 -> 3
     Aggregating parameters across periods...
-    Creating 0 randomly perturbed versions per transition...
-    Successfully computed 6 allocation parameter sets (6 transitions x (0 perturbations + best estimate))
+    Computed allocation parameters for 6 transitions (id_run=0)
 
 ## 4 Prediction + Allocation
 
@@ -619,7 +616,7 @@ Messages
     Periods: 4
     Run: 0
     === Period 1/1 ===
-    Predicting transition potential for 7 transitions
+    Predicting transition potential for 6 transitions
     Predicting transition 1/6 (id_trans=1)
     Predicting transition 2/6 (id_trans=3)
     Predicting transition 3/6 (id_trans=4)
@@ -663,9 +660,9 @@ the cumulative difference like so:
 
 changes <-
   c(
-    create_change_map(plot_maps[[1]], plot_maps[[2]]),
-    create_change_map(plot_maps[[1]], plot_maps[[3]]),
-    create_change_map(plot_maps[[1]], plot_maps[[4]])
+    ifel(plot_maps[[1]] != plot_maps[[2]], plot_maps[[2]], NA),
+    ifel(plot_maps[[1]] != plot_maps[[3]], plot_maps[[3]], NA),
+    ifel(plot_maps[[1]] != plot_maps[[4]], plot_maps[[4]], NA)
   ) |>
   categories(
     layer = 0,

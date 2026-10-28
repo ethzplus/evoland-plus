@@ -1,7 +1,27 @@
 # CLUMPY-style Allocation Methods
 
-Methods for running CLUMPY-style LULC allocation. The algorithm works in
-three stages per period:
+Methods for running CLUMPY-style LULC allocation, with two entry points:
+
+- `db$alloc_clumpy(id_periods, ...)` runs a whole sequence of periods.
+  After each period it commits the allocated map to `lulc_data_t` and
+  recomputes the neighbour predictors the next period is predicted from.
+  Use it for plain simulations.
+
+- `alloc_clumpy_one_period(db, id_period_post, ...)` allocates one
+  period for the active `id_run` and returns the map **without
+  committing it**. Use it to write your own loop: edit `trans_pot_t`
+  between prediction and allocation (e.g. interventions), edit the
+  allocated map afterwards, or draw an ensemble of single-period
+  realisations. The caller then commits the map with
+  `db$commit(x, "lulc_data_t", method = "upsert")` and, if a later
+  period follows, runs `db$upsert_new_neighbors(id_period_post)`, in
+  that order.
+
+Both reuse transition potentials already in `trans_pot_t` for the run
+and period, and only predict them when none exist (or when
+`force_predict_trans_pot = TRUE`).
+
+The algorithm works in three stages per period:
 
 1.  **Prediction** – raw transition potentials are predicted and stored
     in `trans_pot_t` via
@@ -43,7 +63,7 @@ three stages per period:
 
 ``` r
 alloc_clumpy_one_period(
-  self,
+  db,
   id_period_post,
   select_score,
   select_maximize,
@@ -63,17 +83,18 @@ alloc_clumpy(
   avoid_aggregation = TRUE,
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )
 ```
 
 ## Arguments
 
-- self:
+- db:
 
   An
   [evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
-  instance.
+  instance; uses its active `id_run`.
 
 - id_period_post:
 
@@ -90,41 +111,65 @@ alloc_clumpy(
 - area_dist:
 
   Character; patch-area distribution, `"lognormal"` (default) or
-  `"normal"`.
+  `"normal"` (Gaussian with sd = `sqrt(area_var)`, clamped to \>= 1).
 
 - avoid_aggregation:
 
-  Logical; uPAM merge avoidance (default `TRUE`).
+  Logical; if `TRUE` (default) uPAM patches that would merge with an
+  existing patch fail and allocate nothing (clumpy `GaussianPatcher`
+  semantics). Ignored for the mono-pixel uSAM path.
 
 - batch_size:
 
   Integer; uPAM pivots attempted per MuST re-draw. `0` (default)
-  auto-scales with the source pool; see `alloc_clumpy_one_period()`.
+  auto-scales to ~1% of each class's source pool, bounding the number of
+  MuST passes so large rasters stay tractable; `> 0` is an explicit cap
+  (1 = strict uPAM); `< 0` processes all candidates in a single pass.
 
 - use_parent_trans_pot:
 
-  Logical; if TRUE, use the parent run's transition potentials. Useful
-  if a run branches off from parent.
+  Logical; if TRUE, predict (or reuse) transition potentials under the
+  parent run, so sibling runs share one set, e.g. for Monte-Carlo
+  ensembles.
+
+- force_predict_trans_pot:
+
+  Logical; if TRUE, recompute transition potentials even if
+  `trans_pot_t` already holds them for this run and period.
+
+- self:
+
+  An
+  [evoland_db](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
+  instance.
 
 - id_periods:
 
-  Integer vector of posterior period IDs to simulate.
+  Integer vector of contiguous posterior period IDs to simulate.
+
+- update_neighbors:
+
+  Logical; whether to recompute neighbour predictors after the last
+  requested period (default `TRUE`). Intermediate periods are always
+  updated, since the next period's prediction reads them. Set `FALSE`
+  when nothing is allocated onwards from the last period, e.g. for
+  single-period ensembles.
 
 ## Value
 
-An
+`alloc_clumpy_one_period()`: an
 [lulc_data_t](https://ethzplus.github.io/evoland-plus/reference/lulc_data_t.md)
-with the simulated posterior LULC.
+with the simulated posterior LULC. `alloc_clumpy()`: called for its side
+effects on `lulc_data_t` and `pred_data_t`.
 
 ## Functions
 
-- `alloc_clumpy_one_period()`: Allocate LULC changes for a single period
-  using the CLUMPY algorithm. Can either independently compute
-  transition potential, use the parent run's transition potential
-  (useful when forking runs for Monte-Carlo) or read pre-written
-  trans_pot_t values
+- `alloc_clumpy_one_period()`: Allocate a single period and return the
+  map without committing it; see Description for when to use which.
 
-- `alloc_clumpy()`: Run CLUMPY-style allocation over multiple periods.
+- `alloc_clumpy()`: Allocate a contiguous sequence of periods,
+  committing each one and recomputing neighbour predictors in between;
+  the method behind `db$alloc_clumpy()`.
 
 ## References
 

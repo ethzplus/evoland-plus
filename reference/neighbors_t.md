@@ -7,13 +7,6 @@ Creates a `neighbors_t` table and validates that it matches the schema.
 ``` r
 as_neighbors_t(x)
 
-create_neighbors_t(
-  coords_t,
-  max_distance,
-  distance_breaks = NULL,
-  quiet = FALSE
-)
-
 # S3 method for class 'neighbors_t'
 validate(x, ...)
 
@@ -26,7 +19,7 @@ set_neighbors(
   distance_breaks = c(0, 100, 500, 1000),
   overwrite = FALSE,
   quiet = FALSE,
-  chunksize = 1e+08
+  chunksize = 1e+07
 )
 
 generate_neighbor_predictors(self)
@@ -40,29 +33,6 @@ upsert_new_neighbors(self, id_period)
 
   An object that can be passed to
   [`data.table::setDT()`](https://rdrr.io/pkg/data.table/man/setDT.html)
-
-- coords_t:
-
-  A
-  [coords_t](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
-  object containing coordinate points with `id_coord`, `lon`, and `lat`
-  columns, and appropriate metadata attributes (epsg, extent,
-  resolution).
-
-- max_distance:
-
-  Maximum distance to search for neighbors (in same units as
-  coordinates)
-
-- distance_breaks:
-
-  Optional numeric vector defining distance class boundaries. If NULL,
-  no distance classification is performed. If provided, must have at
-  least 2 elements defining interval breaks.
-
-- quiet:
-
-  If TRUE, suppress progress messages during neighbor computation
 
 - ...:
 
@@ -79,15 +49,30 @@ upsert_new_neighbors(self, id_period)
 
   An evoland_db object
 
+- max_distance:
+
+  Maximum distance to search for neighbors (in same units as
+  coordinates)
+
+- distance_breaks:
+
+  Optional numeric vector defining distance class boundaries. If NULL,
+  no distance classification is performed. If provided, must have at
+  least 2 elements defining interval breaks.
+
 - overwrite:
 
   If FALSE and `neighbors_t` already exists, skip computation (default:
   FALSE)
 
+- quiet:
+
+  If TRUE, suppress progress messages during neighbor computation
+
 - chunksize:
 
-  Number of rows to write per chunk when inserting into the database to
-  avoid memory issues (default: 1e8)
+  Number of neighbour pairs per chunk; bounds the memory used while
+  computing and committing (default: 1e7, a few hundred MB)
 
 - id_period:
 
@@ -106,17 +91,6 @@ A data.table of class "neighbors_t" with columns:
 
 - `distance_class`: Optional factor representing distance intervals
 
-A data.table with columns:
-
-- id_coord_origin: ID of the origin coordinate
-
-- id_coord_neighbor: ID of the neighboring coordinate
-
-- distance: Distance between origin and neighbor
-
-- distance_class: Factor indicating distance class (if distance_breaks
-  provided)
-
 ## Methods (by generic)
 
 - `validate(neighbors_t)`: Validate a neighbors_t object
@@ -125,13 +99,13 @@ A data.table with columns:
 
 ## Functions
 
-- `create_neighbors_t()`: Compute neighboring coordinates within
-  specified distances. This uses a spatial hash map for efficiency.
-
 - `set_neighbors()`: Compute neighbor relationships between coordinates
   and store in `self$neighbors_t`. This uses a spatial hash map for
   efficiency and can produce a very large table depending on
-  max_distance.
+  max_distance. The table is never held in memory as a whole: the
+  neighbourhoods are computed and committed in chunks of complete
+  neighbourhoods (all neighbours of a set of origins), inside one
+  transaction.
 
 - `generate_neighbor_predictors()`: Generates neighbor predictors based
   on neighbor land use counts by distance class, e.g. "10 coordinate

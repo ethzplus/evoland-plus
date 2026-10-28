@@ -6,7 +6,7 @@ conjunction with `evoland_db` and its subclasses.
 ## Usage
 
 ``` r
-get_evoland_db_read_expr(self, super, table_name)
+get_evoland_db_read_expr(self, super, table_name, id_run = self$id_run)
 
 run_parallel_evoland(items, worker_fun, parent_db, cluster = NULL, ...)
 ```
@@ -24,6 +24,10 @@ run_parallel_evoland(items, worker_fun, parent_db, cluster = NULL, ...)
 - table_name:
 
   The name of the table to read from
+
+- id_run:
+
+  Integer, the run whose lineage is read; defaults to the active run
 
 - items:
 
@@ -65,9 +69,8 @@ A list of results
   table, taking into account the run lineage and distinctness columns.
   If the table has no `id_run` column or is the `runs_t` table itself,
   falls back to the default read expression. Otherwise, constructs a
-  read expression that filters for the active `id_run` and its lineage,
-  using the distinctness columns to determine which slices of data to
-  include.
+  read expression that filters for `id_run` and its lineage, using the
+  distinctness columns to determine which slices of data to include.
 
 - `run_parallel_evoland()`: Run a worker function in parallel with an
   `evoland_db` instance; takes an (optional) worker cluster, a worker

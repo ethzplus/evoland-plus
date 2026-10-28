@@ -48,6 +48,8 @@ A data.table of class "lulc_meta_t" with columns:
 
 - `description`: Long description / operationalisation
 
+- `src_classes`: List of source class IDs aggregated into this class
+
 ## Methods (by generic)
 
 - `print(lulc_meta_t)`: Print an lulc_meta_t object, passing params to

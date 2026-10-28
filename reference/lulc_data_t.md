@@ -10,7 +10,7 @@ as_lulc_data_t(x)
 # S3 method for class 'lulc_data_t'
 print(x, nrow = 10, ...)
 
-lulc_data_as_rast(self, id_period = NULL)
+lulc_data_as_rast(self, private, id_period = NULL)
 ```
 
 ## Arguments

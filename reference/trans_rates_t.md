@@ -1,9 +1,12 @@
 # Create Transition Rates Table
 
-Creates a trans_rates_t table that stores transition rates
-(probabilities) for each transition type in each time period. Historical
-rates are calculated from observed transitions, and future rates are
-extrapolated using linear regression.
+Creates a trans_rates_t table that stores transition rates for each
+transition type in each time period. For observed periods, rates
+describe the change that happened; for extrapolated periods, they
+prescribe the change allocation has to produce. Future rates can be
+extrapolated with a linear regression (`extrapolate_trans_rates()`) or
+derived from target class shares or areas with a linear program
+([`solve_trans_rates()`](https://ethzplus.github.io/evoland-plus/reference/trans_rates_solver.md)).
 
 ## Usage
 

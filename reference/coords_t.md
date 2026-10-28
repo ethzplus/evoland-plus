@@ -58,10 +58,6 @@ A data.table of class "coords_t" with columns:
 
 - `lat`: Latitude/y coordinate
 
-- `elevation`: Elevation (initially NULL)
-
-- `geom_polygon`: Geometry polygon object (for grid cells)
-
 ## Methods (by generic)
 
 - `print(coords_t)`: Print a coords_t object, passing params to

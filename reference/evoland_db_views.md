@@ -20,7 +20,7 @@ database without storing additional data.
 
 ## Methods Added
 
-- `trans_pred_data_v(id_trans)` - Returns wide table of transition
+- `pred_wide_train_v(id_trans)` - Returns wide table of transition
   results and predictor data for a specific transition. Used as input to
   covariance filtering.
 

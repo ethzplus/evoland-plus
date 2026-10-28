@@ -45,7 +45,7 @@ predict_trans_pot(
 - id_period_post:
 
   scalar integerish, passed to
-  [`pred_data_wide_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
+  [`pred_wide_predict_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
 
 - select_score:
 
@@ -63,16 +63,21 @@ predict_trans_pot(
 
 A data.table of class "trans_pot_t" with columns:
 
+- `id_run`: Foreign key to
+  [`runs_t()`](https://ethzplus.github.io/evoland-plus/reference/runs_t.md)
+
 - `id_trans`: Foreign key to
   [`trans_meta_t()`](https://ethzplus.github.io/evoland-plus/reference/trans_meta_t.md)
 
 - `id_period_post`: Foreign key to
-  [`periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
+  [`periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md),
+  the posterior period
 
 - `id_coord`: Foreign key to
   [`coords_t()`](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
 
-- `value`: Map of model (hyper) parameters
+- `value`: Raw transition potential in \[0, 1\], as predicted by the
+  transition's model
 
 `predict_trans_pot()`: called for side effect; commit `trans_pot_t` to
 database

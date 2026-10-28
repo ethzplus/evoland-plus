@@ -19,27 +19,43 @@ cover change (LULCC). The scope of `evoland-plus` is to:
 
 ## Installation
 
-We suggest you use [rv](https://a2-ai.github.io/rv-docs/) to manage your
-dependencies in an encapsulated environment. Simply create an
-`rproject.toml` at the project root and execute `rv init && rv sync`.
+Install the development version from GitHub:
+
+``` r
+
+# install.packages("remotes")
+remotes::install_github("ethzplus/evoland-plus")
+library(evoland)
+```
+
+The package compiles C++ code, so you need a working build toolchain
+(Rtools on Windows, Xcode command line tools on macOS), and
+[terra](https://rspatial.github.io/terra/) needs GDAL and PROJ.
+
+If you manage project libraries with
+[rv](https://a2-ai.github.io/rv-docs/), add the package to your
+`rproject.toml` instead:
 
 ``` toml
-# sample rproject.toml
-[project]
-name = "evoland-plus"
-r_version = "4.5"
-
-repositories = [
-    { alias = "CRAN", url = "https://stat.ethz.ch/CRAN/" },
-]
 dependencies = [
-    # just use it: load using library(evoland)
     { name = "evoland", git = "https://github.com/ethzplus/evoland-plus/", branch = "main" },
 ]
 ```
 
-If you want to develop the model logic itself, you can opt to only
-install dependencies but not the package itself:
+## Contributing
+
+PRs are very welcome! It’s probably best to first discuss the underlying
+issue; @mmyrte is very happy to help figure out a solution. Conventions
+for R, C++, SQL and prose are collected in the [style
+guide](https://ethzplus.github.io/evoland-plus/devdocs/style/README.md);
+[AGENTS.md](https://ethzplus.github.io/evoland-plus/AGENTS.md) has the
+project layout and development commands. Code should be formatted with
+[air](https://posit-dev.github.io/air/) before committing. Tests are
+written as `tinytest`s that can be run after package installation,
+ensuring that your system is set up correctly.
+
+To work on the package itself with rv, install only its dependencies and
+load the package from your checkout:
 
 ``` toml
 dependencies = [
@@ -52,28 +68,28 @@ dependencies = [
 ]
 ```
 
-During development, `devtools::load_all()` acts as though you were
-calling [`library(evoland)`](https://ethzplus.github.io/evoland-plus) on
-an installed package. This makes it easy to rapidly reload code when
-you’ve changed something.
+`devtools::load_all()` then acts as though you were calling
+[`library(evoland)`](https://ethzplus.github.io/evoland-plus) on an
+installed package, which makes it easy to reload code after a change.
 
-## Contributing
+## Allocation
 
-PRs are very welcome! It’s probably best to first discuss the underlying
-issue; @mmyrte is very happy to help figure out a solution. Code should
-be autoformatted using [air](https://posit-dev.github.io/air/) before
-committing. Tests are written as `tinytest`s that can be run after
-package installation, ensuring that your system is set up correctly.
+`evoland-plus` places projected land use change on the map with one of
+three allocators:
 
-## Dinamica EGO
-
-`evoland-plus` uses [Dinamica EGO](https://dinamicaego.com/) as its
-spatial allocation engine. See the [Installing Dinamica
-EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html)
-vignette for installation instructions. Note that Dinamica only runs on
-**Linux x86 / amd64** (the Windows installer exists but is untested with
-`evoland-plus`); users on other platforms should use the [Docker
-container](https://github.com/ethzplus/rocker-geospatial-dinamica/).
+- `db$alloc_clumpy()`: stochastic patch-based allocation after
+  [CLUMPY](https://github.com/mmyrte/clumpy), implemented in C++ and
+  available wherever the package installs.
+- `db$alloc_greedy()`: deterministic rank-and-fill allocation, a
+  baseline for comparison.
+- `db$alloc_dinamica()`: allocation with [Dinamica
+  EGO](https://dinamicaego.com/), which is optional. Dinamica only runs
+  on **Linux x86 / amd64** (the Windows installer exists but is untested
+  with `evoland-plus`); see the [Installing Dinamica
+  EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html)
+  vignette, or use the [Docker
+  container](https://github.com/ethzplus/rocker-geospatial-dinamica/) on
+  other platforms.
 
 ## Documentation
 
@@ -83,11 +99,12 @@ This package uses pkgdown, see <http://ethzplus.github.io/evoland-plus>.
   pages
 - **Reference Documentation**: R man pages using the standard
   `?function_name`
-- **Explanation & Design Rationale**: See the [project
-  wiki](https://ethzplus.github.io/wiki) for
-  - Detailed explanation of the modeling approach
-  - Database schema and architecture decisions
-  - Development guidelines and coding standards
+- **Explanation & Design Rationale**: See
+  [`devdocs/design/`](https://ethzplus.github.io/evoland-plus/devdocs/design/)
+  for the modelling workflow, the database schema and architecture
+  decisions
+- **Development guidelines and coding standards**: See the [style
+  guide](https://ethzplus.github.io/evoland-plus/devdocs/style/README.md)
 
 ## License
 
@@ -110,9 +127,18 @@ implementation.
 - [`LearnerClassifGrrf`](https://ethzplus.github.io/evoland-plus/reference/LearnerClassifGrrf.md)
   : Guided Regularized Random Forest Learner
 
-- [`calc_fuzzy_similarity()`](https://ethzplus.github.io/evoland-plus/reference/calc_fuzzy_similarity.md)
-  : Compute fuzzy neighborhood similarity between two categorical
-  rasters
+- [`alloc_clumpy_one_period()`](https://ethzplus.github.io/evoland-plus/reference/alloc_clumpy.md)
+  [`alloc_clumpy()`](https://ethzplus.github.io/evoland-plus/reference/alloc_clumpy.md)
+  : CLUMPY-style Allocation Methods
+
+- [`alloc_dinamica_one_period()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+  [`alloc_dinamica()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+  [`eval_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_dinamica.md)
+  : Dinamica EGO Allocation Methods
+
+- [`alloc_greedy_one_period()`](https://ethzplus.github.io/evoland-plus/reference/alloc_greedy.md)
+  [`alloc_greedy()`](https://ethzplus.github.io/evoland-plus/reference/alloc_greedy.md)
+  : Greedy (rank-and-fill) Allocation Methods
 
 - [`calc_transition_similarity()`](https://ethzplus.github.io/evoland-plus/reference/calc_transition_similarity.md)
   : Compute fuzzy similarity of differences for transition validation
@@ -122,8 +148,8 @@ implementation.
   [`create_coords_t_square()`](https://ethzplus.github.io/evoland-plus/reference/coords_t.md)
   : Coordinate Tables
 
-- [`create_change_map()`](https://ethzplus.github.io/evoland-plus/reference/create_change_map.md)
-  : Create change/difference map between two time periods
+- [`ducklake_db`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.md)
+  : R6 Base Class for DuckLake-Backed Storage
 
 - [`evoland_db`](https://ethzplus.github.io/evoland-plus/reference/evoland_db.md)
   :
@@ -146,9 +172,6 @@ implementation.
   [`alloc_params_clumpy_v`](https://ethzplus.github.io/evoland-plus/reference/evoland_db_views.md)
   : Views on the evoland-plus data model
 
-- [`fuzzy_similarity`](https://ethzplus.github.io/evoland-plus/reference/fuzzy_similarity.md)
-  : Fuzzy Similarity for Spatial Validation
-
 - [`as_intrv_masks_t()`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
   [`print(`*`<intrv_masks_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/intrv_masks_t.md)
   : Create Intervention Masks Table
@@ -167,16 +190,12 @@ implementation.
   : Create LULC Metadata Table
 
 - [`as_neighbors_t()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
-  [`create_neighbors_t()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`validate(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`print(`*`<neighbors_t>`*`)`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`set_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`generate_neighbor_predictors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   [`upsert_new_neighbors()`](https://ethzplus.github.io/evoland-plus/reference/neighbors_t.md)
   : Create Neighbors Table
-
-- [`parquet_db`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
-  : R6 Base Class for Parquet-Backed DuckDB Storage
 
 - [`as_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
   [`create_periods_t()`](https://ethzplus.github.io/evoland-plus/reference/periods_t.md)
@@ -244,6 +263,9 @@ implementation.
 - [`extract_using_coords_t()`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
   [`tabular_to_raster()`](https://ethzplus.github.io/evoland-plus/reference/util_terra.md)
   : evoland utility functions to work with terra objects
+
+- [`validation`](https://ethzplus.github.io/evoland-plus/reference/validation.md)
+  : Validation of simulated land use change
 
 # Articles
 

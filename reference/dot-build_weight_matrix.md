@@ -1,6 +1,6 @@
-# Build distance weight matrix for fuzzy similarity
+# Build distance weight matrix for the fuzzy similarity window
 
-Build distance weight matrix for fuzzy similarity
+Build distance weight matrix for the fuzzy similarity window
 
 ## Usage
 
@@ -24,4 +24,5 @@ Build distance weight matrix for fuzzy similarity
 
 ## Value
 
-Matrix of weights
+Matrix of weights: `exp(-d / decay_divisor)` for Euclidean distance `d`
+from the centre cell, or 1 throughout without decay

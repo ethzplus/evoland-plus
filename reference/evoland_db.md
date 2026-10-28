@@ -1,12 +1,11 @@
 # `evoland_db` - R6 Class for lulc data management
 
 An R6 class that provides an interface to a folder-based data storage
-system for the evoland package. Each table is stored as a parquet (or
-JSON) file. This class uses DuckDB for in-memory SQL operations while
-persisting data to disk in parquet format for better compression.
+system for the evoland package. This class uses DuckDB for in-memory SQL
+operations while persisting data to a DuckLake catalog on disk.
 
 Inherits from
-[parquet_db](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
+[ducklake_db](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.md)
 for generic database operations.
 
 ## See also
@@ -19,7 +18,7 @@ separate files:
 
 ## Super class
 
-[`parquet_db`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.md)
+[`ducklake_db`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.md)
 -\> `evoland_db`
 
 ## Active bindings
@@ -128,12 +127,6 @@ separate files:
 
 ### Public methods
 
-- [`evoland_db$trans_rates_dinamica_v()`](#method-evoland_db-trans_rates_dinamica_v)
-
-- [`evoland_db$adjusted_trans_pot_v()`](#method-evoland_db-adjusted_trans_pot_v)
-
-- [`evoland_db$alloc_params_clumpy_v()`](#method-evoland_db-alloc_params_clumpy_v)
-
 - [`evoland_db$new()`](#method-evoland_db-initialize)
 
 - [`evoland_db$get_read_expr()`](#method-evoland_db-get_read_expr)
@@ -150,13 +143,19 @@ separate files:
 
 - [`evoland_db$add_predictor()`](#method-evoland_db-add_predictor)
 
-- [`evoland_db$trans_pred_data_v()`](#method-evoland_db-trans_pred_data_v)
+- [`evoland_db$pred_wide_train_v()`](#method-evoland_db-pred_wide_train_v)
 
-- [`evoland_db$pred_data_wide_v()`](#method-evoland_db-pred_data_wide_v)
+- [`evoland_db$pred_wide_predict_v()`](#method-evoland_db-pred_wide_predict_v)
+
+- [`evoland_db$figure_of_merit_v()`](#method-evoland_db-figure_of_merit_v)
+
+- [`evoland_db$lulc_crosstab_v()`](#method-evoland_db-lulc_crosstab_v)
 
 - [`evoland_db$alloc_dinamica()`](#method-evoland_db-alloc_dinamica)
 
 - [`evoland_db$alloc_clumpy()`](#method-evoland_db-alloc_clumpy)
+
+- [`evoland_db$alloc_greedy()`](#method-evoland_db-alloc_greedy)
 
 - [`evoland_db$eval_alloc_params_t()`](#method-evoland_db-eval_alloc_params_t)
 
@@ -178,44 +177,27 @@ separate files:
 
 - [`evoland_db$get_obs_trans_rates()`](#method-evoland_db-get_obs_trans_rates)
 
+- [`evoland_db$trans_rates_dinamica_v()`](#method-evoland_db-trans_rates_dinamica_v)
+
+- [`evoland_db$adjusted_trans_pot_v()`](#method-evoland_db-adjusted_trans_pot_v)
+
+- [`evoland_db$alloc_params_clumpy_v()`](#method-evoland_db-alloc_params_clumpy_v)
+
 - [`evoland_db$clone()`](#method-evoland_db-clone)
 
 Inherited methods
 
-- [`parquet_db$column_max()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-column_max)
-- [`parquet_db$commit()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-commit)
-- [`parquet_db$delete_from()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-delete_from)
-- [`parquet_db$execute()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-execute)
-- [`parquet_db$fetch()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-fetch)
-- [`parquet_db$get_query()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_query)
-- [`parquet_db$get_table_metadata()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_table_metadata)
-- [`parquet_db$get_table_path()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-get_table_path)
-- [`parquet_db$list_tables()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-list_tables)
-- [`parquet_db$row_count()`](https://ethzplus.github.io/evoland-plus/reference/parquet_db.html#method-row_count)
-
-------------------------------------------------------------------------
-
-### `evoland_db$trans_rates_dinamica_v()`
-
-#### Usage
-
-    evoland_db$trans_rates_dinamica_v(id_period)
-
-------------------------------------------------------------------------
-
-### `evoland_db$adjusted_trans_pot_v()`
-
-#### Usage
-
-    evoland_db$adjusted_trans_pot_v(id_period_post)
-
-------------------------------------------------------------------------
-
-### `evoland_db$alloc_params_clumpy_v()`
-
-#### Usage
-
-    evoland_db$alloc_params_clumpy_v()
+- [`ducklake_db$checkpoint()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-checkpoint)
+- [`ducklake_db$commit()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-commit)
+- [`ducklake_db$delete_from()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-delete_from)
+- [`ducklake_db$execute()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-execute)
+- [`ducklake_db$fetch()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-fetch)
+- [`ducklake_db$get_query()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-get_query)
+- [`ducklake_db$get_table_metadata()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-get_table_metadata)
+- [`ducklake_db$list_tables()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-list_tables)
+- [`ducklake_db$next_id()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-next_id)
+- [`ducklake_db$row_count()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-row_count)
+- [`ducklake_db$transaction()`](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.html#method-transaction)
 
 ------------------------------------------------------------------------
 
@@ -225,13 +207,25 @@ Initialize a new evoland_db object
 
 #### Usage
 
-    evoland_db$new(path, id_run = 0L, read_only = FALSE, ...)
+    evoland_db$new(
+      path = NULL,
+      id_run = 0L,
+      read_only = FALSE,
+      catalog = NULL,
+      data_path = NULL,
+      sqlite_journal_mode = "wal",
+      expire_older_than = NULL,
+      delete_older_than = NULL,
+      ...
+    )
 
 #### Arguments
 
 - `path`:
 
-  Character string. Path to the data folder.
+  Character. Path to the data folder; may be omitted when both `catalog`
+  and `data_path` are given, see
+  [ducklake_db](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.md).
 
 - `id_run`:
 
@@ -240,7 +234,27 @@ Initialize a new evoland_db object
 - `read_only`:
 
   Logical. Whether to update the reporting table upon initialization; if
-  TRUE, only parallel-safe appends are allowed.
+  TRUE, the catalog is attached read-only.
+
+- `catalog`:
+
+  Character. DuckLake catalog connection, see
+  [ducklake_db](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.md).
+
+- `data_path`:
+
+  Character. DuckLake data files location, see
+  [ducklake_db](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.md).
+
+- `sqlite_journal_mode`:
+
+  Character. Journal mode for a SQLite catalog, see
+  [ducklake_db](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.md).
+
+- `expire_older_than, delete_older_than`:
+
+  Retention for `$checkpoint()`, see
+  [ducklake_db](https://ethzplus.github.io/evoland-plus/reference/ducklake_db.md).
 
 - `...`:
 
@@ -259,13 +273,18 @@ each data slice, returns data from the closest ancestor run that has it.
 
 #### Usage
 
-    evoland_db$get_read_expr(table_name)
+    evoland_db$get_read_expr(table_name, id_run = self$id_run)
 
 #### Arguments
 
 - `table_name`:
 
   Character string table name
+
+- `id_run`:
+
+  Integer, the run whose lineage is read; defaults to the active run.
+  Another run can be read without changing the active one.
 
 #### Returns
 
@@ -319,7 +338,7 @@ Set the neighbors table, see
       distance_breaks = NULL,
       overwrite = FALSE,
       quiet = FALSE,
-      chunksize = 1e+08
+      chunksize = 1e+07
     )
 
 #### Arguments
@@ -434,15 +453,15 @@ Add a predictor using the currently active id_run, see
 
 ------------------------------------------------------------------------
 
-### `evoland_db$trans_pred_data_v()`
+### `evoland_db$pred_wide_train_v()`
 
 Get transitions along with their predictor data in a wide data.table,
 see
-[`trans_pred_data_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
+[`pred_wide_train_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
 
 #### Usage
 
-    evoland_db$trans_pred_data_v(id_trans, id_pred, ordered = FALSE)
+    evoland_db$pred_wide_train_v(id_trans, id_pred)
 
 #### Arguments
 
@@ -455,20 +474,16 @@ see
 
   Optional integer vector of predictor IDs to include
 
-- `ordered`:
-
-  - if TRUE, order output by `id_coord` & `id_period`
-
 ------------------------------------------------------------------------
 
-### `evoland_db$pred_data_wide_v()`
+### `evoland_db$pred_wide_predict_v()`
 
 Retrieve a wide view of the predictor data, see
-[`pred_data_wide_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
+[`pred_wide_predict_v()`](https://ethzplus.github.io/evoland-plus/reference/pred_data_t.md)
 
 #### Usage
 
-    evoland_db$pred_data_wide_v(id_trans, id_period_anterior)
+    evoland_db$pred_wide_predict_v(id_trans, id_period_anterior)
 
 #### Arguments
 
@@ -483,6 +498,85 @@ Retrieve a wide view of the predictor data, see
 
 ------------------------------------------------------------------------
 
+### `evoland_db$figure_of_merit_v()`
+
+Pontius' figure of merit of simulated against observed change, see
+[`figure_of_merit_v()`](https://ethzplus.github.io/evoland-plus/reference/figure_of_merit_v.md)
+
+#### Usage
+
+    evoland_db$figure_of_merit_v(
+      id_period_anterior,
+      id_period_post,
+      id_run_reference,
+      id_run_simulated = self$id_run,
+      by_transition = FALSE,
+      exclude_id_lulc = integer(0)
+    )
+
+#### Arguments
+
+- `id_period_anterior`:
+
+  Integer, period of the initial map
+
+- `id_period_post`:
+
+  Integer, period of the observed and simulated maps
+
+- `id_run_reference`:
+
+  Integer, run holding the initial and observed maps
+
+- `id_run_simulated`:
+
+  Integer vector, runs holding the simulated maps; defaults to the
+  active run
+
+- `by_transition`:
+
+  Logical; if `TRUE`, report per transition instead of overall.
+
+- `exclude_id_lulc`:
+
+  Integer vector of classes; cells whose class in the reference run, at
+  `id_period_anterior` or `id_period_post`, is one of them are ignored.
+  Default none.
+
+------------------------------------------------------------------------
+
+### `evoland_db$lulc_crosstab_v()`
+
+Cross-tabulation of land use between two periods, see
+[`lulc_crosstab_v()`](https://ethzplus.github.io/evoland-plus/reference/lulc_crosstab_v.md)
+
+#### Usage
+
+    evoland_db$lulc_crosstab_v(
+      id_period_anterior,
+      id_period_post,
+      id_run_anterior = self$id_run,
+      id_run_post = id_run_anterior
+    )
+
+#### Arguments
+
+- `id_period_anterior, id_period_post`:
+
+  Integer, the two periods to compare
+
+- `id_run_anterior`:
+
+  Integer, run to read `id_period_anterior` from; defaults to the active
+  run
+
+- `id_run_post`:
+
+  Integer, run to read `id_period_post` from; defaults to
+  `id_run_anterior`
+
+------------------------------------------------------------------------
+
 ### `evoland_db$alloc_dinamica()`
 
 Runs a path-dependent Monte Carlo simulation using Dinamica EGO, see
@@ -494,8 +588,11 @@ Runs a path-dependent Monte Carlo simulation using Dinamica EGO, see
       id_periods,
       select_score,
       select_maximize,
-      work_dir = "dinamica_rundir",
-      keep_intermediate = FALSE
+      work_dir = NULL,
+      keep_intermediate = FALSE,
+      use_parent_trans_pot = FALSE,
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
     )
 
 #### Arguments
@@ -515,12 +612,26 @@ Runs a path-dependent Monte Carlo simulation using Dinamica EGO, see
 
 - `work_dir`:
 
-  Character path for Dinamica working directory. Default
-  "dinamica_rundir".
+  Character path for Dinamica working directory; `NULL` (default) uses a
+  temporary directory.
 
 - `keep_intermediate`:
 
   Logical, keep intermediate Dinamica files? Default FALSE.
+
+- `use_parent_trans_pot`:
+
+  Logical; use the direct parent run's transition potentials
+
+- `force_predict_trans_pot`:
+
+  Logical; re-run prediction for trans_pot_t even if those values
+  already exist
+
+- `update_neighbors`:
+
+  Logical; recompute neighbour predictors after the last requested
+  period. Intermediate periods are always updated.
 
 ------------------------------------------------------------------------
 
@@ -542,7 +653,8 @@ uSAM, otherwise uPAM.
       avoid_aggregation = TRUE,
       batch_size = 0L,
       use_parent_trans_pot = FALSE,
-      force_predict_trans_pot = FALSE
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
     )
 
 #### Arguments
@@ -587,6 +699,72 @@ uSAM, otherwise uPAM.
   Logical; re-run prediction for trans_pot_t even if those values
   already exist
 
+- `update_neighbors`:
+
+  Logical; recompute neighbour predictors after the last requested
+  period. Intermediate periods are always updated.
+
+------------------------------------------------------------------------
+
+### `evoland_db$alloc_greedy()`
+
+Runs deterministic greedy (rank-and-fill) allocation, see
+[`alloc_greedy()`](https://ethzplus.github.io/evoland-plus/reference/alloc_greedy.md):
+each transition's demand goes to the cells of highest adjusted
+potential, every cell changes at most once.
+
+#### Usage
+
+    evoland_db$alloc_greedy(
+      id_periods,
+      select_score,
+      select_maximize,
+      arbitration = c("joint", "ordered"),
+      order = NULL,
+      use_parent_trans_pot = FALSE,
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
+    )
+
+#### Arguments
+
+- `id_periods`:
+
+  Integer vector of period IDs to include in the simulation.
+
+- `select_score`:
+
+  Character string; mlr3 measure ID (e.g. `"classif.auc"`) used to
+  select model for extrapolation.
+
+- `select_maximize`:
+
+  Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
+
+- `arbitration`:
+
+  Character; `"joint"` (default) ranks all transitions together,
+  `"ordered"` lets transitions claim cells in the priority given by
+  `order`.
+
+- `order`:
+
+  Integer vector of `id_trans`, the priority for `"ordered"`.
+
+- `use_parent_trans_pot`:
+
+  Logical; use the direct parent run's transition potentials
+
+- `force_predict_trans_pot`:
+
+  Logical; re-run prediction for trans_pot_t even if those values
+  already exist
+
+- `update_neighbors`:
+
+  Logical; recompute neighbour predictors after the last requested
+  period. Intermediate periods are always updated.
+
 ------------------------------------------------------------------------
 
 ### `evoland_db$eval_alloc_params_t()`
@@ -599,7 +777,7 @@ Evaluates allocation parameters in dinamica, see
     evoland_db$eval_alloc_params_t(
       select_score,
       select_maximize,
-      work_dir = "dinamica_rundir",
+      work_dir = NULL,
       keep_intermediate = FALSE
     )
 
@@ -616,8 +794,8 @@ Evaluates allocation parameters in dinamica, see
 
 - `work_dir`:
 
-  Character path for Dinamica working directory. Default
-  "dinamica_rundir".
+  Character path for Dinamica working directory; `NULL` (default) uses a
+  temporary directory.
 
 - `keep_intermediate`:
 
@@ -627,24 +805,13 @@ Evaluates allocation parameters in dinamica, see
 
 ### `evoland_db$create_alloc_params_t()`
 
-Computes allocation parameters for all viable transitions, see
+Estimates allocation parameters for all viable transitions under the
+active `id_run`, see
 [`create_alloc_params_t()`](https://ethzplus.github.io/evoland-plus/reference/alloc_params_t.md)
 
 #### Usage
 
-    evoland_db$create_alloc_params_t(n_perturbations = 5L, sd = 0.05)
-
-#### Arguments
-
-- `n_perturbations`:
-
-  Number of perturbed parameter sets to generate, each assigned to a in
-  id_run in
-  [runs_t](https://ethzplus.github.io/evoland-plus/reference/runs_t.md)
-
-- `sd`:
-
-  Standard deviation for random perturbation of frac_expander
+    evoland_db$create_alloc_params_t()
 
 ------------------------------------------------------------------------
 
@@ -907,6 +1074,30 @@ Get the transition rates that were observed, see
 #### Usage
 
     evoland_db$get_obs_trans_rates()
+
+------------------------------------------------------------------------
+
+### `evoland_db$trans_rates_dinamica_v()`
+
+#### Usage
+
+    evoland_db$trans_rates_dinamica_v(id_period)
+
+------------------------------------------------------------------------
+
+### `evoland_db$adjusted_trans_pot_v()`
+
+#### Usage
+
+    evoland_db$adjusted_trans_pot_v(id_period_post)
+
+------------------------------------------------------------------------
+
+### `evoland_db$alloc_params_clumpy_v()`
+
+#### Usage
+
+    evoland_db$alloc_params_clumpy_v()
 
 ------------------------------------------------------------------------
 
