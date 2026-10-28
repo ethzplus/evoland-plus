@@ -38,8 +38,6 @@ Grouped by the [workflow](workflow.md) phase that writes them:
   - `runs_t`: the run hierarchy every run-dependent table is keyed on
   - `reporting_t`: key-value report metadata
 
-`intrv_meta_t` and `intrv_masks_t` still appear in the diagram below until ethzplus/evoland.plus#54 removes them.
-
 <!-- BEGIN GENERATED ER DIAGRAM: run `Rscript devdocs/er_diagram.R`, do not edit -->
 ```mermaid
 erDiagram
@@ -58,23 +56,6 @@ erDiagram
         int id_coord PK
         float lon
         float lat
-    }
-    intrv_masks_t {
-        int id_run PK, FK
-        int id_intrv PK, FK
-        int id_coord PK, FK
-    }
-    intrv_meta_t {
-        int id_intrv PK
-        list id_period_list
-        list id_trans_list
-        bool pre_allocation
-        string name
-        string pretty_name
-        string description
-        list sources
-        map params
-        int id_run PK, FK
     }
     lulc_data_t {
         int id_run PK, FK
@@ -171,10 +152,6 @@ erDiagram
 
     alloc_params_t }o--|| runs_t : "id_run"
     alloc_params_t }o--|| trans_meta_t : "id_trans"
-    intrv_masks_t }o--|| runs_t : "id_run"
-    intrv_masks_t }o--|| intrv_meta_t : "id_intrv"
-    intrv_masks_t }o--|| coords_t : "id_coord"
-    intrv_meta_t }o--|| runs_t : "id_run"
     lulc_data_t }o--|| runs_t : "id_run"
     lulc_data_t }o--|| coords_t : "id_coord"
     lulc_data_t }o--|| lulc_meta_t : "id_lulc"

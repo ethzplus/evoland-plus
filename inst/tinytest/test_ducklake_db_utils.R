@@ -137,3 +137,37 @@ expect_equal(
   wrapper(a = 2, b = 3),
   list(sum = 5, self_ok = TRUE, private_ok = TRUE, super_ok = FALSE)
 )
+
+# create_method_binding() forwards only the arguments a caller supplies, so a default in the
+# R6 signature never reaches the implementation: the defaults must be the same in both (#101)
+
+# the arguments a caller passes: the binding supplies self, private and super
+caller_formals <- function(fun) {
+  args <- as.list(formals(fun))
+  args <- args[setdiff(names(args), c("self", "private", "super"))]
+  # a method without arguments: an empty list either way, without a names attribute
+  if (length(args) == 0L) list() else args
+}
+first_match <- function(text, pattern) {
+  regmatches(text, regexpr(pattern, text, perl = TRUE))
+}
+bound_methods <- c(evoland.plus::evoland_db$public_methods, evoland.plus::ducklake_db$public_methods)
+for (method in names(bound_methods)) {
+  implementation <-
+    bound_methods[[method]] |>
+    body() |>
+    deparse() |>
+    paste(collapse = " ") |>
+    first_match("(?<=create_method_binding\\()[A-Za-z_.]+")
+  # methods that don't delegate, such as initialize()
+  if (length(implementation) == 0L) {
+    next
+  }
+  expect_identical(
+    caller_formals(bound_methods[[method]]),
+    implementation |>
+      get(envir = asNamespace("evoland.plus")) |>
+      caller_formals(),
+    info = paste0("defaults of db$", method, "()")
+  )
+}
