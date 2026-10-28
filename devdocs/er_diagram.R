@@ -7,7 +7,7 @@
 # foreign key if it is named after another table's id: `id_<entity>` for the table
 # `<entity>_t`, `<entity>s_t` or `<entity>_meta_t`, optionally with a role prefix or suffix
 # (`parent_id_run`, `id_lulc_anterior`, `id_period_post`). CI fails if the committed
-# diagram differs from the generated one, see .github/workflows/R-CMD-check-r2u.yaml.
+# diagram differs from the generated one, see .github/workflows/R-CMD-check.yaml.
 
 if (file.exists("DESCRIPTION") && requireNamespace("pkgload", quietly = TRUE)) {
   pkgload::load_all(quiet = TRUE)
