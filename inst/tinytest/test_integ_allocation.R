@@ -8,8 +8,9 @@ if (!at_home()) {
 source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
 db <- make_test_db()
 
-# without Dinamica, exercise the plumbing around it: the fallback copies the anterior map
-options_before <- options(evoland.dinamica_fallback = !nzchar(Sys.which("DinamicaConsole")))
+# without Dinamica, exercise the plumbing around it: the fallback copies the anterior map;
+# tinytest resets the option after this file
+options(evoland.dinamica_fallback = !nzchar(Sys.which("DinamicaConsole")))
 db$trans_rates_t <- db$get_obs_trans_rates()
 db$trans_rates_t <- extrapolate_trans_rates(
   db$trans_rates_t,
@@ -317,4 +318,3 @@ expect_true(all(
     evaluated_params$similarity >= 0
 ))
 
-options(options_before)

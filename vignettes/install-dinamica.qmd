@@ -172,6 +172,3 @@ tinytest::test_package("evoland")
 **`Failed to send message, session is closed` in a Dinamica log**
 : `DINAMICA_EGO_8_TEMP_DIR` is set somewhere (shell profile, `~/.Renviron`, `Renviron.site`)
   and overrides the per-run directory Dinamica passes to R; remove it (see step 5).
-
-**`Dinamica EGO setup is incomplete`**
-: Work through the listed items; each corresponds to one of the steps above.

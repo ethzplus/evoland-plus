@@ -60,17 +60,10 @@ format_dinamica_problems <- function(problems) {
   )
 }
 
-# Without Dinamica, run_alloc_dinamica() can copy the anterior map in place of an
-# allocation, so that the plumbing around Dinamica can be tested where it is not
-# installed. Opt in with options(evoland.dinamica_fallback = TRUE); never for real use.
-dinamica_fallback <- function() {
-  isTRUE(getOption("evoland.dinamica_fallback", FALSE))
-}
-
 # Stop early, before predicting or writing inputs, if Dinamica cannot run at all; warn if
 # a run is likely to fail inside Dinamica
 require_dinamica <- function(allow_fallback = TRUE, warn = TRUE) {
-  if (allow_fallback && dinamica_fallback()) {
+  if (allow_fallback && isTRUE(getOption("evoland.dinamica_fallback"))) {
     return(invisible(NULL))
   }
   problems <- check_dinamica(quiet = TRUE)
@@ -199,7 +192,10 @@ run_alloc_dinamica <- function(
   work_dir = format(Sys.time(), "%Y-%m-%d_%Hh%Mm%Ss"),
   ...
 ) {
-  if (dinamica_fallback() && !nzchar(Sys.which("DinamicaConsole"))) {
+  # Without Dinamica, copy the anterior map in place of an allocation, so that the plumbing
+  # around Dinamica can be tested where it is not installed. Opt in with
+  # options(evoland.dinamica_fallback = TRUE); never for real use.
+  if (isTRUE(getOption("evoland.dinamica_fallback")) && !nzchar(Sys.which("DinamicaConsole"))) {
     warning(
       "DinamicaConsole not found on PATH; ",
       "Copying anterior.tif to posterior.tif as fallback so we can test."
