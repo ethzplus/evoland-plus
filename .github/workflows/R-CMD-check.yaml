@@ -1,39 +1,45 @@
-# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
-# Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
+# One R CMD check for pull requests and pushes. Pull requests run linux only; pushes and
+# manual runs add macOS. Linux fetches CRAN dependencies as apt binaries via r2u, which
+# also resolves the system libraries they link against (gdal, proj); macOS uses CRAN's
+# binaries, which bundle them. See https://eddelbuettel.github.io/r2u/
 on:
+  pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
-name: "R CMD check (full)"
-
-env:
-  QUARTO_LOG_LEVEL: DEBUG
+name: "R CMD check"
 
 permissions: read-all
+
+# a new push to a pull request supersedes the run on its previous head
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   R-CMD-check:
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - { name: rocker-r2u4ci, os: ubuntu-latest, container: rocker/r2u4ci }
-          - { name: macos, os: macos-latest }
-          # - { name: ubuntu,    os: ubuntu-latest }
-          # TODO do we want to test on windows? does pak manage sys. deps?
+        os: [ubuntu-latest, macos-latest]
+        exclude:
+          - os: ${{ github.event_name == 'pull_request' && 'macos-latest' || 'none' }}
 
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.name }}
+    # the linux name is what branch protection requires
+    name: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-latest (r2u)' || matrix.os }}
 
     env:
       # r-ci defaults to --no-build-vignettes/--no-vignettes
       R_BUILD_ARGS: "--no-manual --compact-vignettes=gs+qpdf"
       R_CHECK_ARGS: "--no-manual --as-cran"
+      # tests/tinytest.R runs the integration tests only at home
+      NOT_CRAN: "true"
       # hardening flags from the Ubuntu R build; the package ships no Makevars
       _R_CHECK_COMPILATION_FLAGS_KNOWN_: >-
         -Wdate-time -Werror=format-security -Wformat -Wformat-security
         -mno-omit-leaf-frame-pointer -fno-omit-frame-pointer
-
 
     steps:
       - uses: actions/checkout@v6
@@ -44,33 +50,26 @@ jobs:
       # is not an R package and has to come from somewhere else
       - uses: quarto-dev/quarto-actions/setup@v2
 
-      # TODO check if we can make use of caching for macos + ubuntu sys. deps.
-      #
-      # - name: Resolve macOS dependency versions
-      #   if: runner.os == 'macos'
-      #   run: |
-      #     brew update
-      #     brew info --json gdal proj | jq -r '.[].versions.stable' > brew-versions.txt
-
-      # - name: Cache macOS system dependencies
-      #   if: runner.os == 'macos'
-      #   id: cache-brew
-      #   uses: actions/cache@v5
-      #   with:
-      #     path: |
-      #       /opt/homebrew/Cellar/
-      #       /usr/local/Cellar/
-      #     key: ${{ runner.os }}-brew-gdal-proj-${{ hashFiles('brew-versions.txt') }}
-
-      - name: Install macOS dependencies
-        if: runner.os == 'macos'
-        run: brew install gdal proj
-
-      - name: Install dependencies as apt binaries
+      - name: Install dependencies
         run: ./run.sh install_all
 
+      # builds the tarball, installs it into <pkg>.Rcheck and runs every test file there
       - name: R CMD check
         run: ./run.sh run_tests
+
+      - name: Per-file test results
+        if: ${{ !cancelled() }}
+        run: cat *.Rcheck/tests/tinytest.Rout* || true
+
+      # reuses the copy R CMD check installed rather than compiling once more
+      - name: ER diagram in devdocs/design/database.md is up to date
+        if: runner.os == 'Linux'
+        run: |
+          R_LIBS="$(ls -d "$PWD"/*.Rcheck)" Rscript devdocs/er_diagram.R
+          if ! git diff --exit-code devdocs/design/database.md; then
+            echo "::error file=devdocs/design/database.md::ER diagram is out of date; run 'Rscript devdocs/er_diagram.R' and commit the result"
+            exit 1
+          fi
 
       - name: Dump check log
         if: failure()
