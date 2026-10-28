@@ -124,12 +124,13 @@ trans_pred_data_v <- function(
   pred_meta_t <- self$pred_meta_t
   if (missing(id_pred)) {
     id_pred <- pred_meta_t[["id_pred"]]
-  }
-  # a predictor without metadata cannot be cast or filled; with the pivot's columns
-  # spelled out (see inst/trans_pred_data.sql), it would otherwise come back as NULLs
-  id_pred <- intersect(sort(unique(as.integer(id_pred))), pred_meta_t[["id_pred"]])
-  if (length(id_pred) == 0L) {
-    stop("No predictor columns: none of the requested id_pred is in pred_meta_t", call. = FALSE)
+  } else {
+    # a predictor without metadata cannot be cast or filled; with the pivot's columns
+    # spelled out (see inst/trans_pred_data.sql), it would otherwise come back as NULLs
+    id_pred <- intersect(sort(unique(as.integer(id_pred))), pred_meta_t[["id_pred"]])
+    if (length(id_pred) == 0L) {
+      stop("No predictor columns: none of the requested id_pred is in pred_meta_t", call. = FALSE)
+    }
   }
 
   result <-
