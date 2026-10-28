@@ -149,7 +149,7 @@ if (Sys.which("DinamicaConsole") != "") {
 
 # check_dinamica: an unset installation directory is a required problem, and the entry
 # points stop on it with the list of problems unless the test fallback is enabled
-env_before <- Sys.getenv("DINAMICA_EGO_8_HOME", unset = NA, names = TRUE)
+# tinytest resets the environment variable and the option after this file
 Sys.setenv(DINAMICA_EGO_8_HOME = file.path(tempdir(), "no-dinamica-here"))
 problems <- evoland::check_dinamica(quiet = TRUE)
 expect_true(
@@ -157,17 +157,8 @@ expect_true(
 )
 expect_message(evoland::check_dinamica(), "Dinamica EGO setup is incomplete")
 
-options_before <- options(evoland.dinamica_fallback = FALSE)
+options(evoland.dinamica_fallback = FALSE)
 expect_error(evoland:::require_dinamica(), "DINAMICA_EGO_8_HOME")
 options(evoland.dinamica_fallback = TRUE)
 expect_silent(evoland:::require_dinamica())
 expect_error(evoland:::require_dinamica(allow_fallback = FALSE), "DINAMICA_EGO_8_HOME")
-options(options_before)
-
-for (var in names(env_before)) {
-  if (is.na(env_before[[var]])) {
-    Sys.unsetenv(var)
-  } else {
-    do.call(Sys.setenv, as.list(env_before[var]))
-  }
-}
