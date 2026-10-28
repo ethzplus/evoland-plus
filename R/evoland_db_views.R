@@ -14,7 +14,7 @@
 #'
 #' @section Methods Added:
 #'
-#' - `trans_pred_data_v(id_trans)` - Returns wide table of transition results and predictor data for
+#' - `pred_wide_train_v(id_trans)` - Returns wide table of transition results and predictor data for
 #'   a specific transition. Used as input to covariance filtering.
 #' - `adjusted_trans_pot_v(id_period_post)` - Returns allocation-ready transition potentials:
 #'   column-scaled to match target transition rates, then row-closed so per-cell change

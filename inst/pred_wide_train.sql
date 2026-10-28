@@ -131,21 +131,21 @@ with
       using (id_pred, id_period, src_period)
   ),
   -- the explicit column list fixes the design matrix's columns, also for a predictor
-  -- without data, and DuckDB (>= 2.0) cannot infer the pivot values of a CTE
-  pred_data_wide as (
-    pivot (
-      select
-        id_coord,
-        id_period,
-        'id_pred_' || id_pred as pred_col,
-        value
-      from
-        pred_data_resolved
-    ) on pred_col in ({pred_cols*}) using first(value)
+  -- without data. The parentheses matter: without them, the IN list binds to id_pred
+  -- alone, and DuckDB (>= 2.0) cannot infer the pivot values of a CTE.
+  pred_wide as (
+    pivot pred_data_resolved on ('id_pred_' || id_pred) in ({pred_cols*}) using first(value)
     group by
       id_coord,
       id_period
   )
+-- id_coord and id_period_anterior identify each row. The fitting workers drop them before
+-- training, but they are kept for spatial or temporal resampling (ethzplus/evoland-plus#90).
+-- id_period_anterior could also become a predictor itself: as such, it would make the
+-- transition model time-inhomogeneous (its probabilities change with the period); a
+-- predictor counting the periods since a cell last changed would make it semi-Markov
+-- (dependent on how long a cell has been in its class), which the current first-order
+-- model, conditioned on the anterior class only, is not.
 select
   tr.id_coord,
   tr.id_period as id_period_anterior,
@@ -153,7 +153,7 @@ select
   pdata.* exclude (id_coord, id_period)
 from
   trans_result as tr
-  left join pred_data_wide as pdata on tr.id_coord = pdata.id_coord
+  left join pred_wide as pdata on tr.id_coord = pdata.id_coord
   and tr.id_period = pdata.id_period
 -- DuckDB returns rows in no fixed order; subsampling and order-sensitive learners (ranger)
 -- replay only on a fixed one

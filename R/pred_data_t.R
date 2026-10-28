@@ -110,7 +110,7 @@ pred_data_available_v <- function(self) {
 #' @return data.table with columns id_coord, id_period, did_transition (bool),
 #'         and one column per predictor (`id_pred_{n}`), ordered by id_coord and
 #'         id_period_anterior so that subsampling and order-sensitive learners replay
-trans_pred_data_v <- function(
+pred_wide_train_v <- function(
   self,
   id_trans,
   id_pred
@@ -124,17 +124,18 @@ trans_pred_data_v <- function(
   pred_meta_t <- self$pred_meta_t
   if (missing(id_pred)) {
     id_pred <- pred_meta_t[["id_pred"]]
-  }
-  # a predictor without metadata cannot be cast or filled; with the pivot's columns
-  # spelled out (see inst/trans_pred_data.sql), it would otherwise come back as NULLs
-  id_pred <- intersect(sort(unique(as.integer(id_pred))), pred_meta_t[["id_pred"]])
-  if (length(id_pred) == 0L) {
-    stop("No predictor columns: none of the requested id_pred is in pred_meta_t", call. = FALSE)
+  } else {
+    # a predictor without metadata cannot be cast or filled; with the pivot's columns
+    # spelled out (see inst/pred_wide_train.sql), it would otherwise come back as NULLs
+    id_pred <- intersect(sort(unique(as.integer(id_pred))), pred_meta_t[["id_pred"]])
+    if (length(id_pred) == 0L) {
+      stop("No predictor columns: none of the requested id_pred is in pred_meta_t", call. = FALSE)
+    }
   }
 
   result <-
     self$get_query(
-      read_sql("trans_pred_data.sql"),
+      read_sql("pred_wide_train.sql"),
       lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
       period_read_expr = self$get_read_expr("periods_t"),
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
@@ -154,7 +155,7 @@ trans_pred_data_v <- function(
 #' @param id_period_anterior Scalar integerish of anterior period ID, i.e. we
 #' get the predictors that explain the processes over the next N years
 #' @param id_run Integer, the run whose predictors and anterior map are read
-pred_data_wide_v <- function(
+pred_wide_predict_v <- function(
   self,
   private,
   id_trans,
@@ -178,7 +179,7 @@ pred_data_wide_v <- function(
   }
 
   trans_preds_read_expr <- self$get_read_expr("trans_preds_t", id_run = id_run)
-  # the pivot needs its columns spelled out, see inst/pred_data_wide.sql
+  # the pivot needs its columns spelled out, see inst/pred_wide_predict.sql
   id_pred <- self$get_query(
     "select distinct id_pred from {trans_preds_read_expr} {trans_filter} order by id_pred",
     as_atomic = TRUE
@@ -187,7 +188,7 @@ pred_data_wide_v <- function(
 
   result <-
     self$get_query(
-      read_sql("pred_data_wide.sql"),
+      read_sql("pred_wide_predict.sql"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       trans_preds_read_expr = trans_preds_read_expr,
       lulc_data_read_expr = self$get_read_expr("lulc_data_t", id_run = id_run),

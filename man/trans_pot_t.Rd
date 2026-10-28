@@ -29,7 +29,7 @@ predict_trans_pot(
 
 \item{self}{an \link{evoland_db} instance}
 
-\item{id_period_post}{scalar integerish, passed to \code{\link[=pred_data_wide_v]{pred_data_wide_v()}}}
+\item{id_period_post}{scalar integerish, passed to \code{\link[=pred_wide_predict_v]{pred_wide_predict_v()}}}
 
 \item{select_score}{character scalar, name of score/measure to identify best fitting model}
 
