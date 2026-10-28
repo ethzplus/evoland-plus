@@ -58,9 +58,11 @@ over count of cells of id_lulc_anterior in id_period
 carries the last period of \code{lulc_data}.
 }
 \description{
-Creates a trans_rates_t table that stores transition rates (probabilities) for each
-transition type in each time period. Historical rates are calculated from observed
-transitions, and future rates are extrapolated using linear regression.
+Creates a trans_rates_t table that stores transition rates for each transition type in
+each time period. For observed periods, rates describe the change that happened; for
+extrapolated periods, they prescribe the change allocation has to produce. Future rates
+can be extrapolated with a linear regression (\code{\link[=extrapolate_trans_rates]{extrapolate_trans_rates()}}) or derived from
+target class shares or areas with a linear program (\code{\link[=solve_trans_rates]{solve_trans_rates()}}).
 }
 \section{Methods (by generic)}{
 \itemize{

@@ -3,10 +3,12 @@ Provides design matrix for transitions (did / did not transition) for
 non-extrapolated periods. cross-joins the static predictors to all periods.
 Assumes that the read expressions return a single run.
 
-Meant to be run with glue for interpolation, requiring
+Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
 - {id_trans}
-- {toString(id_pred)}
+- {id_pred*}
+Columns:
+- {pred_cols*}: the pivoted column names, `id_pred_<n>` for each of `id_pred`
 Data sources:
 - {lulc_data_read_expr}
 - {period_read_expr}
@@ -71,7 +73,7 @@ with
       inner join period_select s on d.id_period = s.id_period_anterior
     where
       d.id_period >= 1
-      and d.id_pred in ({toString(id_pred)})
+      and d.id_pred in ({id_pred*})
     union all
     select
       p0.id_coord,
@@ -92,7 +94,7 @@ with
       ) as periods
     where
       p0.id_period = 0
-      and id_pred in ({toString(id_pred)})
+      and id_pred in ({id_pred*})
   ),
   -- a predictor may carry both a period-specific value and an id_period = 0
   -- fallback (e.g. a climate baseline overridden by a scenario projection).
@@ -128,12 +130,22 @@ with
       pred_src_present p
       using (id_pred, id_period, src_period)
   ),
-  pred_data_wide as (
-    pivot pred_data_resolved on 'id_pred_' || id_pred using first(value)
+  -- the explicit column list fixes the design matrix's columns, also for a predictor
+  -- without data. The parentheses matter: without them, the IN list binds to id_pred
+  -- alone, and DuckDB (>= 2.0) cannot infer the pivot values of a CTE.
+  pred_wide as (
+    pivot pred_data_resolved on ('id_pred_' || id_pred) in ({pred_cols*}) using first(value)
     group by
       id_coord,
       id_period
   )
+-- id_coord and id_period_anterior identify each row. The fitting workers drop them before
+-- training, but they are kept for spatial or temporal resampling (ethzplus/evoland-plus#90).
+-- id_period_anterior could also become a predictor itself: as such, it would make the
+-- transition model time-inhomogeneous (its probabilities change with the period); a
+-- predictor counting the periods since a cell last changed would make it semi-Markov
+-- (dependent on how long a cell has been in its class), which the current first-order
+-- model, conditioned on the anterior class only, is not.
 select
   tr.id_coord,
   tr.id_period as id_period_anterior,
@@ -141,5 +153,10 @@ select
   pdata.* exclude (id_coord, id_period)
 from
   trans_result as tr
-  left join pred_data_wide as pdata on tr.id_coord = pdata.id_coord
-  and tr.id_period = pdata.id_period;
+  left join pred_wide as pdata on tr.id_coord = pdata.id_coord
+  and tr.id_period = pdata.id_period
+-- DuckDB returns rows in no fixed order; subsampling and order-sensitive learners (ranger)
+-- replay only on a fixed one
+order by
+  tr.id_coord,
+  tr.id_period;

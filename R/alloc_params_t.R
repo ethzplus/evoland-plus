@@ -20,7 +20,7 @@
 #'   - `frac_expander`: Fraction of transition cells adjacent to existing patches
 #'   - `frac_patcher`: Fraction of transition cells forming new patches
 #'   - `similarity`: Similarity metric for allocation parameters, see
-#'      [calc_fuzzy_similarity()] and [eval_alloc_params_t()]
+#'      [calc_transition_similarity()] and [eval_alloc_params_t()]
 #'
 #' @export
 as_alloc_params_t <- function(x) {
@@ -49,7 +49,7 @@ as_alloc_params_t <- function(x) {
     cast_dt_col("frac_patcher", "float") |>
     cast_dt_col("similarity", "float")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "alloc_params_t",
     key_cols = c("id_run", "id_trans")
@@ -169,7 +169,8 @@ compute_alloc_params_single <- function(
   id_lulc_post
 ) {
   stopifnot(
-    "cells must be square" = terra::res(lulc_ant)[1] == terra::res(lulc_ant)[2]
+    # rasters rebuilt from coords_t carry floating point noise in their resolution
+    "cells must be square" = isTRUE(all.equal(terra::res(lulc_ant)[1], terra::res(lulc_ant)[2]))
   )
   # Create binary raster of transition cells (anterior class -> posterior class)
   # 1 = cells that transitioned from id_lulc_ant to id_lulc_post
@@ -247,24 +248,14 @@ compute_alloc_params_single <- function(
   )
 }
 
-#' @describeIn alloc_params_t Create allocation parameters for each transition by
-#' estimating patch shape and expansion/patch ratio from observed periods, then
-#' aggregate and perturb parameters for use in runs.
+#' @describeIn alloc_params_t Estimate allocation parameters for each viable transition from
+#' the observed periods, averaged across period pairs, and return them for the active `id_run`.
+#' Only the best estimate is returned: how to perturb it, e.g. to probe the sensitivity of an
+#' allocation to patch geometry, is left to the caller, who writes the perturbed sets onto
+#' runs of their own.
 #' @param self [evoland_db] instance to query
-#' @param n_perturbations Integer number of randomly perturbed parameter sets to create
-#' per transition (default: 5)
-#' @param sd Numeric standard deviation for random perturbations (default: 0.05)
-create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
-  # Validate parameters
-  stopifnot(
-    "n_perturbations must be an int >= 0" = {
-      (as.integer(n_perturbations) == n_perturbations) && n_perturbations >= 0
-    },
-    "sd must be a positive number" = sd > 0,
-    "runs_t must contain at least an unperturbed run + n_perturbations runs" = {
-      nrow(self$runs_t) >= (1L + n_perturbations)
-    }
-  )
+create_alloc_params_t <- function(self) {
+  stopifnot("id_run must be set" = !is.null(self$id_run))
 
   # Get observed periods (not extrapolated, and > 1 since we need period - 1)
   periods <- self$periods_t[is_extrapolated == FALSE & id_period > 1]
@@ -362,36 +353,10 @@ create_alloc_params_t <- function(self, n_perturbations = 5L, sd = 0.05) {
     by = id_trans
   ]
 
-  # Step 3: Create N perturbed versions for each transition
-  message(glue::glue("Creating {n_perturbations} randomly perturbed versions per transition..."))
-
-  final_results <- list()
-  final_results[[1]] <- agg_dt
-
-  for (i in seq_len(n_perturbations)) {
-    # Add random perturbation to frac_expander
-    frac_exp_perturbed <- agg_dt[["frac_expander"]] + stats::rnorm(nrow(agg_dt), mean = 0, sd = sd)
-
-    # Clamp expanded / patched to [0, 1]
-    frac_exp_perturbed <- pmax(0, pmin(1, frac_exp_perturbed))
-    frac_patch_perturbed <- 1 - frac_exp_perturbed
-
-    # add to list of perturbed params
-    agg_dt_perturbed <- data.table::copy(agg_dt)
-    data.table::set(agg_dt_perturbed, j = "frac_expander", value = frac_exp_perturbed)
-    data.table::set(agg_dt_perturbed, j = "frac_patcher", value = frac_patch_perturbed)
-    final_results[[i + 1L]] <- agg_dt_perturbed # offset bcoz [[1]] is unperturbed
-  }
-
-  # Step 4: Bind list items into data.table, add id_run; cast as alloc params table
-  results_dt <-
-    final_results |>
-    data.table::rbindlist(idcol = "id_run") |>
-    as_alloc_params_t()
+  results_dt <- as_alloc_params_t(agg_dt[, id_run := self$id_run])
 
   message(glue::glue(
-    "Successfully computed {nrow(results_dt)} allocation parameter sets ",
-    "({nrow(agg_dt)} transitions x ({n_perturbations} perturbations + best estimate))"
+    "Computed allocation parameters for {nrow(results_dt)} transitions (id_run={self$id_run})"
   ))
 
   results_dt

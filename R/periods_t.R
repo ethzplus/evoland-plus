@@ -20,6 +20,15 @@
 #'     for extrapolation?
 #' @export
 as_periods_t <- function(x) {
+  if (missing(x)) {
+    x <- data.table::data.table(
+      id_period = integer(0),
+      start_date = as.Date(character(0)),
+      end_date = as.Date(character(0)),
+      is_extrapolated = logical(0)
+    )
+  }
+
   data.table::setDT(x) |>
     cast_dt_col("id_period", "int") |>
     cast_dt_col("start_date", "date") |>
@@ -37,7 +46,7 @@ as_periods_t <- function(x) {
     ))
   ]
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "periods_t",
     key_cols = c("start_date", "end_date"),

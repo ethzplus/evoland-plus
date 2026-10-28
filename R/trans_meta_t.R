@@ -48,7 +48,7 @@ as_trans_meta_t <- function(x) {
     cast_dt_col("frequency_abs", "float") |>
     cast_dt_col("is_viable", "bool")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "trans_meta_t",
     key_cols = c("id_lulc_anterior", "id_lulc_posterior"),

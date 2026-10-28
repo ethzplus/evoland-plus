@@ -1,6 +1,6 @@
 Package: evoland
 Title: evoland-plus - or evoland for short - analyses land use evolution
-Version: 0.1.0
+Version: 0.1.0.9000
 Authors@R:
     person("Jan", "Hartman", email = "jhartman@ethz.ch", role = c("aut", "cre"))
 Description: The evoland-plus package gathers land use data and can be
@@ -49,13 +49,13 @@ Collate:
     'trans_models_t.R'
     'alloc_dinamica.R'
     'alloc_clumpy.R'
+    'alloc_greedy.R'
     'coords_t.R'
-    'parquet_db_utils.R'
-    'parquet_db.R'
+    'ducklake_db.R'
+    'ducklake_db_utils.R'
     'evoland_db.R'
     'evoland_db_util.R'
     'evoland_db_views.R'
-    'fuzzy_similarity.R'
     'grrf_learner.r'
     'init.R'
     'intrv_masks_t.R'
@@ -79,4 +79,5 @@ Collate:
     'util_dinamica.R'
     'util_download.R'
     'util_terra.R'
+    'validation.R'
 Config/roxygen2/version: 8.1.0

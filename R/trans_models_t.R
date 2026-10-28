@@ -44,7 +44,7 @@ as_trans_models_t <- function(x) {
     cast_dt_col("id_run", "int") |>
     cast_dt_col("id_trans", "int")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     "trans_models_t",
     key_cols = c("id_run", "id_trans", "learner_id"),
@@ -92,21 +92,18 @@ fit_partial_model_worker <- function(
   tryCatch(
     {
       # Fetch ALL data into memory
-      trans_pred_data_full <- db$trans_pred_data_v(
+      pred_wide_train <- db$pred_wide_train_v(
         id_trans = item[["id_trans"]],
-        id_pred = item[["id_pred"]][[1L]],
-
-        # if seed is set, we want ordering for reproducible sampling
-        ordered = !is.null(seed)
+        id_pred = item[["id_pred"]][[1L]]
       )[, -c("id_coord", "id_period_anterior")]
 
-      if (nrow(trans_pred_data_full) == 0L) {
+      if (nrow(pred_wide_train) == 0L) {
         stop(glue::glue(
           "No data for transition {item[['id_trans']]}, skipping"
         ))
       }
 
-      pred_cols <- grep("^id_pred_", names(trans_pred_data_full), value = TRUE)
+      pred_cols <- grep("^id_pred_", names(pred_wide_train), value = TRUE)
       if (length(pred_cols) == 0L) {
         stop(glue::glue(
           "No predictor columns for transition {item[['id_trans']]}, skipping"
@@ -115,7 +112,7 @@ fit_partial_model_worker <- function(
 
       # Build mlr3 task and train a fresh clone of the learner
       full_task <- mlr3::as_task_classif(
-        trans_pred_data_full,
+        pred_wide_train,
         target = "did_transition",
         positive = "TRUE"
       )
@@ -190,20 +187,20 @@ fit_full_model_worker <- function(item, db, learner = NULL) {
   tryCatch(
     {
       # Fetch full data
-      trans_pred_data_full <- db$trans_pred_data_v(
+      pred_wide_train <- db$pred_wide_train_v(
         id_trans = item[["id_trans"]],
-        id_pred = item[["id_pred"]][[1L]],
+        id_pred = item[["id_pred"]][[1L]]
       )
 
-      if (nrow(trans_pred_data_full) == 0L) {
+      if (nrow(pred_wide_train) == 0L) {
         stop(glue::glue(
           "No data for transition {item[['id_trans']]}, skipping"
         ))
       }
 
-      pred_cols <- grep("^id_pred_", names(trans_pred_data_full), value = TRUE)
+      pred_cols <- grep("^id_pred_", names(pred_wide_train), value = TRUE)
       task_cols <- c("did_transition", pred_cols)
-      task_data <- trans_pred_data_full[, .SD, .SDcols = task_cols]
+      task_data <- pred_wide_train[, .SD, .SDcols = task_cols]
       task_data[, did_transition := factor(did_transition, levels = c("FALSE", "TRUE"))]
 
       full_task <- mlr3::as_task_classif(
@@ -474,16 +471,15 @@ fit_full_models <- function(
   } else {
     # Score-select mode
     stopifnot(
-      "select_score must be a character string" = is.character(select_score) &&
-        length(select_score) == 1L,
-      "select_maximize must be TRUE or FALSE" = isTRUE(select_maximize) || isFALSE(select_maximize),
-      "trans_models_t is missing" = file.exists(self$get_table_path("trans_models_t"))
+      "select_score must be a character string" = is_scalar_character(select_score),
+      "select_maximize must be TRUE or FALSE" = is_scalar_logical(select_maximize),
+      "trans_models_t is missing" = self$row_count("trans_models_t") > 0L
     )
 
     # Identify the best partial model per transition (using QUALIFY window function)
     # and get the predictor ID lists from trans_preds_t in the same query
     best_models <-
-      self$get_query(glue::glue(
+      self$get_query(
         r"[
       with preds_nested as (
         select
@@ -515,11 +511,12 @@ fit_full_models <- function(
           partition by tm.id_run, tm.id_trans
           -- learner_id breaks ties (e.g. two learners scoring an identical AUC), so the
           -- selection does not depend on scan order
-          order by tm.crossval_score['{select_score}'] {ifelse(select_maximize, "desc", "asc")},
+          order by tm.crossval_score[{select_score}] {sort_direction},
             tm.learner_id
       ) = 1;
-        ]"
-      )) |>
+        ]",
+        sort_direction = DBI::SQL(if (select_maximize) "desc" else "asc")
+      ) |>
       convert_list_cols(
         c("learner_params", "crossval_score"),
         kv_df_to_list

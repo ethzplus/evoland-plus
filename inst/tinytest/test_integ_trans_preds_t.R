@@ -10,7 +10,11 @@ source(file.path(
   system.file("tinytest", package = "evoland"),
   "helper_testdb.R"
 ))
-db <- make_test_db(include_neighbors = FALSE, include_trans_preds = FALSE)
+db <- make_test_db(
+  include_neighbors = FALSE,
+  include_trans_preds = FALSE,
+  include_alloc_params = FALSE
+)
 
 # Test empty table
 expect_stdout(print(as_trans_preds_t()), "Transition-Predictor Relationships")
@@ -24,8 +28,7 @@ expect_message(
   perf_results <- db$get_pred_filter_score(
     # the default performance measure for a classification task is classif.ce
     # with minimize TRUE so we expect scores in [-1,0]
-    filter = mlr3filters::FilterPerformance$new(resampling = mlr3::rsmp("cv", folds = 2)),
-    ordered_pred_data = TRUE # for deterministic behavior
+    filter = mlr3filters::FilterPerformance$new(resampling = mlr3::rsmp("cv", folds = 2))
   ),
   "Processing 2 transitions"
 )
@@ -51,8 +54,7 @@ grrf_learner$param_set$values <- list(gamma = 0.9, num.trees = 10L, max.depth = 
 set.seed(13233)
 expect_message(
   importance_results <- db$get_pred_filter_score(
-    filter = mlr3filters::FilterImportance$new(learner = grrf_learner),
-    ordered_pred_data = TRUE # for deterministic behavior
+    filter = mlr3filters::FilterImportance$new(learner = grrf_learner)
   ),
   "Processing 2 transitions"
 )
@@ -80,8 +82,7 @@ set.seed(123)
 expect_message(
   perf_results_manual <- db$get_pred_filter_score(
     filter = mlr3filters::FilterPerformance$new(resampling = mlr3::rsmp("cv", folds = 2)),
-    trans_preds = trans_preds_t1,
-    ordered_pred_data = TRUE
+    trans_preds = trans_preds_t1
   ),
   "Processing 1 transitions"
 )

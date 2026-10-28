@@ -5,11 +5,10 @@
 \title{\code{evoland_db} - R6 Class for lulc data management}
 \description{
 An R6 class that provides an interface to a folder-based data storage system
-for the evoland package. Each table is stored as a parquet (or JSON) file.
-This class uses DuckDB for in-memory SQL operations while persisting data
-to disk in parquet format for better compression.
+for the evoland package. This class uses DuckDB for in-memory SQL operations
+while persisting data to a DuckLake catalog on disk.
 
-Inherits from \link{parquet_db} for generic database operations.
+Inherits from \link{ducklake_db} for generic database operations.
 }
 \seealso{
 Additional methods and active bindings are added to this class in separate files:
@@ -18,7 +17,7 @@ Additional methods and active bindings are added to this class in separate files
 }
 }
 \section{Super class}{
-\code{\link[evoland:parquet_db]{parquet_db}} -> \code{evoland_db}
+\code{\link[evoland:ducklake_db]{ducklake_db}} -> \code{evoland_db}
 }
 \section{Active bindings}{
   \if{html}{\out{<div class="r6-active-bindings">}}
@@ -68,9 +67,6 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
 \section{Methods}{
 \subsection{Public methods}{
   \itemize{
-    \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
-    \item \href{#method-evoland_db-adjusted_trans_pot_v}{\code{evoland_db$adjusted_trans_pot_v()}}
-    \item \href{#method-evoland_db-alloc_params_clumpy_v}{\code{evoland_db$alloc_params_clumpy_v()}}
     \item \href{#method-evoland_db-initialize}{\code{evoland_db$new()}}
     \item \href{#method-evoland_db-get_read_expr}{\code{evoland_db$get_read_expr()}}
     \item \href{#method-evoland_db-print}{\code{evoland_db$print()}}
@@ -79,10 +75,13 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-generate_neighbor_predictors}{\code{evoland_db$generate_neighbor_predictors()}}
     \item \href{#method-evoland_db-upsert_new_neighbors}{\code{evoland_db$upsert_new_neighbors()}}
     \item \href{#method-evoland_db-add_predictor}{\code{evoland_db$add_predictor()}}
-    \item \href{#method-evoland_db-trans_pred_data_v}{\code{evoland_db$trans_pred_data_v()}}
-    \item \href{#method-evoland_db-pred_data_wide_v}{\code{evoland_db$pred_data_wide_v()}}
+    \item \href{#method-evoland_db-pred_wide_train_v}{\code{evoland_db$pred_wide_train_v()}}
+    \item \href{#method-evoland_db-pred_wide_predict_v}{\code{evoland_db$pred_wide_predict_v()}}
+    \item \href{#method-evoland_db-figure_of_merit_v}{\code{evoland_db$figure_of_merit_v()}}
+    \item \href{#method-evoland_db-lulc_crosstab_v}{\code{evoland_db$lulc_crosstab_v()}}
     \item \href{#method-evoland_db-alloc_dinamica}{\code{evoland_db$alloc_dinamica()}}
     \item \href{#method-evoland_db-alloc_clumpy}{\code{evoland_db$alloc_clumpy()}}
+    \item \href{#method-evoland_db-alloc_greedy}{\code{evoland_db$alloc_greedy()}}
     \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
     \item \href{#method-evoland_db-create_alloc_params_t}{\code{evoland_db$create_alloc_params_t()}}
     \item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
@@ -93,56 +92,27 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-get_pred_filter_score}{\code{evoland_db$get_pred_filter_score()}}
     \item \href{#method-evoland_db-predict_trans_pot}{\code{evoland_db$predict_trans_pot()}}
     \item \href{#method-evoland_db-get_obs_trans_rates}{\code{evoland_db$get_obs_trans_rates()}}
+    \item \href{#method-evoland_db-trans_rates_dinamica_v}{\code{evoland_db$trans_rates_dinamica_v()}}
+    \item \href{#method-evoland_db-adjusted_trans_pot_v}{\code{evoland_db$adjusted_trans_pot_v()}}
+    \item \href{#method-evoland_db-alloc_params_clumpy_v}{\code{evoland_db$alloc_params_clumpy_v()}}
     \item \href{#method-evoland_db-clone}{\code{evoland_db$clone()}}
   }
 }
 \if{html}{\out{<details><summary>Inherited methods</summary>
 <ul>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="column_max"><a href='../../evoland/html/parquet_db.html#method-parquet_db-column_max'><code>parquet_db$column_max()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="commit"><a href='../../evoland/html/parquet_db.html#method-parquet_db-commit'><code>parquet_db$commit()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="delete_from"><a href='../../evoland/html/parquet_db.html#method-parquet_db-delete_from'><code>parquet_db$delete_from()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="execute"><a href='../../evoland/html/parquet_db.html#method-parquet_db-execute'><code>parquet_db$execute()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="fetch"><a href='../../evoland/html/parquet_db.html#method-parquet_db-fetch'><code>parquet_db$fetch()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_query"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_query'><code>parquet_db$get_query()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_metadata"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_metadata'><code>parquet_db$get_table_metadata()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="get_table_path"><a href='../../evoland/html/parquet_db.html#method-parquet_db-get_table_path'><code>parquet_db$get_table_path()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="list_tables"><a href='../../evoland/html/parquet_db.html#method-parquet_db-list_tables'><code>parquet_db$list_tables()</code></a></span></li>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="parquet_db" data-id="row_count"><a href='../../evoland/html/parquet_db.html#method-parquet_db-row_count'><code>parquet_db$row_count()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="checkpoint"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-checkpoint'><code>ducklake_db$checkpoint()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="commit"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-commit'><code>ducklake_db$commit()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="delete_from"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-delete_from'><code>ducklake_db$delete_from()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="execute"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-execute'><code>ducklake_db$execute()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="fetch"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-fetch'><code>ducklake_db$fetch()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_query"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_query'><code>ducklake_db$get_query()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="get_table_metadata"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-get_table_metadata'><code>ducklake_db$get_table_metadata()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="list_tables"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-list_tables'><code>ducklake_db$list_tables()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="next_id"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-next_id'><code>ducklake_db$next_id()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="row_count"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-row_count'><code>ducklake_db$row_count()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland" data-topic="ducklake_db" data-id="transaction"><a href='../../evoland/html/ducklake_db.html#method-ducklake_db-transaction'><code>ducklake_db$transaction()</code></a></span></li>
 </ul>
 </details>}}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
-\subsection{\code{evoland_db$trans_rates_dinamica_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$trans_rates_dinamica_v(id_period)}
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-adjusted_trans_pot_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-adjusted_trans_pot_v}{}}}
-\subsection{\code{evoland_db$adjusted_trans_pot_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$adjusted_trans_pot_v(id_period_post)}
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-alloc_params_clumpy_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-alloc_params_clumpy_v}{}}}
-\subsection{\code{evoland_db$alloc_params_clumpy_v()}}{
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$alloc_params_clumpy_v()}
-    \if{html}{\out{</div>}}
-  }
-}
-
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-evoland_db-initialize"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-initialize}{}}}
@@ -150,16 +120,31 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
   Initialize a new evoland_db object
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$new(path, id_run = 0L, read_only = FALSE, ...)}
+    \preformatted{evoland_db$new(
+  path = NULL,
+  id_run = 0L,
+  read_only = FALSE,
+  catalog = NULL,
+  data_path = NULL,
+  sqlite_journal_mode = "wal",
+  expire_older_than = NULL,
+  delete_older_than = NULL,
+  ...
+)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{path}}{Character string. Path to the data folder.}
+      \item{\code{path}}{Character. Path to the data folder; may be omitted
+when both \code{catalog} and \code{data_path} are given, see \link{ducklake_db}.}
       \item{\code{id_run}}{Atomic integer run ID, defaults to 0. Can be set to NULL}
       \item{\code{read_only}}{Logical. Whether to update the reporting table upon
-initialization; if TRUE, only parallel-safe appends are allowed.}
+initialization; if TRUE, the catalog is attached read-only.}
+      \item{\code{catalog}}{Character. DuckLake catalog connection, see \link{ducklake_db}.}
+      \item{\code{data_path}}{Character. DuckLake data files location, see \link{ducklake_db}.}
+      \item{\code{sqlite_journal_mode}}{Character. Journal mode for a SQLite catalog, see \link{ducklake_db}.}
+      \item{\code{expire_older_than, delete_older_than}}{Retention for \verb{$checkpoint()}, see \link{ducklake_db}.}
       \item{\code{...}}{passed on to \code{set_report}}
     }
     \if{html}{\out{</div>}}
@@ -177,13 +162,15 @@ initialization; if TRUE, only parallel-safe appends are allowed.}
 data slice, returns data from the closest ancestor run that has it.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$get_read_expr(table_name)}
+    \preformatted{evoland_db$get_read_expr(table_name, id_run = self$id_run)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{table_name}}{Character string table name}
+      \item{\code{id_run}}{Integer, the run whose lineage is read; defaults to the active run. Another
+run can be read without changing the active one.}
     }
     \if{html}{\out{</div>}}
   }
@@ -243,7 +230,7 @@ as its key}
   distance_breaks = NULL,
   overwrite = FALSE,
   quiet = FALSE,
-  chunksize = 1e+08
+  chunksize = 1e+07
 )}
     \if{html}{\out{</div>}}
   }
@@ -332,14 +319,14 @@ underlying raw data, see \code{\link[=download_and_verify]{download_and_verify()
 }
 
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-trans_pred_data_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-trans_pred_data_v}{}}}
-\subsection{\code{evoland_db$trans_pred_data_v()}}{
+\if{html}{\out{<a id="method-evoland_db-pred_wide_train_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-pred_wide_train_v}{}}}
+\subsection{\code{evoland_db$pred_wide_train_v()}}{
   Get transitions along with their predictor data in a wide
-data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
+data.table, see \code{\link[=pred_wide_train_v]{pred_wide_train_v()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$trans_pred_data_v(id_trans, id_pred, ordered = FALSE)}
+    \preformatted{evoland_db$pred_wide_train_v(id_trans, id_pred)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -347,22 +334,19 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
     \describe{
       \item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
       \item{\code{id_pred}}{Optional integer vector of predictor IDs to include}
-      \item{\code{ordered}}{\itemize{
-\item if TRUE, order output by \code{id_coord} & \code{id_period}
-}}
     }
     \if{html}{\out{</div>}}
   }
 }
 
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-pred_data_wide_v"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-pred_data_wide_v}{}}}
-\subsection{\code{evoland_db$pred_data_wide_v()}}{
-  Retrieve a wide view of the predictor data, see \code{\link[=pred_data_wide_v]{pred_data_wide_v()}}
+\if{html}{\out{<a id="method-evoland_db-pred_wide_predict_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-pred_wide_predict_v}{}}}
+\subsection{\code{evoland_db$pred_wide_predict_v()}}{
+  Retrieve a wide view of the predictor data, see \code{\link[=pred_wide_predict_v]{pred_wide_predict_v()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$pred_data_wide_v(id_trans, id_period_anterior)}
+    \preformatted{evoland_db$pred_wide_predict_v(id_trans, id_period_anterior)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -370,6 +354,69 @@ data.table, see \code{\link[=trans_pred_data_v]{trans_pred_data_v()}}
     \describe{
       \item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
       \item{\code{id_period_anterior}}{Integer ID of period to retrieve data for}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-figure_of_merit_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-figure_of_merit_v}{}}}
+\subsection{\code{evoland_db$figure_of_merit_v()}}{
+  Pontius' figure of merit of simulated against observed change, see
+\code{\link[=figure_of_merit_v]{figure_of_merit_v()}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$figure_of_merit_v(
+  id_period_anterior,
+  id_period_post,
+  id_run_reference,
+  id_run_simulated = self$id_run,
+  by_transition = FALSE,
+  exclude_id_lulc = integer(0)
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_period_anterior}}{Integer, period of the initial map}
+      \item{\code{id_period_post}}{Integer, period of the observed and simulated maps}
+      \item{\code{id_run_reference}}{Integer, run holding the initial and observed maps}
+      \item{\code{id_run_simulated}}{Integer vector, runs holding the simulated maps; defaults to
+the active run}
+      \item{\code{by_transition}}{Logical; if \code{TRUE}, report per transition instead of overall.}
+      \item{\code{exclude_id_lulc}}{Integer vector of classes; cells whose class in the reference
+run, at \code{id_period_anterior} or \code{id_period_post}, is one of them are ignored. Default
+none.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-lulc_crosstab_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-lulc_crosstab_v}{}}}
+\subsection{\code{evoland_db$lulc_crosstab_v()}}{
+  Cross-tabulation of land use between two periods, see \code{\link[=lulc_crosstab_v]{lulc_crosstab_v()}}
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$lulc_crosstab_v(
+  id_period_anterior,
+  id_period_post,
+  id_run_anterior = self$id_run,
+  id_run_post = id_run_anterior
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_period_anterior, id_period_post}}{Integer, the two periods to compare}
+      \item{\code{id_run_anterior}}{Integer, run to read \code{id_period_anterior} from; defaults to the
+active run}
+      \item{\code{id_run_post}}{Integer, run to read \code{id_period_post} from; defaults to
+\code{id_run_anterior}}
     }
     \if{html}{\out{</div>}}
   }
@@ -387,8 +434,11 @@ EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
   id_periods,
   select_score,
   select_maximize,
-  work_dir = "dinamica_rundir",
-  keep_intermediate = FALSE
+  work_dir = NULL,
+  keep_intermediate = FALSE,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )}
     \if{html}{\out{</div>}}
   }
@@ -399,8 +449,14 @@ EGO, see \code{\link[=alloc_dinamica]{alloc_dinamica()}}
       \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
 to select model for extrapolation}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{work_dir}}{Character path for Dinamica working directory. Default "dinamica_rundir".}
+      \item{\code{work_dir}}{Character path for Dinamica working directory; \code{NULL} (default)
+uses a temporary directory.}
       \item{\code{keep_intermediate}}{Logical, keep intermediate Dinamica files? Default FALSE.}
+      \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials}
+      \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
+values already exist}
+      \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
+requested period. Intermediate periods are always updated.}
     }
     \if{html}{\out{</div>}}
   }
@@ -424,7 +480,8 @@ uSAM, otherwise uPAM.
   avoid_aggregation = TRUE,
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )}
     \if{html}{\out{</div>}}
   }
@@ -446,6 +503,49 @@ would merge fail and allocate nothing. Ignored for uSAM.}
 (useful for repeated allocation)}
       \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
 values already exist}
+      \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
+requested period. Intermediate periods are always updated.}
+    }
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-alloc_greedy"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-alloc_greedy}{}}}
+\subsection{\code{evoland_db$alloc_greedy()}}{
+  Runs deterministic greedy (rank-and-fill) allocation, see
+\code{\link[=alloc_greedy]{alloc_greedy()}}: each transition's demand goes to the cells of highest adjusted
+potential, every cell changes at most once.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$alloc_greedy(
+  id_periods,
+  select_score,
+  select_maximize,
+  arbitration = c("joint", "ordered"),
+  order = NULL,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_periods}}{Integer vector of period IDs to include in the simulation.}
+      \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
+to select model for extrapolation.}
+      \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
+      \item{\code{arbitration}}{Character; \code{"joint"} (default) ranks all transitions together,
+\code{"ordered"} lets transitions claim cells in the priority given by \code{order}.}
+      \item{\code{order}}{Integer vector of \code{id_trans}, the priority for \code{"ordered"}.}
+      \item{\code{use_parent_trans_pot}}{Logical; use the direct parent run's transition potentials}
+      \item{\code{force_predict_trans_pot}}{Logical; re-run prediction for trans_pot_t even if those
+values already exist}
+      \item{\code{update_neighbors}}{Logical; recompute neighbour predictors after the last
+requested period. Intermediate periods are always updated.}
     }
     \if{html}{\out{</div>}}
   }
@@ -461,7 +561,7 @@ values already exist}
     \preformatted{evoland_db$eval_alloc_params_t(
   select_score,
   select_maximize,
-  work_dir = "dinamica_rundir",
+  work_dir = NULL,
   keep_intermediate = FALSE
 )}
     \if{html}{\out{</div>}}
@@ -472,7 +572,8 @@ values already exist}
       \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
 to select model for extrapolation}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{work_dir}}{Character path for Dinamica working directory. Default "dinamica_rundir".}
+      \item{\code{work_dir}}{Character path for Dinamica working directory; \code{NULL} (default)
+uses a temporary directory.}
       \item{\code{keep_intermediate}}{Logical, keep intermediate Dinamica files? Default FALSE.}
     }
     \if{html}{\out{</div>}}
@@ -483,19 +584,11 @@ to select model for extrapolation}
 \if{html}{\out{<a id="method-evoland_db-create_alloc_params_t"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-create_alloc_params_t}{}}}
 \subsection{\code{evoland_db$create_alloc_params_t()}}{
-  Computes allocation parameters for all viable transitions, see \code{\link[=create_alloc_params_t]{create_alloc_params_t()}}
+  Estimates allocation parameters for all viable transitions under the active \code{id_run},
+see \code{\link[=create_alloc_params_t]{create_alloc_params_t()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$create_alloc_params_t(n_perturbations = 5L, sd = 0.05)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{n_perturbations}}{Number of perturbed parameter sets to generate, each
-assigned to a in id_run in \link{runs_t}}
-      \item{\code{sd}}{Standard deviation for random perturbation of frac_expander}
-    }
+    \preformatted{evoland_db$create_alloc_params_t()}
     \if{html}{\out{</div>}}
   }
 }
@@ -705,6 +798,39 @@ to select model for extrapolation}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$get_obs_trans_rates()}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-trans_rates_dinamica_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-trans_rates_dinamica_v}{}}}
+\subsection{\code{evoland_db$trans_rates_dinamica_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$trans_rates_dinamica_v(id_period)}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-adjusted_trans_pot_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-adjusted_trans_pot_v}{}}}
+\subsection{\code{evoland_db$adjusted_trans_pot_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$adjusted_trans_pot_v(id_period_post)}
+    \if{html}{\out{</div>}}
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-evoland_db-alloc_params_clumpy_v"></a>}}
+\if{latex}{\out{\hypertarget{method-evoland_db-alloc_params_clumpy_v}{}}}
+\subsection{\code{evoland_db$alloc_params_clumpy_v()}}{
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{evoland_db$alloc_params_clumpy_v()}
     \if{html}{\out{</div>}}
   }
 }

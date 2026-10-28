@@ -6,7 +6,7 @@
 \title{CLUMPY-style Allocation Methods}
 \usage{
 alloc_clumpy_one_period(
-  self,
+  db,
   id_period_post,
   select_score,
   select_maximize,
@@ -26,11 +26,12 @@ alloc_clumpy(
   avoid_aggregation = TRUE,
   batch_size = 0L,
   use_parent_trans_pot = FALSE,
-  force_predict_trans_pot = FALSE
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )
 }
 \arguments{
-\item{self}{An \link{evoland_db} instance.}
+\item{db}{An \link{evoland_db} instance; uses its active \code{id_run}.}
 
 \item{id_period_post}{Integer posterior period ID.}
 
@@ -39,24 +40,54 @@ alloc_clumpy(
 \item{select_maximize}{Logical; whether to maximise \code{select_score}.}
 
 \item{area_dist}{Character; patch-area distribution, \code{"lognormal"} (default)
-or \code{"normal"}.}
+or \code{"normal"} (Gaussian with sd = \code{sqrt(area_var)}, clamped to >= 1).}
 
-\item{avoid_aggregation}{Logical; uPAM merge avoidance (default \code{TRUE}).}
+\item{avoid_aggregation}{Logical; if \code{TRUE} (default) uPAM patches that would
+merge with an existing patch fail and allocate nothing (clumpy
+\code{GaussianPatcher} semantics).  Ignored for the mono-pixel uSAM path.}
 
 \item{batch_size}{Integer; uPAM pivots attempted per MuST re-draw. \code{0}
-(default) auto-scales with the source pool; see \code{\link[=alloc_clumpy_one_period]{alloc_clumpy_one_period()}}.}
+(default) auto-scales to ~1\% of each class's source pool, bounding the
+number of MuST passes so large rasters stay tractable; \verb{> 0} is an explicit
+cap (1 = strict uPAM); \verb{< 0} processes all candidates in a single pass.}
 
-\item{use_parent_trans_pot}{Logical; if TRUE, use the parent run's transition
-potentials. Useful if a run branches off from parent.}
+\item{use_parent_trans_pot}{Logical; if TRUE, predict (or reuse) transition potentials
+under the parent run, so sibling runs share one set, e.g. for Monte-Carlo ensembles.}
 
-\item{id_periods}{Integer vector of posterior period IDs to simulate.}
+\item{force_predict_trans_pot}{Logical; if TRUE, recompute transition potentials even if
+\code{trans_pot_t} already holds them for this run and period.}
+
+\item{self}{An \link{evoland_db} instance.}
+
+\item{id_periods}{Integer vector of contiguous posterior period IDs to simulate.}
+
+\item{update_neighbors}{Logical; whether to recompute neighbour predictors after the last
+requested period (default \code{TRUE}). Intermediate periods are always updated, since the next
+period's prediction reads them. Set \code{FALSE} when nothing is allocated onwards from the
+last period, e.g. for single-period ensembles.}
 }
 \value{
-An \link{lulc_data_t} with the simulated posterior LULC.
+\code{alloc_clumpy_one_period()}: an \link{lulc_data_t} with the simulated posterior LULC.
+\code{alloc_clumpy()}: called for its side effects on \code{lulc_data_t} and \code{pred_data_t}.
 }
 \description{
-Methods for running CLUMPY-style LULC allocation.  The algorithm works in
-three stages per period:
+Methods for running CLUMPY-style LULC allocation, with two entry points:
+\itemize{
+\item \code{db$alloc_clumpy(id_periods, ...)} runs a whole sequence of periods. After each period it
+commits the allocated map to \code{lulc_data_t} and recomputes the neighbour predictors the next
+period is predicted from. Use it for plain simulations.
+\item \code{alloc_clumpy_one_period(db, id_period_post, ...)} allocates one period for the active
+\code{id_run} and returns the map \strong{without committing it}. Use it to write your own loop:
+edit \code{trans_pot_t} between prediction and allocation (e.g. interventions), edit the
+allocated map afterwards, or draw an ensemble of single-period realisations. The caller
+then commits the map with \code{db$commit(x, "lulc_data_t", method = "upsert")} and, if a
+later period follows, runs \code{db$upsert_new_neighbors(id_period_post)}, in that order.
+}
+
+Both reuse transition potentials already in \code{trans_pot_t} for the run and period, and only
+predict them when none exist (or when \code{force_predict_trans_pot = TRUE}).
+
+The algorithm works in three stages per period:
 \enumerate{
 \item \strong{Prediction} – raw transition potentials are predicted and stored in
 \code{trans_pot_t} via \code{\link[=predict_trans_pot]{predict_trans_pot()}}.
@@ -91,14 +122,13 @@ roughly the mean patch size.
 }
 \section{Functions}{
 \itemize{
-\item \code{alloc_clumpy_one_period()}: Allocate LULC changes for a single period using the CLUMPY algorithm.
-Can either independently compute transition potential, use the parent run's transition potential
-(useful when forking runs for Monte-Carlo) or read pre-written trans_pot_t values
+\item \code{alloc_clumpy_one_period()}: Allocate a single period and return the map without
+committing it; see Description for when to use which.
 
-\item \code{alloc_clumpy()}: Run CLUMPY-style allocation over multiple periods.
+\item \code{alloc_clumpy()}: Allocate a contiguous sequence of periods, committing each one
+and recomputing neighbour predictors in between; the method behind \code{db$alloc_clumpy()}.
 
 }}
 \references{
 Mazy, 2022 (\url{https://theses.hal.science/tel-04382012v1}), Ch. 3.
 }
-\keyword{internal}

@@ -28,7 +28,7 @@ predict_trans_pot(
 
 \item{self}{an \link{evoland_db} instance}
 
-\item{id_period_post}{scalar integerish, passed to \code{\link[=pred_data_wide_v]{pred_data_wide_v()}}}
+\item{id_period_post}{scalar integerish, passed to \code{\link[=pred_wide_predict_v]{pred_wide_predict_v()}}}
 
 \item{select_score}{character scalar, name of score/measure to identify best fitting model}
 
@@ -39,10 +39,11 @@ predict_trans_pot(
 \value{
 A data.table of class "trans_pot_t" with columns:
 \itemize{
+\item \code{id_run}: Foreign key to \code{\link[=runs_t]{runs_t()}}
 \item \code{id_trans}: Foreign key to \code{\link[=trans_meta_t]{trans_meta_t()}}
-\item \code{id_period_post}: Foreign key to \code{\link[=periods_t]{periods_t()}}
+\item \code{id_period_post}: Foreign key to \code{\link[=periods_t]{periods_t()}}, the posterior period
 \item \code{id_coord}: Foreign key to \code{\link[=coords_t]{coords_t()}}
-\item \code{value}: Map of model (hyper) parameters
+\item \code{value}: Raw transition potential in [0, 1], as predicted by the transition's model
 }
 
 \code{predict_trans_pot()}: called for side effect; commit \code{trans_pot_t} to database

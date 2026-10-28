@@ -37,7 +37,11 @@ source(file.path(
   system.file("tinytest", package = "evoland"),
   "helper_testdb.R"
 ))
-db <- make_test_db(include_neighbors = FALSE, include_trans_preds = TRUE)
+db <- make_test_db(
+  include_neighbors = FALSE,
+  include_trans_preds = TRUE,
+  include_alloc_params = FALSE
+)
 
 # simple featureless learner for fast, dependency-free testing
 test_learner <- mlr3::lrn("classif.featureless", predict_type = "prob")
@@ -92,7 +96,7 @@ expect_message(
 # Test DB round trip
 expect_equal(nrow(full_models), 2L)
 full_mods_roundtrip <- db$trans_models_t[id_trans == 2L & learner_id == "classif.featureless"]
-data.table::setattr(full_mods_roundtrip, "parquet_db_t_class", NULL)
+data.table::setattr(full_mods_roundtrip, "ducklake_db_t_class", NULL)
 expect_identical(
   full_mods_roundtrip,
   full_models[id_trans == 2L & learner_id == "classif.featureless"]
@@ -289,7 +293,7 @@ expect_warning(
       measures = test_measures,
       sample_frac = 0.7
     ),
-  "No predictor columns for transition 1, skipping"
+  "No predictor columns: none of the requested id_pred is in pred_meta_t"
 )
 expect_equal(partial_models_error$learner_id, "classif.featureless")
 
@@ -343,7 +347,8 @@ expect_equal(
 # test prediction and trans rate based potential adjustment
 expect_error(
   db$predict_trans_pot(id_period_post = 4, select_score = "classif.auc", select_maximize = TRUE),
-  "No fitted model for viable transition"
+  "No fitted model for viable transition(s): 1, 2.",
+  fixed = TRUE
 )
 db$trans_models_t <- err_model_t1 # insert faulty models
 expect_error(
@@ -360,10 +365,14 @@ expect_message(
   "Predicting transition 2/2 (id_trans=2)",
   fixed = TRUE
 )
-expect_message(
-  db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE),
-  "Found trans_pot_t for id_run=0/id_trans=2/id_period=4; set force=TRUE to recompute",
-  fixed = TRUE
+# potentials already in trans_pot_t are reused without a word
+expect_silent(
+  db$predict_trans_pot(id_period_post = 4, select_score = "no.crossval", select_maximize = TRUE)
+)
+# potentials already in trans_pot_t (e.g. from an external estimator) need no model: a score
+# no model carries does not stop their reuse
+expect_silent(
+  db$predict_trans_pot(id_period_post = 4, select_score = "classif.bogus", select_maximize = TRUE)
 )
 options("evoland.use_prefetch_predict" = TRUE)
 expect_message(
@@ -402,3 +411,19 @@ expect_equal(
     ]
   )
 )
+
+# a seeded, row-order sensitive learner fits the same full model twice: fit_full_models() reads
+# its training data in a fixed order
+if (
+  requireNamespace("ranger", quietly = TRUE) && requireNamespace("mlr3learners", quietly = TRUE)
+) {
+  seeded_forest <- function() {
+    fitted <- suppressMessages(db$fit_full_models(
+      learner = mlr3::lrn("classif.ranger", predict_type = "prob", num.trees = 20, seed = 1L),
+      trans_preds = db$trans_preds_t[id_trans == 1L],
+      trans_meta = db$trans_meta_t[id_trans == 1L]
+    ))
+    qs2::qs_deserialize(fitted$learner_full[[1L]])$model$forest$split.values
+  }
+  expect_identical(seeded_forest(), seeded_forest())
+}

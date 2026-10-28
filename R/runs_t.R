@@ -12,10 +12,9 @@
 #' @param x A list or data.frame coercible to a data.table
 #'
 #' @return A data.table of class "runs_t" with columns:
-#'   - `id_run`: Foreign key to runs_t
-#'   - `id_period`: Foreign key to periods_t
-#'   - `id_trans`: Foreign key to trans_meta_t
-#'   - `rate`: Transition rate (0 to 1)
+#'   - `id_run`: Unique ID for each run; 0 is the base run
+#'   - `parent_id_run`: The run this run inherits data from; `NA` for the base run
+#'   - `description`: Human-readable description of the run
 #' @export
 as_runs_t <- function(x) {
   if (missing(x)) {
@@ -30,7 +29,7 @@ as_runs_t <- function(x) {
     cast_dt_col("id_run", "int") |>
     cast_dt_col("parent_id_run", "int")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "runs_t",
     key_cols = "id_run"
@@ -94,9 +93,7 @@ db_active_id_run <- function(self, private, y) {
     return(invisible(NULL))
   }
   stopifnot(
-    "id_run must be scalar integerish or NULL" = {
-      length(y) == 1L && as.integer(y) == y
-    }
+    "id_run must be scalar integerish or NULL" = is_scalar_integerish(y)
   )
 
   y <- as.integer(y)
@@ -141,5 +138,3 @@ get_lineage <- function(runs_t, id_run) {
 
   lineage
 }
-
-# TODO: add helper for create_alloc_params_t

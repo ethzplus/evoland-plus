@@ -2,27 +2,18 @@
 % Please edit documentation in R/alloc_dinamica.R
 \name{alloc_dinamica}
 \alias{alloc_dinamica}
-\alias{alloc_dinamica_setup_inputs}
 \alias{alloc_dinamica_one_period}
 \alias{eval_alloc_params_t}
 \title{Dinamica EGO Allocation Methods}
 \usage{
-alloc_dinamica_setup_inputs(
-  self,
-  id_period_ant,
-  id_period_post,
-  anterior_rast,
-  temp_dir
-)
-
 alloc_dinamica_one_period(
-  self,
-  id_period_ant,
+  db,
   id_period_post,
-  anterior_rast,
-  iteration_dir,
   select_score,
-  select_maximize
+  select_maximize,
+  work_dir = NULL,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE
 )
 
 alloc_dinamica(
@@ -30,59 +21,88 @@ alloc_dinamica(
   id_periods,
   select_score,
   select_maximize,
-  work_dir = "dinamica_rundir",
-  keep_intermediate = FALSE
+  work_dir = NULL,
+  keep_intermediate = FALSE,
+  use_parent_trans_pot = FALSE,
+  force_predict_trans_pot = FALSE,
+  update_neighbors = TRUE
 )
 
 eval_alloc_params_t(
   self,
   select_score,
   select_maximize,
-  work_dir = "dinamica_rundir",
+  work_dir = NULL,
   keep_intermediate = FALSE
 )
 }
 \arguments{
-\item{self}{The evoland_db instance}
+\item{db}{An \link{evoland_db} instance; uses its active \code{id_run}.}
 
-\item{id_period_ant}{Integer, anterior period ID}
+\item{id_period_post}{Integer posterior period ID.}
 
-\item{id_period_post}{Integer, posterior period ID}
+\item{select_score}{Character; mlr3 measure ID for model selection.}
 
-\item{anterior_rast}{SpatRast with anterior LULC state}
+\item{select_maximize}{Logical; whether to maximise \code{select_score}.}
 
-\item{temp_dir}{Character, path to temporary directory}
+\item{work_dir}{Character or NULL; directory for Dinamica's input and output files. If
+\code{NULL} (default), a temporary directory is used and removed afterwards; a directory
+passed explicitly is kept.}
 
-\item{iteration_dir}{Character, path to iteration directory}
+\item{use_parent_trans_pot}{Logical; if TRUE, predict (or reuse) transition potentials
+under the parent run, so sibling runs share one set, e.g. for Monte-Carlo ensembles.}
 
-\item{id_periods}{Integer vector of posterior period IDs to simulate (must be
-contiguous; e.g. if simulating period 4, data from period 3 will be used as
-anterior data)}
+\item{force_predict_trans_pot}{Logical; if TRUE, recompute transition potentials even if
+\code{trans_pot_t} already holds them for this run and period.}
 
-\item{work_dir}{Character, path to working directory for simulations}
+\item{self}{An \link{evoland_db} instance.}
+
+\item{id_periods}{Integer vector of contiguous posterior period IDs to simulate; data from
+the period before the first is used as the anterior state.}
 
 \item{keep_intermediate}{Logical, whether to keep intermediate files from simulations}
+
+\item{update_neighbors}{Logical; whether to recompute neighbour predictors after the last
+requested period (default \code{TRUE}). Intermediate periods are always updated, since the next
+period's prediction reads them. Set \code{FALSE} when nothing is allocated onwards from the
+last period, e.g. for single-period ensembles.}
 }
 \value{
-List with paths to created files
-
-lulc_data_t table with simulated results
+\code{alloc_dinamica_one_period()}: an \link{lulc_data_t} with the simulated posterior LULC.
+\code{alloc_dinamica()}: called for its side effects on \code{lulc_data_t} and \code{pred_data_t}.
+\code{eval_alloc_params_t()}: the \code{alloc_params_t} rows, with \code{similarity} filled in.
 }
 \description{
-Methods for running Dinamica EGO allocation simulations and evaluating
-allocation parameters. These methods are added to the \code{evoland_db} class.
+Methods for running Dinamica EGO allocation and evaluating allocation parameters, with two
+entry points for allocation:
+\itemize{
+\item \code{db$alloc_dinamica(id_periods, ...)} runs a whole sequence of periods. After each period
+it commits the allocated map to \code{lulc_data_t} and recomputes the neighbour predictors the
+next period is predicted from. Use it for plain simulations.
+\item \code{alloc_dinamica_one_period(db, id_period_post, ...)} allocates one period for the active
+\code{id_run} and returns the map \strong{without committing it}. Use it to write your own loop:
+edit \code{trans_pot_t} between prediction and allocation (e.g. interventions), edit the
+allocated map afterwards, or draw an ensemble of single-period realisations. The caller
+then commits the map with \code{db$commit(x, "lulc_data_t", method = "upsert")} and, if a
+later period follows, runs \code{db$upsert_new_neighbors(id_period_post)}, in that order.
+}
+
+Both reuse transition potentials already in \code{trans_pot_t} for the run and period, and only
+predict them when none exist (or when \code{force_predict_trans_pot = TRUE}). They mirror
+\code{\link[=alloc_clumpy_one_period]{alloc_clumpy_one_period()}} and \code{db$alloc_clumpy()}.
+
+\code{eval_alloc_params_t()} runs \code{alloc_dinamica()} for every run in \code{alloc_params_t} over the
+observed periods and scores each against the observation with fuzzy similarity.
 }
 \section{Functions}{
 \itemize{
-\item \code{alloc_dinamica_setup_inputs()}: Private helper: Set up input files for a single Dinamica
-allocation iteration
+\item \code{alloc_dinamica_one_period()}: Allocate a single period and return the map without
+committing it; see Description for when to use which.
 
-\item \code{alloc_dinamica_one_period()}: Private helper: Run a single Dinamica allocation iteration
-
-\item \code{alloc_dinamica()}: Run Dinamica EGO allocation over multiple periods
+\item \code{alloc_dinamica()}: Allocate a contiguous sequence of periods, committing each one
+and recomputing neighbour predictors in between; the method behind \code{db$alloc_dinamica()}.
 
 \item \code{eval_alloc_params_t()}: Evaluate allocation parameters using fuzzy
 similarity over different runs.
 
 }}
-\keyword{internal}

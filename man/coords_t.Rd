@@ -34,8 +34,6 @@ A data.table of class "coords_t" with columns:
 \item \code{id_coord}: Unique ID for each coordinate pair
 \item \code{lon}: Longitude/x coordinate
 \item \code{lat}: Latitude/y coordinate
-\item \code{elevation}: Elevation (initially NULL)
-\item \code{geom_polygon}: Geometry polygon object (for grid cells)
 }
 }
 \description{

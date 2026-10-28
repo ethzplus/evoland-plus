@@ -13,7 +13,10 @@
 #'
 #' @param include_neighbors bool, run set_neighbors() + generate_neighbor_predictors()
 #' @param include_trans_preds bool, run set_full_trans_preds()
-#' @return An evoland_db object in a temporary directory. The temp directory path is in db$path.
+#' @param include_alloc_params bool, derive the perturbed alloc_params_t. The
+#'   runs_t lineage is always created, since most callers want it and it is
+#'   cheap; this is only the ~1s of parameter perturbation on top.
+#' @return An evoland_db object in a temporary directory.
 make_test_db <- function(
   include_neighbors = TRUE,
   include_trans_preds = TRUE,
@@ -42,20 +45,34 @@ make_test_db <- function(
     db$set_full_trans_preds()
   }
 
+  # the run lineage is what most callers are after and costs ~0.1s; deriving
+  # the perturbed parameters costs ~1s, so only the allocation tests pay for it
+  db$runs_t <-
+    data.table::data.table(
+      id_run = 0L:3L,
+      parent_id_run = c(NA, 0L, 0L, 0L),
+      description = c("base", "unperturbed", "perturbation 1", "perturbation 2")
+    ) |>
+    as_runs_t()
+
   if (include_alloc_params) {
-    db$runs_t <-
-      data.table::data.table(
-        id_run = 0L:3L,
-        parent_id_run = c(NA, 0L, 0L, 0L),
-        description = c("base", "unperturbed", "perturbation 1", "perturbation 2")
-      ) |>
-      as_runs_t()
-    suppressMessages(
-      db$alloc_params_t <- db$create_alloc_params_t(
-        n_perturbations = 2L,
-        sd = 0.1
-      )
-    )
+    db$id_run <- 1L
+    best_estimate <- suppressMessages(db$create_alloc_params_t())
+    db$id_run <- 0L
+    # runs 2 and 3 jitter frac_expander around the best estimate on run 1
+    perturbed <- lapply(2:3, function(perturbed_run) {
+      jittered <- best_estimate[["frac_expander"]] + stats::rnorm(nrow(best_estimate), sd = 0.1)
+      jittered <- pmax(0, pmin(1, jittered))
+      data.table::copy(best_estimate)[, `:=`(
+        id_run = perturbed_run,
+        frac_expander = jittered,
+        frac_patcher = 1 - jittered
+      )]
+    })
+    db$alloc_params_t <- as_alloc_params_t(data.table::rbindlist(
+      c(list(best_estimate), perturbed),
+      use.names = TRUE
+    ))
   }
 
   db

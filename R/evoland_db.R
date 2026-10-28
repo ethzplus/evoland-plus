@@ -2,45 +2,66 @@
 #'
 #' @description
 #' An R6 class that provides an interface to a folder-based data storage system
-#' for the evoland package. Each table is stored as a parquet (or JSON) file.
-#' This class uses DuckDB for in-memory SQL operations while persisting data
-#' to disk in parquet format for better compression.
+#' for the evoland package. This class uses DuckDB for in-memory SQL operations
+#' while persisting data to a DuckLake catalog on disk.
 #'
-#' Inherits from [parquet_db] for generic database operations.
+#' Inherits from [ducklake_db] for generic database operations.
 #'
 #' @seealso
 #' Additional methods and active bindings are added to this class in separate files:
 #'
 #' - [evoland_db_views] - View active bindings (lulc_meta_long_v, etc.) and methods
 #'
-#' @include parquet_db.R parquet_db_utils.R
+#' @include ducklake_db.R ducklake_db_utils.R
 #' @export
 
 evoland_db <- R6::R6Class(
   classname = "evoland_db",
-  inherit = parquet_db,
+  inherit = ducklake_db,
 
   ## Public Methods ----
   public = list(
     #' @description
     #' Initialize a new evoland_db object
-    #' @param path Character string. Path to the data folder.
+    #' @param path Character. Path to the data folder; may be omitted
+    #' when both `catalog` and `data_path` are given, see [ducklake_db].
     #' @param id_run Atomic integer run ID, defaults to 0. Can be set to NULL
     #' @param read_only Logical. Whether to update the reporting table upon
-    #' initialization; if TRUE, only parallel-safe appends are allowed.
+    #' initialization; if TRUE, the catalog is attached read-only.
+    #' @param catalog Character. DuckLake catalog connection, see [ducklake_db].
+    #' @param data_path Character. DuckLake data files location, see [ducklake_db].
+    #' @param sqlite_journal_mode Character. Journal mode for a SQLite catalog, see [ducklake_db].
+    #' @param expire_older_than,delete_older_than Retention for `$checkpoint()`, see [ducklake_db].
     #' @param ... passed on to `set_report`
     #'
     #' @return A new `evoland_db` object
     initialize = function(
-      path,
+      path = NULL,
       id_run = 0L,
       read_only = FALSE,
+      catalog = NULL,
+      data_path = NULL,
+      sqlite_journal_mode = "wal",
+      expire_older_than = NULL,
+      delete_older_than = NULL,
       ...
     ) {
-      super$initialize(path = path, read_only = read_only, extensions = "spatial")
+      super$initialize(
+        path = path,
+        read_only = read_only,
+        catalog = catalog,
+        data_path = data_path,
+        sqlite_journal_mode = sqlite_journal_mode,
+        expire_older_than = expire_older_than,
+        delete_older_than = delete_older_than
+      )
       if (!read_only) {
-        self$set_report(...)
-        self$commit(as_runs_t(), "runs_t", method = "upsert")
+        # one transaction, so that opening a database either bootstraps both
+        # tables or neither -- and costs one snapshot rather than two
+        self$transaction({
+          self$set_report(...)
+          self$commit(as_runs_t(), "runs_t", method = "upsert")
+        })
       }
       # ensure there is a minimal runs_t with base case
       self$id_run <- id_run
@@ -51,8 +72,10 @@ evoland_db <- R6::R6Class(
     #' Get SQL expression to read a table, respecting active run hierarchy. For each
     #' data slice, returns data from the closest ancestor run that has it.
     #' @param table_name Character string table name
+    #' @param id_run Integer, the run whose lineage is read; defaults to the active run. Another
+    #' run can be read without changing the active one.
     #' @return Character string SQL expression (a composable subquery)
-    get_read_expr = function(table_name) {
+    get_read_expr = function(table_name, id_run = self$id_run) {
       create_method_binding(get_evoland_db_read_expr, with_super = TRUE)
     },
 
@@ -86,7 +109,7 @@ evoland_db <- R6::R6Class(
       distance_breaks = NULL,
       overwrite = FALSE,
       quiet = FALSE,
-      chunksize = 1e8
+      chunksize = 1e7
     ) {
       create_method_binding(set_neighbors)
     },
@@ -126,23 +149,60 @@ evoland_db <- R6::R6Class(
       sources = data.frame(url = character(0), md5sum = character(0)),
       unit = NA_character_
     ) {
-      create_method_binding(add_predictor)
+      create_method_binding(add_predictor, with_private = TRUE)
     },
 
     #' @description Get transitions along with their predictor data in a wide
-    #' data.table, see [trans_pred_data_v()]
+    #' data.table, see [pred_wide_train_v()]
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_pred Optional integer vector of predictor IDs to include
-    #' @param ordered - if TRUE, order output by `id_coord` & `id_period`
-    trans_pred_data_v = function(id_trans, id_pred, ordered = FALSE) {
-      create_method_binding(trans_pred_data_v)
+    pred_wide_train_v = function(id_trans, id_pred) {
+      create_method_binding(pred_wide_train_v)
     },
 
-    #' @description Retrieve a wide view of the predictor data, see [pred_data_wide_v()]
+    #' @description Retrieve a wide view of the predictor data, see [pred_wide_predict_v()]
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_period_anterior Integer ID of period to retrieve data for
-    pred_data_wide_v = function(id_trans, id_period_anterior) {
-      create_method_binding(pred_data_wide_v)
+    pred_wide_predict_v = function(id_trans, id_period_anterior) {
+      create_method_binding(pred_wide_predict_v, with_private = TRUE)
+    },
+
+    ### Validation methods ---
+    #' @description Pontius' figure of merit of simulated against observed change, see
+    #' [figure_of_merit_v()]
+    #' @param id_period_anterior Integer, period of the initial map
+    #' @param id_period_post Integer, period of the observed and simulated maps
+    #' @param id_run_reference Integer, run holding the initial and observed maps
+    #' @param id_run_simulated Integer vector, runs holding the simulated maps; defaults to
+    #' the active run
+    #' @param by_transition Logical; if `TRUE`, report per transition instead of overall.
+    #' @param exclude_id_lulc Integer vector of classes; cells whose class in the reference
+    #' run, at `id_period_anterior` or `id_period_post`, is one of them are ignored. Default
+    #' none.
+    figure_of_merit_v = function(
+      id_period_anterior,
+      id_period_post,
+      id_run_reference,
+      id_run_simulated = self$id_run,
+      by_transition = FALSE,
+      exclude_id_lulc = integer(0)
+    ) {
+      create_method_binding(figure_of_merit_v)
+    },
+
+    #' @description Cross-tabulation of land use between two periods, see [lulc_crosstab_v()]
+    #' @param id_period_anterior,id_period_post Integer, the two periods to compare
+    #' @param id_run_anterior Integer, run to read `id_period_anterior` from; defaults to the
+    #' active run
+    #' @param id_run_post Integer, run to read `id_period_post` from; defaults to
+    #' `id_run_anterior`
+    lulc_crosstab_v = function(
+      id_period_anterior,
+      id_period_post,
+      id_run_anterior = self$id_run,
+      id_run_post = id_run_anterior
+    ) {
+      create_method_binding(lulc_crosstab_v)
     },
 
     ### Allocation methods ---
@@ -152,14 +212,23 @@ evoland_db <- R6::R6Class(
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param work_dir Character path for Dinamica working directory. Default "dinamica_rundir".
+    #' @param work_dir Character path for Dinamica working directory; `NULL` (default)
+    #' uses a temporary directory.
     #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
+    #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
+    #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
+    #' values already exist
+    #' @param update_neighbors Logical; recompute neighbour predictors after the last
+    #' requested period. Intermediate periods are always updated.
     alloc_dinamica = function(
       id_periods,
       select_score,
       select_maximize,
-      work_dir = "dinamica_rundir",
-      keep_intermediate = FALSE
+      work_dir = NULL,
+      keep_intermediate = FALSE,
+      use_parent_trans_pot = FALSE,
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
     ) {
       create_method_binding(alloc_dinamica)
     },
@@ -183,6 +252,8 @@ evoland_db <- R6::R6Class(
     #' (useful for repeated allocation)
     #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
     #' values already exist
+    #' @param update_neighbors Logical; recompute neighbour predictors after the last
+    #' requested period. Intermediate periods are always updated.
     alloc_clumpy = function(
       id_periods,
       select_score,
@@ -191,9 +262,38 @@ evoland_db <- R6::R6Class(
       avoid_aggregation = TRUE,
       batch_size = 0L,
       use_parent_trans_pot = FALSE,
-      force_predict_trans_pot = FALSE
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
     ) {
       create_method_binding(alloc_clumpy)
+    },
+
+    #' @description Runs deterministic greedy (rank-and-fill) allocation, see
+    #' [alloc_greedy()]: each transition's demand goes to the cells of highest adjusted
+    #' potential, every cell changes at most once.
+    #' @param id_periods Integer vector of period IDs to include in the simulation.
+    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
+    #' to select model for extrapolation.
+    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
+    #' @param arbitration Character; `"joint"` (default) ranks all transitions together,
+    #' `"ordered"` lets transitions claim cells in the priority given by `order`.
+    #' @param order Integer vector of `id_trans`, the priority for `"ordered"`.
+    #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
+    #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
+    #' values already exist
+    #' @param update_neighbors Logical; recompute neighbour predictors after the last
+    #' requested period. Intermediate periods are always updated.
+    alloc_greedy = function(
+      id_periods,
+      select_score,
+      select_maximize,
+      arbitration = c("joint", "ordered"),
+      order = NULL,
+      use_parent_trans_pot = FALSE,
+      force_predict_trans_pot = FALSE,
+      update_neighbors = TRUE
+    ) {
+      create_method_binding(alloc_greedy)
     },
 
     #' @description
@@ -201,23 +301,22 @@ evoland_db <- R6::R6Class(
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param work_dir Character path for Dinamica working directory. Default "dinamica_rundir".
+    #' @param work_dir Character path for Dinamica working directory; `NULL` (default)
+    #' uses a temporary directory.
     #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
     eval_alloc_params_t = function(
       select_score,
       select_maximize,
-      work_dir = "dinamica_rundir",
+      work_dir = NULL,
       keep_intermediate = FALSE
     ) {
       create_method_binding(eval_alloc_params_t)
     },
 
     #' @description
-    #' Computes allocation parameters for all viable transitions, see [create_alloc_params_t()]
-    #' @param n_perturbations Number of perturbed parameter sets to generate, each
-    #' assigned to a in id_run in [runs_t]
-    #' @param sd Standard deviation for random perturbation of frac_expander
-    create_alloc_params_t = function(n_perturbations = 5L, sd = 0.05) {
+    #' Estimates allocation parameters for all viable transitions under the active `id_run`,
+    #' see [create_alloc_params_t()]
+    create_alloc_params_t = function() {
       create_method_binding(create_alloc_params_t)
     },
 
@@ -226,7 +325,7 @@ evoland_db <- R6::R6Class(
     #' @param id_period Optional integer vector of period IDs to include. If
     #'   NULL (default), all periods are included.
     lulc_data_as_rast = function(id_period = NULL) {
-      create_method_binding(lulc_data_as_rast)
+      create_method_binding(lulc_data_as_rast, with_private = TRUE)
     },
 
     #' @description

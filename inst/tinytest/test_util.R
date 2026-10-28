@@ -6,14 +6,14 @@ expect_error(
   "No validate method defined for class list"
 )
 
-# Test validate.parquet_db_t dispatch
+# Test validate.ducklake_db_t dispatch
 dt <- data.table::data.table(x = 1:3, y = letters[1:3])
-class(dt) <- c("test_class", "parquet_db_t", class(dt))
+class(dt) <- c("test_class", "ducklake_db_t", class(dt))
 expect_silent(validate(dt))
 
 # Test with non-data.table object
 non_dt <- data.frame(x = 1:3)
-class(non_dt) <- c("test_class", "parquet_db_t", class(non_dt))
+class(non_dt) <- c("test_class", "ducklake_db_t", class(non_dt))
 expect_error(validate(non_dt), "needs to be a data.table")
 
 # Test evoland:::`%||%`() operator
@@ -88,3 +88,34 @@ if (
 ) {
   expect_error(evoland:::ensure_dir("/tests"), "Read-only file system")
 }
+
+# argument predicates: each candidate against is_integerish, is_scalar_integerish,
+# is_scalar_numeric, is_scalar_character, is_scalar_logical
+predicate_results <- function(x) {
+  c(
+    evoland:::is_integerish(x),
+    evoland:::is_scalar_integerish(x),
+    evoland:::is_scalar_numeric(x),
+    evoland:::is_scalar_character(x),
+    evoland:::is_scalar_logical(x)
+  )
+}
+expect_equal(
+  lapply(
+    list(1L, 1, 1.5, c(1, 2), integer(0), NA_integer_, Inf, "1", "a", TRUE, NA),
+    predicate_results
+  ),
+  list(
+    c(TRUE, TRUE, TRUE, FALSE, FALSE), # 1L
+    c(TRUE, TRUE, TRUE, FALSE, FALSE), # 1
+    c(FALSE, FALSE, TRUE, FALSE, FALSE), # 1.5
+    c(TRUE, FALSE, FALSE, FALSE, FALSE), # c(1, 2)
+    c(TRUE, FALSE, FALSE, FALSE, FALSE), # integer(0)
+    c(FALSE, FALSE, FALSE, FALSE, FALSE), # NA_integer_
+    c(FALSE, FALSE, TRUE, FALSE, FALSE), # Inf
+    c(FALSE, FALSE, FALSE, TRUE, FALSE), # "1"
+    c(FALSE, FALSE, FALSE, TRUE, FALSE), # "a"
+    c(FALSE, FALSE, FALSE, FALSE, TRUE), # TRUE
+    c(FALSE, FALSE, FALSE, FALSE, FALSE) # NA
+  )
+)

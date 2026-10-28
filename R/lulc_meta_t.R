@@ -11,6 +11,7 @@
 #'   - `name`: Name for use in code and queries
 #'   - `pretty_name`: Long name for plots/output
 #'   - `description`: Long description / operationalisation
+#'   - `src_classes`: List of source class IDs aggregated into this class
 #' @export
 as_lulc_meta_t <- function(x) {
   if (missing(x)) {
@@ -26,7 +27,7 @@ as_lulc_meta_t <- function(x) {
   data.table::setDT(x) |>
     cast_dt_col("id_lulc", "int")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "lulc_meta_t",
     key_cols = "name",

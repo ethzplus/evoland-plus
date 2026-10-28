@@ -1,8 +1,10 @@
 #' Create Transition Rates Table
 #'
-#' Creates a trans_rates_t table that stores transition rates (probabilities) for each
-#' transition type in each time period. Historical rates are calculated from observed
-#' transitions, and future rates are extrapolated using linear regression.
+#' Creates a trans_rates_t table that stores transition rates for each transition type in
+#' each time period. For observed periods, rates describe the change that happened; for
+#' extrapolated periods, they prescribe the change allocation has to produce. Future rates
+#' can be extrapolated with a linear regression ([extrapolate_trans_rates()]) or derived from
+#' target class shares or areas with a linear program ([solve_trans_rates()]).
 #'
 #' @name trans_rates_t
 #'
@@ -34,7 +36,7 @@ as_trans_rates_t <- function(x) {
     cast_dt_col("count", "int") |>
     cast_dt_col("rate", "float")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "trans_rates_t",
     key_cols = c("id_run", "id_period", "id_trans")
@@ -52,7 +54,7 @@ get_obs_trans_rates <- function(self) {
   lulc_expr <- self$get_read_expr("lulc_data_t")
   meta_expr <- self$get_read_expr("trans_meta_t")
 
-  result <- self$get_query(glue::glue(
+  result <- self$get_query(
     r"{
     with trans_v as (
       select
@@ -104,7 +106,7 @@ get_obs_trans_rates <- function(self) {
       and c.id_lulc_anterior = m.id_lulc_anterior
       and c.id_lulc_posterior = m.id_lulc_posterior
     }"
-  ))
+  )
 
   as_trans_rates_t(result)
 }

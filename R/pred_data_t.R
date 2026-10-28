@@ -33,7 +33,7 @@ as_pred_data_t <- function(x) {
     cast_dt_col("id_coord", "int") |>
     cast_dt_col("value", "float")
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "pred_data_t",
     key_cols = c("id_run", "id_period", "id_pred", "id_coord"),
@@ -93,16 +93,13 @@ print.pred_data_t <- function(x, nrow = 10, ...) {
 #' @describeIn pred_data_t Check if predictor data is complete, i.e. each entry in
 #' [pred_meta_t] is either present in period 0 or for all other periods for a given run.
 pred_data_available_v <- function(self) {
-  system.file("pred_data_present.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
-      pred_data_read_expr = self$get_read_expr("pred_data_t"),
-      periods_read_expr = self$get_read_expr("periods_t"),
-      pred_meta_read_expr = self$get_read_expr("pred_meta_t"),
-      runs_read_expr = self$get_read_expr("runs_t")
-    ) |>
-    self$get_query()
+  self$get_query(
+    read_sql("pred_data_present.sql"),
+    pred_data_read_expr = self$get_read_expr("pred_data_t"),
+    periods_read_expr = self$get_read_expr("periods_t"),
+    pred_meta_read_expr = self$get_read_expr("pred_meta_t"),
+    runs_read_expr = self$get_read_expr("runs_t")
+  )
 }
 
 #' @describeIn pred_data_t Get transitions along with their predictor data in a wide data.table
@@ -110,50 +107,45 @@ pred_data_available_v <- function(self) {
 #' @param id_trans Integer transition ID, see [trans_meta_t]
 #' @param id_pred Optional integer vector of predictor IDs to include; if
 #'        missing, use all predictor IDs from [pred_meta_t]
-#' @param ordered - if TRUE, order output by id_period then id_coord (otherwise no
-#'        guaranteed order; need ordering for reproducible subsampling)
 #' @return data.table with columns id_coord, id_period, did_transition (bool),
-#'         and one column per predictor (`id_pred_{n}`)
-trans_pred_data_v <- function(
+#'         and one column per predictor (`id_pred_{n}`), ordered by id_coord and
+#'         id_period_anterior so that subsampling and order-sensitive learners replay
+pred_wide_train_v <- function(
   self,
   id_trans,
-  id_pred,
-  ordered = FALSE
+  id_pred
 ) {
   stopifnot(
-    "id_trans must be a single integer" = {
-      length(id_trans) == 1L && as.integer(id_trans) == id_trans
-    },
-    "id_pred must be missing or a numeric vector" = {
-      missing(id_pred) || all(as.integer(id_pred) == id_pred)
-    },
+    "id_trans must be a single integer" = is_scalar_integerish(id_trans),
+    "id_pred must be missing or a vector of integers" = missing(id_pred) || is_integerish(id_pred),
     "id_run must be set" = !is.null(self$id_run)
   )
 
   pred_meta_t <- self$pred_meta_t
   if (missing(id_pred)) {
     id_pred <- pred_meta_t[["id_pred"]]
+  } else {
+    # a predictor without metadata cannot be cast or filled; with the pivot's columns
+    # spelled out (see inst/pred_wide_train.sql), it would otherwise come back as NULLs
+    id_pred <- intersect(sort(unique(as.integer(id_pred))), pred_meta_t[["id_pred"]])
+    if (length(id_pred) == 0L) {
+      stop("No predictor columns: none of the requested id_pred is in pred_meta_t", call. = FALSE)
+    }
   }
 
   result <-
-    system.file("trans_pred_data.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
+    self$get_query(
+      read_sql("pred_wide_train.sql"),
       lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
       period_read_expr = self$get_read_expr("periods_t"),
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       id_trans = id_trans,
-      id_pred = id_pred
-    ) |>
-    self$get_query()
+      id_pred = id_pred,
+      pred_cols = paste0("id_pred_", id_pred)
+    )
 
   set_pred_coltypes(result, pred_meta_t)
-
-  if (ordered) {
-    data.table::setkeyv(result, c("id_coord", "id_period_anterior"))
-  }
 
   result
 }
@@ -162,34 +154,48 @@ trans_pred_data_v <- function(
 #' prediction (cols `id_coord, id_pred_{n}`)
 #' @param id_period_anterior Scalar integerish of anterior period ID, i.e. we
 #' get the predictors that explain the processes over the next N years
-pred_data_wide_v <- function(
+pred_wide_predict_v <- function(
   self,
+  private,
   id_trans,
   id_period_anterior
 ) {
   stopifnot(
-    "id_trans must be a single integer or NA" = {
-      is.na(id_trans) || (length(id_trans) == 1L && as.integer(id_trans) == id_trans)
-    },
-    "id_period_anterior must be a single integer" = {
-      length(id_period_anterior) == 1L && as.integer(id_period_anterior) == id_period_anterior
-    },
+    "id_trans must be a single integer or NA" = is.na(id_trans) || is_scalar_integerish(id_trans),
+    "id_period_anterior must be a single integer" = is_scalar_integerish(id_period_anterior),
     "id_run must be set" = !is.null(self$id_run)
   )
 
+  if (is.na(id_trans)) {
+    # if NA, fetch all data for viable transitions. used for prefetch.
+    trans_condition <- DBI::SQL("is_viable = TRUE")
+    trans_filter <- DBI::SQL("")
+  } else {
+    # only fetch data for single transition
+    trans_condition <- private$sql("id_trans = {id_trans}")
+    trans_filter <- private$sql("where {trans_condition}")
+  }
+
+  trans_preds_read_expr <- self$get_read_expr("trans_preds_t")
+  # the pivot needs its columns spelled out, see inst/pred_wide_predict.sql
+  id_pred <- self$get_query(
+    "select distinct id_pred from {trans_preds_read_expr} {trans_filter} order by id_pred",
+    as_atomic = TRUE
+  )
+  stopifnot("no predictors in trans_preds_t for the transition(s)" = length(id_pred) > 0L)
+
   result <-
-    system.file("pred_data_wide.sql", package = "evoland") |>
-    readLines() |>
-    paste(collapse = "\n") |>
-    glue::glue(
+    self$get_query(
+      read_sql("pred_wide_predict.sql"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
-      trans_preds_read_expr = self$get_read_expr("trans_preds_t"),
+      trans_preds_read_expr = trans_preds_read_expr,
       lulc_data_read_expr = self$get_read_expr("lulc_data_t"),
       pred_data_read_expr = self$get_read_expr("pred_data_t"),
-      id_trans = id_trans,
-      id_period_anterior = id_period_anterior
-    ) |>
-    self$get_query()
+      trans_condition = trans_condition,
+      trans_filter = trans_filter,
+      id_period_anterior = id_period_anterior,
+      pred_cols = paste0("id_pred_", id_pred)
+    )
 
   set_pred_coltypes(result, self$pred_meta_t)
 
@@ -261,6 +267,7 @@ set_pred_coltypes <- function(result, pred_meta_t) {
 #' descriptors like "bed nights/year" as a proxy for touristic activity
 add_predictor <- function(
   self,
+  private,
   pred_data_raw,
   name,
   fill_value,
@@ -270,47 +277,41 @@ add_predictor <- function(
   sources = list(),
   unit = NA_character_
 ) {
-  id_pred <- self$column_max("pred_meta_t", "id_pred") + 1L
-  if (id_pred > 1L) {
-    # if id_pred == 1, this is the first entry in pred_meta_t
-    # if higher, we check if this predictor is already in DB
-    existing_pred <- self$fetch("pred_meta_t", where = glue::glue("name = '{name}'"))
-    if (nrow(existing_pred) > 0L) {
-      # use pre-existing id_pred if already exists
-      id_pred <- existing_pred[["id_pred"]][1L]
-    }
-  }
+  # one transaction: the id_pred is allocated against what pred_meta_t holds,
+  # and a failure between the two upserts would leave a predictor with no data
+  self$transaction({
+    id_pred <- self$next_id("pred_meta_t", "id_pred")
 
-  new_meta_row <- data.table::data.table(
-    id_pred = id_pred,
-    name = name,
-    pretty_name = pretty_name,
-    description = description,
-    orig_format = orig_format,
-    sources = list(sources),
-    unit = unit,
-    data_type = switch(
-      class(pred_data_raw[["value"]])[[1]],
-      integer = "int",
-      numeric = "float",
-      logical = "bool",
-      factor = "factor",
-      ordered = "ordered",
-      stop("Unsupported data type for value column")
-    ),
-    fill_value = fill_value,
-    factor_levels = {
-      if (is.factor(pred_data_raw[["value"]])) {
-        list(levels(pred_data_raw[["value"]]))
-      } else {
-        list(character(0))
+    new_meta_row <- data.table::data.table(
+      id_pred = id_pred,
+      name = name,
+      pretty_name = pretty_name,
+      description = description,
+      orig_format = orig_format,
+      sources = list(sources),
+      unit = unit,
+      data_type = switch(
+        class(pred_data_raw[["value"]])[[1]],
+        integer = "int",
+        numeric = "float",
+        logical = "bool",
+        factor = "factor",
+        ordered = "ordered",
+        stop("Unsupported data type for value column")
+      ),
+      fill_value = fill_value,
+      factor_levels = {
+        if (is.factor(pred_data_raw[["value"]])) {
+          list(levels(pred_data_raw[["value"]]))
+        } else {
+          list(character(0))
+        }
       }
-    }
-  )
+    )
 
-  # upsert
-  self$pred_meta_t <- as_pred_meta_t(new_meta_row)
-
+    # upsert
+    self$pred_meta_t <- as_pred_meta_t(new_meta_row)
+  })
   # construct valid pred data
   pred_data_to_add <- data.table::copy(pred_data_raw)
   pred_data_to_add[, id_run := self$id_run]

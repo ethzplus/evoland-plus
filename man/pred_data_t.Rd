@@ -5,8 +5,8 @@
 \alias{as_pred_data_t}
 \alias{print.pred_data_t}
 \alias{pred_data_available_v}
-\alias{trans_pred_data_v}
-\alias{pred_data_wide_v}
+\alias{pred_wide_train_v}
+\alias{pred_wide_predict_v}
 \alias{set_pred_coltypes}
 \alias{add_predictor}
 \title{Create Predictor Data Table}
@@ -17,14 +17,15 @@ as_pred_data_t(x)
 
 pred_data_available_v(self)
 
-trans_pred_data_v(self, id_trans, id_pred, ordered = FALSE)
+pred_wide_train_v(self, id_trans, id_pred)
 
-pred_data_wide_v(self, id_trans, id_period_anterior)
+pred_wide_predict_v(self, private, id_trans, id_period_anterior)
 
 set_pred_coltypes(result, pred_meta_t)
 
 add_predictor(
   self,
+  private,
   pred_data_raw,
   name,
   fill_value,
@@ -48,11 +49,6 @@ add_predictor(
 
 \item{id_pred}{Optional integer vector of predictor IDs to include; if
 missing, use all predictor IDs from \link{pred_meta_t}}
-
-\item{ordered}{\itemize{
-\item if TRUE, order output by id_period then id_coord (otherwise no
-guaranteed order; need ordering for reproducible subsampling)
-}}
 
 \item{id_period_anterior}{Scalar integerish of anterior period ID, i.e. we
 get the predictors that explain the processes over the next N years}
@@ -95,7 +91,8 @@ A data.table of class "pred_data_t" with columns:
 }
 
 data.table with columns id_coord, id_period, did_transition (bool),
-and one column per predictor (\verb{id_pred_\{n\}})
+and one column per predictor (\verb{id_pred_\{n\}}), ordered by id_coord and
+id_period_anterior so that subsampling and order-sensitive learners replay
 }
 \description{
 Construct and validate a \code{pred_data_t} objects, which are used to store predictor
@@ -112,9 +109,9 @@ data. Different data types (float, int, bool) have different subclasses
 \item \code{pred_data_available_v()}: Check if predictor data is complete, i.e. each entry in
 \link{pred_meta_t} is either present in period 0 or for all other periods for a given run.
 
-\item \code{trans_pred_data_v()}: Get transitions along with their predictor data in a wide data.table
+\item \code{pred_wide_train_v()}: Get transitions along with their predictor data in a wide data.table
 
-\item \code{pred_data_wide_v()}: Get predictor data in a wide data.table for transition potential
+\item \code{pred_wide_predict_v()}: Get predictor data in a wide data.table for transition potential
 prediction (cols \verb{id_coord, id_pred_\{n\}})
 
 \item \code{set_pred_coltypes()}: In-place casting of predictor columns to their

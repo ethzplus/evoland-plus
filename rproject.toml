@@ -15,4 +15,7 @@ dependencies = [
   "languageserver",
   "profvis",
   "qs2",
+  "covr",
+  "DT",
+  "htmltools",
 ]

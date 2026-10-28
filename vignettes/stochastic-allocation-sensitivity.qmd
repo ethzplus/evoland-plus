@@ -433,8 +433,7 @@ db$trans_rates_t <-
   )] |>
   as_trans_rates_t()
 
-db$alloc_params_t <-
-  db$create_alloc_params_t(n_perturbations = 0)[, id_run := 0L]
+db$alloc_params_t <- db$create_alloc_params_t()
 ```
 
 ## Registering stochastic realizations in `runs_t`

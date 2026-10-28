@@ -1,5 +1,10 @@
 # evoland-plus <img src="man/figures/evoland-plus-logo.svg" alt="plus shaped logo" height="150" width="150" align="right" />
 
+<!-- badges: start -->
+[![R CMD check (main)](https://img.shields.io/github/actions/workflow/status/ethzplus/evoland-plus/R-CMD-check.yaml?branch=main&event=push&label=R%20CMD%20check%20%28main%29)](https://github.com/ethzplus/evoland-plus/actions/workflows/R-CMD-check.yaml?query=branch%3Amain+event%3Apush)
+[![R CMD check (develop)](https://img.shields.io/github/actions/workflow/status/ethzplus/evoland-plus/R-CMD-check.yaml?branch=develop&event=push&label=R%20CMD%20check%20%28develop%29)](https://github.com/ethzplus/evoland-plus/actions/workflows/R-CMD-check.yaml?query=branch%3Adevelop+event%3Apush)
+<!-- badges: end -->
+
 ## Overview
 
 The `evoland-plus` R package (`evoland` for evolving land use, `plus` for [plus.ethz.ch](https://plus.ethz.ch/)) provides tools for land use change simulations. The package implements a statistically calibrated, constrained model for predicting locations of future land use / land cover change (LULCC).
@@ -12,25 +17,33 @@ The scope of `evoland-plus` is to:
 
 ## Installation
 
-We suggest you use [rv](https://a2-ai.github.io/rv-docs/) to manage your dependencies in an encapsulated environment.
-Simply create an `rproject.toml` at the project root and execute `rv init && rv sync`.
+Install the development version from GitHub:
+
+```r
+# install.packages("remotes")
+remotes::install_github("ethzplus/evoland-plus")
+library(evoland)
+```
+
+The package compiles C++ code, so you need a working build toolchain (Rtools on Windows, Xcode command line tools on macOS), and [terra](https://rspatial.github.io/terra/) needs GDAL and PROJ.
+
+If you manage project libraries with [rv](https://a2-ai.github.io/rv-docs/), add the package to your `rproject.toml` instead:
 
 ```toml
-# sample rproject.toml
-[project]
-name = "evoland-plus"
-r_version = "4.5"
-
-repositories = [
-    { alias = "CRAN", url = "https://stat.ethz.ch/CRAN/" },
-]
 dependencies = [
-    # just use it: load using library(evoland)
     { name = "evoland", git = "https://github.com/ethzplus/evoland-plus/", branch = "main" },
 ]
 ```
 
-If you want to develop the model logic itself, you can opt to only install dependencies but not the package itself:
+## Contributing
+
+PRs are very welcome!
+It's probably best to first discuss the underlying issue; @mmyrte is very happy to help figure out a solution.
+Conventions for R, C++, SQL and prose are collected in the [style guide](devdocs/style/README.md); [AGENTS.md](AGENTS.md) has the project layout and development commands.
+Code should be formatted with [air](https://posit-dev.github.io/air/) before committing.
+Tests are written as `tinytest`s that can be run after package installation, ensuring that your system is set up correctly.
+
+To work on the package itself with rv, install only its dependencies and load the package from your checkout:
 
 ```toml
 dependencies = [
@@ -43,21 +56,15 @@ dependencies = [
 ]
 ```
 
-During development, `devtools::load_all()` acts as though you were calling `library(evoland)` on an installed package.
-This makes it easy to rapidly reload code when you've changed something.
+`devtools::load_all()` then acts as though you were calling `library(evoland)` on an installed package, which makes it easy to reload code after a change.
 
-## Contributing
+## Allocation
 
-PRs are very welcome!
-It's probably best to first discuss the underlying issue; @mmyrte is very happy to help figure out a solution.
-Code should be autoformatted using [air](https://posit-dev.github.io/air/) before committing.
-Tests are written as `tinytest`s that can be run after package installation, ensuring that your system is set up correctly.
+`evoland-plus` places projected land use change on the map with one of three allocators:
 
-## Dinamica EGO
-
-`evoland-plus` uses [Dinamica EGO](https://dinamicaego.com/) as its spatial allocation engine.
-See the [Installing Dinamica EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html) vignette for installation instructions.
-Note that Dinamica only runs on **Linux x86 / amd64** (the Windows installer exists but is untested with `evoland-plus`); users on other platforms should use the [Docker container](https://github.com/ethzplus/rocker-geospatial-dinamica/).
+- `db$alloc_clumpy()`: stochastic patch-based allocation after [CLUMPY](https://github.com/mmyrte/clumpy), implemented in C++ and available wherever the package installs.
+- `db$alloc_greedy()`: deterministic rank-and-fill allocation, a baseline for comparison.
+- `db$alloc_dinamica()`: allocation with [Dinamica EGO](https://dinamicaego.com/), which is optional. Dinamica only runs on **Linux x86 / amd64** (the Windows installer exists but is untested with `evoland-plus`); see the [Installing Dinamica EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html) vignette, or use the [Docker container](https://github.com/ethzplus/rocker-geospatial-dinamica/) on other platforms.
 
 ## Documentation
 
@@ -65,10 +72,8 @@ This package uses pkgdown, see <http://ethzplus.github.io/evoland-plus>.
 
 - **Tutorials & How-to Guides**: Package vignettes and examples in R man pages
 - **Reference Documentation**: R man pages using the standard `?function_name`
-- **Explanation & Design Rationale**: See the [project wiki](../../wiki) for
-  - Detailed explanation of the modeling approach
-  - Database schema and architecture decisions
-  - Development guidelines and coding standards
+- **Explanation & Design Rationale**: See [`devdocs/design/`](devdocs/design/) for the modelling workflow, the database schema and architecture decisions
+- **Development guidelines and coding standards**: See the [style guide](devdocs/style/README.md)
 
 ## License
 

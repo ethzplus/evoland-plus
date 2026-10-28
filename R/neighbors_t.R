@@ -30,76 +30,12 @@ as_neighbors_t <- function(x) {
     cast_dt_col(x, "distance_class", "factor")
   }
 
-  as_parquet_db_t(
+  as_ducklake_db_t(
     x,
     class_name = "neighbors_t",
     key_cols = c("id_coord_origin", "id_coord_neighbor")
   )
 }
-
-#' @describeIn neighbors_t Compute neighboring coordinates within specified distances.
-#' This uses a spatial hash map for efficiency.
-#' @param coords_t A [coords_t] object containing coordinate points with `id_coord`,
-#' `lon`, and `lat` columns, and appropriate metadata attributes (epsg, extent,
-#' resolution).
-#' @param max_distance Maximum distance to search for neighbors (in same units as
-#' coordinates)
-#' @param distance_breaks Optional numeric vector defining distance class boundaries.
-#'   If NULL, no distance classification is performed.
-#'   If provided, must have at least 2 elements defining interval breaks.
-#' @param quiet If TRUE, suppress progress messages during neighbor computation
-#' @return A data.table with columns:
-#'   - id_coord_origin: ID of the origin coordinate
-#'   - id_coord_neighbor: ID of the neighboring coordinate
-#'   - distance: Distance between origin and neighbor
-#'   - distance_class: Factor indicating distance class (if distance_breaks provided)
-#' @export
-create_neighbors_t <- function(
-  coords_t,
-  max_distance,
-  distance_breaks = NULL,
-  quiet = FALSE
-) {
-  # Validate inputs
-  if (!inherits(coords_t, "coords_t")) {
-    stop("coords_t must be a coords_t object")
-  }
-
-  if (!is.numeric(max_distance) || length(max_distance) != 1 || max_distance <= 0) {
-    stop("max_distance must be a positive scalar numeric")
-  }
-
-  if (!is.null(distance_breaks)) {
-    if (!is.numeric(distance_breaks) || length(distance_breaks) < 2) {
-      stop("distance_breaks must be NULL or a numeric vector with at least 2 elements")
-    }
-  }
-
-  # Call C++ function
-  dt <- distance_neighbors_cpp(
-    coords_t = coords_t,
-    max_distance = max_distance,
-    quiet = quiet
-  )
-
-  data.table::setkeyv(dt, c("id_coord_origin", "id_coord_neighbor"))
-  data.table::setalloccol(dt)
-
-  # Add distance class if breaks provided
-  if (!is.null(distance_breaks)) {
-    dt[,
-      distance_class := cut(
-        distance,
-        breaks = distance_breaks,
-        right = FALSE,
-        include.lowest = TRUE
-      )
-    ]
-  }
-
-  as_neighbors_t(dt)
-}
-
 
 #' @describeIn neighbors_t Validate a neighbors_t object
 #' @export
@@ -149,19 +85,35 @@ print.neighbors_t <- function(x, nrow = 10, ...) {
 
 #' @describeIn neighbors_t Compute neighbor relationships between coordinates
 #' and store in `self$neighbors_t`. This uses a spatial hash map for efficiency
-#' and can produce a very large table depending on max_distance.
+#' and can produce a very large table depending on max_distance. The table is never held in
+#' memory as a whole: the neighbourhoods are computed and committed in chunks of complete
+#' neighbourhoods (all neighbours of a set of origins), inside one transaction.
 #' @param self An [evoland_db] object
+#' @param max_distance Maximum distance to search for neighbors (in same units as
+#' coordinates)
+#' @param distance_breaks Optional numeric vector defining distance class boundaries.
+#'   If NULL, no distance classification is performed.
+#'   If provided, must have at least 2 elements defining interval breaks.
+#' @param quiet If TRUE, suppress progress messages during neighbor computation
 #' @param overwrite If FALSE and `neighbors_t` already exists, skip computation (default: FALSE)
-#' @param chunksize Number of rows to write per chunk when inserting into the database
-#' to avoid memory issues (default: 1e8)
+#' @param chunksize Number of neighbour pairs per chunk; bounds the memory used while
+#' computing and committing (default: 1e7, a few hundred MB)
 set_neighbors <- function(
   self,
   max_distance = 1000,
   distance_breaks = c(0, 100, 500, 1000),
   overwrite = FALSE,
   quiet = FALSE,
-  chunksize = 1e8
+  chunksize = 1e7
 ) {
+  stopifnot(
+    "max_distance must be a positive scalar numeric" = {
+      is_scalar_numeric(max_distance) && max_distance > 0
+    },
+    "distance_breaks must be NULL or a numeric vector with at least 2 elements" = {
+      is.null(distance_breaks) || (is.numeric(distance_breaks) && length(distance_breaks) >= 2L)
+    }
+  )
   if (!overwrite && "neighbors_t" %in% self$list_tables()) {
     message("neighbors_t already exists. Use overwrite = TRUE to recompute.")
     return(invisible(self))
@@ -169,64 +121,54 @@ set_neighbors <- function(
 
   coords_minimal <- self$coords_minimal
 
-  # may produce a very large table
-  # cannot chunk here, because we cannot subset efficiently without spatial index
-  neighbors <- distance_neighbors_cpp(
-    coords_minimal,
-    max_distance = max_distance,
-    quiet = quiet
-  )
-  data.table::setkeyv(neighbors, c("id_coord_origin", "id_coord_neighbor"))
-  data.table::setalloccol(neighbors)
-
-  # Add distance class if breaks provided
-  if (!is.null(distance_breaks)) {
-    neighbors[,
-      distance_class := cut(
-        distance,
-        breaks = distance_breaks,
-        right = FALSE,
-        include.lowest = TRUE
-      )
-    ]
+  # labels exactly as cut() makes them, assigned to the integer codes the C++ side computes
+  class_labels <- if (!is.null(distance_breaks)) {
+    levels(cut(numeric(0), breaks = distance_breaks, right = FALSE, include.lowest = TRUE))
   }
 
-  # chunked insert to avoid memory issues (each chunk gets copied when registering to DB)
-  n_neighbors <- nrow(neighbors)
-  chunksize <- min(chunksize, n_neighbors)
+  # chunks hold disjoint sets of complete neighbourhoods of a table that is unique by
+  # construction
+  previous_warning_option <- options(evoland.ducklake_db_append_warning = FALSE)
+  on.exit(options(previous_warning_option), add = TRUE)
 
-  if (n_neighbors > 0) {
-    # Use a temporary prefix for the chunked files
-    temp_prefix <- "neighbors_t_temp"
-    n_chunks <- ceiling(n_neighbors / chunksize)
-
-    for (i in seq_len(n_chunks)) {
-      slice_start <- (i - 1) * chunksize + 1
-      slice_end <- min(i * chunksize, n_neighbors)
-
-      # Write each chunk to a separate parquet file using overwrite
-      self$commit(
-        as_neighbors_t(neighbors[slice_start:slice_end, ]),
-        table_name = paste0(temp_prefix, "_", i),
-        method = "overwrite"
-      )
+  n_chunks <- 0L
+  commit_chunk <- function(chunk) {
+    chunk <- data.table::as.data.table(chunk)
+    if (!is.null(class_labels)) {
+      chunk[, distance_class := factor(class_labels[distance_class], levels = class_labels)]
     }
-
-    # Remove the large object from memory and collect garbage
-    rm(neighbors)
-    gc()
-
-    # Gather all temporary parquet files into the final large file using DuckDB
-    self$execute(glue::glue(
-      "copy (
-        select * from read_parquet('{self$path}/{temp_prefix}_*.parquet')
-      ) to '{self$path}/neighbors_t.parquet' ({self$writeopts})"
-    ))
-
-    unlink(list.files(self$path, pattern = temp_prefix, full.names = TRUE))
+    self$commit(
+      as_neighbors_t(chunk),
+      table_name = "neighbors_t",
+      method = if (n_chunks == 0L) "overwrite" else "append"
+    )
+    n_chunks <<- n_chunks + 1L
+    invisible(NULL)
   }
 
-  message(glue::glue("Computed {n_neighbors} neighbor relationships"))
+  # one transaction over all chunks: the overwrite goes first, so a failure
+  # part-way through would otherwise leave a truncated neighbors_t behind --
+  # which the guard above then takes for a complete one and skips
+  self$transaction({
+    n_neighbors <- distance_neighbors_chunked_cpp(
+      coords_minimal,
+      max_distance = max_distance,
+      breaks = as.numeric(distance_breaks),
+      chunk_rows = chunksize,
+      callback = commit_chunk,
+      quiet = quiet
+    )
+    if (n_chunks == 0L) {
+      # no pairs within max_distance: still leave an (empty) table behind
+      empty <- as_neighbors_t()
+      if (!is.null(class_labels)) {
+        empty[, distance_class := factor(character(0), levels = class_labels)]
+      }
+      self$commit(empty, table_name = "neighbors_t", method = "overwrite")
+    }
+  })
+
+  message(glue::glue("Computed {n_neighbors} neighbor relationships in {n_chunks} chunk(s)"))
   invisible(self)
 }
 
@@ -254,7 +196,7 @@ generate_neighbor_predictors <- function(self) {
       "pred_meta_t" %in% tables_present
     },
     "neighbors_t does not have distance_class column.
-    Run $create_neighbors_t() with distance_breaks" = {
+    Run $set_neighbors() with distance_breaks" = {
       "distance_class" %in% names(self$fetch("neighbors_t", limit = 0L))
     }
   )
@@ -264,16 +206,35 @@ generate_neighbor_predictors <- function(self) {
   lulc_meta_read_expr <- self$get_read_expr("lulc_meta_t")
   pred_meta_read_expr <- self$get_read_expr("pred_meta_t")
 
-  # Generate metadata rows based on all distinct distance class / id_lulc
-  # permutations
-  current_max_id_pred <- self$column_max("pred_meta_t", "id_pred")
-  n_predictors <- self$execute(glue::glue(
-    r"{
+  # one transaction: the predictor ids come from what pred_meta_t holds, and a
+  # failure between the two upserts would leave predictors with no data. The
+  # scratch tables below need no on.exit: a rollback discards temp tables
+  # created inside the transaction along with everything else, so dropping
+  # them on the way out covers the only case left, which is success.
+  self$transaction({
+    # Generate metadata rows based on all distinct distance class / id_lulc
+    # permutations. The ids are reserved up front rather than taken from
+    # max(id_pred) + 1: that is a read followed by a write, which DuckLake does
+    # not treat as a conflict, so two processes generating predictors at once
+    # would both keep the same maximum and write the same ids. See
+    # `ducklake_db$next_id()`.
+    n_permutations <- self$get_query(
+      r"{
+    select
+      (select count(*) from {lulc_meta_read_expr})
+      * (select count(distinct distance_class) from {neighbors_read_expr})
+    }",
+      as_atomic = TRUE
+    )
+    first_id_pred <- self$next_id("pred_meta_t", "id_pred", n = n_permutations)[[1L]]
+
+    n_predictors <- self$execute(
+      r"{
     create or replace temp table pred_meta_neighbors_t as
     with
       all_distance_classes as (select distinct distance_class from {neighbors_read_expr})
     select
-      row_number() over () + {current_max_id_pred} as id_pred,
+      row_number() over () + {first_id_pred - 1L} as id_pred,
       concat('id_lulc_', l.id_lulc, '_dist_', c.distance_class) as name,
       concat(
         'Count of ', l.pretty_name,
@@ -293,29 +254,27 @@ generate_neighbor_predictors <- function(self) {
     cross join
       all_distance_classes c
     }"
-  ))
-  on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
+    )
+    self$pred_meta_t <-
+      self$get_query(
+        "select * exclude (distance_class, id_lulc) from pred_meta_neighbors_t"
+      ) |>
+      as_pred_meta_t()
 
-  self$pred_meta_t <-
-    self$get_query(
-      "select * exclude (distance_class, id_lulc) from pred_meta_neighbors_t"
-    ) |>
-    as_pred_meta_t()
-
-  # Set the id_pred in pred_meta_neighbors_t based on the autoincremented IDs in pred_meta_t
-  self$execute(glue::glue(
-    r"{
+    # Set the id_pred in pred_meta_neighbors_t based on the autoincremented IDs in pred_meta_t
+    self$execute(
+      r"{
     update pred_meta_neighbors_t
     set id_pred = m.id_pred
     from {pred_meta_read_expr} m
     where pred_meta_neighbors_t.name = m.name
     }"
-  ))
+    )
 
-  # Count the number of neighbours per origin, period, id_lulc and distance_class
-  n_data_points <- self$execute(glue::glue(
-    r"{
-    create temp table pred_neighbors_t as
+    # Count the number of neighbours per origin, period, id_lulc and distance_class
+    n_data_points <- self$execute(
+      r"{
+    create or replace temp table pred_neighbors_t as
     select
       {self$id_run} as id_run,
       p.id_pred,
@@ -337,10 +296,14 @@ generate_neighbor_predictors <- function(self) {
       t.id_lulc,
       p.id_pred
     }"
-  ))
-  on.exit(self$execute("drop table pred_neighbors_t"), add = TRUE)
+    )
+    self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
 
-  self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")
+    # pred_neighbors_t holds a row per coordinate, period and predictor, so
+    # leaving it on the connection would pin the whole result until the next call
+    self$execute("drop table pred_meta_neighbors_t")
+    self$execute("drop table pred_neighbors_t")
+  })
 
   message(glue::glue(
     "Appended {n_predictors} neighbor predictor variables with ",
@@ -361,12 +324,10 @@ generate_neighbor_predictors <- function(self) {
 upsert_new_neighbors <- function(self, id_period) {
   stopifnot(
     "id_run must be set" = !is.null(self$id_run),
-    "id_period must be a single integer" = {
-      length(id_period) == 1L && as.integer(id_period) == id_period
-    }
+    "id_period must be a single integer" = is_scalar_integerish(id_period)
   )
 
-  self$execute(glue::glue(
+  self$execute(
     r"{
     create temp table pred_meta_neighbors_t as
     select
@@ -376,14 +337,14 @@ upsert_new_neighbors <- function(self, id_period) {
     from {self$get_read_expr("pred_meta_t")}
       where name like 'id_lulc_%_dist_%'
     }"
-  ))
+  )
   on.exit(self$execute("drop table pred_meta_neighbors_t"), add = TRUE)
 
   if (self$get_query("from pred_meta_neighbors_t") |> nrow() == 0L) {
     stop("No neighbor predictors found in pred_meta_t, cannot upsert new neighbors")
   }
 
-  self$execute(glue::glue(
+  self$execute(
     r"{
     create temp table pred_neighbors_t as
     select
@@ -408,7 +369,7 @@ upsert_new_neighbors <- function(self, id_period) {
       t.id_lulc,
       p.id_pred
     }"
-  ))
+  )
   on.exit(self$execute("drop table pred_neighbors_t"), add = TRUE)
 
   self$commit("pred_neighbors_t", "pred_data_t", method = "upsert")

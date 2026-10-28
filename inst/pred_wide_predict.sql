@@ -4,10 +4,13 @@ Reads one resolved slice per predictor, preferring period-specific data over the
 id_period = 0 static fallback.
 Assumes that the read expressions return a single run.
 
-Meant to be run with glue for interpolation, requiring
+Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
-- {id_trans}
+- {trans_condition}
 - {id_period_anterior}
+Columns:
+- {pred_cols*}: the pivoted column names, `id_pred_<n>` for every predictor of the
+  transition(s).
 Data sources:
 - {trans_meta_read_expr}
 - {trans_preds_read_expr}
@@ -22,9 +25,7 @@ with
     from
       {trans_meta_read_expr}
     where
-      {
-        if (is.na (id_trans)) "is_viable = TRUE" else paste ("id_trans =", id_trans)
-      }
+      {trans_condition}
   ),
   anterior_coords as (
     -- we only infer the transition potential where id_coord had the anterior land cover
@@ -44,9 +45,7 @@ with
     select distinct
       id_pred
     from
-      {trans_preds_read_expr} {
-        if (is.na (id_trans)) "" else paste ("where id_trans =", id_trans)
-      }
+      {trans_preds_read_expr} {trans_filter}
   ),
   -- a predictor may carry both a period-specific value and an id_period = 0
   -- fallback (e.g. a climate baseline overridden by a scenario projection).
@@ -83,7 +82,7 @@ with
     select
       ac.id_coord,
       pd.id_pred,
-      pd."value"
+      pd.value
     from
       {pred_data_read_expr} pd
       -- pred_slice picks the winning one of the two, but restate the candidates so that
@@ -98,34 +97,13 @@ with
           preds_select
       )
   ),
-  -- a resolved slice need not cover any of the coordinates selected above. Record
-  -- those predictors as explicit NULLs, so that the pivot still yields a column for
-  -- them: dropping out entirely would leave the model short of a feature, which is a
-  -- worse failure than an absent value.
-  pred_data_complete as (
-    select
-      id_coord,
-      id_pred,
-      "value"
-    from
-      pred_data_long
-    union all
-    select
-      ac.id_coord,
-      missing.id_pred,
-      null as "value"
-    from
-      (
-        select
-          ps.id_pred
-        from
-          pred_slice ps
-          anti join pred_data_long l on l.id_pred = ps.id_pred
-      ) as missing
-      cross join anterior_coords ac
-  ),
-  pred_data_wide as (
-    pivot pred_data_complete on 'id_pred_' || id_pred using first("value")
+  -- a resolved slice need not cover any of the coordinates selected above, and a
+  -- predictor may have no slice at all. The explicit column list still yields a column
+  -- for each absent slice, filled with NULL. application side substitutes a fill value.
+  -- The parentheses matter: without them, the IN list binds to id_pred alone, and DuckDB
+  -- (>= 2.0) cannot infer the pivot values of a CTE.
+  pred_wide as (
+    pivot pred_data_long on ('id_pred_' || id_pred) in ({pred_cols*}) using first(value)
     group by
       id_coord
   )
@@ -137,4 +115,4 @@ select
   pdata.* exclude (id_coord)
 from
   anterior_coords ac
-  left join pred_data_wide pdata on pdata.id_coord = ac.id_coord
+  left join pred_wide pdata on pdata.id_coord = ac.id_coord
