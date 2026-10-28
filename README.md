@@ -1,5 +1,10 @@
 # evoland-plus <img src="man/figures/evoland-plus-logo.svg" alt="plus shaped logo" height="150" width="150" align="right" />
 
+<!-- badges: start -->
+[![R CMD check (main)](https://img.shields.io/github/actions/workflow/status/ethzplus/evoland-plus/R-CMD-check.yaml?branch=main&event=push&label=R%20CMD%20check%20%28main%29)](https://github.com/ethzplus/evoland-plus/actions/workflows/R-CMD-check.yaml?query=branch%3Amain+event%3Apush)
+[![R CMD check (develop)](https://img.shields.io/github/actions/workflow/status/ethzplus/evoland-plus/R-CMD-check.yaml?branch=develop&event=push&label=R%20CMD%20check%20%28develop%29)](https://github.com/ethzplus/evoland-plus/actions/workflows/R-CMD-check.yaml?query=branch%3Adevelop+event%3Apush)
+<!-- badges: end -->
+
 ## Overview
 
 The `evoland-plus` R package (`evoland` for evolving land use, `plus` for [plus.ethz.ch](https://plus.ethz.ch/)) provides tools for land use change simulations. The package implements a statistically calibrated, constrained model for predicting locations of future land use / land cover change (LULCC).
