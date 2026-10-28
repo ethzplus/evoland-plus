@@ -26,7 +26,7 @@ method. These provide computed views on the database without storing additional 
 \section{Methods Added}{
 
 \itemize{
-\item \code{trans_pred_data_v(id_trans)} - Returns wide table of transition results and predictor data for
+\item \code{pred_wide_train_v(id_trans)} - Returns wide table of transition results and predictor data for
 a specific transition. Used as input to covariance filtering.
 \item \code{adjusted_trans_pot_v(id_period_post)} - Returns allocation-ready transition potentials:
 column-scaled to match target transition rates, then row-closed so per-cell change
