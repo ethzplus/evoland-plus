@@ -40,10 +40,6 @@ Additional methods and active bindings are added to this class in separate files
 
     \item{\code{trans_rates_t}}{Get or upsert \link{trans_rates_t}}
 
-    \item{\code{intrv_meta_t}}{Get or upsert \link{intrv_meta_t}}
-
-    \item{\code{intrv_masks_t}}{Get or upsert \link{intrv_masks_t}}
-
     \item{\code{trans_models_t}}{Get or upsert \link{trans_models_t}}
 
     \item{\code{alloc_params_t}}{Get or upsert \link{alloc_params_t}}
@@ -227,7 +223,7 @@ as its key}
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$set_neighbors(
   max_distance = 1000,
-  distance_breaks = NULL,
+  distance_breaks = c(0, 100, 500, 1000),
   overwrite = FALSE,
   quiet = FALSE,
   chunksize = 1e+07
@@ -294,7 +290,7 @@ generate_neighbor_predictors() having been run.
   pretty_name = name,
   description = NA_character_,
   orig_format = NA_character_,
-  sources = data.frame(url = character(0), md5sum = character(0)),
+  sources = list(),
   unit = NA_character_
 )}
     \if{html}{\out{</div>}}

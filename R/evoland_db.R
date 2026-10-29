@@ -106,7 +106,7 @@ evoland_db <- R6::R6Class(
     #' @param chunksize Integer, chunksize for writing; keeps down memory pressure
     set_neighbors = function(
       max_distance = 1000,
-      distance_breaks = NULL,
+      distance_breaks = c(0, 100, 500, 1000),
       overwrite = FALSE,
       quiet = FALSE,
       chunksize = 1e7
@@ -146,7 +146,7 @@ evoland_db <- R6::R6Class(
       pretty_name = name,
       description = NA_character_,
       orig_format = NA_character_,
-      sources = data.frame(url = character(0), md5sum = character(0)),
+      sources = list(),
       unit = NA_character_
     ) {
       create_method_binding(add_predictor, with_private = TRUE)
@@ -489,10 +489,6 @@ evoland_db <- R6::R6Class(
     trans_preds_t = create_table_binding("trans_preds_t", "overwrite"),
     #' @field trans_rates_t Get or upsert [trans_rates_t]
     trans_rates_t = create_table_binding("trans_rates_t", "upsert"),
-    #' @field intrv_meta_t Get or upsert [intrv_meta_t]
-    intrv_meta_t = create_table_binding("intrv_meta_t", "upsert"),
-    #' @field intrv_masks_t Get or upsert [intrv_masks_t]
-    intrv_masks_t = create_table_binding("intrv_masks_t", "upsert"),
     #' @field trans_models_t Get or upsert [trans_models_t]
     trans_models_t = create_table_binding("trans_models_t", "upsert"),
     #' @field alloc_params_t Get or upsert [alloc_params_t]

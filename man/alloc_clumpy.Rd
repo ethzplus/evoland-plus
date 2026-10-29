@@ -78,7 +78,7 @@ commits the allocated map to \code{lulc_data_t} and recomputes the neighbour pre
 period is predicted from. Use it for plain simulations.
 \item \code{alloc_clumpy_one_period(db, id_period_post, ...)} allocates one period for the active
 \code{id_run} and returns the map \strong{without committing it}. Use it to write your own loop:
-edit \code{trans_pot_t} between prediction and allocation (e.g. interventions), edit the
+edit \code{trans_pot_t} between prediction and allocation, edit the
 allocated map afterwards, or draw an ensemble of single-period realisations. The caller
 then commits the map with \code{db$commit(x, "lulc_data_t", method = "upsert")} and, if a
 later period follows, runs \code{db$upsert_new_neighbors(id_period_post)}, in that order.

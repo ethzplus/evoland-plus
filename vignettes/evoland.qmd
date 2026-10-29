@@ -238,7 +238,7 @@ db$coords_minimal[1:2]
 ### Temporal domain
 
 We also define our temporal domain.
-Note that an additional "0th" period is added at the end of the observed range; this is used for labelling predictor or intervention data as static.
+Note that an additional "0th" period is added at the end of the observed range; this is used for labelling predictor data as static.
 
 ```{r}
 #| label: set-periods
