@@ -473,7 +473,7 @@ Note that we do **not** copy the allocation parameters into each run. Every stoc
 
 We only allocate the first extrapolated period. This makes the comparison easier to interpret: every realization starts from the same observed state.
 We loop over the run records: for each run we allocate the single extrapolated period (`id_period = 4`) under that run's `id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- using that run's `seed`.
-All runs share the transition potentials of their parent, the base run (`potentials_from = 0L`), so they are predicted once.
+All runs share the transition potentials of their parent, the base run (`potentials_ancestor = 1L`, one generation up), so they are predicted once.
 Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
 
 ```{r}
@@ -488,7 +488,7 @@ for (i in seq_len(nrow(runs_out))) {
     select_score = "no.crossval",
     select_maximize = TRUE,
     id_run = runs_out$id_run[i],
-    potentials_from = 0L
+    potentials_ancestor = 1L
   )
 }
 ```

@@ -77,22 +77,23 @@ alloc_clumpy_spec <- function(
 }
 
 alloc_clumpy_one_period <- function(ctx, args) {
-  grid <- ctx$grid()
+  grid <- ctx$grid
   cells <- grid[["cells"]]
-  n_cells <- terra::ncell(grid[["template"]])
   viable_trans <- ctx$viable_trans
 
   # the anterior map as a raster in row-major cell order, NA where there is no coordinate point
-  landscape <- rep(NA_integer_, n_cells)
-  landscape[cells[ctx$anterior, on = "id_coord", cell]] <- ctx$anterior[["id_lulc"]]
+  landscape <- grid_values(grid, ctx$anterior, "id_lulc")
 
   # Sparse per-transition potential columns: the cells carrying a nonzero adjusted potential
   # and their values. The adjusted potentials are already sparse, so they are passed as
   # per-transition lists rather than a dense n_cells x n_trans matrix (prohibitive at >1e7
   # cells).
   potentials <- ctx$potentials[value > 0][cells, on = "id_coord", cell := i.cell]
-  prob_cell <- lapply(viable_trans[["id_trans"]], \(t) potentials[id_trans == t, cell])
-  prob_value <- lapply(viable_trans[["id_trans"]], \(t) potentials[id_trans == t, value])
+  # one element per viable transition, in their order, empty for a transition without
+  # potentials
+  by_trans <- factor(potentials[["id_trans"]], levels = viable_trans[["id_trans"]])
+  prob_cell <- unname(split(potentials[["cell"]], by_trans))
+  prob_value <- unname(split(potentials[["value"]], by_trans))
 
   # patch parameters and rates in the order of viable_trans
   params <- ctx$alloc_params[viable_trans[, .(id_trans)], on = "id_trans"]

@@ -53,8 +53,10 @@ Ties are rare for continuous potentials, but common for coarse ones (e.g. classi
 trees, or potentials rounded on input), and \code{id_coord} usually follows the raster's row
 order, so tied cells are taken from the top of the map first.
 
-The allocation works on \code{id_coord} rows only, not on a raster, so it applies to any
-tessellation \code{coords_t} can describe. The ranking uses the allocation-ready potentials of
+The allocation works on \code{id_coord} rows only, not on a raster, so it applies to any regular
+tessellation \code{coords_t} can describe. The quantity of change is a number of cells, though,
+so cells of unequal area or productivity are not weighted (see ethzplus/evoland-plus#91).
+The ranking uses the allocation-ready potentials of
 \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}}, which are scaled to each transition's rate, so that they are
 comparable across transitions.
 }

@@ -75,7 +75,6 @@ Use \code{\link[=adjusted_trans_pot_v]{adjusted_trans_pot_v()}} for allocation-r
     \item \href{#method-evoland_db-pred_wide_predict_v}{\code{evoland_db$pred_wide_predict_v()}}
     \item \href{#method-evoland_db-figure_of_merit_v}{\code{evoland_db$figure_of_merit_v()}}
     \item \href{#method-evoland_db-lulc_crosstab_v}{\code{evoland_db$lulc_crosstab_v()}}
-    \item \href{#method-evoland_db-eval_alloc_params_t}{\code{evoland_db$eval_alloc_params_t()}}
     \item \href{#method-evoland_db-create_alloc_params_t}{\code{evoland_db$create_alloc_params_t()}}
     \item \href{#method-evoland_db-lulc_data_as_rast}{\code{evoland_db$lulc_data_as_rast()}}
     \item \href{#method-evoland_db-fit_full_models}{\code{evoland_db$fit_full_models()}}
@@ -416,33 +415,6 @@ none.}
 active run}
       \item{\code{id_run_post}}{Integer, run to read \code{id_period_post} from; defaults to
 \code{id_run_anterior}}
-    }
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-evoland_db-eval_alloc_params_t"></a>}}
-\if{latex}{\out{\hypertarget{method-evoland_db-eval_alloc_params_t}{}}}
-\subsection{\code{evoland_db$eval_alloc_params_t()}}{
-  Evaluates allocation parameters by simulating the observed periods for every run in
-\code{alloc_params_t}, see \code{\link[=eval_alloc_params_t]{eval_alloc_params_t()}}
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$eval_alloc_params_t(
-  select_score,
-  select_maximize,
-  allocator = alloc_dinamica_spec()
-)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{select_score}}{Character string; mlr3 measure ID (e.g. \code{"classif.auc"}) used
-to select model for extrapolation}
-      \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
-      \item{\code{allocator}}{An allocator specification, see \code{\link[=allocate]{allocate()}}; Dinamica by default.}
     }
     \if{html}{\out{</div>}}
   }

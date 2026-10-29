@@ -211,21 +211,6 @@ evoland_db <- R6::R6Class(
 
     ### Allocation methods ---
     #' @description
-    #' Evaluates allocation parameters by simulating the observed periods for every run in
-    #' `alloc_params_t`, see [eval_alloc_params_t()]
-    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
-    #' to select model for extrapolation
-    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param allocator An allocator specification, see [allocate()]; Dinamica by default.
-    eval_alloc_params_t = function(
-      select_score,
-      select_maximize,
-      allocator = alloc_dinamica_spec()
-    ) {
-      create_method_binding(eval_alloc_params_t)
-    },
-
-    #' @description
     #' Estimates allocation parameters for all viable transitions under the active `id_run`,
     #' see [create_alloc_params_t()]
     #' @param id_period_post Optional integer vector; estimate only from the period pairs

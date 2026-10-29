@@ -12,7 +12,7 @@ allocate(
   select_score,
   select_maximize,
   id_run = db$id_run,
-  potentials_from = id_run,
+  potentials_ancestor = 0L,
   force_predict = FALSE,
   update_neighbors = TRUE
 )
@@ -24,7 +24,7 @@ allocate_one_period(
   select_score,
   select_maximize,
   id_run = db$id_run,
-  potentials_from = id_run,
+  potentials_ancestor = 0L,
   force_predict = FALSE
 )
 }
@@ -43,14 +43,16 @@ model for prediction, see \code{\link[=predict_trans_pot]{predict_trans_pot()}}.
 \item{id_run}{Integer; the run to allocate. It reads its anterior map, demand and
 allocation parameters through its lineage, and the allocated maps are written under it.}
 
-\item{potentials_from}{Integer; the run whose transition potentials are used, predicted
-under that run if missing. Pass the parent run to let sibling runs (e.g. a Monte Carlo
-ensemble) share one set of potentials. It can differ from \code{id_run} for a single period
-only: from the second period on, the anterior map is the run's own allocation, which
-another run cannot see.}
+\item{potentials_ancestor}{Integer; how many generations up the lineage of \code{id_run} to
+take the transition potentials from: \code{0} (default) the run itself, \code{1} its parent, \code{2} its
+grandparent. They are predicted under that run if missing. Use \code{1} to let sibling runs
+(e.g. a Monte Carlo ensemble of allocations) share their parent's potentials. \code{2} only
+makes sense if the parent's siblings share the same transition potentials too. Above \code{0}
+for a single period only: from the second period on, the anterior map is the run's own
+allocation, which its ancestors cannot see.}
 
 \item{force_predict}{Logical; if \code{TRUE}, predict the transition potentials even if
-\code{trans_pot_t} already holds them for \code{potentials_from} and the period.}
+\code{trans_pot_t} already holds them for that run and the period.}
 
 \item{update_neighbors}{Logical; whether to recompute the neighbor predictors after the last
 period (default \code{TRUE}). Intermediate periods are always updated, since the next period's
@@ -83,8 +85,10 @@ is predicted from, in one transaction.
 
 \code{allocate_one_period()} runs steps 1-3 for one period and returns the map without
 committing it. Use it to write your own loop: edit \code{trans_pot_t} between prediction and
-allocation (e.g. interventions), edit the allocated map afterwards, or draw an ensemble of
-single-period realisations. Commit the map with \code{db$commit(x, "lulc_data_t", method = "upsert")} and, if a later period follows, run \code{db$upsert_new_neighbors(id_period_post)}.
+allocation (e.g. theory-driven shifts in potential due to policy interventions), edit the
+allocated map afterwards, or draw an ensemble of single-period realisations. Commit the map
+with \code{db$commit(x, "lulc_data_t", method = "upsert")} and, if a later period follows, run
+\code{db$upsert_new_neighbors(id_period_post)}.
 
 The allocator is one of \code{\link[=alloc_clumpy_spec]{alloc_clumpy_spec()}} (stochastic, unbiased; the default),
 \code{\link[=alloc_greedy_spec]{alloc_greedy_spec()}} (deterministic rank-and-fill) or \code{\link[=alloc_dinamica_spec]{alloc_dinamica_spec()}} (Dinamica

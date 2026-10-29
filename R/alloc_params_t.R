@@ -20,7 +20,8 @@
 #'   - `frac_expander`: Fraction of transition cells adjacent to existing patches
 #'   - `frac_patcher`: Fraction of transition cells forming new patches
 #'   - `similarity`: Similarity metric for allocation parameters, see
-#'      [calc_transition_similarity()] and [eval_alloc_params_t()]
+#'      [calc_transition_similarity()]; nothing writes it at the moment, see
+#'      ethzplus/evoland-plus#131
 #'
 #' @export
 as_alloc_params_t <- function(x) {
@@ -360,7 +361,7 @@ create_alloc_params_t <- function(self, id_period_post = NULL) {
       patch_isometry = mean_na(patch_isometry),
       frac_expander = mean_na(frac_expander),
       frac_patcher = mean_na(frac_patcher),
-      similarity = NA_real_ # placeholder, to be filled in eval_alloc_params_t
+      similarity = NA_real_ # placeholder, see ethzplus/evoland-plus#131
     ),
     by = id_trans
   ]

@@ -18,9 +18,10 @@
 #'
 #' `allocate_one_period()` runs steps 1-3 for one period and returns the map without
 #' committing it. Use it to write your own loop: edit `trans_pot_t` between prediction and
-#' allocation (e.g. interventions), edit the allocated map afterwards, or draw an ensemble of
-#' single-period realisations. Commit the map with `db$commit(x, "lulc_data_t", method =
-#' "upsert")` and, if a later period follows, run `db$upsert_new_neighbors(id_period_post)`.
+#' allocation (e.g. theory-driven shifts in potential due to policy interventions), edit the
+#' allocated map afterwards, or draw an ensemble of single-period realisations. Commit the map
+#' with `db$commit(x, "lulc_data_t", method = "upsert")` and, if a later period follows, run
+#' `db$upsert_new_neighbors(id_period_post)`.
 #'
 #' The allocator is one of [alloc_clumpy_spec()] (stochastic, unbiased; the default),
 #' [alloc_greedy_spec()] (deterministic rank-and-fill) or [alloc_dinamica_spec()] (Dinamica
@@ -40,13 +41,15 @@
 #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) `select_score`.
 #' @param id_run Integer; the run to allocate. It reads its anterior map, demand and
 #'   allocation parameters through its lineage, and the allocated maps are written under it.
-#' @param potentials_from Integer; the run whose transition potentials are used, predicted
-#'   under that run if missing. Pass the parent run to let sibling runs (e.g. a Monte Carlo
-#'   ensemble) share one set of potentials. It can differ from `id_run` for a single period
-#'   only: from the second period on, the anterior map is the run's own allocation, which
-#'   another run cannot see.
+#' @param potentials_ancestor Integer; how many generations up the lineage of `id_run` to
+#'   take the transition potentials from: `0` (default) the run itself, `1` its parent, `2` its
+#'   grandparent. They are predicted under that run if missing. Use `1` to let sibling runs
+#'   (e.g. a Monte Carlo ensemble of allocations) share their parent's potentials. `2` only
+#'   makes sense if the parent's siblings share the same transition potentials too. Above `0`
+#'   for a single period only: from the second period on, the anterior map is the run's own
+#'   allocation, which its ancestors cannot see.
 #' @param force_predict Logical; if `TRUE`, predict the transition potentials even if
-#'   `trans_pot_t` already holds them for `potentials_from` and the period.
+#'   `trans_pot_t` already holds them for that run and the period.
 #' @param update_neighbors Logical; whether to recompute the neighbor predictors after the last
 #'   period (default `TRUE`). Intermediate periods are always updated, since the next period's
 #'   prediction reads them. Set `FALSE` when nothing is allocated onwards from the last period,
@@ -69,19 +72,19 @@ allocate <- function(
   select_score,
   select_maximize,
   id_run = db$id_run,
-  potentials_from = id_run,
+  potentials_ancestor = 0L,
   force_predict = FALSE,
   update_neighbors = TRUE
 ) {
+  check_allocation_args(allocator, id_run, potentials_ancestor)
   stopifnot(
     "id_periods must be integers" = is_integerish(id_periods),
     "id_periods must be contiguous" = all(diff(id_periods) == 1L),
     "id_periods must be in periods_t" = all(id_periods %in% db$periods_t[["id_period"]]),
-    "potentials_from can differ from id_run for a single period only" = {
-      length(id_periods) == 1L || identical(as.integer(potentials_from), as.integer(id_run))
+    "potentials_ancestor above 0 works for a single period only" = {
+      length(id_periods) == 1L || potentials_ancestor == 0L
     }
   )
-  check_allocation_args(allocator, id_run, potentials_from)
 
   message(glue::glue(
     "Allocating with {allocator$name}: run {id_run}, ",
@@ -96,7 +99,7 @@ allocate <- function(
       select_score = select_score,
       select_maximize = select_maximize,
       id_run = id_run,
-      potentials_from = potentials_from,
+      potentials_ancestor = potentials_ancestor,
       force_predict = force_predict
     )
 
@@ -121,23 +124,32 @@ allocate_one_period <- function(
   select_score,
   select_maximize,
   id_run = db$id_run,
-  potentials_from = id_run,
+  potentials_ancestor = 0L,
   force_predict = FALSE
 ) {
+  check_allocation_args(allocator, id_run, potentials_ancestor)
   stopifnot(
     "id_period_post must be a single integer" = is_scalar_integerish(id_period_post)
   )
-  check_allocation_args(allocator, id_run, potentials_from)
+
+  # the run potentials_ancestor generations up the lineage, the run itself for 0
+  potentials_run <- get_lineage(db$runs_t, as.integer(id_run))[potentials_ancestor + 1L]
+  if (is.na(potentials_run)) {
+    stop(
+      glue::glue("Run {id_run} has no ancestor {potentials_ancestor} generations up"),
+      call. = FALSE
+    )
+  }
 
   db$predict_trans_pot(
     id_period_post = id_period_post,
     select_score = select_score,
     select_maximize = select_maximize,
     force = force_predict,
-    id_run = potentials_from
+    id_run = potentials_run
   )
 
-  ctx <- allocation_context(db, id_period_post, id_run, potentials_from)
+  ctx <- allocation_context(db, id_period_post, id_run, potentials_run)
 
   message(glue::glue(
     "  {allocator$name}: period {id_period_post - 1L} -> {id_period_post}"
@@ -151,13 +163,15 @@ allocate_one_period <- function(
     as_lulc_data_t()
 }
 
-check_allocation_args <- function(allocator, id_run, potentials_from) {
+check_allocation_args <- function(allocator, id_run, potentials_ancestor) {
   stopifnot(
     "allocator must be an allocator specification, e.g. alloc_clumpy_spec()" = {
       inherits(allocator, "allocator_spec")
     },
     "id_run must be a single integer" = is_scalar_integerish(id_run),
-    "potentials_from must be a single integer" = is_scalar_integerish(potentials_from)
+    "potentials_ancestor must be a single integer, 0 or more" = {
+      is_scalar_integerish(potentials_ancestor) && potentials_ancestor >= 0L
+    }
   )
   # e.g. Dinamica's setup, before anything is predicted or written
   allocator$check()
@@ -165,9 +179,9 @@ check_allocation_args <- function(allocator, id_run, potentials_from) {
 }
 
 # Everything an allocator reads, gathered in one place. Allocators get this list and never
-# touch the database themselves. `grid()` is the only part that is computed on demand, since
-# only the raster-based allocators (CLUMPY, Dinamica) need it.
-allocation_context <- function(db, id_period_post, id_run, potentials_from) {
+# touch the database themselves. `grid` serves the raster-based allocators (CLUMPY, Dinamica),
+# see coords_grid().
+allocation_context <- function(db, id_period_post, id_run, potentials_run) {
   id_period_anterior <- id_period_post - 1L
 
   anterior <- db$get_query(
@@ -210,22 +224,12 @@ allocation_context <- function(db, id_period_post, id_run, potentials_from) {
   potentials <- db$adjusted_trans_pot_v(
     id_period_post,
     id_run = id_run,
-    id_run_trans_pot = potentials_from
+    id_run_trans_pot = potentials_run
   )
 
   alloc_params <- db$get_query(
     "from {db$get_read_expr('alloc_params_t', id_run = id_run)}"
   )
-
-  grid <- local({
-    cached <- NULL
-    function() {
-      if (is.null(cached)) {
-        cached <<- coords_grid(db$coords_minimal)
-      }
-      cached
-    }
-  })
 
   list(
     id_run = id_run,
@@ -235,36 +239,8 @@ allocation_context <- function(db, id_period_post, id_run, potentials_from) {
     quota = quota,
     potentials = potentials,
     alloc_params = alloc_params,
-    grid = grid
+    grid = coords_grid(db$coords_minimal)
   )
-}
-
-# A raster template covering coords and the raster cell of every coordinate point, for the
-# allocators that work on rasters
-coords_grid <- function(coords) {
-  template <- coords_rast_template(coords)
-  list(
-    template = template,
-    cells = data.table::data.table(
-      id_coord = coords[["id_coord"]],
-      cell = terra::cellFromXY(template, as.matrix(coords[, .(lon, lat)]))
-    )
-  )
-}
-
-# Write values given per coordinate point into a raster on the grid; cells without a
-# coordinate point, or without a value, are NA
-grid_to_rast <- function(grid, id_coord, value) {
-  values <- rep(NA_real_, terra::ncell(grid[["template"]]))
-  values[grid[["cells"]][["cell"]][match(id_coord, grid[["cells"]][["id_coord"]])]] <- value
-  out <- terra::rast(grid[["template"]])
-  terra::values(out) <- values
-  out
-}
-
-# Read a raster on the grid back into one value per coordinate point
-rast_to_grid <- function(grid, x) {
-  grid[["cells"]][, .(id_coord, value = terra::values(x, mat = FALSE)[cell])]
 }
 
 #' Allocator specifications
@@ -297,8 +273,12 @@ new_allocator_spec <- function(name, args, one_period, check = function() invisi
   stopifnot(
     "name must be a single string" = is_scalar_character(name),
     "args must be a list" = is.list(args),
-    "one_period must be a function" = is.function(one_period),
-    "check must be a function" = is.function(check)
+    "one_period must be a function of one argument, the allocation context" = {
+      is.function(one_period) && length(formals(one_period)) == 1L
+    },
+    "check must be a function without arguments" = {
+      is.function(check) && length(formals(check)) == 0L
+    }
   )
   structure(
     list(name = name, args = args, one_period = one_period, check = check),

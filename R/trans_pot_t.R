@@ -278,7 +278,7 @@ predict_trans_pot <- function(
 # The transitions that already have potentials for the period under id_run itself. Not
 # through the lineage: a run with its own models must not take its ancestors' potentials for
 # its own. Sharing potentials is explicit, by predicting under the run that shares them (see
-# `potentials_from` in allocate()).
+# `potentials_ancestor` in allocate()).
 .predicted_trans <- function(self, id_period_post, id_run) {
   if (!"trans_pot_t" %in% self$list_tables()) {
     return(integer(0))

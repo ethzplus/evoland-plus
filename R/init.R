@@ -61,6 +61,7 @@ utils::globalVariables(c(
   "i.id_lulc",
   "i.id_lulc_posterior",
   "i.loss",
+  "i.value",
   "id_coord",
   "id_lulc",
   "id_lulc_anterior",
