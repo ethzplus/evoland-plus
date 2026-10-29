@@ -268,7 +268,8 @@ set_pred_coltypes <- function(result, pred_meta_t) {
 #' @param pred_data_raw data.table with columns id_coord, id_period, and value
 #' (predictor value); the data type of the value is stored in [pred_meta_t]
 #' @param name Character scalar, unique name of predictor. If already present in
-#' `pred_meta_t`, this will simply update the information.
+#' `pred_meta_t`, the predictor keeps its `id_pred`: its metadata is updated, and its data
+#' is upserted, so values at coordinates and periods not in `pred_data_raw` remain.
 #' @param fill_value Value to use for coordinates registered in [coords_t] but not in
 #' the provided `pred_data_raw`. e.g. where no known population is registered,
 #' assume pop. 0. For a factor variable, this could be a base case, e.g. for
@@ -292,10 +293,20 @@ add_predictor <- function(
   sources = list(),
   unit = NA_character_
 ) {
-  # one transaction: the id_pred is allocated against what pred_meta_t holds,
+  # one transaction: the id_pred is looked up or allocated against what pred_meta_t holds,
   # and a failure between the two upserts would leave a predictor with no data
   self$transaction({
-    id_pred <- self$next_id("pred_meta_t", "id_pred")
+    # a predictor that already exists keeps its id_pred: pred_meta_t is upserted on name,
+    # which leaves the id unchanged, so the data must go under that same id
+    id_pred <- if ("pred_meta_t" %in% self$list_tables()) {
+      self$get_query(
+        "select id_pred from dl_db.pred_meta_t where name = {name}",
+        as_atomic = TRUE
+      )
+    }
+    if (length(id_pred) == 0L) {
+      id_pred <- self$next_id("pred_meta_t", "id_pred")
+    }
 
     new_meta_row <- data.table::data.table(
       id_pred = id_pred,
@@ -326,12 +337,11 @@ add_predictor <- function(
 
     # upsert
     self$pred_meta_t <- as_pred_meta_t(new_meta_row)
-  })
-  # construct valid pred data
-  pred_data_to_add <- data.table::copy(pred_data_raw)
-  pred_data_to_add[, id_run := self$id_run]
-  pred_data_to_add[, id_pred := id_pred]
 
-  # upsert
-  self$pred_data_t <- as_pred_data_t(pred_data_to_add)
+    # copy, so that the caller's table does not gain the id columns
+    pred_data_to_add <- data.table::copy(pred_data_raw)
+    pred_data_to_add[, id_run := self$id_run]
+    pred_data_to_add[, id_pred := id_pred]
+    self$pred_data_t <- as_pred_data_t(pred_data_to_add)
+  })
 }
