@@ -32,6 +32,11 @@ expect_equal(
   sort(db$trans_meta_t[is_viable == TRUE, id_trans])
 )
 db$id_run <- 0L
+# id_period_post restricts the estimate to the given period pairs; an empty selection errors
+expect_error(
+  suppressMessages(db$create_alloc_params_t(id_period_post = -1L)),
+  "No observed periods"
+)
 
 # active bindings without tables
 active_bindings <-
@@ -203,6 +208,17 @@ trans_pred_order <- precedence_db$pred_wide_train_v(id_trans = 1L, id_pred = 1:2
 expect_identical(
   trans_pred_order,
   trans_pred_order[order(id_coord, id_period_anterior)]
+)
+# id_period_anterior restricts the training rows to the given anterior periods
+trans_pred_periods <- unique(trans_pred_order[["id_period_anterior"]])
+expect_true(length(trans_pred_periods) > 1L)
+expect_identical(
+  unique(precedence_db$pred_wide_train_v(
+    id_trans = 1L,
+    id_pred = 1:2,
+    id_period_anterior = trans_pred_periods[-length(trans_pred_periods)]
+  )[["id_period_anterior"]]),
+  trans_pred_periods[-length(trans_pred_periods)]
 )
 
 

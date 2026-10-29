@@ -7,6 +7,7 @@ Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
 - {id_trans}
 - {id_pred*}
+- {id_period_anterior_filter}: SQL condition on id_period, `true` to train on all periods
 Columns:
 - {pred_cols*}: the pivoted column names, `id_pred_<n>` for each of `id_pred`
 Data sources:
@@ -31,6 +32,9 @@ with
         order by
           id_period
       ) is not null
+      -- caller's restriction, e.g. to hold out the last observed transition; it is applied
+      -- after the window, so that the last observed period is still recognised as such
+      and {id_period_anterior_filter}
   ),
   trans_select as (
     select

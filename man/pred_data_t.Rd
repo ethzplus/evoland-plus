@@ -17,7 +17,7 @@ as_pred_data_t(x)
 
 pred_data_available_v(self)
 
-pred_wide_train_v(self, id_trans, id_pred)
+pred_wide_train_v(self, id_trans, id_pred, id_period_anterior = NULL)
 
 pred_wide_predict_v(self, private, id_trans, id_period_anterior)
 

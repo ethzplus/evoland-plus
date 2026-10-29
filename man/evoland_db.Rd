@@ -322,7 +322,7 @@ underlying raw data, see \code{\link[=download_and_verify]{download_and_verify()
 data.table, see \code{\link[=pred_wide_train_v]{pred_wide_train_v()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$pred_wide_train_v(id_trans, id_pred)}
+    \preformatted{evoland_db$pred_wide_train_v(id_trans, id_pred, id_period_anterior = NULL)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -330,6 +330,8 @@ data.table, see \code{\link[=pred_wide_train_v]{pred_wide_train_v()}}
     \describe{
       \item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
       \item{\code{id_pred}}{Optional integer vector of predictor IDs to include}
+      \item{\code{id_period_anterior}}{Optional integer vector of anterior periods to train on;
+\code{NULL} (default) uses every observed anterior period}
     }
     \if{html}{\out{</div>}}
   }
@@ -584,7 +586,15 @@ uses a temporary directory.}
 see \code{\link[=create_alloc_params_t]{create_alloc_params_t()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$create_alloc_params_t()}
+    \preformatted{evoland_db$create_alloc_params_t(id_period_post = NULL)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{id_period_post}}{Optional integer vector; estimate only from the period pairs
+ending in these periods. \code{NULL} (default) uses every observed pair.}
+    }
     \if{html}{\out{</div>}}
   }
 }
@@ -625,7 +635,8 @@ directly, or pass \code{select_score} to pick the best partial model by score.
   select_maximize = TRUE,
   cluster = NULL,
   trans_preds = NULL,
-  trans_meta = NULL
+  trans_meta = NULL,
+  id_period_anterior = NULL
 )}
     \if{html}{\out{</div>}}
   }
@@ -642,6 +653,8 @@ when \code{select_score} is used).}
 direct-learner mode. Ignored in score-select mode.}
       \item{\code{trans_meta}}{Optional \link{trans_meta_t}; bypasses the database read in
 direct-learner mode. Ignored in score-select mode.}
+      \item{\code{id_period_anterior}}{Optional integer vector; train only on transitions
+observed from these anterior periods. \code{NULL} (default) uses all observed periods.}
     }
     \if{html}{\out{</div>}}
   }
@@ -663,7 +676,8 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
   seed = NULL,
   cluster = NULL,
   trans_preds = NULL,
-  trans_meta = NULL
+  trans_meta = NULL,
+  id_period_anterior = NULL
 )}
     \if{html}{\out{</div>}}
   }
@@ -680,6 +694,9 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
 database read.}
       \item{\code{trans_meta}}{Optional \link{trans_meta_t}; bypasses the \code{trans_meta_t}
 database read.}
+      \item{\code{id_period_anterior}}{Optional integer vector; train and score only on
+transitions observed from these anterior periods. \code{NULL} (default) uses all
+observed periods.}
     }
     \if{html}{\out{</div>}}
   }

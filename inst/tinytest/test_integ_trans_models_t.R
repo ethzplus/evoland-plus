@@ -134,6 +134,23 @@ expect_message(
 )
 expect_equal(partial_t1$id_trans, 1L)
 
+# fit_partial_models: id_period_anterior = 1 holds out the transitions from period 2. With
+# the seed fixed, 30% of the 1067 training rows (636 from period 1) are scored
+expect_message(
+  partial_t1_held_out <- db$fit_partial_models(
+    learner = test_learner,
+    measures = test_measures,
+    sample_frac = 0.7,
+    seed = 123,
+    trans_preds = trans_preds_t1,
+    id_period_anterior = 1L
+  ),
+  "Fitting partial models for 1 transitions"
+)
+n_scored <- function(models) length(qs2::qs_deserialize(models$crossval_predictions[[1L]])$row_ids)
+expect_equal(n_scored(partial_t1), 321L)
+expect_equal(n_scored(partial_t1_held_out), 190L)
+
 # fit_partial_models: supply trans_meta restricted to id_trans == 1
 trans_meta_t1 <- db$trans_meta_t[id_trans == 1L]
 expect_message(
@@ -190,6 +207,20 @@ expect_message(
 expect_equal(nrow(full_direct_t1), 1L)
 expect_equal(full_direct_t1$id_trans, 1L)
 expect_true(is.raw(full_direct_t1$learner_full[[1]]))
+
+# fit_full_models (direct mode): id_period_anterior = 1 trains on the 636 rows from period 1
+# instead of all 1067; a featureless learner's class counts add up to its training rows
+expect_message(
+  full_direct_t1_held_out <- db$fit_full_models(
+    learner = test_learner,
+    trans_preds = db$trans_preds_t[id_trans == 1L],
+    id_period_anterior = 1L
+  ),
+  "Fitting full models for 1 transitions"
+)
+n_trained <- function(models) sum(qs2::qs_deserialize(models$learner_full[[1L]])$model$tab)
+expect_equal(n_trained(full_direct_t1), 1067L)
+expect_equal(n_trained(full_direct_t1_held_out), 636L)
 
 # fit_full_models (direct mode): supply trans_meta restricted to id_trans == 1
 expect_message(
