@@ -7,6 +7,11 @@ if (!at_home()) {
 
 source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
 db <- make_test_db()
+
+# without Dinamica, exercise the plumbing around it: the fallback copies the anterior map
+# without Dinamica, test the plumbing around it with the fallback allocation; tinytest resets
+# the option after this file
+options(evoland.dinamica_fallback = !nzchar(Sys.which("DinamicaConsole")))
 db$trans_rates_t <- db$get_obs_trans_rates()
 db$trans_rates_t <- extrapolate_trans_rates(
   db$trans_rates_t,
@@ -42,7 +47,7 @@ db$id_run <- 1L
 # no data for period 4 yet
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 
-if (Sys.which("DinamicaConsole") == "") {
+if (getOption("evoland.dinamica_fallback")) {
   expect_warning(
     db$alloc_dinamica(
       id_periods = 4,
@@ -267,7 +272,7 @@ alloc_dinamica_single <- function() {
     use_parent_trans_pot = TRUE
   )
 }
-lulc_single <- if (Sys.which("DinamicaConsole") == "") {
+lulc_single <- if (getOption("evoland.dinamica_fallback")) {
   expect_warning(lulc <- alloc_dinamica_single(), "fallback")
   lulc
 } else {
