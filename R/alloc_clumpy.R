@@ -88,12 +88,13 @@ alloc_clumpy_one_period <- function(ctx, args) {
   # and their values. The adjusted potentials are already sparse, so they are passed as
   # per-transition lists rather than a dense n_cells x n_trans matrix (prohibitive at >1e7
   # cells).
-  potentials <- ctx$potentials[value > 0][cells, on = "id_coord", cell := i.cell]
-  # one element per viable transition, in their order, empty for a transition without
-  # potentials
-  by_trans <- factor(potentials[["id_trans"]], levels = viable_trans[["id_trans"]])
-  prob_cell <- unname(split(potentials[["cell"]], by_trans))
-  prob_value <- unname(split(potentials[["value"]], by_trans))
+  # one table per viable transition, in their order, empty for a transition without potentials
+  potentials_by_trans <-
+    ctx$potentials[value > 0][cells, on = "id_coord", cell := i.cell] |>
+    (\(x) split(x, factor(x[["id_trans"]], levels = viable_trans[["id_trans"]])))() |>
+    unname()
+  prob_cell <- lapply(potentials_by_trans, `[[`, "cell")
+  prob_value <- lapply(potentials_by_trans, `[[`, "value")
 
   # patch parameters and rates in the order of viable_trans
   params <- ctx$alloc_params[viable_trans[, .(id_trans)], on = "id_trans"]
