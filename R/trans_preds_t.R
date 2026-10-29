@@ -203,7 +203,11 @@ get_pred_filter_score <- function(
   } else {
     stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
   }
-  items <- split(trans_preds, by = c("id_run", "id_trans"))
+  # the scores are for the active run; the predictor sets may be inherited from an ancestor,
+  # whose id_run they carry. Copy, so that the caller's table keeps its id_run.
+  items <-
+    data.table::copy(trans_preds)[, id_run := self$id_run] |>
+    split(by = "id_trans")
 
   message(glue::glue("Processing {length(items)} transitions..."))
 

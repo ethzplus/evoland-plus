@@ -86,10 +86,6 @@ fit_partial_model_worker <- function(
   sample_frac = 0.7,
   id_period_anterior = NULL
 ) {
-  id_run_orig <- db$id_run
-  on.exit(db$id_run <- id_run_orig, add = TRUE)
-  db$id_run <- item[["id_run"]]
-
   tryCatch(
     {
       # Fetch ALL data into memory
@@ -330,9 +326,11 @@ fit_partial_models <- function(
     data.table::as.data.table(self$trans_preds_t)
   }
 
+  # the run fitted for is the active one; the predictor sets may be inherited from an
+  # ancestor, whose id_run they carry
   trans_preds_nested <- preds_source[,
-    .(id_pred = list(id_pred)),
-    by = .(id_run, id_trans)
+    .(id_run = self$id_run, id_pred = list(sort(unique(id_pred)))),
+    by = id_trans
   ]
 
   meta <- if (!is.null(trans_meta)) {
@@ -445,9 +443,10 @@ fit_full_models <- function(
       data.table::as.data.table(self$trans_preds_t)
     }
 
+    # the run fitted for is the active one, see fit_partial_models()
     trans_preds_nested <- preds_source[,
-      .(id_pred = list(id_pred)),
-      by = .(id_run, id_trans)
+      .(id_run = self$id_run, id_pred = list(sort(unique(id_pred)))),
+      by = id_trans
     ]
 
     meta <- if (!is.null(trans_meta)) {
@@ -492,22 +491,23 @@ fit_full_models <- function(
     )
 
     # Identify the best partial model per transition (using QUALIFY window function)
-    # and get the predictor ID lists from trans_preds_t in the same query
+    # and get the predictor ID lists from trans_preds_t in the same query. Both are read
+    # through the active run's lineage, so they may come from different ancestors; the
+    # full models are written under the active run.
     best_models <-
       self$get_query(
         r"[
       with preds_nested as (
         select
-          id_run,
           id_trans,
-          list(id_pred) as id_pred
+          list(distinct id_pred order by id_pred) as id_pred
         from
           {self$get_read_expr("trans_preds_t")}
         group by
-          id_run, id_trans
+          id_trans
       )
       select
-        tm.id_run,
+        {self$id_run}::integer as id_run,
         tm.id_trans,
         tm.learner_id,
         pn.id_pred,
@@ -519,11 +519,10 @@ fit_full_models <- function(
         {self$get_read_expr("trans_models_t")} tm,
         preds_nested pn
       where
-        pn.id_run = tm.id_run
-        and pn.id_trans = tm.id_trans
+        pn.id_trans = tm.id_trans
         and tm.learner_spec is not null
       qualify row_number() over (
-          partition by tm.id_run, tm.id_trans
+          partition by tm.id_trans
           -- learner_id breaks ties (e.g. two learners scoring an identical AUC), so the
           -- selection does not depend on scan order
           order by tm.crossval_score[{select_score}] {sort_direction},
