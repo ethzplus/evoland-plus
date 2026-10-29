@@ -180,6 +180,7 @@ alloc_dinamica_one_period <- function(
   use_parent_trans_pot = FALSE,
   force_predict_trans_pot = FALSE
 ) {
+  require_dinamica()
   id_period_ant <- id_period_post - 1L
   if (is.null(work_dir)) {
     work_dir <- tempfile("dinamica_")
@@ -264,6 +265,7 @@ alloc_dinamica <- function(
     "id_run must be set" = !is.null(self$id_run),
     "id_periods must be in periods_t" = all(id_periods %in% self$periods_t$id_period)
   )
+  require_dinamica()
 
   base_work_dir <-
     file.path(
@@ -322,6 +324,7 @@ eval_alloc_params_t <- function(
   work_dir = NULL,
   keep_intermediate = FALSE
 ) {
+  require_dinamica()
   # Get historical periods
   historical_periods <- self$periods_t[is_extrapolated == FALSE & id_period > 0]
   # exclude first period since it has no anterior period

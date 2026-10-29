@@ -22,18 +22,11 @@ The Linux AppImage path described in this vignette is well-tested; the Windows i
 has **not been tested** with `evoland.plus`.
 :::
 
-If you are on an unsupported platform, your best option is to build the Docker image from
+If you are on an unsupported platform, you can run Dinamica in a Docker image built from
 <https://github.com/ethzplus/rocker-geospatial-dinamica/>.
 Because Dinamica EGO cannot be redistributed, the image is not pre-built; you must clone
 that repository and build it locally.
-The `evoland.plus` repository ships a [devcontainer](https://containers.dev/) configuration, so once the
-image is built you can open the project directly inside the container from VS Code or any
-other IDE that supports the devcontainer specification — just make sure a Docker-compatible
-runtime is running first (e.g.
-[Docker Desktop](https://www.docker.com/products/docker-desktop/),
-[OrbStack](https://orbstack.dev/),
-[Colima](https://github.com/abiosoft/colima), or
-[Portainer](https://www.portainer.io/)).
+Dinamica is optional: the other allocators (`alloc_clumpy()`, `alloc_greedy()`) run wherever R does.
 
 ## Installing on Linux x86 / amd64
 
@@ -95,7 +88,6 @@ or log out and back in:
 export DINAMICA_EGO_8_INSTALLATION_DIRECTORY="/opt/dinamica/usr/bin"
 export DINAMICA_EGO_CLI="/opt/dinamica/usr/bin/DinamicaConsole"
 export DINAMICA_EGO_8_HOME="/opt/dinamica"
-export DINAMICA_EGO_8_TEMP_DIR="/tmp/dinamica"
 export PATH="$PATH:/opt/dinamica/usr/bin"
 ```
 
@@ -107,20 +99,14 @@ your system-wide library path is never affected.
 :::
 
 ::: {.callout-warning}
-Set these in your **shell** profile, not in `~/.Renviron`.
+Do **not** set `DINAMICA_EGO_8_TEMP_DIR`, neither in your shell profile nor in an R startup
+file (`~/.Renviron`, `Renviron.site`).
 For every `Calculate R Expression` it runs, Dinamica starts `Rscript` with
 `DINAMICA_EGO_8_TEMP_DIR` pointing to a per-run subdirectory, where it places the message
 queues it shares with that R process.
-R reads `~/.Renviron` at startup and would reset the variable to the top-level directory, so
-the R side cannot find the queues and the model fails with
-`Failed to send message, session is closed`.
+A value set by you can override that directory, so the R side cannot find the queues and
+the model fails with `Failed to send message, session is closed`.
 :::
-
-Create the temporary directory Dinamica uses at runtime:
-
-```bash
-mkdir -p /tmp/dinamica
-```
 
 ### 6. Create the Dinamica configuration file
 
@@ -147,7 +133,14 @@ DinamicaConsole --version
 ```
 
 You should see version information printed to the terminal.
-From R, run the Dinamica-specific test file that ships with `evoland.plus` to confirm the
+From R, `check_dinamica()` lists anything missing from the steps above; the Dinamica allocators run the same check before they start and stop with this list if Dinamica cannot run at all:
+
+```r
+library(evoland.plus)
+check_dinamica()
+```
+
+Then run the Dinamica-specific test file that ships with `evoland.plus` to confirm the
 full integration works:
 
 ```r
@@ -177,9 +170,5 @@ tinytest::test_package("evoland.plus")
   the shared libraries exist under that path.
 
 **`Failed to send message, session is closed` in a Dinamica log**
-: An R startup file (`~/.Renviron`, `Renviron.site`) sets `DINAMICA_EGO_8_TEMP_DIR` and
-  overrides the per-run directory Dinamica passes to R; remove it from there (see step 5).
-
-**Dinamica falls back to the anterior LULC map with a warning**
-: The `DINAMICA_EGO_CLI` environment variable is not set or points to a wrong path.
-  Double-check the path with `echo $DINAMICA_EGO_CLI` and that the file is executable.
+: `DINAMICA_EGO_8_TEMP_DIR` is set somewhere (shell profile, `~/.Renviron`, `Renviron.site`)
+  and overrides the per-run directory Dinamica passes to R; remove it (see step 5).
