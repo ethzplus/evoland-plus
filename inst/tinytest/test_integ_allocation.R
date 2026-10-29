@@ -49,12 +49,21 @@ lulc_of <- function(id_run, id_period) {
   )
 }
 viable <- db$trans_meta_t[is_viable == TRUE]
-# the cells that changed between the observed period 3 and an allocated map, by transition
-changes_of <- function(posterior) {
-  lulc_of(0L, 3L)[posterior, on = "id_coord"][
+# the cells that changed between an anterior and a posterior map, by transition; the anterior
+# map is the observed period 3 unless given
+changes_of <- function(posterior, anterior = lulc_of(0L, 3L)) {
+  anterior[posterior, on = "id_coord"][
     id_lulc != i.id_lulc,
     .N,
     by = .(id_lulc_anterior = id_lulc, id_lulc_posterior = i.id_lulc)
+  ]
+}
+# the changes per viable transition, to compare with the quota of the allocation context
+changes_by_trans <- function(posterior, anterior = lulc_of(0L, 3L)) {
+  changes_of(posterior, anterior)[
+    viable,
+    on = .(id_lulc_anterior, id_lulc_posterior),
+    .(id_trans, N = data.table::fcoalesce(N, 0L))
   ]
 }
 
@@ -121,6 +130,52 @@ expect_message(
 options("evoland.use_prefetch_predict" = NULL)
 
 # --------------------------------------------------------------------------
+# several periods: run 2 allocates period 3 from the observed period 2, then period 4 from its
+# own period 3, with the neighbor predictors recomputed in between
+# --------------------------------------------------------------------------
+expect_message(
+  allocate(
+    db,
+    id_periods = 3:4,
+    allocator = alloc_greedy_spec(),
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    id_run = 2L
+  ),
+  "periods 3 -> 4"
+)
+expect_equal(nrow(lulc_of(2L, 3L)), 900L)
+expect_equal(nrow(lulc_of(2L, 4L)), 900L)
+# period 4 starts from the run's own allocation of period 3, not from the observed map
+ctx_4 <- evoland:::allocation_context(db, 4L, 2L, 2L)
+expect_identical(ctx_4$anterior, lulc_of(2L, 3L))
+expect_false(isTRUE(all.equal(lulc_of(2L, 3L), lulc_of(0L, 3L))))
+# greedy fills each period's quota exactly
+expect_equal(
+  changes_by_trans(lulc_of(2L, 3L), anterior = lulc_of(0L, 2L)),
+  evoland:::allocation_context(db, 3L, 2L, 2L)$quota[, .(id_trans, N = quota)]
+)
+expect_equal(
+  changes_by_trans(lulc_of(2L, 4L), anterior = lulc_of(2L, 3L)),
+  ctx_4$quota[, .(id_trans, N = quota)]
+)
+# potentials were predicted, and neighbor predictors written, for both periods under run 2
+expect_equal(
+  db$get_query(
+    "select id_period_post, count(*) as n from dl_db.trans_pot_t where id_run = 2
+     group by all order by all"
+  ),
+  data.table::data.table(id_period_post = 3:4, n = c(900, 900))
+)
+expect_equal(
+  db$get_query(
+    "select distinct id_period from dl_db.pred_data_t where id_run = 2 order by all",
+    as_atomic = TRUE
+  ),
+  3:4
+)
+
+# --------------------------------------------------------------------------
 # potentials_ancestor = 1: run 4 allocates on its parent's potentials without predicting
 # --------------------------------------------------------------------------
 db$runs_t <- as_runs_t(rbind(
@@ -170,16 +225,11 @@ expect_inherits(one_period, "lulc_data_t")
 expect_equal(nrow(one_period), 900L)
 expect_equal(unique(one_period[["id_run"]]), 4L)
 expect_equal(db$row_count("lulc_data_t"), n_lulc_before)
-# no transition exceeds the quota the context gives every allocator
-quota <- evoland:::allocation_context(db, 4L, 4L, 3L)$quota
-expect_true(all(
-  changes_of(one_period)[viable, on = .(id_lulc_anterior, id_lulc_posterior), nomatch = NULL][
-    quota,
-    on = "id_trans",
-    N <= quota,
-    nomatch = NULL
-  ]
-))
+# greedy is deterministic and fills the quota the context gives every allocator exactly
+expect_equal(
+  changes_by_trans(one_period),
+  evoland:::allocation_context(db, 4L, 4L, 3L)$quota[, .(id_trans, N = quota)]
+)
 
 # --------------------------------------------------------------------------
 # update_neighbors = FALSE skips the neighbor predictors after the last requested period

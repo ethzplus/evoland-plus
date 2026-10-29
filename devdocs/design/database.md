@@ -50,7 +50,6 @@ erDiagram
         float patch_isometry
         float frac_expander
         float frac_patcher
-        float similarity
     }
     coords_t {
         int id_coord PK
@@ -395,7 +394,6 @@ Multiclass learners (ethzplus/evoland-plus#58) would fit one model per anterior 
 |            | patch_isometry      | float | Dinamica patcher isometry parameter, derived from `patch_elongation`                          |
 |            | frac_expander       | float | Fraction of transition cells adjacent to existing patches [0, 1]                              |
 |            | frac_patcher        | float | Fraction of transition cells forming new patches [0, 1]                                       |
-|            | similarity          | float | Similarity score from allocation evaluation; nothing writes it yet (#131)                     |
 
 Patch statistics measured on the observed transitions, used to parameterize allocation.
 `create_alloc_params_t()` estimates one set per viable transition on the active run; perturbed variants for sensitivity analysis go on child runs.

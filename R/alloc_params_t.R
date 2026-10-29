@@ -19,9 +19,6 @@
 #'     via [isometry_from_elongation()]
 #'   - `frac_expander`: Fraction of transition cells adjacent to existing patches
 #'   - `frac_patcher`: Fraction of transition cells forming new patches
-#'   - `similarity`: Similarity metric for allocation parameters, see
-#'      [calc_transition_similarity()]; nothing writes it at the moment, see
-#'      ethzplus/evoland-plus#131
 #'
 #' @export
 as_alloc_params_t <- function(x) {
@@ -34,8 +31,7 @@ as_alloc_params_t <- function(x) {
       patch_elongation = numeric(0),
       patch_isometry = numeric(0),
       frac_expander = numeric(0),
-      frac_patcher = numeric(0),
-      similarity = numeric(0)
+      frac_patcher = numeric(0)
     )
   }
 
@@ -47,8 +43,7 @@ as_alloc_params_t <- function(x) {
     cast_dt_col("patch_elongation", "float") |>
     cast_dt_col("patch_isometry", "float") |>
     cast_dt_col("frac_expander", "float") |>
-    cast_dt_col("frac_patcher", "float") |>
-    cast_dt_col("similarity", "float")
+    cast_dt_col("frac_patcher", "float")
 
   as_ducklake_db_t(
     x,
@@ -71,8 +66,7 @@ validate.alloc_params_t <- function(x, ...) {
       "patch_elongation",
       "patch_isometry",
       "frac_expander",
-      "frac_patcher",
-      "similarity"
+      "frac_patcher"
     )
   )
 
@@ -360,8 +354,7 @@ create_alloc_params_t <- function(self, id_period_post = NULL) {
       patch_elongation = mean_na(patch_elongation),
       patch_isometry = mean_na(patch_isometry),
       frac_expander = mean_na(frac_expander),
-      frac_patcher = mean_na(frac_patcher),
-      similarity = NA_real_ # placeholder, see ethzplus/evoland-plus#131
+      frac_patcher = mean_na(frac_patcher)
     ),
     by = id_trans
   ]

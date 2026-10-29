@@ -2,12 +2,15 @@
 % Please edit documentation in R/util_terra.R
 \name{coords_grid}
 \alias{coords_grid}
+\alias{coords_cells}
 \alias{grid_values}
 \alias{grid_to_rast}
 \alias{rast_to_grid}
 \title{Raster grid of a coordinate table}
 \usage{
 coords_grid(coords, resolution = NULL)
+
+coords_cells(coords, x)
 
 grid_values(grid, x, value_col)
 
@@ -23,16 +26,18 @@ attribute.}
 \code{resolution} attribute of \code{coords}, or else the smallest distance among its first 1000
 points.}
 
+\item{x}{For \code{grid_values()} and \code{grid_to_rast()}, a data.table with \code{id_coord} and
+\code{value_col}; for \code{coords_cells()}, any \link[terra:SpatRaster]{terra::SpatRaster}; for \code{rast_to_grid()}, a
+single-layer \link[terra:SpatRaster]{terra::SpatRaster} on the grid.}
+
 \item{grid}{A list as returned by \code{coords_grid()}: \code{template}, an empty
 \link[terra:SpatRaster]{terra::SpatRaster}, and \code{cells}, a data.table with \code{id_coord} and \code{cell}.}
-
-\item{x}{For \code{grid_values()} and \code{grid_to_rast()}, a data.table with \code{id_coord} and
-\code{value_col}; for \code{rast_to_grid()}, a \link[terra:SpatRaster]{terra::SpatRaster} on the grid.}
 
 \item{value_col}{Character scalar, the column of \code{x} holding the values.}
 }
 \value{
-\code{coords_grid()}: the grid, see \code{grid}. \code{grid_values()}: a vector of the type of
+\code{coords_grid()}: the grid, see \code{grid}. \code{coords_cells()}: a data.table with
+\code{id_coord} and \code{cell}. \code{grid_values()}: a vector of the type of
 \code{x[[value_col]]}, one element per cell. \code{grid_to_rast()}: a \link[terra:SpatRaster]{terra::SpatRaster} with one
 layer named \code{value_col}. \code{rast_to_grid()}: a data.table with \code{id_coord} and \code{value}.
 }
@@ -42,6 +47,8 @@ Internal helpers for the code that works on rasters (the CLUMPY and Dinamica all
 point, to move values between rows keyed by \code{id_coord} and raster cells.
 \itemize{
 \item \code{coords_grid()} builds the grid.
+\item \code{coords_cells()} finds the cell of every coordinate point in any raster \code{x}; points
+outside it get \code{NA}. \code{\link[=extract_using_coords_t]{extract_using_coords_t()}} reads rasters through it.
 \item \code{grid_values()} lays values given per coordinate point out over every cell of the grid,
 in terra's cell order; cells without a coordinate point, or without a value, are \code{NA}.
 \item \code{grid_to_rast()} does the same, but returns a single-layer raster.
