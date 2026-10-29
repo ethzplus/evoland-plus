@@ -113,6 +113,15 @@ expect_equal(retrieved[id_key == 3]$value, 33.3)
 expect_equal(retrieved[id_key == 4]$name, "d")
 expect_equal(retrieved[id_key == 1]$name, "a") # unchanged
 
+# upsert into a table whose columns are all keys: inserts new rows, leaves matched ones
+key_only <- data.table::data.table(id_a = c(1L, 1L), id_b = c(1L, 2L))
+data.table::setattr(key_only, "key_cols", c("id_a", "id_b"))
+db$commit(key_only, "key_only_table", method = "upsert")
+key_only_more <- data.table::data.table(id_a = c(1L, 2L), id_b = c(2L, 1L))
+data.table::setattr(key_only_more, "key_cols", c("id_a", "id_b"))
+expect_silent(db$commit(key_only_more, "key_only_table", method = "upsert"))
+expect_equal(db$row_count("key_only_table"), 3L)
+
 # Test 12: Fetch with WHERE clause
 result <- db$fetch("test_table_3", where = "id_key >= 3")
 expect_equal(nrow(result), 2L)
