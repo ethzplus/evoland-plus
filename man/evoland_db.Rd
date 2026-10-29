@@ -36,7 +36,8 @@ Additional methods and active bindings are added to this class in separate files
 
     \item{\code{trans_meta_t}}{Get or upsert \link{trans_meta_t}}
 
-    \item{\code{trans_preds_t}}{Get or upsert \link{trans_preds_t}}
+    \item{\code{trans_preds_t}}{Get \link{trans_preds_t}, or replace the predictor sets of the runs and
+transitions the assigned table holds}
 
     \item{\code{trans_rates_t}}{Get or upsert \link{trans_rates_t}}
 
@@ -727,7 +728,8 @@ observed periods.}
 \if{html}{\out{<a id="method-evoland_db-set_full_trans_preds"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-set_full_trans_preds}{}}}
 \subsection{\code{evoland_db$set_full_trans_preds()}}{
-  Set an initial full set of transition / predictor relations, see \code{\link[=set_full_trans_preds]{set_full_trans_preds()}}
+  Set an initial full set of transition / predictor relations for the active run, see
+\code{\link[=set_full_trans_preds]{set_full_trans_preds()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$set_full_trans_preds(overwrite = FALSE)}
@@ -736,7 +738,8 @@ observed periods.}
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{overwrite}}{Logical, whether to overwrite existing \code{trans_preds_t} table. Default FALSE.}
+      \item{\code{overwrite}}{Logical, replace predictor sets the active run already holds? Default
+FALSE.}
     }
     \if{html}{\out{</div>}}
   }

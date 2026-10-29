@@ -261,17 +261,25 @@ kv_df_to_list <- function(x) {
 
 #' @describeIn ducklake_db_utils Create a binding function for a table, which can be used
 #' to fetch or commit data to that table. The active binding either returns the table
-#' (missing argument), or upserts to it (assignment operation)
+#' (missing argument), or commits to it (assignment operation)
 #' @param table_name The name of the table to bind to.
 #' @param mode The mode of the binding, which determines the behavior when
 #' committing data. Options are: "write_once" (default, only allows writing if
-#' table doesn't exist), "upsert", "append", and "overwrite".
+#' table doesn't exist), "upsert", "append", "overwrite", and "replace_slices" (replace
+#' the rows of every slice, a combination of `slice_cols`, that the data holds; see
+#' [commit_replace_slices()]).
+#' @param slice_cols Character vector, the columns that define a slice for
+#' `mode = "replace_slices"`.
 create_table_binding <- function(
   table_name,
-  mode = c("write_once", "upsert", "append", "overwrite")
+  mode = c("write_once", "upsert", "append", "overwrite", "replace_slices"),
+  slice_cols = NULL
 ) {
   force(table_name)
   mode <- match.arg(mode)
+  stopifnot(
+    "replace_slices needs slice_cols" = mode != "replace_slices" || length(slice_cols) > 0L
+  )
   # Use bquote to "bake in" the table_name value directly into the function body,
   # so it doesn't depend on the enclosing environment (which R6 will replace).
   fn <- eval(bquote(
@@ -286,18 +294,6 @@ create_table_binding <- function(
       }
 
       stopifnot(inherits(x, tbl))
-
-      if (md == "overwrite" && interactive() && tbl %in% self$list_tables()) {
-        confirm_overwrite <- utils::menu(
-          c("Yes", "No"),
-          title = glue::glue(
-            "Table '{tbl}' already exists. Are you sure you want to overwrite it?"
-          )
-        )
-        if (confirm_overwrite != 1) {
-          return(NULL)
-        }
-      }
 
       if (md == "write_once") {
         if (tbl %in% self$list_tables()) {
@@ -314,10 +310,66 @@ create_table_binding <- function(
         md <- "overwrite"
       }
 
+      if (md == "replace_slices") {
+        return(commit_replace_slices(self, x, tbl, .(slice_cols)))
+      }
+
       self$commit(x, table_name = tbl, method = md)
     }
   ))
   fn
+}
+
+#' @describeIn ducklake_db_utils Replace whole slices of a table: delete the rows of every
+#' slice (a combination of values of `slice_cols`) that `x` holds, then insert `x`, in one
+#' transaction. Slices the table does not hold yet are added; slices `x` does not hold are
+#' left alone. Columns of `x` that an existing table does not have, such as the filter scores
+#' of [get_pred_filter_score()], are dropped with a message.
+#' @param self A [ducklake_db] instance.
+#' @param x A data.table holding `slice_cols`.
+#' @keywords internal
+commit_replace_slices <- function(self, x, table_name, slice_cols) {
+  stopifnot(
+    "x must hold every slice column" = all(slice_cols %in% names(x))
+  )
+  if (table_name %in% self$list_tables()) {
+    table_cols <- self$get_query(
+      "select column_name from (describe dl_db.{`table_name`})",
+      as_atomic = TRUE
+    )
+    extra_cols <- setdiff(names(x), table_cols)
+    if (length(extra_cols) > 0L) {
+      message(glue::glue(
+        "Not stored in `{table_name}`, which has no such columns: {toString(extra_cols)}"
+      ))
+      # a copy, so that the caller's table keeps its columns
+      x <- data.table::copy(x)[, (extra_cols) := NULL]
+    }
+  }
+  slices <- unique(data.table::as.data.table(x)[, .SD, .SDcols = slice_cols])
+  match_slice <- glue::glue_sql_collapse(
+    glue::glue_sql("s.{`slice_cols`} = t.{`slice_cols`}", .con = self$connection),
+    sep = " and "
+  )
+
+  # the slices are deleted before the insert, so appending cannot duplicate keys
+  previous_warning_option <- options(evoland.ducklake_db_append_warning = FALSE)
+  on.exit(options(previous_warning_option), add = TRUE)
+  on.exit(
+    try(duckdb::duckdb_unregister(self$connection, "replaced_slices"), silent = TRUE),
+    add = TRUE
+  )
+
+  self$transaction({
+    if (table_name %in% self$list_tables()) {
+      duckdb::duckdb_register(self$connection, "replaced_slices", slices, overwrite = TRUE)
+      self$execute(
+        "delete from dl_db.{`table_name`} t
+         where exists (select 1 from replaced_slices s where {match_slice})"
+      )
+    }
+    self$commit(x, table_name, method = "append")
+  })
 }
 
 #' @describeIn ducklake_db_utils Helper function to bind a function as a method to an R6
