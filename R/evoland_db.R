@@ -156,7 +156,8 @@ evoland_db <- R6::R6Class(
     #' data.table, see [pred_wide_train_v()]
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_pred Optional integer vector of predictor IDs to include
-    #' @param id_period_anterior Optional integer vector of anterior periods to include
+    #' @param id_period_anterior Optional integer vector of anterior periods to train on;
+    #'   `NULL` (default) uses every observed anterior period
     pred_wide_train_v = function(id_trans, id_pred, id_period_anterior = NULL) {
       create_method_binding(pred_wide_train_v)
     },

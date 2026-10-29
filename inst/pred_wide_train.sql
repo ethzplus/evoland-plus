@@ -22,24 +22,19 @@ with
     -- exclude the last period, since we won't have lulc data for the subsequent period
     -- to determine transition status
     select
-      id_period_anterior
+      id_period as id_period_anterior
     from
-      (
-        select
-          id_period as id_period_anterior
-        from
-          {period_read_expr}
-        where
-          not is_extrapolated
-        qualify
-          lead (id_period) over (
-            order by
-              id_period
-          ) is not null
-      )
+      {period_read_expr}
     where
-      -- caller's restriction, e.g. to hold out the last observed transition
-      {id_period_anterior_filter}
+      not is_extrapolated
+    qualify
+      lead (id_period) over (
+        order by
+          id_period
+      ) is not null
+      -- caller's restriction, e.g. to hold out the last observed transition; it is applied
+      -- after the window, so that the last observed period is still recognised as such
+      and {id_period_anterior_filter}
   ),
   trans_select as (
     select

@@ -330,7 +330,8 @@ data.table, see \code{\link[=pred_wide_train_v]{pred_wide_train_v()}}
     \describe{
       \item{\code{id_trans}}{Integer transition ID, see \link{trans_meta_t}}
       \item{\code{id_pred}}{Optional integer vector of predictor IDs to include}
-      \item{\code{id_period_anterior}}{Optional integer vector of anterior periods to include}
+      \item{\code{id_period_anterior}}{Optional integer vector of anterior periods to train on;
+\code{NULL} (default) uses every observed anterior period}
     }
     \if{html}{\out{</div>}}
   }

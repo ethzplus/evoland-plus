@@ -121,6 +121,12 @@ pred_wide_train_v <- function(
 ) {
   stopifnot(
     "id_trans must be a single integer" = is_scalar_integerish(id_trans),
+    "id_period_anterior must be integerish or NULL" = {
+      is.null(id_period_anterior) || is_integerish(id_period_anterior)
+    },
+    "id_period_anterior must not be empty" = {
+      is.null(id_period_anterior) || length(id_period_anterior) > 0L
+    },
     "id_pred must be missing or a vector of integers" = missing(id_pred) || is_integerish(id_pred),
     "id_run must be set" = !is.null(self$id_run)
   )
@@ -146,28 +152,17 @@ pred_wide_train_v <- function(
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       id_trans = id_trans,
       id_pred = id_pred,
-      id_period_anterior_filter = id_period_anterior_filter(self, id_period_anterior),
+      id_period_anterior_filter = if (is.null(id_period_anterior)) {
+        DBI::SQL("true")
+      } else {
+        glue::glue_sql("id_period in ({as.integer(id_period_anterior)*})", .con = self$connection)
+      },
       pred_cols = paste0("id_pred_", id_pred)
     )
 
   set_pred_coltypes(result, pred_meta_t)
 
   result
-}
-
-# SQL condition restricting `id_period_anterior` to the given periods; `true` for NULL
-id_period_anterior_filter <- function(self, id_period_anterior) {
-  if (is.null(id_period_anterior)) {
-    return(DBI::SQL("true"))
-  }
-  stopifnot(
-    "id_period_anterior must be integerish or NULL" = is_integerish(id_period_anterior),
-    "id_period_anterior must not be empty" = length(id_period_anterior) > 0L
-  )
-  glue::glue_sql(
-    "id_period_anterior in ({as.integer(id_period_anterior)*})",
-    .con = self$connection
-  )
 }
 
 #' @describeIn pred_data_t Get predictor data in a wide data.table for transition potential
