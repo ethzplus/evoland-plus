@@ -107,16 +107,26 @@ pred_data_available_v <- function(self) {
 #' @param id_trans Integer transition ID, see [trans_meta_t]
 #' @param id_pred Optional integer vector of predictor IDs to include; if
 #'        missing, use all predictor IDs from [pred_meta_t]
+#' @param id_period_anterior Optional integer vector of anterior period IDs to train on,
+#'        e.g. to hold out the last observed transition for validation; if `NULL`
+#'        (default), every observed anterior period is used
 #' @return data.table with columns id_coord, id_period, did_transition (bool),
 #'         and one column per predictor (`id_pred_{n}`), ordered by id_coord and
 #'         id_period_anterior so that subsampling and order-sensitive learners replay
 pred_wide_train_v <- function(
   self,
   id_trans,
-  id_pred
+  id_pred,
+  id_period_anterior = NULL
 ) {
   stopifnot(
     "id_trans must be a single integer" = is_scalar_integerish(id_trans),
+    "id_period_anterior must be integerish or NULL" = {
+      is.null(id_period_anterior) || is_integerish(id_period_anterior)
+    },
+    "id_period_anterior must not be empty" = {
+      is.null(id_period_anterior) || length(id_period_anterior) > 0L
+    },
     "id_pred must be missing or a vector of integers" = missing(id_pred) || is_integerish(id_pred),
     "id_run must be set" = !is.null(self$id_run)
   )
@@ -142,6 +152,11 @@ pred_wide_train_v <- function(
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
       id_trans = id_trans,
       id_pred = id_pred,
+      id_period_anterior_filter = if (is.null(id_period_anterior)) {
+        DBI::SQL("true")
+      } else {
+        glue::glue_sql("id_period in ({as.integer(id_period_anterior)*})", .con = self$connection)
+      },
       pred_cols = paste0("id_pred_", id_pred)
     )
 

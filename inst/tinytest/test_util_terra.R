@@ -190,3 +190,27 @@ expect_silent(
 )
 # Should calculate 100 based on coordinate spacing
 expect_equal(terra::res(rast_auto_res)[1], 100)
+
+# Test coords_grid and friends ####
+# a 3 x 3 grid; terra numbers cells from the top left, so id_coord 1 (bottom left) is cell 7
+grid_coords <- data.table::CJ(lat = c(5, 15, 25), lon = c(5, 15, 25))[,
+  .(id_coord = .I, lon, lat)
+]
+data.table::setattr(grid_coords, "epsg", 2056L)
+data.table::setattr(grid_coords, "resolution", 10)
+grid <- evoland:::coords_grid(grid_coords)
+expect_equal(grid$cells$cell, c(7, 8, 9, 4, 5, 6, 1, 2, 3))
+
+# values per coordinate point fill their cells; the others are NA, and the type is kept
+some_values <- data.table::data.table(id_coord = c(2L, 5L, 9L), v = c(10L, 20L, 30L))
+expect_identical(
+  evoland:::grid_values(grid, some_values, "v"),
+  c(NA, NA, 30L, NA, 20L, NA, NA, 10L, NA)
+)
+some_rast <- evoland:::grid_to_rast(grid, some_values, "v")
+expect_equal(names(some_rast), "v")
+# and read back per coordinate point
+expect_equal(
+  evoland:::rast_to_grid(grid, some_rast)[!is.na(value)],
+  data.table::data.table(id_coord = c(2L, 5L, 9L), value = c(10, 20, 30))
+)

@@ -22,7 +22,7 @@ isometry_from_elongation(
 
 compute_alloc_params_single(lulc_ant, lulc_post, id_lulc_ant, id_lulc_post)
 
-create_alloc_params_t(self)
+create_alloc_params_t(self, id_period_post = NULL)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a data.table}
@@ -46,6 +46,10 @@ create_alloc_params_t(self)
 \item{id_lulc_post}{Integer ID of the posterior LULC class}
 
 \item{self}{\link{evoland_db} instance to query}
+
+\item{id_period_post}{Optional integer vector of posterior period IDs; only the period
+pairs ending in these periods are estimated from, e.g. to hold out the last observed
+transition for a backcast. \code{NULL} (default) uses every observed pair.}
 }
 \value{
 A data.table of class "alloc_params_t" with columns:
@@ -61,7 +65,8 @@ via \code{\link[=isometry_from_elongation]{isometry_from_elongation()}}
 \item \code{frac_expander}: Fraction of transition cells adjacent to existing patches
 \item \code{frac_patcher}: Fraction of transition cells forming new patches
 \item \code{similarity}: Similarity metric for allocation parameters, see
-\code{\link[=calc_transition_similarity]{calc_transition_similarity()}} and \code{\link[=eval_alloc_params_t]{eval_alloc_params_t()}}
+\code{\link[=calc_transition_similarity]{calc_transition_similarity()}}; nothing writes it at the moment, see
+ethzplus/evoland-plus#131
 }
 
 A named list with allocation parameters:
