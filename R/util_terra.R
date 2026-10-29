@@ -1,6 +1,6 @@
-#' evoland utility functions to work with terra objects
+#' evoland.plus utility functions to work with terra objects
 #'
-#' Useful to coax terra raster and vector data into evoland tabular form.
+#' Useful to coax terra raster and vector data into evoland.plus tabular form.
 #'
 #' @name util_terra
 NULL

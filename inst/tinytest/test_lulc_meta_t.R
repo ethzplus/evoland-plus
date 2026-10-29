@@ -44,5 +44,5 @@ expect_equal(
     urban = list(pretty_name = "Urban", src_classes = 4L),
     agriculture = list(pretty_name = "Agriculture", src_classes = 5:6)
   )),
-  evoland:::test_lulc_meta_t
+  evoland.plus:::test_lulc_meta_t
 )

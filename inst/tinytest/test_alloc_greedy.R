@@ -9,12 +9,12 @@ quota <- data.table::data.table(id_trans = 1:2, quota = c(2L, 1L))
 # cell 1 -> trans 1, cell 2 -> trans 1 (quota 2 full), cell 1 again: claimed, cell 3 -> trans 2
 # (quota 1 full), the rest has no quota left
 expect_identical(
-  evoland:::greedy_fill(candidates, quota),
+  evoland.plus:::greedy_fill(candidates, quota),
   c(TRUE, TRUE, FALSE, TRUE, FALSE, FALSE)
 )
 
 # a zero quota accepts nothing
-expect_false(any(evoland:::greedy_fill(
+expect_false(any(evoland.plus:::greedy_fill(
   data.table::data.table(id_trans = 1L, id_coord = 1:3),
   data.table::data.table(id_trans = 1L, quota = 0L)
 )))
@@ -53,7 +53,7 @@ identical_to_walk <- vapply(
       data.table::setorder(cand, id_trans, -value, id_coord)
     }
     quota <- data.table::data.table(id_trans = 1:n_trans, quota = sample(0:15, n_trans, TRUE))
-    identical(evoland:::greedy_fill(cand, quota), walk(cand, quota))
+    identical(evoland.plus:::greedy_fill(cand, quota), walk(cand, quota))
   },
   logical(1)
 )
@@ -61,7 +61,7 @@ expect_true(all(identical_to_walk))
 
 # a candidate transition missing from quota is an error
 expect_error(
-  evoland:::greedy_fill(
+  evoland.plus:::greedy_fill(
     data.table::data.table(id_trans = 2L, id_coord = 1L),
     data.table::data.table(id_trans = 1L, quota = 1L)
   ),
@@ -69,5 +69,5 @@ expect_error(
 )
 
 # the C++ kernel rejects indices out of range instead of writing past its arrays
-expect_error(evoland:::greedy_fill_cpp(5L, 1L, 1L, 4L), "cell index out of range")
-expect_error(evoland:::greedy_fill_cpp(1L, 2L, 1L, 4L), "transition index out of range")
+expect_error(evoland.plus:::greedy_fill_cpp(5L, 1L, 1L, 4L), "cell index out of range")
+expect_error(evoland.plus:::greedy_fill_cpp(1L, 2L, 1L, 4L), "transition index out of range")

@@ -57,13 +57,13 @@ hier_runs <- as_runs_t(list(
 ))
 
 # Lineage for Base, Child, and Grandchild
-expect_equal(evoland:::get_lineage(hier_runs, 0L), 0L)
-expect_equal(evoland:::get_lineage(hier_runs, 1L), 1:0)
-expect_equal(evoland:::get_lineage(hier_runs, 2L), 2:0)
+expect_equal(evoland.plus:::get_lineage(hier_runs, 0L), 0L)
+expect_equal(evoland.plus:::get_lineage(hier_runs, 1L), 1:0)
+expect_equal(evoland.plus:::get_lineage(hier_runs, 2L), 2:0)
 
 # error for non-existent id_run
 expect_error(
-  evoland:::get_lineage(hier_runs, 999L),
+  evoland.plus:::get_lineage(hier_runs, 999L),
   pattern = "Requested run \\(id_run = 999\\) not found in runs_t"
 )
 

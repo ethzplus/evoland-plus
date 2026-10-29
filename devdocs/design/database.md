@@ -189,7 +189,7 @@ A key/value (string) store for report metadata.
 On initialization, `evoland_db` sets `report_name`, `report_name_pretty`, `report_include_date` and `creator_username` if the table is empty, and updates `last_opened` and `last_opened_username` every time the database is opened read-write.
 
 Few functions read this table yet; the plotting of model diagnostics should.
-Which standard outputs (tables, graphs, maps) the package generates, and therefore whether this table earns its place, is open in ethzplus/evoland-plus#76.
+Which standard outputs (tables, graphs, maps) the package generates, and therefore whether this table earns its place, is open in ethzplus/evoland.plus#76.
 
 ### `coords_t`
 
@@ -381,7 +381,7 @@ The blob columns are the only part of the database that depends on R: they hold 
 Every other table is plain data that any DuckLake client can read and write.
 
 Each model is currently a two-class model of a single transition, so the potentials of a cell's transitions are not constrained to sum to 1.
-Multiclass learners (ethzplus/evoland-plus#58) would fit one model per anterior class; they could be stored here under `id_trans = 0` or `NULL`.
+Multiclass learners (ethzplus/evoland.plus#58) would fit one model per anterior class; they could be stored here under `id_trans = 0` or `NULL`.
 
 ### `alloc_params_t`
 
@@ -401,7 +401,7 @@ Patch statistics measured on the observed transitions, used to parameterize allo
 `create_alloc_params_t()` estimates one set per viable transition on the active run; perturbed variants for sensitivity analysis go on child runs.
 
 The CLUMPY allocator reads `mean_patch_size`, `patch_size_variance` and `patch_elongation` (through `alloc_params_clumpy_v`).
-`patch_isometry`, `frac_expander` and `frac_patcher` are only used by the Dinamica allocator; whether CLUMPY should split allocation into expansion and new patches too is open in ethzplus/evoland-plus#78.
+`patch_isometry`, `frac_expander` and `frac_patcher` are only used by the Dinamica allocator; whether CLUMPY should split allocation into expansion and new patches too is open in ethzplus/evoland.plus#78.
 
 ### `neighbors_t`
 
@@ -419,7 +419,7 @@ On a dense raster this table is unnecessary: neighborhood counts follow from a f
 It is also expensive, with one row per pair of nearby points.
 What it buys is generality: it works for irregular coordinate points, which have no raster to run a window over.
 
-A `bearing` or `bearing_class` column recording the direction in which a neighbor lies would allow directional neighborhood predictors; see ethzplus/evoland-plus#77.
+A `bearing` or `bearing_class` column recording the direction in which a neighbor lies would allow directional neighborhood predictors; see ethzplus/evoland.plus#77.
 
 ### `trans_pot_t`
 

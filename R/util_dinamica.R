@@ -6,7 +6,7 @@
 NULL
 
 #' @describeIn util_dinamica Check that Dinamica EGO is installed and configured as the
-#' `install-dinamica` vignette describes. Problems that stop evoland from running Dinamica
+#' `install-dinamica` vignette describes. Problems that stop evoland.plus from running Dinamica
 #' at all (platform, `DinamicaConsole` on the `PATH`, `DINAMICA_EGO_8_HOME` and its
 #' libraries) are *required*; those that make a run fail inside Dinamica (configuration
 #' file, Dinamica's R package) are *recommended*. `DINAMICA_EGO_8_TEMP_DIR` is not checked:
@@ -21,7 +21,7 @@ check_dinamica <- function(quiet = FALSE) {
   home <- Sys.getenv("DINAMICA_EGO_8_HOME")
 
   required <- c(
-    "evoland runs Dinamica EGO on Linux x86-64 only" = {
+    "evoland.plus runs Dinamica EGO on Linux x86-64 only" = {
       sysinfo[["sysname"]] == "Linux" && sysinfo[["machine"]] %in% c("x86_64", "amd64")
     },
     "`DinamicaConsole` is not on the PATH" = nzchar(Sys.which("DinamicaConsole")),
@@ -56,14 +56,14 @@ format_dinamica_problems <- function(problems) {
   paste0(
     "Dinamica EGO setup is incomplete:\n",
     paste0("  - ", unlist(problems), collapse = "\n"),
-    "\nSee vignette(\"install-dinamica\", package = \"evoland\")"
+    "\nSee vignette(\"install-dinamica\", package = \"evoland.plus\")"
   )
 }
 
 # Stop early, before predicting or writing inputs, if Dinamica cannot run at all; warn if
 # a run is likely to fail inside Dinamica
 require_dinamica <- function(allow_fallback = TRUE, warn = TRUE) {
-  if (allow_fallback && isTRUE(getOption("evoland.dinamica_fallback"))) {
+  if (allow_fallback && isTRUE(getOption("evoland.plus.dinamica_fallback"))) {
     return(invisible(NULL))
   }
   problems <- check_dinamica(quiet = TRUE)
@@ -194,8 +194,10 @@ run_alloc_dinamica <- function(
 ) {
   # Without Dinamica, copy the anterior map in place of an allocation, so that the plumbing
   # around Dinamica can be tested where it is not installed. Opt in with
-  # options(evoland.dinamica_fallback = TRUE); never for real use.
-  if (isTRUE(getOption("evoland.dinamica_fallback")) && !nzchar(Sys.which("DinamicaConsole"))) {
+  # options(evoland.plus.dinamica_fallback = TRUE); never for real use.
+  if (
+    isTRUE(getOption("evoland.plus.dinamica_fallback")) && !nzchar(Sys.which("DinamicaConsole"))
+  ) {
     warning(
       "DinamicaConsole not found on PATH; ",
       "Copying anterior.tif to posterior.tif as fallback so we can test."
@@ -206,7 +208,7 @@ run_alloc_dinamica <- function(
   # find raw ego files with decoded R/Python code chunks
   decoded_files <-
     list.files(
-      path = system.file("dinamica_models", package = "evoland"),
+      path = system.file("dinamica_models", package = "evoland.plus"),
       full.names = TRUE,
       recursive = TRUE
     ) |>
@@ -214,7 +216,7 @@ run_alloc_dinamica <- function(
 
   lapply(decoded_files, function(decoded_file) {
     # Determine relative path and new output path with .ego extension
-    base_dir <- system.file("dinamica_models", package = "evoland")
+    base_dir <- system.file("dinamica_models", package = "evoland.plus")
     rel_path <- substring(decoded_file, nchar(base_dir) + 2)
     out_path <- sub("\\.ego-decoded$", ".ego", file.path(work_dir, rel_path))
     ensure_dir(dirname(out_path))

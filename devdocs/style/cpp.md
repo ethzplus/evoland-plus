@@ -9,7 +9,7 @@ The package declares no C++ standard, so code must compile with the default of t
 
 ## Interface with R
 
-- Export with `// [[Rcpp::export]]` and suffix the name with `_cpp`. Exports stay internal: package code calls them from an R function that prepares and checks the inputs (`distance_neighbors_cpp()` from `set_neighbors()`), and tests may call them directly (`evoland:::must_cpp()`).
+- Export with `// [[Rcpp::export]]` and suffix the name with `_cpp`. Exports stay internal: package code calls them from an R function that prepares and checks the inputs (`distance_neighbors_cpp()` from `set_neighbors()`), and tests may call them directly (`evoland.plus:::must_cpp()`).
 - After changing an exported signature, run `Rcpp::compileAttributes()` and commit the regenerated `R/RcppExports.R` and `src/RcppExports.cpp`.
 - Validate inputs in the R wrapper. C++ may assume what the wrapper guarantees; state the assumption in the doc comment.
 - Return `List`s or `DataFrame`s whose column names match the schema (`id_coord`, `id_lulc`), so the R side needs no renaming.

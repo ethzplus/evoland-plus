@@ -555,7 +555,7 @@ expect_equal(
 # Test 51: catalog and data files can be pointed somewhere other than `path`
 split_dir <- tempfile("ducklake_db_split_")
 alt_catalog <- tempfile("ducklake_db_catalog_", fileext = ".sqlite")
-alt_data <- paste0(evoland:::ensure_dir(tempfile("ducklake_db_data_")), "/")
+alt_data <- paste0(evoland.plus:::ensure_dir(tempfile("ducklake_db_data_")), "/")
 
 db_split <- ducklake_db$new(
   split_dir,
@@ -821,7 +821,7 @@ expect_equal(
 
 # a remote data path keeps the // that makes it a URI
 expect_equal(
-  evoland:::collapse_path_separators("s3://bucket//lake//"),
+  evoland.plus:::collapse_path_separators("s3://bucket//lake//"),
   "s3://bucket/lake/"
 )
 

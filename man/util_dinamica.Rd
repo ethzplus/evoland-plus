@@ -65,7 +65,7 @@ Interact with Dinamica from R, see \strong{Functions} section below.
 \section{Functions}{
 \itemize{
 \item \code{check_dinamica()}: Check that Dinamica EGO is installed and configured as the
-\code{install-dinamica} vignette describes. Problems that stop evoland from running Dinamica
+\code{install-dinamica} vignette describes. Problems that stop evoland.plus from running Dinamica
 at all (platform, \code{DinamicaConsole} on the \code{PATH}, \code{DINAMICA_EGO_8_HOME} and its
 libraries) are \emph{required}; those that make a run fail inside Dinamica (configuration
 file, Dinamica's R package) are \emph{recommended}. \code{DINAMICA_EGO_8_TEMP_DIR} is not checked:

@@ -1,6 +1,6 @@
 # Developer documentation
 
-Documentation for people (and agents) working _on_ `evoland-plus`, or those working _with_ it wishing to understand it more deeply.
+Documentation for people (and agents) working _on_ `evoland.plus`, or those working _with_ it wishing to understand it more deeply.
 It lives in the repository so that it is versioned and reviewed together with the code it describes; it replaces the former GitHub wiki.
 
 - [`design/`](design/): explanation and design rationale. How the package is put together and why.
@@ -24,7 +24,7 @@ The documentation structure is inspired by the [Diátaxis](https://diataxis.fr/)
 | Explanation  | Software design rationale                       | `devdocs/design/`                         |
 | Conventions  | How to write code and prose for this repository | `devdocs/style/`                          |
 
-The vignettes and reference are rendered to a [pkgdown site](https://ethzplus.github.io/evoland-plus/).
+The vignettes and reference are rendered to a [pkgdown site](https://ethzplus.github.io/evoland.plus/).
 
 Keep each fact in a single place:
 a design document explains why a table has the keys/relations it has; the full column list belongs in the table's roxygen `@return`, and the design document links to it or repeats it only where the explanation needs it.

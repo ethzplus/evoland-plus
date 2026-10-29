@@ -5,13 +5,13 @@ if (!at_home()) {
   exit_file("Integration tests skipped (not at_home)")
 }
 
-source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
+source(file.path(system.file("tinytest", package = "evoland.plus"), "helper_testdb.R"))
 db <- make_test_db()
 
 # without Dinamica, exercise the plumbing around it: the fallback copies the anterior map
 # without Dinamica, test the plumbing around it with the fallback allocation; tinytest resets
 # the option after this file
-options(evoland.dinamica_fallback = !nzchar(Sys.which("DinamicaConsole")))
+options(evoland.plus.dinamica_fallback = !nzchar(Sys.which("DinamicaConsole")))
 db$trans_rates_t <- db$get_obs_trans_rates()
 db$trans_rates_t <- extrapolate_trans_rates(
   db$trans_rates_t,
@@ -47,7 +47,7 @@ db$id_run <- 1L
 # no data for period 4 yet
 expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
 
-if (getOption("evoland.dinamica_fallback")) {
+if (getOption("evoland.plus.dinamica_fallback")) {
   expect_warning(
     db$alloc_dinamica(
       id_periods = 4,
@@ -124,7 +124,7 @@ expect_message(
 # Period 4 should now be populated
 expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
 
-options("evoland.use_prefetch_predict" = TRUE)
+options("evoland.plus.use_prefetch_predict" = TRUE)
 expect_message(
   db$alloc_clumpy(
     id_periods = 4L,
@@ -272,7 +272,7 @@ alloc_dinamica_single <- function() {
     use_parent_trans_pot = TRUE
   )
 }
-lulc_single <- if (getOption("evoland.dinamica_fallback")) {
+lulc_single <- if (getOption("evoland.plus.dinamica_fallback")) {
   expect_warning(lulc <- alloc_dinamica_single(), "fallback")
   lulc
 } else {

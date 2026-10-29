@@ -128,7 +128,7 @@ set_neighbors <- function(
 
   # chunks hold disjoint sets of complete neighbourhoods of a table that is unique by
   # construction
-  previous_warning_option <- options(evoland.ducklake_db_append_warning = FALSE)
+  previous_warning_option <- options(evoland.plus.ducklake_db_append_warning = FALSE)
   on.exit(options(previous_warning_option), add = TRUE)
 
   n_chunks <- 0L

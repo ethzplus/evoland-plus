@@ -140,7 +140,7 @@ with
       id_period
   )
 -- id_coord and id_period_anterior identify each row. The fitting workers drop them before
--- training, but they are kept for spatial or temporal resampling (ethzplus/evoland-plus#90).
+-- training, but they are kept for spatial or temporal resampling (ethzplus/evoland.plus#90).
 -- id_period_anterior could also become a predictor itself: as such, it would make the
 -- transition model time-inhomogeneous (its probabilities change with the period); a
 -- predictor counting the periods since a cell last changed would make it semi-Markov

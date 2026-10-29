@@ -71,42 +71,46 @@ expect_error(
 
 # ---- serialize_metadata / deserialize_metadata ----
 expect_identical(
-  evoland:::serialize_metadata(list(existing = "keep", custom_attr = c("a", "b"))),
+  evoland.plus:::serialize_metadata(list(existing = "keep", custom_attr = c("a", "b"))),
   'existing: "keep"\ncustom_attr: "a", "b"'
 )
-expect_identical(evoland:::serialize_metadata(list()), "")
+expect_identical(evoland.plus:::serialize_metadata(list()), "")
 
 # values are type-converted, so numbers do not come back as strings
 expect_identical(
-  evoland:::deserialize_metadata('existing: "keep"\nnum: "42"\nflag: "TRUE"'),
+  evoland.plus:::deserialize_metadata('existing: "keep"\nnum: "42"\nflag: "TRUE"'),
   list(existing = "keep", num = 42L, flag = TRUE)
 )
-expect_identical(evoland:::deserialize_metadata(NA_character_), list())
-expect_identical(evoland:::deserialize_metadata(""), list())
+expect_identical(evoland.plus:::deserialize_metadata(NA_character_), list())
+expect_identical(evoland.plus:::deserialize_metadata(""), list())
 
 # a metadata list survives the round-trip unchanged
 roundtrip <- list(epsg = 2056L, resolution = 100.5, key_cols = c("id_run", "id_coord"))
 expect_identical(
-  evoland:::deserialize_metadata(evoland:::serialize_metadata(roundtrip)),
+  evoland.plus:::deserialize_metadata(evoland.plus:::serialize_metadata(roundtrip)),
   roundtrip
 )
 
 # ---- convert_list_cols ----
 x_conv <- data.table::data.table(map_col = list(list(a = 1, b = "x"), list(a = 2, b = "y")))
 expect_identical(
-  evoland:::convert_list_cols(x_conv, cols = "map_col", fn = evoland:::list_to_kv_df)[[1]][[1]],
+  evoland.plus:::convert_list_cols(
+    x_conv,
+    cols = "map_col",
+    fn = evoland.plus:::list_to_kv_df
+  )[[1]][[1]],
   data.frame(key = c("a", "b"), value = c("1", "x"))
 )
 
 # ---- list_to_kv_df / kv_df_to_list ----
 expect_identical(
   namedlist <- list(a = 1L, b = TRUE, c = "x"),
-  evoland:::kv_df_to_list(evoland:::list_to_kv_df(namedlist))
+  evoland.plus:::kv_df_to_list(evoland.plus:::list_to_kv_df(namedlist))
 )
 
 # ---- create_table_binding: lexical body substitution ----
 expect_match(
-  evoland:::create_table_binding("coords_t", mode = "append") |>
+  evoland.plus:::create_table_binding("coords_t", mode = "append") |>
     body() |>
     deparse() |>
     paste(collapse = "\n"),
@@ -127,7 +131,7 @@ wrapper <- function(...) {
   self <- list(tag = "self")
   private <- list(tag = "private")
   super <- list(tag = "super")
-  evoland:::create_method_binding(pure_fun, with_private = TRUE)
+  evoland.plus:::create_method_binding(pure_fun, with_private = TRUE)
 }
 expect_equal(
   wrapper(a = 2, b = 3),
@@ -147,7 +151,10 @@ caller_formals <- function(fun) {
 first_match <- function(text, pattern) {
   regmatches(text, regexpr(pattern, text, perl = TRUE))
 }
-bound_methods <- c(evoland::evoland_db$public_methods, evoland::ducklake_db$public_methods)
+bound_methods <- c(
+  evoland.plus::evoland_db$public_methods,
+  evoland.plus::ducklake_db$public_methods
+)
 for (method in names(bound_methods)) {
   implementation <-
     bound_methods[[method]] |>
@@ -162,7 +169,7 @@ for (method in names(bound_methods)) {
   expect_identical(
     caller_formals(bound_methods[[method]]),
     implementation |>
-      get(envir = asNamespace("evoland")) |>
+      get(envir = asNamespace("evoland.plus")) |>
       caller_formals(),
     info = paste0("defaults of db$", method, "()")
   )
