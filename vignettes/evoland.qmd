@@ -13,7 +13,6 @@ number-sections: true
 #| label: cleanup
 #| include: false
 # TODO render tables into nice HTML interactive ones
-# TODO use the nicer synthetic data routine from stochastic tutorial
 # make sure we're starting clean
 unlink("firstmodel.evolanddb", recursive = TRUE)
 
@@ -169,29 +168,30 @@ Before we do anything else, let's declare the framework of our model:
 ### LULC Categories
 
 We define our fundamental LULC classes. The `src_classes` field maps the underlying data source's classes to our conceptual categories.
+Real data sources usually have many more classes than a model needs, so several source classes are typically aggregated into one model class; the synthetic data we use below already come with our four classes.
 
 ```{r}
-#| label: recode-arealstatistik
+#| label: lulc-categories
 db$lulc_meta_t <- create_lulc_meta_t(
   list(
     forest = list(
       pretty_name = "Forest",
       description = "Areas with lots of trees",
-      src_classes = 1:3
+      src_classes = 1
     ),
     arable = list(
       pretty_name = "Arable Land",
-      src_classes = c(4, 8)
+      src_classes = 2
     ),
     urban = list(
       pretty_name = "Urban Areas",
       description = "Where nature goes to die",
-      src_classes = 5:7
+      src_classes = 3
     ),
     static = list(
-      pretty_name = "Immutable",
+      pretty_name = "Lake",
       description = "Areas where we cannot conceptualize change",
-      src_classes = 9:10
+      src_classes = 4
     )
   )
 )
@@ -202,31 +202,26 @@ db$lulc_meta_t <- create_lulc_meta_t(
 The spatial coordinate points provide the fundamental geographic domain on which our model will operate.
 We use a dense square raster, but since we register individual coordinate points, we could subset these to any oddly shaped region of interest.
 
+For this tutorial, we do not read real observed data.
+Instead, `synthetic_landscape()` simulates a 50 x 50 cell landscape in Swiss LV95 coordinates, together with the drivers of its change, over three periods.
+Its grid defines our spatial domain.
+
 ```{r}
 #| label: set-coords
-# template SpatRaster: 30x30 grid in Swiss LV95, later used for synthetic data generation
-template_rast <- terra::rast(
-  crs = "EPSG:2056",
-  extent = terra::ext(c(
-    xmin = 2697000,
-    xmax = 2700000,
-    ymin = 1252000,
-    ymax = 1255000
-  )),
-  resolution = 100
-)
+#| seed: 123
+landscape <- synthetic_landscape(n_periods = 3, n_cells = 50)
 
 db$coords_t <- create_coords_t_square(
-  epsg = terra::crs(template_rast, describe = TRUE)$code |> as.integer(),
-  extent = terra::ext(template_rast),
-  resolution = terra::res(template_rast)[1]
+  epsg = 2056L,
+  extent = terra::ext(landscape$lulc),
+  resolution = terra::res(landscape$lulc)[1]
 )
 ```
 
 You can retrieve coords_t from disk and filter using [`data.table` semantics](https://raw.githubusercontent.com/rstudio/cheatsheets/master/datatable.pdf):
 
 ```{r}
-db$coords_t[lon == 2699650]
+db$coords_t[lon == 2699950]
 ```
 
 We can also retrieve a minimal representation (id, lat, lon) using an active binding, i.e. a method tied to the database that dynamically computes a property when called:
@@ -254,32 +249,15 @@ db$periods_t <- create_periods_t(
 
 ## LULC Data
 
-For this tutorial, we do not read real observed LULC data:
-instead, we generate a synthetic LULC raster with 3 layers (one per period) by adding autoregressive noise to a noisy raster.
+The synthetic landscape changes through a known process, so that the model has a signal to learn:
+urban land grows next to existing urban land where accessibility is high, forest turns into arable land on poor sites next to arable land, and arable land returns to forest on good, remote sites next to forest.
+`?synthetic_landscape` states the process exactly; the model below does not get to see it, only the maps and the drivers.
 
 ```{r}
-#| seed: 123
-#| label: synthesize-and-agg-lulc-data
+#| label: synthetic-lulc-data
 #| fig-asp: 0.3
-# autoregressive noise with skellam distribution
-n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
-noise1 <- runif(n_cells, min = 0, max = 10)
-noise2 <- noise1 + stats::rpois(n_cells, 0.2) - stats::rpois(n_cells, 0.2)
-noise3 <- noise2 + stats::rpois(n_cells, 0.2) - stats::rpois(n_cells, 0.2)
-
-synthetic_lulc <-
-  rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
-  focal(w = 3, fun = mean, na.rm = TRUE) |>
-  clamp(lower = 0, upper = 10) |>
-  classify(
-    rcl = data.frame(
-      from = 0:9,
-      to = 1:10,
-      becomes = c(3, 7, 1, 10, 5, 8, 2, 9, 4, 6)
-    )
-  )
-
-plot(synthetic_lulc, nc = 3)
+lulc_colors <- data.frame(value = 1:4, color = c("#91B690", "#EB9486", "#F3DE8A", "#CBC6D2"))
+plot(landscape$lulc, nc = 3, col = lulc_colors)
 ```
 
 We now extract the generated values at our coordinates using `extract_using_coords_t`, giving us a tabular representation of `id_coord, id_period, src_class` tuples.
@@ -287,12 +265,12 @@ In a second step, we join in a long representation of the LULC metadata, associa
 
 ```{r}
 #| label: extract-and-join-lulc
-synthetic_at_coords <- extract_using_coords_t(synthetic_lulc, db$coords_t)
+synthetic_at_coords <- extract_using_coords_t(landscape$lulc, db$coords_t)
 
 synthetic_joint_meta <-
   synthetic_at_coords[, .(
     id_coord,
-    id_period = substr(layer, 4, 4) |> as.integer(),
+    id_period = sub(".*[^0-9]", "", layer) |> as.integer(), # "id_period=1" -> 1
     src_class = value
   )][
     db$lulc_meta_long_v, # map from id_lulc to src_class
@@ -324,14 +302,27 @@ db$trans_v[id_lulc_anterior != id_lulc_posterior]
 ## Add Predictors and Neighbors
 
 You have seen above how [`extract_using_coords_t`](../reference/util_terra.html) can be used to transform a `SpatRaster` into a tabular form.
-It can also be used with `SpatVector` objects, and the resulting tables need not just be LULC data: we could also use it to extract predictor information.
-For demo purposes, we'll use test data that comes with `evoland`.
-Note that the metadata holds a `fill_value` used to define what value should be used at a coordinate point with no explicit data set - e.g. if a square kilometre does not have a population count set, we can infer that it should be zero.
+It can also be used with `SpatVector` objects, and the resulting tables need not just be LULC data: we use it to extract the drivers of the synthetic landscape as predictors.
+Two of them, `accessibility` and `site_quality`, drive the change; `random_nuisance` does not, and a good model should learn to ignore it.
+
+The drivers do not change over time, so we store them under the static period `0`.
+`db$add_predictor()` registers each predictor's metadata and data in one go.
+The metadata holds a `fill_value` used to define what value should be used at a coordinate point with no explicit data set - e.g. if a square kilometre does not have a population count set, we can infer that it should be zero.
 
 ```{r}
 #| label: add-predictors
-db$pred_meta_t <- evoland:::test_pred_meta_t
-db$pred_data_t <- evoland:::test_pred_data_t
+#| fig-asp: 0.3
+plot(landscape$drivers, nc = 3)
+
+drivers_at_coords <- extract_using_coords_t(landscape$drivers, db$coords_t)
+for (driver in names(landscape$drivers)) {
+  db$add_predictor(
+    pred_data_raw = drivers_at_coords[layer == driver, .(id_coord, id_period = 0L, value)],
+    name = driver,
+    fill_value = 0,
+    description = "Driver of the synthetic landscape, see ?synthetic_landscape"
+  )
+}
 ```
 
 Statistical models like GLMs or random forests lack inherent spatial concepts, so we explicitly calculate neighborhood relations for each coordinate to create spatial predictors (e.g., "number of neighboring forest cells within 100m").
@@ -342,7 +333,7 @@ This is done by creating a neighbor lookup table ([`db$set_neighbors`](../refere
 #| out: false
 db$set_neighbors(
   max_distance = 1000,
-  distance_breaks = c(0, 100, 500, 1000),
+  distance_breaks = c(0, 300, 1000),
   quiet = TRUE
 )
 
@@ -363,11 +354,16 @@ For a hands-on introduction, see [mlr3 by Example](https://mlr3book.mlr-org.com/
 
 ## Eligible Transitions and Predictor Pruning
 
-We filter transitions eligible for modeling based on a minimum number of observed occurrences.
+We filter transitions eligible for modeling based on a minimum number of observed occurrences, and exclude the lake, which cannot change.
 
 ```{r}
 #| label: eligible-transitions-and-predictors
-db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 20)
+db$trans_meta_t <- create_trans_meta_t(
+  db$trans_v,
+  min_cardinality_abs = 20,
+  exclude_anterior = 4 # the lake
+)
+db$trans_meta_t
 ```
 
 Because each transition may be modelled using different predictors (aka *features*), we start out by setting the `trans_preds_t` table to the full cross product of viable transitions and predictors.
@@ -434,10 +430,7 @@ In a simple approach, we can extrapolate the rate of each transition from the ob
 #| label: transition-rates-alloc-params
 db$trans_rates_t <-
   db$get_obs_trans_rates() |>
-  extrapolate_trans_rates(
-    periods = db$periods_t,
-    coord_count = n_cells
-  )
+  extrapolate_trans_rates(periods = db$periods_t)
 ```
 
 We estimate allocation parameters, which determine the shape and size of new patches, respectively which fraction of converted land use is in new versus expanded patches.

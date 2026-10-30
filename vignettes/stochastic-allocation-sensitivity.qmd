@@ -74,13 +74,13 @@ library(data.table)
 library(terra)
 ```
 
-We create a fresh on-disk database with some synthetic land use categories;
-we use a spatial domain of 30x30 cells on a square grid defined in meters and retain a template raster for later use;
-and we set up three "observed" periods to be filled with synthetic data, plus a single extrapolated period.
+We create a fresh on-disk database with the land use categories of `synthetic_landscape()`, which simulates a small landscape whose land use changes through a known process (see `?synthetic_landscape` and the introductory tutorial).
+We use a spatial domain of 50 x 50 cells on a square grid defined in meters, three "observed" periods filled with the synthetic data, plus a single extrapolated period.
 
 ```{r}
 #| label: create-db
 #| collapse: true
+#| seed: 123
 db <- evoland_db$new(path = "stochastic-sensitivity.evolanddb")
 
 db$lulc_meta_t <- create_lulc_meta_t(
@@ -88,25 +88,16 @@ db$lulc_meta_t <- create_lulc_meta_t(
     forest = list(pretty_name = "Forest"),
     arable = list(pretty_name = "Arable Land"),
     urban = list(pretty_name = "Urban Areas"),
-    static = list(pretty_name = "Immutable")
+    static = list(pretty_name = "Lake")
   )
 )
 
-template_rast <- terra::rast(
-  crs = "EPSG:2056",
-  extent = terra::ext(c(
-    xmin = 2697000,
-    xmax = 2697000 + 30 * 100,
-    ymin = 1252000,
-    ymax = 1252000 + 30 * 100
-  )),
-  resolution = 100
-)
+landscape <- synthetic_landscape(n_periods = 3, n_cells = 50)
 
 db$coords_t <- create_coords_t_square(
-  epsg = terra::crs(template_rast, describe = TRUE)$code |> as.integer(),
-  extent = terra::ext(template_rast),
-  resolution = terra::res(template_rast)[1]
+  epsg = 2056L,
+  extent = terra::ext(landscape$lulc),
+  resolution = terra::res(landscape$lulc)[1]
 )
 
 db$periods_t <- create_periods_t(
@@ -119,44 +110,23 @@ db$periods_t <- create_periods_t(
 
 ## Synthetic observed data
 
-As in the introductory vignette, we create a small autoregressive synthetic landscape with three observed raster layers.
-We then transform the synthetic raster stack into `lulc_data_t` records and attach `id_run = 0L`, which is the reserved base run for observed data.
+We transform the synthetic raster stack into `lulc_data_t` records and attach `id_run = 0L`, which is the reserved base run for observed data.
 
 ```{r}
-#| seed: 123
 #| label: synthesize-lulc
-#| code-fold: true
 #| fig-asp: 0.3
-n_cells <- dim(template_rast)[1] * dim(template_rast)[2]
-noise1 <- runif(n_cells, min = -0.5, max = 4.2)
-noise2 <- noise1 + stats::rpois(n_cells, 0.1) - stats::rpois(n_cells, 0.1)
-noise3 <- noise2 + stats::rpois(n_cells, 0.1) - stats::rpois(n_cells, 0.1)
-
-synthetic_lulc <-
-  rast(template_rast, nlyrs = 3, vals = c(noise1, noise2, noise3)) |>
-  focal(w = 3, fun = mean, na.rm = TRUE) |>
-  clamp(lower = 0, upper = 4) |>
-  classify(
-    rcl = data.frame(from = 0:3, to = 1:4, becomes = c(2, 1, 3, 4)),
-    right = FALSE
-  ) |>
-  setNames(paste0("synthetic LULC id_period=", 1:3))
-
-plot(
-  synthetic_lulc,
-  nc = 3,
-  col = data.frame(
-    value = 1:4,
-    color = c("#91B690", "#EB9486", "#F3DE8A", "#CBC6D2")
-  )
+lulc_palette <- data.frame(
+  value = 1:4,
+  color = c("#91B690", "#EB9486", "#F3DE8A", "#CBC6D2")
 )
+plot(landscape$lulc, nc = 3, col = lulc_palette)
 
 db$lulc_data_t <-
-  extract_using_coords_t(synthetic_lulc, db$coords_t)[,
+  extract_using_coords_t(landscape$lulc, db$coords_t)[,
     .(
       id_run = 0L,
       id_coord,
-      id_period = substr(layer, 26, 26) |> as.integer(),
+      id_period = sub(".*[^0-9]", "", layer) |> as.integer(), # "id_period=1" -> 1
       id_lulc = value
     )
   ] |>
@@ -165,166 +135,21 @@ db$lulc_data_t <-
 
 ## Predictors and neighborhoods
 
-Here, we confabulate some predictors based on gradient based "latent" influences then used to construct an "accessibility" and "site quality" quantifier.
+The drivers of the synthetic landscape serve as static predictors: `accessibility` and `site_quality` drive the change, `random_nuisance` does not.
 
 ```{r}
 #| label: predictors
-#| code-fold: true
-#| seed: 321
 #| fig-asp: 0.3
-# helper: scale raster to [0, 1]
-scale01 <- function(x) {
-  rng <- terra::global(x, c("min", "max"), na.rm = TRUE)
-  (x - rng[1, 1]) / (rng[1, 2] - rng[1, 1])
-}
+plot(landscape$drivers, nc = 3)
 
-# helper: smooth random field
-smooth_field <- function(template, sd = 1, w = 7) {
-  terra::setValues(template, rnorm(terra::ncell(template), sd = sd)) |>
-    terra::focal(w = w, fun = mean, na.rm = TRUE) |>
-    scale01()
-}
-
-# coordinate-based gradients
-xy <- terra::crds(template_rast, df = TRUE)
-x_grad <- terra::setValues(template_rast, (xy$x - min(xy$x)) / (max(xy$x) - min(xy$x)))
-y_grad <- terra::setValues(template_rast, (xy$y - min(xy$y)) / (max(xy$y) - min(xy$y)))
-
-latent1 <- smooth_field(template_rast, sd = 1, w = 9)
-latent2 <- smooth_field(template_rast, sd = 1, w = 5)
-
-accessibility <- scale01(0.55 * (1 - x_grad) + 0.25 * (1 - y_grad) + 0.20 * latent1)
-site_quality <- scale01(0.50 * y_grad + 0.35 * latent2 + 0.15 * x_grad)
-
-c(accessibility, site_quality) |>
-  setNames(c("accessibility", "site_quality")) |>
-  plot()
-```
-
-These "drivers" are used to construct predictor variables that are somewhat correlated with the synthetic land use map we constructed earlier - we combine the drivers, noise, and land class occurrence density and normalize to $[0,1]$.
-
-```{r}
-#| label: predictors2
-#| code-fold: true
-#| seed: 321
-#| fig-asp: 1
-as_indicator <- function(x, class) {
-  terra::app(x, fun = function(v) as.numeric(v %in% class))
-}
-
-forest_share <-
-  as_indicator(synthetic_lulc, class = 1) |>
-  terra::focal(w = 5, fun = mean, na.rm = TRUE) |>
-  terra::mean()
-arable_share <-
-  as_indicator(synthetic_lulc, class = 2) |>
-  terra::focal(w = 5, fun = mean, na.rm = TRUE) |>
-  terra::mean()
-urban_share <-
-  as_indicator(synthetic_lulc, class = 3) |>
-  terra::focal(w = 5, fun = mean, na.rm = TRUE)
-
-make_dynamic <- function(base_context, static1, static2, noise_weight = 0.10) {
-  out <- vector("list", terra::nlyr(base_context))
-  for (i in seq_len(terra::nlyr(base_context))) {
-    noise_i <- smooth_field(template_rast, sd = 1, w = 5)
-    # fmt: skip
-    out[[i]] <- scale01(
-      0.55 * base_context[[i]] +
-        0.25 * static1 +
-        0.10 * static2 + noise_weight * noise_i
-    )
-  }
-  terra::rast(out)
-}
-
-urban_pressure <-
-  make_dynamic(
-    base_context = urban_share,
-    static1 = accessibility,
-    static2 = 1 - site_quality
+drivers_at_coords <- extract_using_coords_t(landscape$drivers, db$coords_t)
+for (driver in names(landscape$drivers)) {
+  db$add_predictor(
+    pred_data_raw = drivers_at_coords[layer == driver, .(id_coord, id_period = 0L, value)],
+    name = driver,
+    fill_value = 0
   )
-add(urban_pressure) <-
-  # fmt: skip
-  scale01(
-    0.60 * urban_pressure[[3]] +
-      0.25 * urban_share[[3]] +
-      0.10 * accessibility +
-      0.05 * smooth_field(accessibility)
-  )
-names(urban_pressure) <-
-  paste0("urban_pressure id_period=", 1:4)
-
-forest_suitability <-
-  make_dynamic(
-    base_context = forest_share,
-    static1 = site_quality,
-    static2 = 1 - accessibility
-  ) |>
-  setNames("forest_suitability id_period=0")
-
-arable_yield <-
-  make_dynamic(
-    base_context = arable_share,
-    static1 = 1 - site_quality,
-    static2 = accessibility
-  ) |>
-  setNames("arable_yield id_period=0")
-
-# optional nuisance predictor that should usually score poorly
-random_nuisance <-
-  smooth_field(template_rast, sd = 1, w = 3) |>
-  setNames("random_nuisance id_period=0")
-
-plot(c(urban_pressure, forest_suitability, arable_yield, random_nuisance))
-```
-
-Now we can declare minimal predictor metadata and transform it into tabular form.
-
-```{r}
-#| label: predictors3
-#| code-fold: true
-#| seed: 321
-#| fig-asp: 0.3
-db$pred_meta_t <-
-  create_pred_meta_t(list(
-    urban_pressure = list(
-      description = "synthetic confabulation",
-      data_type = "float"
-    ),
-    forest_suitability = list(
-      description = "synthetic confabulation",
-      data_type = "float"
-    ),
-    arable_yield = list(
-      description = "synthetic confabulation",
-      data_type = "float"
-    ),
-    random_nuisance = list(
-      description = "synthetic confabulation",
-      data_type = "float"
-    )
-  ))
-
-db$pred_data_t <-
-  extract_using_coords_t(
-    c(urban_pressure, forest_suitability, arable_yield, random_nuisance),
-    db$coords_minimal
-  )[, layer := as.character(layer)][,
-    .(
-      id_coord,
-      id_run = 0L,
-      id_period = substr(layer, nchar(layer), nchar(layer)) |> as.integer(),
-      id_pred = fcase(
-        grepl("urban_pressure", layer)     , 1L ,
-        grepl("forest_suitability", layer) , 2L ,
-        grepl("arable_yield", layer)       , 3L ,
-        grepl("random_nuisance", layer)    , 4L
-      ),
-      value
-    )
-  ] |>
-  as_pred_data_t()
+}
 ```
 
 Now we add a simple set of neighbor relations as predictors.
@@ -411,28 +236,12 @@ db$trans_meta_t <- trans_meta_reconciled
 
 ### Transition rates and baseline allocation parameters
 
-We prescribe a set of transition rates (i.e. share of cells to transition from one land use to another) that are to be used in period 4.
+We prescribe the transition rates (i.e. share of cells to transition from one land use to another) for period 4: the rates observed in the last observed period, carried forward.
 
 ```{r}
 #| label: transition-rates
 #| seed: 666
-db$trans_rates_t <-
-  # fmt: skip
-  rowwiseDT(
-    id_trans = , rate = ,
-    1,           0.3,
-    2,           0.2,
-    3,           0.1,
-    4,           0,
-    5,           0,
-    6,           0.2
-  )[, `:=`(
-    id_run = 0L,
-    id_period = 4L,
-    count = n_cells * rate
-  )] |>
-  as_trans_rates_t()
-
+db$trans_rates_t <- db$get_obs_trans_rates()[id_period == 3L][, id_period := 4L][]
 db$alloc_params_t <- db$create_alloc_params_t()
 ```
 
@@ -505,12 +314,12 @@ A convenient first summary is binary: for each cell we ask whether its simulated
 #| label: summarize-change-frequency
 db$id_run <- NULL # setting to NULL to access all records
 
-# 900 locations x 1 observation = 900 rows
+# 2500 locations x 1 observation = 2500 rows
 observed_last <- db$fetch("lulc_data_t", where = "id_run = 0 and id_period = 3")[,
   .(id_coord, id_lulc_observed = id_lulc)
 ]
 
-# 900 locations * 30 runs = 27000 rows
+# 2500 locations * 30 runs = 75000 rows
 simulated_extrap <- db$fetch("lulc_data_t", where = "id_run > 0 and id_period = 4")[,
   .(id_run, id_coord, id_lulc_simulated = id_lulc)
 ]
@@ -569,11 +378,6 @@ Rather than printing 30 static panels, we stitch the realizations into a short l
 realisation_rasters <-
   simulated_extrap |>
   tabular_to_raster(coords = db$coords_minimal, value_col = "id_lulc_simulated")
-
-lulc_palette <- data.frame(
-  value = 1:4,
-  color = c("#91B690", "#EB9486", "#F3DE8A", "#CBC6D2")
-)
 
 # one plot per layer -> one GIF frame per realization
 for (i in seq_len(terra::nlyr(realisation_rasters))) {
