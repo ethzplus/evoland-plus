@@ -16,16 +16,12 @@
 #'
 #' - `pred_wide_train_v(id_trans)` - Returns wide table of transition results and predictor data for
 #'   a specific transition. Used as input to covariance filtering.
-#' - `trans_rates_dinamica_v(id_period)` - Returns transition rates formatted for Dinamica export
-#'   for a specific period.
 #' - `adjusted_trans_pot_v(id_period_post)` - Returns allocation-ready transition potentials:
 #'   column-scaled to match target transition rates, then row-closed so per-cell change
 #'   probabilities sum to at most 1.
-#' - `alloc_params_clumpy_v()` - Returns allocation parameters in CLUMPY format
-#'   (area_mean, area_var, elongation per transition).
 #'
 #' @name evoland_db_views
-#' @aliases lulc_meta_long_v pred_sources_v trans_v coords_minimal trans_rates_dinamica_v adjusted_trans_pot_v alloc_params_clumpy_v
+#' @aliases lulc_meta_long_v pred_sources_v trans_v coords_minimal adjusted_trans_pot_v
 #' @include evoland_db.R
 NULL
 
@@ -111,40 +107,6 @@ evoland_db$set("active", "coords_minimal", function() {
 })
 
 
-# get transition rates formatted for Dinamica export
-# id_period - integer period ID for which to export rates
-evoland_db$set(
-  "public",
-  "trans_rates_dinamica_v",
-  overwrite = TRUE,
-  function(id_period) {
-    stopifnot(
-      "id_period must be a single integer" = is_scalar_integerish(id_period)
-    )
-
-    rates_read_expr <- self$get_read_expr("trans_rates_t")
-    meta_read_expr <- self$get_read_expr("trans_meta_t")
-
-    result <- self$get_query(
-      r"{
-      select
-        m.id_lulc_anterior as "From*",
-        m.id_lulc_posterior as "To*",
-        r.rate as "Rate"
-      from
-        {rates_read_expr} r,
-        {meta_read_expr} m
-      where
-        r.id_trans = m.id_trans
-        and r.id_period = {id_period}
-        and m.is_viable
-      }"
-    )
-
-    result
-  }
-)
-
 # Return allocation-ready transition potentials for a given posterior period.
 #
 # The raw potentials stored in trans_pot_t are per-transition MLR3 model
@@ -160,17 +122,21 @@ evoland_db$set(
 #      The implicit "no-change" probability is (1 - sum of stored values).
 #
 # id_period_post - integer posterior period ID
+# id_run - the run whose demand (trans_rates_t) the potentials are scaled to
+# id_run_trans_pot - the run whose raw potentials are read, by default the same
 evoland_db$set(
   "public",
   "adjusted_trans_pot_v",
   overwrite = TRUE,
-  function(id_period_post) {
+  function(id_period_post, id_run = self$id_run, id_run_trans_pot = id_run) {
     stopifnot(
-      "id_period_post must be a single integer" = is_scalar_integerish(id_period_post)
+      "id_period_post must be a single integer" = is_scalar_integerish(id_period_post),
+      "id_run must be a single integer" = is_scalar_integerish(id_run),
+      "id_run_trans_pot must be a single integer" = is_scalar_integerish(id_run_trans_pot)
     )
 
-    pot_read_expr <- self$get_read_expr("trans_pot_t")
-    rates_read_expr <- self$get_read_expr("trans_rates_t")
+    pot_read_expr <- self$get_read_expr("trans_pot_t", id_run = id_run_trans_pot)
+    rates_read_expr <- self$get_read_expr("trans_rates_t", id_run = id_run)
 
     self$get_query(
       r"{
@@ -213,36 +179,6 @@ evoland_db$set(
       )
       select id_trans, id_coord, id_period_post, value
       from closed
-      }"
-    )
-  }
-)
-
-# Return allocation parameters in CLUMPY-compatible format.
-#
-# Maps the raw patch statistics stored in alloc_params_t to the three
-# parameters consumed by the CLUMPY patcher:
-#   - area_mean      <- mean_patch_size   (mean cells per patch)
-#   - area_var       <- patch_size_variance (variance, cell^2)
-#   - elongation     <- patch_elongation  (1 - sqrt(lambda_min/lambda_max))
-#
-# Uses the active id_run / run lineage via get_read_expr.
-evoland_db$set(
-  "public",
-  "alloc_params_clumpy_v",
-  overwrite = TRUE,
-  function() {
-    params_read_expr <- self$get_read_expr("alloc_params_t")
-
-    self$get_query(
-      r"{
-      select
-        id_run,
-        id_trans,
-        mean_patch_size     as area_mean,
-        patch_size_variance as area_var,
-        patch_elongation    as elongation
-      from {params_read_expr}
       }"
     )
   }

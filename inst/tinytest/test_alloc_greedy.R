@@ -71,3 +71,28 @@ expect_error(
 # the C++ kernel rejects indices out of range instead of writing past its arrays
 expect_error(evoland:::greedy_fill_cpp(5L, 1L, 1L, 4L), "cell index out of range")
 expect_error(evoland:::greedy_fill_cpp(1L, 2L, 1L, 4L), "transition index out of range")
+
+# the greedy allocator on a hand-built allocation context, without a database: four cells of
+# class 1, transition 1 -> 2 with a quota of 2 goes to the two most probable cells
+ctx <- list(
+  anterior = data.table::data.table(id_coord = 1:5, id_lulc = c(1L, 1L, 1L, 1L, 3L)),
+  viable_trans = data.table::data.table(
+    id_trans = 1L,
+    id_lulc_anterior = 1L,
+    id_lulc_posterior = 2L
+  ),
+  quota = data.table::data.table(id_trans = 1L, rate = 0.5, n_anterior = 4L, quota = 2L),
+  potentials = data.table::data.table(id_trans = 1L, id_coord = 1:4, value = c(0.1, 0.4, 0.3, 0.2))
+)
+expect_identical(
+  alloc_greedy_spec()$one_period(ctx)[order(id_coord)],
+  data.table::data.table(id_coord = 1:5, id_lulc = c(1L, 2L, 2L, 1L, 3L))
+)
+# demand beyond the candidates is reported, not exceeded
+ctx$quota[, quota := 5L]
+expect_warning(
+  short <- alloc_greedy_spec()$one_period(ctx),
+  "allocated 4 of 5 cells"
+)
+expect_equal(short[id_coord == 5L, id_lulc], 3L)
+expect_error(alloc_greedy_spec("ordered", order = 9L)$one_period(ctx), "viable id_trans")

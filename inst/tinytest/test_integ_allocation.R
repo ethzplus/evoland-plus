@@ -1,17 +1,17 @@
 library(tinytest)
 
 if (!at_home()) {
-  # cannot easily mock the dinamica call; skip for now
   exit_file("Integration tests skipped (not at_home)")
 }
+
+# The allocation loop around the allocators: prediction, the allocation context, committing
+# the map and the neighbor predictors, runs and their lineage. It is the same for every
+# allocator, so the deterministic greedy allocator stands in for all of them; the allocators
+# themselves are tested on hand-built contexts in test_alloc_*.R
 
 source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
 db <- make_test_db()
 
-# without Dinamica, exercise the plumbing around it: the fallback copies the anterior map
-# without Dinamica, test the plumbing around it with the fallback allocation; tinytest resets
-# the option after this file
-options(evoland.dinamica_fallback = !nzchar(Sys.which("DinamicaConsole")))
 db$trans_rates_t <- db$get_obs_trans_rates()
 db$trans_rates_t <- extrapolate_trans_rates(
   db$trans_rates_t,
@@ -41,117 +41,157 @@ expect_message(
   "Fitting full models for"
 )
 
-# Test Dinamica backend
-# switching run to no 1, which is the base estimate for allocation parameters
-db$id_run <- 1L
-# no data for period 4 yet
-expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
-
-if (getOption("evoland.dinamica_fallback")) {
-  expect_warning(
-    db$alloc_dinamica(
-      id_periods = 4,
-      select_score = "classif.auc",
-      select_maximize = TRUE,
-      keep_intermediate = FALSE
-    ),
-    "Copying anterior.tif to posterior.tif as fallback so we can test."
-  )
-} else {
-  expect_message(
-    db$alloc_dinamica(
-      id_periods = 4,
-      select_score = "classif.auc",
-      select_maximize = TRUE,
-      keep_intermediate = FALSE
-    ),
-    "Starting to run model with Dinamica EGO"
+# helpers: the rows of a run's map in a period, read through the run's lineage
+lulc_of <- function(id_run, id_period) {
+  db$get_query(
+    "select id_coord, id_lulc from {db$get_read_expr('lulc_data_t', id_run = id_run)}
+     where id_period = {id_period} order by id_coord"
   )
 }
+viable <- db$trans_meta_t[is_viable == TRUE]
+# the cells that changed between an anterior and a posterior map, by transition; the anterior
+# map is the observed period 3 unless given
+changes_of <- function(posterior, anterior = lulc_of(0L, 3L)) {
+  anterior[posterior, on = "id_coord"][
+    id_lulc != i.id_lulc,
+    .N,
+    by = .(id_lulc_anterior = id_lulc, id_lulc_posterior = i.id_lulc)
+  ]
+}
+# the changes per viable transition, to compare with the quota of the allocation context
+changes_by_trans <- function(posterior, anterior = lulc_of(0L, 3L)) {
+  changes_of(posterior, anterior)[
+    viable,
+    on = .(id_lulc_anterior, id_lulc_posterior),
+    .(id_trans, N = data.table::fcoalesce(N, 0L))
+  ]
+}
 
-# 900 coords in period 4 (same as period 3)
-expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
-
-# trans_pot_t should now be populated
+# --------------------------------------------------------------------------
+# allocate(): run 1 predicts its potentials, allocates and commits period 4
+# --------------------------------------------------------------------------
+expect_equal(nrow(lulc_of(1L, 4L)), 0L)
+expect_message(
+  allocate(
+    db,
+    id_periods = 4L,
+    allocator = alloc_greedy_spec(),
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    id_run = 1L
+  ),
+  "Allocating with greedy (joint): run 1",
+  fixed = TRUE
+)
+expect_equal(nrow(lulc_of(1L, 4L)), 900L)
+# only viable transitions happen
+expect_true(all(
+  changes_of(lulc_of(1L, 4L))[!viable, on = .(id_lulc_anterior, id_lulc_posterior), .N] == 0L
+))
+# the active run is left alone; the potentials were predicted under the allocated run
+expect_equal(db$id_run, 0L)
 expect_equal(db$row_count("trans_pot_t"), 900L)
-
-# adjusted_trans_pot_v should return values for period 4
-adj_pots <- db$adjusted_trans_pot_v(4L)
+expect_equal(
+  db$get_query("select distinct id_run from dl_db.trans_pot_t", as_atomic = TRUE),
+  1L
+)
+adj_pots <- db$adjusted_trans_pot_v(4L, id_run = 1L)
 expect_equal(nrow(adj_pots), 900L)
 expect_true(all(adj_pots$value >= 0 & adj_pots$value <= 1))
 
-# Test CLUMPY with uSAM
-# alloc_params_clumpy_v should return CLUMPY-format params
-clumpy_params <- db$alloc_params_clumpy_v()
-expect_true(nrow(clumpy_params) > 0L)
-expect_equal(
-  c("id_run", "id_trans", "area_mean", "area_var", "elongation"),
-  names(clumpy_params)
-)
-
-# CLUMPY: the method (uSAM vs uPAM) is auto-selected from the patch params.
-# The test DB has multi-pixel patches, so both runs exercise uPAM; the
-# mono-pixel uSAM path is covered by the unit tests in test_alloc_clumpy.R.
-db$id_run <- 2L
-expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
-
+# a run with its own models does not take an ancestor's potentials; run 3 predicts its own
 expect_message(
-  db$alloc_clumpy(
+  allocate(
+    db,
     id_periods = 4L,
-    select_score = "classif.auc",
-    select_maximize = TRUE
-  ),
-  "CLUMPY allocation"
-)
-
-# Period 4 should now be populated
-expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
-
-# CLUMPY again, this time with aggregation avoidance disabled.
-db$id_run <- 3L
-expect_equal(nrow(db$fetch("lulc_data_t", where = "id_period = 4")), 0L)
-
-expect_message(
-  db$alloc_clumpy(
-    id_periods = 4L,
+    allocator = alloc_greedy_spec(),
     select_score = "classif.auc",
     select_maximize = TRUE,
-    avoid_aggregation = FALSE
+    id_run = 3L
   ),
-  "CLUMPY allocation complete"
+  "Predicting transition potential"
 )
+expect_equal(nrow(lulc_of(3L, 4L)), 900L)
 
-# Period 4 should now be populated
-expect_equal(nrow(db$fetch("lulc_data_t", cols = "id_coord", where = "id_period = 4")), 900L)
-
+# force_predict predicts again, also with prefetching
 options("evoland.use_prefetch_predict" = TRUE)
 expect_message(
-  db$alloc_clumpy(
+  allocate(
+    db,
     id_periods = 4L,
+    allocator = alloc_greedy_spec(),
     select_score = "classif.auc",
     select_maximize = TRUE,
-    avoid_aggregation = FALSE,
-    force_predict_trans_pot = TRUE
+    id_run = 3L,
+    force_predict = TRUE
   ),
-  "Running CLUMPY allocation (uPAM): period 3 -> 4",
-  fixed = TRUE
+  "Predicting transition potential"
+)
+options("evoland.use_prefetch_predict" = NULL)
+
+# --------------------------------------------------------------------------
+# several periods: run 2 allocates period 3 from the observed period 2, then period 4 from its
+# own period 3, with the neighbor predictors recomputed in between
+# --------------------------------------------------------------------------
+expect_message(
+  allocate(
+    db,
+    id_periods = 3:4,
+    allocator = alloc_greedy_spec(),
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    id_run = 2L
+  ),
+  "periods 3 -> 4"
+)
+expect_equal(nrow(lulc_of(2L, 3L)), 900L)
+expect_equal(nrow(lulc_of(2L, 4L)), 900L)
+# period 4 starts from the run's own allocation of period 3, not from the observed map
+ctx_4 <- evoland:::allocation_context(db, 4L, 2L, 2L)
+expect_identical(ctx_4$anterior, lulc_of(2L, 3L))
+expect_false(isTRUE(all.equal(lulc_of(2L, 3L), lulc_of(0L, 3L))))
+# greedy fills each period's quota exactly
+expect_equal(
+  changes_by_trans(lulc_of(2L, 3L), anterior = lulc_of(0L, 2L)),
+  evoland:::allocation_context(db, 3L, 2L, 2L)$quota[, .(id_trans, N = quota)]
+)
+expect_equal(
+  changes_by_trans(lulc_of(2L, 4L), anterior = lulc_of(2L, 3L)),
+  ctx_4$quota[, .(id_trans, N = quota)]
+)
+# potentials were predicted, and neighbor predictors written, for both periods under run 2
+expect_equal(
+  db$get_query(
+    "select id_period_post, count(*) as n from dl_db.trans_pot_t where id_run = 2
+     group by all order by all"
+  ),
+  data.table::data.table(id_period_post = 3:4, n = c(900, 900))
+)
+expect_equal(
+  db$get_query(
+    "select distinct id_period from dl_db.pred_data_t where id_run = 2 order by all",
+    as_atomic = TRUE
+  ),
+  3:4
 )
 
+# --------------------------------------------------------------------------
+# potentials_ancestor = 1: run 4 allocates on its parent's potentials without predicting
+# --------------------------------------------------------------------------
 db$runs_t <- as_runs_t(rbind(
   db$runs_t,
   list(id_run = 4, parent_id_run = 3, description = "stochastic alloc")
 ))
-db$id_run <- 4
-
-# the parent's potentials are reused, not predicted again
 alloc_messages <- character()
 withCallingHandlers(
-  db$alloc_clumpy(
+  allocate(
+    db,
     id_periods = 4L,
+    allocator = alloc_greedy_spec(),
     select_score = "classif.auc",
     select_maximize = TRUE,
-    avoid_aggregation = FALSE,
-    use_parent_trans_pot = TRUE
+    id_run = 4L,
+    potentials_ancestor = 1L
   ),
   message = function(m) {
     alloc_messages <<- c(alloc_messages, conditionMessage(m))
@@ -159,136 +199,45 @@ withCallingHandlers(
   }
 )
 expect_false(any(grepl("Predicting transition", alloc_messages)))
-
-# Greedy (rank-and-fill) allocation, deterministic: run 3's potentials, single period
-greedy_joint <- suppressMessages(alloc_greedy_one_period(
-  db = db,
-  id_period_post = 4L,
-  select_score = "classif.auc",
-  select_maximize = TRUE,
-  use_parent_trans_pot = TRUE
-))
-expect_inherits(greedy_joint, "lulc_data_t")
-expect_equal(nrow(greedy_joint), 900L)
-# deterministic: the same map again
-expect_identical(
-  greedy_joint[order(id_coord), id_lulc],
-  suppressMessages(alloc_greedy_one_period(
-    db = db,
-    id_period_post = 4L,
-    select_score = "classif.auc",
-    select_maximize = TRUE,
-    use_parent_trans_pot = TRUE
-  ))[order(id_coord), id_lulc]
-)
-# every transition gets exactly its demanded count (as far as candidates allow), no more
-greedy_changes <- db$fetch("lulc_data_t", where = "id_period = 3")[
-  greedy_joint,
-  on = "id_coord"
-][id_lulc != i.id_lulc, .N, by = .(id_lulc_anterior = id_lulc, id_lulc_posterior = i.id_lulc)][
-  db$trans_meta_t[is_viable == TRUE],
-  on = .(id_lulc_anterior, id_lulc_posterior),
-  nomatch = NULL
-]
-greedy_quota <- db$trans_rates_t[id_period == 4L, .(id_trans, count)]
-expect_true(all(greedy_changes[greedy_quota, on = "id_trans", N <= count, nomatch = NULL]))
-# the cells it changes are the most probable ones: within each transition, the changed cells'
-# adjusted potential is at least that of every candidate left unchanged
-greedy_pairs <- db$fetch("lulc_data_t", where = "id_period = 3")[
-  greedy_joint,
-  on = "id_coord"
-][, .(id_coord, id_lulc_anterior = id_lulc, id_lulc_posterior = i.id_lulc)][
-  db$trans_meta_t[is_viable == TRUE, .(id_trans, id_lulc_anterior, id_lulc_posterior)],
-  on = .(id_lulc_anterior, id_lulc_posterior),
-  nomatch = NULL
-]
-greedy_scored <- db$adjusted_trans_pot_v(4L)[
-  db$fetch("lulc_data_t", where = "id_period = 3")[, .(id_coord, id_lulc_anterior = id_lulc)],
-  on = "id_coord",
-  nomatch = NULL
-][
-  db$trans_meta_t[, .(id_trans, id_lulc_anterior)],
-  on = .(id_trans, id_lulc_anterior),
-  nomatch = NULL
-]
-greedy_scored[, changed := FALSE][greedy_pairs, on = .(id_trans, id_coord), changed := TRUE]
-# joint ranking: a cell is skipped only when another transition claimed it first, so check the
-# cells that did not change at all
-unchanged_cells <- setdiff(greedy_scored$id_coord, greedy_pairs$id_coord)
-expect_true(all(
-  greedy_scored[,
-    .(
-      ok = !any(changed) ||
-        min(value[changed]) >= max(c(-Inf, value[!changed & id_coord %in% unchanged_cells]))
-    ),
-    by = id_trans
-  ]$ok
-))
-# ordered arbitration with a priority runs and differs from joint at most in contested cells
-greedy_ordered <- suppressMessages(alloc_greedy_one_period(
-  db = db,
-  id_period_post = 4L,
-  select_score = "classif.auc",
-  select_maximize = TRUE,
-  arbitration = "ordered",
-  order = rev(db$trans_meta_t[is_viable == TRUE, id_trans]),
-  use_parent_trans_pot = TRUE
-))
-expect_equal(nrow(greedy_ordered), 900L)
-expect_error(
-  alloc_greedy_one_period(
-    db = db,
-    id_period_post = 4L,
-    select_score = "classif.auc",
-    select_maximize = TRUE,
-    arbitration = "ordered",
-    order = 999L,
-    use_parent_trans_pot = TRUE
-  ),
-  "order must list viable id_trans only"
+expect_equal(nrow(lulc_of(4L, 4L)), 900L)
+expect_equal(
+  db$get_query("select count(*) from dl_db.trans_pot_t where id_run = 4", as_atomic = TRUE),
+  0
 )
 
-# The exported single-period allocator returns the map without committing it
+# --------------------------------------------------------------------------
+# allocate_one_period(): returns the map without committing it
+# --------------------------------------------------------------------------
 n_lulc_before <- db$row_count("lulc_data_t")
-lulc_single <- alloc_clumpy_one_period(
-  db = db,
-  id_period_post = 4L,
-  select_score = "classif.auc",
-  select_maximize = TRUE,
-  use_parent_trans_pot = TRUE
-)
-expect_inherits(lulc_single, "lulc_data_t")
-expect_equal(unique(lulc_single[["id_run"]]), 4L)
-expect_equal(db$row_count("lulc_data_t"), n_lulc_before)
-
-# Same for Dinamica, which by default works in a temporary directory it removes afterwards
-dinamica_dirs_before <- list.files(tempdir(), pattern = "^dinamica_")
-alloc_dinamica_single <- function() {
-  alloc_dinamica_one_period(
-    db = db,
+expect_message(
+  one_period <- allocate_one_period(
+    db,
     id_period_post = 4L,
+    allocator = alloc_greedy_spec(),
     select_score = "classif.auc",
     select_maximize = TRUE,
-    use_parent_trans_pot = TRUE
-  )
-}
-lulc_single <- if (getOption("evoland.dinamica_fallback")) {
-  expect_warning(lulc <- alloc_dinamica_single(), "fallback")
-  lulc
-} else {
-  alloc_dinamica_single()
-}
-expect_inherits(lulc_single, "lulc_data_t")
-expect_equal(unique(lulc_single[["id_run"]]), 4L)
+    id_run = 4L,
+    potentials_ancestor = 1L
+  ),
+  "Changed [0-9]+ of 900 cells"
+)
+expect_inherits(one_period, "lulc_data_t")
+expect_equal(nrow(one_period), 900L)
+expect_equal(unique(one_period[["id_run"]]), 4L)
 expect_equal(db$row_count("lulc_data_t"), n_lulc_before)
-expect_equal(list.files(tempdir(), pattern = "^dinamica_"), dinamica_dirs_before)
+# greedy is deterministic and fills the quota the context gives every allocator exactly
+expect_equal(
+  changes_by_trans(one_period),
+  evoland:::allocation_context(db, 4L, 4L, 3L)$quota[, .(id_trans, N = quota)]
+)
 
-# update_neighbors = FALSE skips the neighbour predictors after the last requested period
+# --------------------------------------------------------------------------
+# update_neighbors = FALSE skips the neighbor predictors after the last requested period
+# --------------------------------------------------------------------------
 db$runs_t <- as_runs_t(rbind(
   db$runs_t,
   list(id_run = 5, parent_id_run = 3, description = "no neighbour update")
 ))
-db$id_run <- 5
 count_run_5_preds <- function() {
   db$get_query(
     "select count(*) from dl_db.pred_data_t where id_run = 5 and id_period = 4",
@@ -296,60 +245,56 @@ count_run_5_preds <- function() {
   )
 }
 alloc_run_5 <- function(update_neighbors) {
-  db$alloc_clumpy(
+  allocate(
+    db,
     id_periods = 4L,
+    allocator = alloc_greedy_spec(),
     select_score = "classif.auc",
     select_maximize = TRUE,
-    use_parent_trans_pot = TRUE,
+    id_run = 5L,
+    potentials_ancestor = 1L,
     update_neighbors = update_neighbors
   )
 }
-suppressMessages(alloc_run_5(update_neighbors = FALSE))
+expect_message(alloc_run_5(update_neighbors = FALSE), "Allocating with greedy")
 expect_equal(count_run_5_preds(), 0)
-suppressMessages(alloc_run_5(update_neighbors = TRUE))
+expect_message(alloc_run_5(update_neighbors = TRUE), "Allocating with greedy")
 expect_true(count_run_5_preds() > 0)
 
 # --------------------------------------------------------------------------
-# Test error handling
+# Argument checks
 # --------------------------------------------------------------------------
-# alloc() with unknown method
 expect_error(
-  db$alloc(
-    method = "unknown_backend",
-    id_periods = 4L,
-    select_score = "classif.auc",
-    select_maximize = TRUE
-  )
-)
-
-# Non-contiguous periods
-expect_error(
-  db$alloc_dinamica(
-    id_periods = c(1L, 3L)
-  ),
+  allocate(db, id_periods = c(1L, 3L), select_score = "classif.auc", select_maximize = TRUE),
   "id_periods must be contiguous"
 )
-
-# --------------------------------------------------------------------------
-# Test eval_alloc_params_t (Dinamica-only)
-# --------------------------------------------------------------------------
-expect_message(
-  db$alloc_params_t <-
-    evaluated_params <-
-      db$eval_alloc_params_t(
-        select_score = "classif.auc",
-        select_maximize = TRUE,
-        keep_intermediate = FALSE
-      ),
-  "Evaluation Complete"
+expect_error(
+  allocate(
+    db,
+    id_periods = 3:4,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    id_run = 4L,
+    potentials_ancestor = 1L
+  ),
+  "potentials_ancestor above 0 works for a single period only"
 )
-
-# Check evaluation results
-expect_inherits(evaluated_params, "alloc_params_t")
-expect_true(all(c("similarity", "frac_patcher") %in% names(evaluated_params)))
-
-# Check that accuracy metrics are reasonable (between 0 and 1)
-expect_true(all(
-  evaluated_params$similarity <= 1 &
-    evaluated_params$similarity >= 0
-))
+expect_error(
+  allocate_one_period(
+    db,
+    id_period_post = 4L,
+    select_score = "classif.auc",
+    select_maximize = TRUE,
+    id_run = 4L,
+    potentials_ancestor = 5L
+  ),
+  "Run 4 has no ancestor 5 generations up"
+)
+expect_error(
+  allocate(db, id_periods = 4L, allocator = "clumpy"),
+  "allocator must be an allocator specification"
+)
+expect_error(
+  evoland:::new_allocator_spec("x", list(), one_period = function() NULL),
+  "one_period must be a function of one argument"
+)
