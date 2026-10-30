@@ -66,4 +66,10 @@ if (getOption("evoland.dinamica_fallback")) {
 }
 expect_equal(dinamica_posterior$id_coord, 1:100)
 expect_true(all(dinamica_posterior$id_lulc %in% 1:2))
+# Dinamica changes the rate's share of the anterior class, 0.2 * 100 cells; the fallback
+# copies the anterior map
+expect_equal(
+  sum(dinamica_posterior$id_lulc == 2L),
+  if (getOption("evoland.dinamica_fallback")) 0L else 20L
+)
 expect_equal(list.files(tempdir(), pattern = "^dinamica_"), dirs_before)
