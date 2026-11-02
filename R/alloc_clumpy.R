@@ -90,9 +90,11 @@ alloc_clumpy_one_period <- function(ctx, args) {
   # cells).
   # one table per viable transition, in their order, empty for a transition without potentials
   potentials_by_trans <-
-    ctx$potentials[value > 0][cells, on = "id_coord", cell := i.cell] |>
-    (\(x) split(x, factor(x[["id_trans"]], levels = viable_trans[["id_trans"]])))() |>
-    unname()
+    ctx$potentials[value > 0][cells, on = "id_coord", cell := i.cell][,
+      # as a factor, a transition without any potential (e.g. at a rate of 0) keeps its element
+      id_trans := factor(id_trans, levels = viable_trans[["id_trans"]])
+    ] |>
+    split(by = "id_trans", drop = FALSE, sorted = TRUE)
   prob_cell <- lapply(potentials_by_trans, `[[`, "cell")
   prob_value <- lapply(potentials_by_trans, `[[`, "value")
 
