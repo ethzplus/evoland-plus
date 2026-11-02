@@ -61,6 +61,26 @@ expect_identical(
 )
 expect_equal(nrow(raster_result), 300L) # 100 coords * 3 layers
 
+# Irregular coordinate points: sparse ones far apart, two 1 m apart in one cell, two 1 m apart
+# on either side of a cell edge (at x = 2697500), and one outside the raster. Each point reads
+# the cell it falls in, as terra's own point extraction does, and the outside point reads NA
+irregular_coords <- data.table::data.table(
+  id_coord = 1:7,
+  lon = c(2690123.4, 2705987.6, 2697450.2, 2697451.2, 2697499.5, 2697500.5, 2720000),
+  lat = c(1245321.7, 1259876.5, 1252550.3, 1252550.8, 1252250, 1252250, 1252500)
+)
+data.table::setattr(irregular_coords, "epsg", 2056L)
+irregular_result <- extract_using_coords_t(layer2, irregular_coords, na_omit = FALSE)
+expect_equal(
+  irregular_result$value,
+  terra::extract(layer2, as.matrix(irregular_coords[, .(lon, lat)]))[[1L]]
+)
+# the close pair in one cell shares its value; the pair across the edge does not
+expect_equal(irregular_result$value[3], irregular_result$value[4])
+expect_true(irregular_result$value[5] != irregular_result$value[6])
+expect_true(is.na(irregular_result$value[7]))
+expect_equal(extract_using_coords_t(layer2, irregular_coords)$id_coord, 1:6)
+
 # Test extract_using_coords_t with SpatVector ####
 vect_data <-
   coords_t[, .(
