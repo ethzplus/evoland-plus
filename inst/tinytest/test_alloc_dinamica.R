@@ -1,3 +1,9 @@
+library(tinytest)
+
+if (!at_home()) {
+  exit_file("Dinamica tests skipped (not at_home)")
+}
+
 # alloc_dinamica_spec() on a hand-built allocation context, without a database. Where
 # Dinamica is not installed, the test fallback copies the anterior map, which still exercises
 # writing the inputs and reading the posterior back; tinytest resets the option after this

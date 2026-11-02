@@ -27,7 +27,7 @@ expect_message(
   db$trans_models_t <- db$fit_partial_models(
     learner = test_learner,
     measures = test_measures,
-    seed = 1244244,
+    seed = 1244244
   ),
   "Fitting partial models for 2 transitions..."
 )
@@ -259,7 +259,7 @@ alloc_run_5 <- function(update_neighbors) {
 expect_message(alloc_run_5(update_neighbors = FALSE), "Allocating with greedy")
 expect_equal(count_run_5_preds(), 0)
 expect_message(alloc_run_5(update_neighbors = TRUE), "Allocating with greedy")
-expect_true(count_run_5_preds() > 0)
+expect_equal(count_run_5_preds(), 3600)
 
 # --------------------------------------------------------------------------
 # Argument checks
