@@ -190,7 +190,7 @@ db$lulc_meta_t <- create_lulc_meta_t(
     ),
     static = list(
       pretty_name = "Lake",
-      description = "Areas where we cannot conceptualize change",
+      description = "Static land use class (except if you're Dutch)",
       src_classes = 4
     )
   )
@@ -203,7 +203,7 @@ The spatial coordinate points provide the fundamental geographic domain on which
 We use a dense square raster, but since we register individual coordinate points, we could subset these to any oddly shaped region of interest.
 
 For this tutorial, we do not read real observed data.
-Instead, `synthetic_landscape()` simulates a 50 x 50 cell landscape in Swiss LV95 coordinates, together with the drivers of its change, over three periods.
+Instead, `synthetic_landscape()` simulates a 50 x 50 cell landscape at the origin of Web Mercator coordinates (EPSG:3857), together with the drivers of its change, over three periods.
 Its grid defines our spatial domain.
 
 ```{r}
@@ -212,7 +212,7 @@ Its grid defines our spatial domain.
 landscape <- synthetic_landscape(n_periods = 3, n_cells = 50)
 
 db$coords_t <- create_coords_t_square(
-  epsg = 2056L,
+  epsg = 3857L,
   extent = terra::ext(landscape$lulc),
   resolution = terra::res(landscape$lulc)[1]
 )
@@ -221,7 +221,7 @@ db$coords_t <- create_coords_t_square(
 You can retrieve coords_t from disk and filter using [`data.table` semantics](https://raw.githubusercontent.com/rstudio/cheatsheets/master/datatable.pdf):
 
 ```{r}
-db$coords_t[lon == 2699950]
+db$coords_t[lon == 2950]
 ```
 
 We can also retrieve a minimal representation (id, lat, lon) using an active binding, i.e. a method tied to the database that dynamically computes a property when called:
@@ -250,7 +250,7 @@ db$periods_t <- create_periods_t(
 ## LULC Data
 
 The synthetic landscape changes through a known process, so that the model has a signal to learn:
-urban land grows next to existing urban land where accessibility is high, forest turns into arable land on poor sites next to arable land, and arable land returns to forest on good, remote sites next to forest.
+urban land grows next to existing urban land where accessibility is high, forest turns into arable land on good sites next to arable land, and arable land returns to forest on poor, remote sites next to forest.
 `?synthetic_landscape` states the process exactly; the model below does not get to see it, only the maps and the drivers.
 
 ```{r}

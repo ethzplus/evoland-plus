@@ -8,9 +8,9 @@ synthetic_landscape(
   n_periods = 3L,
   n_cells = 30L,
   resolution = 100,
-  xmin = 2697000,
-  ymin = 1252000,
-  crs = "EPSG:2056"
+  xmin = 0,
+  ymin = 0,
+  crs = "EPSG:3857"
 )
 }
 \arguments{
@@ -23,7 +23,7 @@ the process.}
 
 \item{xmin, ymin}{Numeric, the grid's lower left corner in the units of \code{crs}.}
 
-\item{crs}{Character, the grid's coordinate reference system.}
+\item{crs}{Character, the grid's coordinate reference system, passed to \code{\link[terra:rast]{terra::rast()}}}
 }
 \value{
 A list of two \link[terra:SpatRaster]{terra::SpatRaster}s on the same grid:
@@ -35,7 +35,7 @@ class of each cell;
 }
 }
 \description{
-Simulates a small landscape and its land use over several periods, driven by a stated
+Simulates a square landscape and its land use over several periods, driven by a stated
 change process. It is meant for tutorials, examples and tests: unlike real data or random
 noise, the change has a signal a model can learn, and the process that generated it is
 known.
@@ -48,14 +48,14 @@ changes. Two latent drivers shape both the initial map and its change:
 }
 
 In the initial map, urban land clusters where accessibility is high, the lake sits in a
-random patch, forest on the better sites and arable land takes the rest. Each later
+random patch, arable land takes the better sites and forest the rest. Each later
 period applies four transitions, whose per-period probabilities depend on the drivers and
 on the share of each class in the 5 x 5 cell neighbourhood:\tabular{ll}{
    transition \tab logit of the per-period probability \cr
    arable -> urban \tab -5.5 + 7 * share_urban + 3 * accessibility \cr
    forest -> urban \tab -7 + 6 * share_urban + 3 * accessibility \cr
-   forest -> arable \tab -5 + 4 * (1 - site_quality) + 3 * share_arable \cr
-   arable -> forest \tab -6 + 4 * site_quality * (1 - accessibility) + 3 * share_forest \cr
+   forest -> arable \tab -5 + 4 * site_quality + 3 * share_arable \cr
+   arable -> forest \tab -6 + 4 * (1 - site_quality) * (1 - accessibility) + 3 * share_forest \cr
 }
 
 
@@ -63,9 +63,15 @@ A cell undergoes at most one transition per period; the transitions are drawn in
 order of the table. A third, \code{random_nuisance} field has no influence on the change; it is
 returned as a predictor a model should learn to ignore.
 
-The process is the one behind Fig. 2 of the evoland-plus model description paper. All
-random draws go through R's random number generator, so \code{\link[=set.seed]{set.seed()}} makes a landscape
+Arable land, with its higher economic input and output, is cleared on good sites and
+abandoned to forest on poor, remote ones. Apart from that, the process is the one behind
+Fig. 2 of the evoland-plus model description paper, which has forest on the better sites.
+All random draws go through R's random number generator, so \code{\link[=set.seed]{set.seed()}} makes a landscape
 replay.
+
+The grid lies at the origin of Web Mercator (EPSG:3857) by default: a coordinate system
+that belongs to no country, with coordinates that start near zero and, at the equator,
+units of true metres.
 }
 \examples{
 set.seed(1)

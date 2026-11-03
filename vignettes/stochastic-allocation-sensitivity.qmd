@@ -95,7 +95,7 @@ db$lulc_meta_t <- create_lulc_meta_t(
 landscape <- synthetic_landscape(n_periods = 3, n_cells = 50)
 
 db$coords_t <- create_coords_t_square(
-  epsg = 2056L,
+  epsg = 3857L,
   extent = terra::ext(landscape$lulc),
   resolution = terra::res(landscape$lulc)[1]
 )

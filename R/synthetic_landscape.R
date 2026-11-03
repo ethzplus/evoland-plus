@@ -1,7 +1,7 @@
 #' Synthetic land use with a known change process
 #'
 #' @description
-#' Simulates a small landscape and its land use over several periods, driven by a stated
+#' Simulates a square landscape and its land use over several periods, driven by a stated
 #' change process. It is meant for tutorials, examples and tests: unlike real data or random
 #' noise, the change has a signal a model can learn, and the process that generated it is
 #' known.
@@ -13,7 +13,7 @@
 #' - `site_quality`, high towards the north and east, plus a smooth random field.
 #'
 #' In the initial map, urban land clusters where accessibility is high, the lake sits in a
-#' random patch, forest on the better sites and arable land takes the rest. Each later
+#' random patch, arable land takes the better sites and forest the rest. Each later
 #' period applies four transitions, whose per-period probabilities depend on the drivers and
 #' on the share of each class in the 5 x 5 cell neighbourhood:
 #'
@@ -21,23 +21,29 @@
 #' | ---------------- | ---------------------------------------------------------------------- |
 #' | arable -> urban  | -5.5 + 7 * share_urban + 3 * accessibility                             |
 #' | forest -> urban  | -7 + 6 * share_urban + 3 * accessibility                               |
-#' | forest -> arable | -5 + 4 * (1 - site_quality) + 3 * share_arable                         |
-#' | arable -> forest | -6 + 4 * site_quality * (1 - accessibility) + 3 * share_forest         |
+#' | forest -> arable | -5 + 4 * site_quality + 3 * share_arable                               |
+#' | arable -> forest | -6 + 4 * (1 - site_quality) * (1 - accessibility) + 3 * share_forest   |
 #'
 #' A cell undergoes at most one transition per period; the transitions are drawn in the
 #' order of the table. A third, `random_nuisance` field has no influence on the change; it is
 #' returned as a predictor a model should learn to ignore.
 #'
-#' The process is the one behind Fig. 2 of the evoland-plus model description paper. All
-#' random draws go through R's random number generator, so [set.seed()] makes a landscape
+#' Arable land, with its higher economic input and output, is cleared on good sites and
+#' abandoned to forest on poor, remote ones. Apart from that, the process is the one behind
+#' Fig. 2 of the evoland-plus model description paper, which has forest on the better sites.
+#' All random draws go through R's random number generator, so [set.seed()] makes a landscape
 #' replay.
+#'
+#' The grid lies at the origin of Web Mercator (EPSG:3857) by default: a coordinate system
+#' that belongs to no country, with coordinates that start near zero and, at the equator,
+#' units of true metres.
 #'
 #' @param n_periods Integer, the number of maps: the initial map and `n_periods - 1` steps of
 #'   the process.
 #' @param n_cells Integer, cells per side of the square grid.
 #' @param resolution Numeric, cell size in the units of `crs`.
 #' @param xmin,ymin Numeric, the grid's lower left corner in the units of `crs`.
-#' @param crs Character, the grid's coordinate reference system.
+#' @param crs Character, the grid's coordinate reference system, passed to [terra::rast()]
 #'
 #' @return A list of two [terra::SpatRaster]s on the same grid:
 #'   - `lulc`: one layer per period, named `id_period=1`, `id_period=2`, ..., holding the
@@ -56,9 +62,9 @@ synthetic_landscape <- function(
   n_periods = 3L,
   n_cells = 30L,
   resolution = 100,
-  xmin = 2697000,
-  ymin = 1252000,
-  crs = "EPSG:2056"
+  xmin = 0,
+  ymin = 0,
+  crs = "EPSG:3857"
 ) {
   stopifnot(
     "n_periods must be a positive integer" = is_scalar_integerish(n_periods) && n_periods >= 1,
@@ -79,8 +85,9 @@ synthetic_landscape <- function(
 
   drivers <- synthetic_drivers(template)
   maps <- list(synthetic_initial_map(template, drivers))
-  for (i in seq_len(n_periods - 1L)) {
-    maps[[i + 1L]] <- synthetic_step(maps[[i]], drivers)
+  # not 2:n_periods, which counts down for a single period
+  for (i in seq_len(n_periods)[-1L]) {
+    maps[[i]] <- synthetic_step(maps[[i - 1L]], drivers)
   }
 
   list(
@@ -123,7 +130,7 @@ synthetic_initial_map <- function(template, drivers) {
   quantile_of <- function(x, p) stats::quantile(terra::values(x), p, na.rm = TRUE)
   urban_score <- scale01(0.7 * drivers$accessibility + 0.3 * smooth_field(template, w = 3))
   lake_score <- smooth_field(template, w = 7)
-  forest_score <- scale01(0.6 * smooth_field(template, w = 5) + 0.4 * drivers$site_quality)
+  arable_score <- scale01(0.6 * smooth_field(template, w = 5) + 0.4 * drivers$site_quality)
 
   terra::ifel(
     urban_score > quantile_of(urban_score, 0.88),
@@ -131,7 +138,7 @@ synthetic_initial_map <- function(template, drivers) {
     terra::ifel(
       lake_score > quantile_of(lake_score, 0.97),
       4,
-      terra::ifel(forest_score > quantile_of(forest_score, 0.45), 1, 2)
+      terra::ifel(arable_score > quantile_of(arable_score, 0.55), 2, 1)
     )
   )
 }
@@ -146,8 +153,8 @@ synthetic_transitions <- function(map, drivers) {
   list(
     list(from = 2, to = 3, p = plogis_rast(-5.5 + 7 * share(3) + 3 * acc)),
     list(from = 1, to = 3, p = plogis_rast(-7 + 6 * share(3) + 3 * acc)),
-    list(from = 1, to = 2, p = plogis_rast(-5 + 4 * (1 - sq) + 3 * share(2))),
-    list(from = 2, to = 1, p = plogis_rast(-6 + 4 * sq * (1 - acc) + 3 * share(1)))
+    list(from = 1, to = 2, p = plogis_rast(-5 + 4 * sq + 3 * share(2))),
+    list(from = 2, to = 1, p = plogis_rast(-6 + 4 * (1 - sq) * (1 - acc) + 3 * share(1)))
   )
 }
 
