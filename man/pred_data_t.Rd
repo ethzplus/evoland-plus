@@ -19,7 +19,13 @@ pred_data_available_v(self)
 
 pred_wide_train_v(self, id_trans, id_pred, id_period_anterior = NULL)
 
-pred_wide_predict_v(self, private, id_trans, id_period_anterior)
+pred_wide_predict_v(
+  self,
+  private,
+  id_trans,
+  id_period_anterior,
+  id_run = self$id_run
+)
 
 set_pred_coltypes(result, pred_meta_t)
 
@@ -52,6 +58,8 @@ missing, use all predictor IDs from \link{pred_meta_t}}
 
 \item{id_period_anterior}{Scalar integerish of anterior period ID, i.e. we
 get the predictors that explain the processes over the next N years}
+
+\item{id_run}{Integer, the run whose predictors and anterior map are read}
 
 \item{result}{data.table with predictor columns named \verb{id_pred_\{n\}}}
 

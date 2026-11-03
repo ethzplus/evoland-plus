@@ -64,8 +64,6 @@ range 0–1); the raw shape summary from \code{calculate_class_stats_cpp()}
 via \code{\link[=isometry_from_elongation]{isometry_from_elongation()}}
 \item \code{frac_expander}: Fraction of transition cells adjacent to existing patches
 \item \code{frac_patcher}: Fraction of transition cells forming new patches
-\item \code{similarity}: Similarity metric for allocation parameters, see
-\code{\link[=calc_transition_similarity]{calc_transition_similarity()}} and \code{\link[=eval_alloc_params_t]{eval_alloc_params_t()}}
 }
 
 A named list with allocation parameters:

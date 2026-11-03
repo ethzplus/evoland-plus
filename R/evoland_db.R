@@ -123,7 +123,8 @@ evoland_db <- R6::R6Class(
     #' @description Append new neighbors to predictor for a given period; depends on
     #' generate_neighbor_predictors() having been run.
     #' @param id_period Period to calculate predictors for
-    upsert_new_neighbors = function(id_period) {
+    #' @param id_run Run whose map is counted and under which the predictors are written
+    upsert_new_neighbors = function(id_period, id_run = self$id_run) {
       create_method_binding(upsert_new_neighbors)
     },
 
@@ -165,7 +166,8 @@ evoland_db <- R6::R6Class(
     #' @description Retrieve a wide view of the predictor data, see [pred_wide_predict_v()]
     #' @param id_trans Integer transition ID, see [trans_meta_t]
     #' @param id_period_anterior Integer ID of period to retrieve data for
-    pred_wide_predict_v = function(id_trans, id_period_anterior) {
+    #' @param id_run Integer, the run whose predictors and anterior map are read
+    pred_wide_predict_v = function(id_trans, id_period_anterior, id_run = self$id_run) {
       create_method_binding(pred_wide_predict_v, with_private = TRUE)
     },
 
@@ -208,113 +210,6 @@ evoland_db <- R6::R6Class(
     },
 
     ### Allocation methods ---
-    #' @description Runs a path-dependent Monte Carlo simulation using Dinamica
-    #' EGO, see [alloc_dinamica()]
-    #' @param id_periods Integer vector of period IDs to include in the simulation.
-    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
-    #' to select model for extrapolation
-    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param work_dir Character path for Dinamica working directory; `NULL` (default)
-    #' uses a temporary directory.
-    #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
-    #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
-    #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
-    #' values already exist
-    #' @param update_neighbors Logical; recompute neighbour predictors after the last
-    #' requested period. Intermediate periods are always updated.
-    alloc_dinamica = function(
-      id_periods,
-      select_score,
-      select_maximize,
-      work_dir = NULL,
-      keep_intermediate = FALSE,
-      use_parent_trans_pot = FALSE,
-      force_predict_trans_pot = FALSE,
-      update_neighbors = TRUE
-    ) {
-      create_method_binding(alloc_dinamica)
-    },
-
-    #' @description Runs CLUMPY-style LULC allocation, see [alloc_clumpy()].
-    #' The method (uSAM vs uPAM) is selected automatically from the patch
-    #' parameters: mono-pixel patches (`area_mean == 1`, `area_var == 0`) use
-    #' uSAM, otherwise uPAM.
-    #' @param id_periods Integer vector of period IDs to include in the simulation.
-    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
-    #' to select model for extrapolation.
-    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param area_dist Character; patch-area distribution, `"lognormal"`
-    #' (default) or `"normal"`. See [alloc_clumpy()].
-    #' @param avoid_aggregation Logical; if `TRUE` (default) uPAM patches that
-    #' would merge fail and allocate nothing. Ignored for uSAM.
-    #' @param batch_size Integer; uPAM pivots attempted per MuST re-draw. `0`
-    #' (default) auto-scales with the source pool; `> 0` is an explicit cap
-    #' (`1` = strict uPAM); `< 0` = all candidates in one pass. Ignored for uSAM.
-    #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
-    #' (useful for repeated allocation)
-    #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
-    #' values already exist
-    #' @param update_neighbors Logical; recompute neighbour predictors after the last
-    #' requested period. Intermediate periods are always updated.
-    alloc_clumpy = function(
-      id_periods,
-      select_score,
-      select_maximize,
-      area_dist = "lognormal",
-      avoid_aggregation = TRUE,
-      batch_size = 0L,
-      use_parent_trans_pot = FALSE,
-      force_predict_trans_pot = FALSE,
-      update_neighbors = TRUE
-    ) {
-      create_method_binding(alloc_clumpy)
-    },
-
-    #' @description Runs deterministic greedy (rank-and-fill) allocation, see
-    #' [alloc_greedy()]: each transition's demand goes to the cells of highest adjusted
-    #' potential, every cell changes at most once.
-    #' @param id_periods Integer vector of period IDs to include in the simulation.
-    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
-    #' to select model for extrapolation.
-    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param arbitration Character; `"joint"` (default) ranks all transitions together,
-    #' `"ordered"` lets transitions claim cells in the priority given by `order`.
-    #' @param order Integer vector of `id_trans`, the priority for `"ordered"`.
-    #' @param use_parent_trans_pot Logical; use the direct parent run's transition potentials
-    #' @param force_predict_trans_pot Logical; re-run prediction for trans_pot_t even if those
-    #' values already exist
-    #' @param update_neighbors Logical; recompute neighbour predictors after the last
-    #' requested period. Intermediate periods are always updated.
-    alloc_greedy = function(
-      id_periods,
-      select_score,
-      select_maximize,
-      arbitration = c("joint", "ordered"),
-      order = NULL,
-      use_parent_trans_pot = FALSE,
-      force_predict_trans_pot = FALSE,
-      update_neighbors = TRUE
-    ) {
-      create_method_binding(alloc_greedy)
-    },
-
-    #' @description
-    #' Evaluates allocation parameters in dinamica, see [eval_alloc_params_t()]
-    #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
-    #' to select model for extrapolation
-    #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    #' @param work_dir Character path for Dinamica working directory; `NULL` (default)
-    #' uses a temporary directory.
-    #' @param keep_intermediate Logical, keep intermediate Dinamica files? Default FALSE.
-    eval_alloc_params_t = function(
-      select_score,
-      select_maximize,
-      work_dir = NULL,
-      keep_intermediate = FALSE
-    ) {
-      create_method_binding(eval_alloc_params_t)
-    },
-
     #' @description
     #' Estimates allocation parameters for all viable transitions under the active `id_run`,
     #' see [create_alloc_params_t()]
@@ -432,7 +327,16 @@ evoland_db <- R6::R6Class(
     #' @param select_score Character string; mlr3 measure ID (e.g. `"classif.auc"`) used
     #' to select model for extrapolation
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
-    predict_trans_pot = function(id_period_post, select_score, select_maximize, force = FALSE) {
+    #' @param force Logical; predict even if `trans_pot_t` already holds potentials for
+    #' `id_run` and the period.
+    #' @param id_run Integer; the run to predict for, and to write the potentials under.
+    predict_trans_pot = function(
+      id_period_post,
+      select_score,
+      select_maximize,
+      force = FALSE,
+      id_run = self$id_run
+    ) {
       create_method_binding(predict_trans_pot)
     },
 
@@ -445,27 +349,19 @@ evoland_db <- R6::R6Class(
     # should be fixed together with the other evoland_db$set calls in evoland_db_views.R
 
     #' @description
-    #' Return transition rates formatted for Dinamica export for a specific period,
-    #' see [evoland_db_views].
-    #' @param id_period Integer period ID for which to export rates.
-    trans_rates_dinamica_v = function(id_period) {
-      stop("implemented by evoland_db_views.R via $set()")
-    },
-
-    #' @description
     #' Return allocation-ready transition potentials for a given posterior period.
     #' Raw potentials stored in `trans_pot_t` are column-scaled to match target
     #' transition rates and row-closed so per-cell change probabilities sum to at
     #' most 1.  See [evoland_db_views] for details.
     #' @param id_period_post Integer posterior period ID.
-    adjusted_trans_pot_v = function(id_period_post) {
-      stop("implemented by evoland_db_views.R via $set()")
-    },
-
-    #' @description
-    #' Return allocation parameters in CLUMPY-compatible format (area_mean,
-    #' area_var, elongation per transition).  See [evoland_db_views].
-    alloc_params_clumpy_v = function() {
+    #' @param id_run Integer; the run whose demand (`trans_rates_t`) the potentials are
+    #' scaled to.
+    #' @param id_run_trans_pot Integer; the run whose raw potentials are read.
+    adjusted_trans_pot_v = function(
+      id_period_post,
+      id_run = self$id_run,
+      id_run_trans_pot = id_run
+    ) {
       stop("implemented by evoland_db_views.R via $set()")
     }
   ),
