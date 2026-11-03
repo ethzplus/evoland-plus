@@ -61,6 +61,26 @@ expect_identical(
 )
 expect_equal(nrow(raster_result), 300L) # 100 coords * 3 layers
 
+# Irregular coordinate points: sparse ones far apart, two 1 m apart in one cell, two 1 m apart
+# on either side of a cell edge (at x = 2697500), and one outside the raster. Each point reads
+# the cell it falls in, as terra's own point extraction does, and the outside point reads NA
+irregular_coords <- data.table::data.table(
+  id_coord = 1:7,
+  lon = c(2690123.4, 2705987.6, 2697450.2, 2697451.2, 2697499.5, 2697500.5, 2720000),
+  lat = c(1245321.7, 1259876.5, 1252550.3, 1252550.8, 1252250, 1252250, 1252500)
+)
+data.table::setattr(irregular_coords, "epsg", 2056L)
+irregular_result <- extract_using_coords_t(layer2, irregular_coords, na_omit = FALSE)
+expect_equal(
+  irregular_result$value,
+  terra::extract(layer2, as.matrix(irregular_coords[, .(lon, lat)]))[[1L]]
+)
+# the close pair in one cell shares its value; the pair across the edge does not
+expect_equal(irregular_result$value[3], irregular_result$value[4])
+expect_true(irregular_result$value[5] != irregular_result$value[6])
+expect_true(is.na(irregular_result$value[7]))
+expect_equal(extract_using_coords_t(layer2, irregular_coords)$id_coord, 1:6)
+
 # Test extract_using_coords_t with SpatVector ####
 vect_data <-
   coords_t[, .(
@@ -190,3 +210,27 @@ expect_silent(
 )
 # Should calculate 100 based on coordinate spacing
 expect_equal(terra::res(rast_auto_res)[1], 100)
+
+# Test coords_grid and friends ####
+# a 3 x 3 grid; terra numbers cells from the top left, so id_coord 1 (bottom left) is cell 7
+grid_coords <- data.table::CJ(lat = c(5, 15, 25), lon = c(5, 15, 25))[,
+  .(id_coord = .I, lon, lat)
+]
+data.table::setattr(grid_coords, "epsg", 2056L)
+data.table::setattr(grid_coords, "resolution", 10)
+grid <- evoland.plus:::coords_grid(grid_coords)
+expect_equal(grid$cells$cell, c(7, 8, 9, 4, 5, 6, 1, 2, 3))
+
+# values per coordinate point fill their cells; the others are NA, and the type is kept
+some_values <- data.table::data.table(id_coord = c(2L, 5L, 9L), v = c(10L, 20L, 30L))
+expect_identical(
+  evoland.plus:::grid_values(grid, some_values, "v"),
+  c(NA, NA, 30L, NA, 20L, NA, NA, 10L, NA)
+)
+some_rast <- evoland.plus:::grid_to_rast(grid, some_values, "v")
+expect_equal(names(some_rast), "v")
+# and read back per coordinate point
+expect_equal(
+  evoland.plus:::rast_to_grid(grid, some_rast)[!is.na(value)],
+  data.table::data.table(id_coord = c(2L, 5L, 9L), value = c(10, 20, 30))
+)

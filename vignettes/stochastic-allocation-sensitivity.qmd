@@ -472,19 +472,23 @@ Note that we do **not** copy the allocation parameters into each run. Every stoc
 ## Running one extrapolated period 30 times
 
 We only allocate the first extrapolated period. This makes the comparison easier to interpret: every realization starts from the same observed state.
-We loop over the run records: for each run we set the active `db$id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- and then allocate the single extrapolated period (`id_period = 4`) using that run's `seed`. Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
+We loop over the run records: for each run we allocate the single extrapolated period (`id_period = 4`) under that run's `id_run` -- which controls both the lineage that allocation reads from and the `id_run` stamped on the results it writes -- using that run's `seed`.
+All runs share the transition potentials of their parent, the base run (`potentials_ancestor = 1L`, one generation up), so they are predicted once.
+Because only the seed changes between iterations, the resulting maps differ purely through allocation stochasticity.
 
 ```{r}
 #| label: allocate-realizations
 #| output: false
 for (i in seq_len(nrow(runs_out))) {
-  db$id_run <- runs_out$id_run[i]
   set.seed(runs_out$seed[i])
-  db$alloc_clumpy(
+  allocate(
+    db,
     id_periods = 4, # first extrapolated period
+    allocator = alloc_clumpy_spec(),
     select_score = "no.crossval",
     select_maximize = TRUE,
-    use_parent_trans_pot = TRUE
+    id_run = runs_out$id_run[i],
+    potentials_ancestor = 1L
   )
 }
 ```

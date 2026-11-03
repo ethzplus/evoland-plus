@@ -10,8 +10,7 @@ alloc_params_t <- as_alloc_params_t(list(
   patch_elongation = 0.15,
   patch_isometry = 0.2,
   frac_expander = 0.8,
-  frac_patcher = 0.2,
-  similarity = NA_real_
+  frac_patcher = 0.2
 ))
 
 expect_silent(alloc_params_t)
