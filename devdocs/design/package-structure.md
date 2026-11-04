@@ -48,13 +48,16 @@ This also leaves room for ad-hoc adaptations in a specific analysis: a table can
 
 ## Allocation backends
 
-Allocation (placing the projected quantity of change on the map) has three interchangeable backends:
+Allocation (placing the projected quantity of change on the map) runs through one entry point, `allocate()` (`R/allocate.R`).
+For each period it predicts the transition potentials if needed, gathers everything an allocator reads into an allocation context (anterior map, adjusted potentials, viable transitions, quantity of change, allocation parameters, and on demand a raster grid), hands the context to the allocator, and commits the posterior map together with the neighbor predictors derived from it.
+An allocator is a specification (`alloc_*_spec()`) holding its arguments and a function from context to posterior map; it does not touch the database.
+There are three interchangeable allocators:
 
 - A C++ implementation of the CLUMPY allocation methods (`R/alloc_clumpy.R`, `src/alloc_clumpy.cpp`), which runs everywhere R does. It reimplements the stochastic patch allocation of [CLUMPY](https://github.com/mmyrte/clumpy); that repository also documents the reimplementation effort and the comparison against the original.
 - A greedy rank-and-fill allocator (`R/alloc_greedy.R`), which fills each transition's demand with the cells of highest potential. It is deterministic and has no patch geometry, which makes it a useful baseline for the stochastic allocators.
 - [Dinamica EGO](https://dinamicaego.com/) (`R/alloc_dinamica.R`), run as an external process with models in `inst/dinamica_models/`. It is the established reference, but only runs on Linux x86 and is optional.
 
-All three read transition potentials (and, where they use them, allocation parameters) from the database and write the resulting land use map back to `lulc_data_t` under the active run.
+Each allocator changes `round(rate * n_anterior)` cells per transition, the same quantity for all three.
 
 ## Dependencies
 

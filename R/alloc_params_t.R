@@ -19,8 +19,6 @@
 #'     via [isometry_from_elongation()]
 #'   - `frac_expander`: Fraction of transition cells adjacent to existing patches
 #'   - `frac_patcher`: Fraction of transition cells forming new patches
-#'   - `similarity`: Similarity metric for allocation parameters, see
-#'      [calc_transition_similarity()] and [eval_alloc_params_t()]
 #'
 #' @export
 as_alloc_params_t <- function(x) {
@@ -33,8 +31,7 @@ as_alloc_params_t <- function(x) {
       patch_elongation = numeric(0),
       patch_isometry = numeric(0),
       frac_expander = numeric(0),
-      frac_patcher = numeric(0),
-      similarity = numeric(0)
+      frac_patcher = numeric(0)
     )
   }
 
@@ -46,8 +43,7 @@ as_alloc_params_t <- function(x) {
     cast_dt_col("patch_elongation", "float") |>
     cast_dt_col("patch_isometry", "float") |>
     cast_dt_col("frac_expander", "float") |>
-    cast_dt_col("frac_patcher", "float") |>
-    cast_dt_col("similarity", "float")
+    cast_dt_col("frac_patcher", "float")
 
   as_ducklake_db_t(
     x,
@@ -70,8 +66,7 @@ validate.alloc_params_t <- function(x, ...) {
       "patch_elongation",
       "patch_isometry",
       "frac_expander",
-      "frac_patcher",
-      "similarity"
+      "frac_patcher"
     )
   )
 
@@ -254,11 +249,23 @@ compute_alloc_params_single <- function(
 #' allocation to patch geometry, is left to the caller, who writes the perturbed sets onto
 #' runs of their own.
 #' @param self [evoland_db] instance to query
-create_alloc_params_t <- function(self) {
-  stopifnot("id_run must be set" = !is.null(self$id_run))
+#' @param id_period_post Optional integer vector of posterior period IDs; only the period
+#'   pairs ending in these periods are estimated from, e.g. to hold out the last observed
+#'   transition for a backcast. `NULL` (default) uses every observed pair.
+create_alloc_params_t <- function(self, id_period_post = NULL) {
+  stopifnot(
+    "id_run must be set" = !is.null(self$id_run),
+    "id_period_post must be integerish or NULL" = {
+      is.null(id_period_post) || is_integerish(id_period_post)
+    }
+  )
 
   # Get observed periods (not extrapolated, and > 1 since we need period - 1)
-  periods <- self$periods_t[is_extrapolated == FALSE & id_period > 1]
+  periods <- if (is.null(id_period_post)) {
+    self$periods_t[is_extrapolated == FALSE & id_period > 1]
+  } else {
+    self$periods_t[is_extrapolated == FALSE & id_period > 1 & id_period %in% id_period_post]
+  }
   viable_trans <- self$trans_meta_t[is_viable == TRUE]
 
   # validate DB inputs
@@ -347,8 +354,7 @@ create_alloc_params_t <- function(self) {
       patch_elongation = mean_na(patch_elongation),
       patch_isometry = mean_na(patch_isometry),
       frac_expander = mean_na(frac_expander),
-      frac_patcher = mean_na(frac_patcher),
-      similarity = NA_real_ # placeholder, to be filled in eval_alloc_params_t
+      frac_patcher = mean_na(frac_patcher)
     ),
     by = id_trans
   ]

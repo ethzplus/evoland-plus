@@ -375,3 +375,88 @@ res_auto <- evoland:::allocate_clumpy_cpp(
 expect_length(res_auto, big2 * big2)
 # quota-bounded: changed count should be near rate * pool, not wildly over
 expect_true(sum(res_auto == 2L) <= ceiling(0.3 * big2 * big2) + 10L)
+
+# --- alloc_clumpy_spec() on a hand-built allocation context -----------------
+# a 10 x 10 grid of class 1 with one viable transition 1 -> 2 at rate 0.2, mono-pixel patches
+# (uSAM); the seed fixes the realisation
+grid_coords <- data.table::CJ(lat = seq(5, 95, 10), lon = seq(5, 95, 10))[,
+  .(id_coord = .I, lon, lat)
+]
+data.table::setattr(grid_coords, "epsg", 2056L)
+data.table::setattr(grid_coords, "resolution", 10)
+clumpy_ctx <- list(
+  anterior = grid_coords[, .(id_coord, id_lulc = 1L)],
+  viable_trans = data.table::data.table(
+    id_trans = 1L,
+    id_lulc_anterior = 1L,
+    id_lulc_posterior = 2L
+  ),
+  quota = data.table::data.table(id_trans = 1L, rate = 0.2, n_anterior = 100L, quota = 20L),
+  potentials = grid_coords[, .(id_trans = 1L, id_coord, value = 0.2)],
+  alloc_params = data.table::data.table(
+    id_trans = 1L,
+    mean_patch_size = 1,
+    patch_size_variance = 0,
+    patch_elongation = NA_real_
+  ),
+  grid = evoland:::coords_grid(grid_coords)
+)
+set.seed(3L)
+expect_message(
+  clumpy_posterior <- alloc_clumpy_spec()$one_period(clumpy_ctx),
+  "CLUMPY method: uSAM"
+)
+# one row per grid cell, in id_coord order: the bottom row of the grid first
+# fmt: skip
+expect_identical(
+  clumpy_posterior,
+  data.table::data.table(id_coord = 1:100, id_lulc = as.integer(c(
+    2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+    1, 1, 1, 2, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 2, 2, 1, 1,
+    1, 2, 1, 2, 1, 1, 1, 1, 1, 2,
+    1, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+    1, 1, 2, 1, 1, 1, 2, 2, 1, 1,
+    1, 1, 2, 1, 1, 1, 1, 1, 1, 1,
+    1, 2, 2, 2, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1,
+    2, 1, 1, 1, 1, 1, 2, 1, 1, 1
+  )))
+)
+# a viable transition at a rate of 0 has no positive potential anywhere; it still gets its
+# (empty) element, so the other transition is allocated and it changes no cell
+zero_rate_ctx <- clumpy_ctx
+zero_rate_ctx$anterior <- grid_coords[, .(id_coord, id_lulc = rep(1:2, 50L))]
+zero_rate_ctx$viable_trans <- data.table::data.table(
+  id_trans = 1:2,
+  id_lulc_anterior = 1:2,
+  id_lulc_posterior = 2:1
+)
+zero_rate_ctx$quota <- data.table::data.table(
+  id_trans = 1:2,
+  rate = c(0, 0.2),
+  n_anterior = 50L,
+  quota = c(0L, 10L)
+)
+zero_rate_ctx$potentials <- rbind(
+  grid_coords[, .(id_trans = 1L, id_coord, value = 0)],
+  grid_coords[, .(id_trans = 2L, id_coord, value = 0.2)]
+)
+zero_rate_ctx$alloc_params <- data.table::data.table(
+  id_trans = 1:2,
+  mean_patch_size = 1,
+  patch_size_variance = 0,
+  patch_elongation = NA_real_
+)
+set.seed(3L)
+expect_message(
+  zero_rate_posterior <- alloc_clumpy_spec()$one_period(zero_rate_ctx),
+  "CLUMPY method: uSAM"
+)
+zero_rate_changes <- zero_rate_ctx$anterior[zero_rate_posterior, on = "id_coord"][
+  id_lulc != i.id_lulc
+]
+expect_true(nrow(zero_rate_changes) > 0L)
+expect_true(all(zero_rate_changes$id_lulc == 2L))
+
+expect_error(alloc_clumpy_spec(default_elongation = 2), "default_elongation")
