@@ -16,7 +16,8 @@ predict_trans_pot(
   id_period_post,
   select_score,
   select_maximize,
-  force = FALSE
+  force = FALSE,
+  id_run = self$id_run
 )
 }
 \arguments{
@@ -34,7 +35,11 @@ predict_trans_pot(
 
 \item{select_maximize}{logical scalar, whether to maximize or minimize \code{select_score}}
 
-\item{force}{logical, Force prediction even if a prediction is found}
+\item{force}{logical, predict even if \code{trans_pot_t} already holds potentials for \code{id_run}
+and the period (potentials inherited from an ancestor run do not count)}
+
+\item{id_run}{integer, the run to predict for: its models, predictors and anterior map are
+read through its lineage, and the potentials are written under it}
 }
 \value{
 A data.table of class "trans_pot_t" with columns:
@@ -58,7 +63,7 @@ Estimate transition potential at \code{id_period_post}. Based on the LULC at \co
 }}
 \section{Functions}{
 \itemize{
-\item \code{predict_trans_pot()}: For each viable transition in current \code{id_run}, predict the raw
+\item \code{predict_trans_pot()}: For each viable transition in \code{id_run}, predict the raw
 transition potential for a given period and store it in \code{trans_pot_t} in the database. Raw
 potentials are per-transition MLR3 model probabilities; they are \strong{not} yet allocation-ready
 (not column-scaled to target rates, not row-closed to max probability of 1). Use

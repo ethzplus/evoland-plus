@@ -13,7 +13,7 @@ The scope of `evoland-plus` is to:
 - **Gather and process** LULCC and predictor data from multiple sources into a clearly defined database structure.
 - **Calibrate statistical models** to understand historical land use transitions
 - **Project future land use patterns** using predictive models and allocation algorithms
-- **Support scenario analysis** through interventions and parameter modifications
+- **Support scenario analysis** through scenario-specific runs, transition rates, allocation parameters and transition potentials
 
 ## Installation
 
@@ -60,11 +60,11 @@ dependencies = [
 
 ## Allocation
 
-`evoland-plus` places projected land use change on the map with one of three allocators:
+`evoland-plus` places projected land use change on the map with `allocate(db, id_periods, allocator)`, using one of three allocators:
 
-- `db$alloc_clumpy()`: stochastic patch-based allocation after [CLUMPY](https://github.com/mmyrte/clumpy), implemented in C++ and available wherever the package installs.
-- `db$alloc_greedy()`: deterministic rank-and-fill allocation, a baseline for comparison.
-- `db$alloc_dinamica()`: allocation with [Dinamica EGO](https://dinamicaego.com/), which is optional. Dinamica only runs on **Linux x86 / amd64** (the Windows installer exists but is untested with `evoland-plus`); see the [Installing Dinamica EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html) vignette, or use the [Docker container](https://github.com/ethzplus/rocker-geospatial-dinamica/) on other platforms.
+- `alloc_clumpy_spec()`: stochastic patch-based allocation after [CLUMPY](https://github.com/mmyrte/clumpy), implemented in C++ and available wherever the package installs.
+- `alloc_greedy_spec()`: deterministic rank-and-fill allocation, a baseline for comparison.
+- `alloc_dinamica_spec()`: allocation with [Dinamica EGO](https://dinamicaego.com/), which is optional. Dinamica only runs on **Linux x86 / amd64** (the Windows installer exists but is untested with `evoland-plus`); see the [Installing Dinamica EGO](https://ethzplus.github.io/evoland-plus/articles/install-dinamica.html) vignette, or use the [Docker container](https://github.com/ethzplus/rocker-geospatial-dinamica/) on other platforms.
 
 ## Documentation
 
