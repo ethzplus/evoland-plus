@@ -9,7 +9,7 @@ if (!at_home()) {
 # allocator, so the deterministic greedy allocator stands in for all of them; the allocators
 # themselves are tested on hand-built contexts in test_alloc_*.R
 
-source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
+source(file.path(system.file("tinytest", package = "evoland.plus"), "helper_testdb.R"))
 db <- make_test_db()
 
 db$trans_rates_t <- db$get_obs_trans_rates()
@@ -114,7 +114,7 @@ expect_message(
 expect_equal(nrow(lulc_of(3L, 4L)), 900L)
 
 # force_predict predicts again, also with prefetching
-options("evoland.use_prefetch_predict" = TRUE)
+options("evoland.plus.use_prefetch_predict" = TRUE)
 expect_message(
   allocate(
     db,
@@ -127,7 +127,7 @@ expect_message(
   ),
   "Predicting transition potential"
 )
-options("evoland.use_prefetch_predict" = NULL)
+options("evoland.plus.use_prefetch_predict" = NULL)
 
 # --------------------------------------------------------------------------
 # several periods: run 2 allocates period 3 from the observed period 2, then period 4 from its
@@ -147,13 +147,13 @@ expect_message(
 expect_equal(nrow(lulc_of(2L, 3L)), 900L)
 expect_equal(nrow(lulc_of(2L, 4L)), 900L)
 # period 4 starts from the run's own allocation of period 3, not from the observed map
-ctx_4 <- evoland:::allocation_context(db, 4L, 2L, 2L)
+ctx_4 <- evoland.plus:::allocation_context(db, 4L, 2L, 2L)
 expect_identical(ctx_4$anterior, lulc_of(2L, 3L))
 expect_false(isTRUE(all.equal(lulc_of(2L, 3L), lulc_of(0L, 3L))))
 # greedy fills each period's quota exactly
 expect_equal(
   changes_by_trans(lulc_of(2L, 3L), anterior = lulc_of(0L, 2L)),
-  evoland:::allocation_context(db, 3L, 2L, 2L)$quota[, .(id_trans, N = quota)]
+  evoland.plus:::allocation_context(db, 3L, 2L, 2L)$quota[, .(id_trans, N = quota)]
 )
 expect_equal(
   changes_by_trans(lulc_of(2L, 4L), anterior = lulc_of(2L, 3L)),
@@ -228,7 +228,7 @@ expect_equal(db$row_count("lulc_data_t"), n_lulc_before)
 # greedy is deterministic and fills the quota the context gives every allocator exactly
 expect_equal(
   changes_by_trans(one_period),
-  evoland:::allocation_context(db, 4L, 4L, 3L)$quota[, .(id_trans, N = quota)]
+  evoland.plus:::allocation_context(db, 4L, 4L, 3L)$quota[, .(id_trans, N = quota)]
 )
 
 # --------------------------------------------------------------------------
@@ -295,6 +295,6 @@ expect_error(
   "allocator must be an allocator specification"
 )
 expect_error(
-  evoland:::new_allocator_spec("x", list(), one_period = function() NULL),
+  evoland.plus:::new_allocator_spec("x", list(), one_period = function() NULL),
   "one_period must be a function of one argument"
 )

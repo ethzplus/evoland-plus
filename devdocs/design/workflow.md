@@ -1,6 +1,6 @@
 # Modelling workflow
 
-The fundamental function of `evoland-plus` is to use a statistically calibrated, constrained model predicting locations for future land use / land cover change (LULCC), see the graph below.
+The fundamental function of `evoland.plus` is to use a statistically calibrated, constrained model predicting locations for future land use / land cover change (LULCC), see the graph below.
 Further features, such as one- or two-way coupling to other models, build on this core.
 
 ```mermaid
@@ -40,4 +40,4 @@ The pink boxes are what may vary between runs (`runs_t`). The setup tables (`coo
 A child run inherits everything it does not override from its parent, so an ensemble of allocations, data or model variants shares the work done upstream of where it diverges.
 
 Every phase reads its inputs from and writes its results to the database described in [database.md](database.md), so that each step can be rerun, inspected or replaced by another tool independently.
-The [getting-started vignette](../../vignettes/evoland.qmd) walks through the phases with the functions that implement them.
+The [getting-started vignette](../../vignettes/evoland.plus.qmd) walks through the phases with the functions that implement them.

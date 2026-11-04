@@ -5,7 +5,7 @@
 # against the one stored in R/sysdata.rda. Changing a fixture here therefore requires
 # rerunning this script, so that the stored data cannot go stale relative to the
 # constructors it is built from.
-library("evoland")
+library("evoland.plus")
 library("data.table")
 
 # Coordinates: 30×30 grid in Swiss LV95

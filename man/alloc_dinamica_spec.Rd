@@ -26,5 +26,5 @@ expansion and patcher tables from \code{alloc_params_t} (\code{frac_expander}, \
 \code{patch_size_variance}, \code{patch_isometry}).
 
 \code{\link[=check_dinamica]{check_dinamica()}} runs before anything is predicted or written. Dinamica draws its own
-random seed, so its realisations cannot be replayed (see ethzplus/evoland-plus#104).
+random seed, so its realisations cannot be replayed (see ethzplus/evoland.plus#104).
 }
