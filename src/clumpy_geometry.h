@@ -3,17 +3,8 @@
 
 #include <cmath>
 
-// Shared patch-shape geometry for the CLUMPY allocation backend.
-//
-// `elongation_from_raw_moments()` is the SINGLE definition of the patch shape
-// metric used both during calibration (`calculate_class_stats_cpp` in
-// patch_stats.cpp, which measures the elongation of observed patches) and
-// during allocation (`grow_patch_cpp` / `allocate_clumpy_cpp` in
-// alloc_clumpy.cpp, which grows patches towards a target elongation).  Keeping
-// one definition guarantees the shape that allocation optimises is exactly the
-// shape calibration reports -- previously these lived in two functions
-// (`calculate_elongation` and `patch_eccentricity`) that computed the same
-// quantity with different variable names and indexing conventions.
+// Patch-shape geometry
+// Both for patch shape estimation and the CLUMPY allocation backend.
 //
 // Definition (Mazy 2022, https://theses.hal.science/tel-04382012, eq. 3.I.12):
 //
