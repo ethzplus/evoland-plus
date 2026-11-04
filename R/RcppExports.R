@@ -8,7 +8,7 @@
 #'   per cell (row-major) with 0 meaning "no neighbour" (edge).
 #' @keywords internal
 raster_neighbors_cpp <- function(nrow, ncol) {
-    .Call(`_evoland_raster_neighbors_cpp`, nrow, ncol)
+    .Call(`_evoland_plus_raster_neighbors_cpp`, nrow, ncol)
 }
 
 #' Multinomial Sampling Test (MuST) in C++
@@ -30,7 +30,7 @@ raster_neighbors_cpp <- function(nrow, ncol) {
 #' @return Integer vector of length `nrow(P)` with the sampled state per cell.
 #' @keywords internal
 must_cpp <- function(P, states, u = NULL) {
-    .Call(`_evoland_must_cpp`, P, states, u)
+    .Call(`_evoland_plus_must_cpp`, P, states, u)
 }
 
 #' Log-normal patch-area sampler (C++)
@@ -40,7 +40,7 @@ must_cpp <- function(P, states, u = NULL) {
 #' @return Integer >= 1.
 #' @keywords internal
 sample_lognorm_area_cpp <- function(area_mean, area_var) {
-    .Call(`_evoland_sample_lognorm_area_cpp`, area_mean, area_var)
+    .Call(`_evoland_plus_sample_lognorm_area_cpp`, area_mean, area_var)
 }
 
 #' Normal patch-area sampler (C++)
@@ -51,7 +51,7 @@ sample_lognorm_area_cpp <- function(area_mean, area_var) {
 #' @return Integer >= 1.
 #' @keywords internal
 sample_normal_area_cpp <- function(area_mean, area_var) {
-    .Call(`_evoland_sample_normal_area_cpp`, area_mean, area_var)
+    .Call(`_evoland_plus_sample_normal_area_cpp`, area_mean, area_var)
 }
 
 #' Grow a single land-use patch from a pivot cell (C++)
@@ -78,7 +78,7 @@ sample_normal_area_cpp <- function(area_mean, area_var) {
 #'   empty if the patch failed / the pivot is not an available `from_class` cell.
 #' @keywords internal
 grow_patch_cpp <- function(landscape, ant_landscape, probs, nbr_above, nbr_below, nbr_left, nbr_right, pivot, target_area, from_class, to_class, elongation, ncol, avoid_aggregation = FALSE) {
-    .Call(`_evoland_grow_patch_cpp`, landscape, ant_landscape, probs, nbr_above, nbr_below, nbr_left, nbr_right, pivot, target_area, from_class, to_class, elongation, ncol, avoid_aggregation)
+    .Call(`_evoland_plus_grow_patch_cpp`, landscape, ant_landscape, probs, nbr_above, nbr_below, nbr_left, nbr_right, pivot, target_area, from_class, to_class, elongation, ncol, avoid_aggregation)
 }
 
 #' Run the CLUMPY allocation routine (C++)
@@ -120,7 +120,7 @@ grow_patch_cpp <- function(landscape, ant_landscape, probs, nbr_above, nbr_below
 #' @return IntegerVector (length n_cells) of the posterior LULC state.
 #' @keywords internal
 allocate_clumpy_cpp <- function(landscape, nrow, ncol, trans_from, trans_to, prob_cell, prob_value, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist) {
-    .Call(`_evoland_allocate_clumpy_cpp`, landscape, nrow, ncol, trans_from, trans_to, prob_cell, prob_value, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist)
+    .Call(`_evoland_plus_allocate_clumpy_cpp`, landscape, nrow, ncol, trans_from, trans_to, prob_cell, prob_value, area_mean, area_var, elongation, target_rate, method, batch_size, rarefy, shuffle, avoid_aggregation, area_dist)
 }
 
 #' Greedy rank-and-fill walk
@@ -139,14 +139,14 @@ allocate_clumpy_cpp <- function(landscape, nrow, ncol, trans_from, trans_to, pro
 #' @return Logical vector, `TRUE` for the accepted candidates.
 #' @keywords internal
 greedy_fill_cpp <- function(cell, trans, quota, n_cells) {
-    .Call(`_evoland_greedy_fill_cpp`, cell, trans, quota, n_cells)
+    .Call(`_evoland_plus_greedy_fill_cpp`, cell, trans, quota, n_cells)
 }
 
 distance_neighbors_chunked_cpp <- function(coords_t, max_distance, breaks, chunk_rows, callback, quiet = FALSE) {
-    .Call(`_evoland_distance_neighbors_chunked_cpp`, coords_t, max_distance, breaks, chunk_rows, callback, quiet)
+    .Call(`_evoland_plus_distance_neighbors_chunked_cpp`, coords_t, max_distance, breaks, chunk_rows, callback, quiet)
 }
 
 calculate_class_stats_cpp <- function(mat, cellsize) {
-    .Call(`_evoland_calculate_class_stats_cpp`, mat, cellsize)
+    .Call(`_evoland_plus_calculate_class_stats_cpp`, mat, cellsize)
 }
 

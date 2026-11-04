@@ -87,6 +87,6 @@ expect_equal(
 # checks; this guards against R/sysdata.rda going stale after a create_pred_meta_t change.
 # The spec is taken from the fixture itself, as it is data rather than logic.
 expect_equal(
-  create_pred_meta_t(evoland:::test_pred_spec),
-  evoland:::test_pred_meta_t
+  create_pred_meta_t(evoland.plus:::test_pred_spec),
+  evoland.plus:::test_pred_meta_t
 )

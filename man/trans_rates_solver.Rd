@@ -106,7 +106,7 @@ would usually be written as quadratic penalties (terminal fit, historic preferen
 fairness across classes) are implemented as their L1 or minimax equivalents, which are
 linear.
 
-\code{lpSolve} is a \emph{suggested} dependency, because most of evoland never solves a linear
+\code{lpSolve} is a \emph{suggested} dependency, because most of evoland.plus never solves a linear
 program: \code{\link[=trans_rate_bounds]{trans_rate_bounds()}} and \code{\link[=trans_rate_areas]{trans_rate_areas()}} work without it, while
 \code{\link[=trans_rate_reachability]{trans_rate_reachability()}} and \code{\link[=solve_trans_rates]{solve_trans_rates()}} need it installed and say so if it
 is missing.

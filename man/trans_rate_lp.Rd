@@ -46,7 +46,7 @@ which enter a solve and which enter the reachability precheck.
 }
 
 \section{Installation}{
-Solving needs \code{lpSolve}, which evoland only suggests: most of the package never solves a
+Solving needs \code{lpSolve}, which evoland.plus only suggests: most of the package never solves a
 linear program. \code{trans_rate_lp$new()} fails with an actionable message if it is missing,
 so install it before constructing one -- \code{install.packages("lpSolve")}.
 }
@@ -83,7 +83,7 @@ solver$areas
 \link{trans_rates_solver}, \link{lp_problem}, \link{trans_rates_t}
 }
 \section{Super class}{
-\code{\link[evoland:lp_problem]{lp_problem}} -> \code{trans_rate_lp}
+\code{\link[evoland.plus:lp_problem]{lp_problem}} -> \code{trans_rate_lp}
 }
 \section{Active bindings}{
   \if{html}{\out{<div class="r6-active-bindings">}}
@@ -140,7 +140,7 @@ how far outside history it went is actively misleading.}
 }
 \if{html}{\out{<details open><summary>Inherited methods</summary>
 <ul>
-  <li><span class="pkg-link" data-pkg="evoland" data-topic="lp_problem" data-id="add_constraints"><a href='../../evoland/html/lp_problem.html#method-lp_problem-add_constraints'><code>lp_problem$add_constraints()</code></a></span></li>
+  <li><span class="pkg-link" data-pkg="evoland.plus" data-topic="lp_problem" data-id="add_constraints"><a href='../../evoland.plus/html/lp_problem.html#method-lp_problem-add_constraints'><code>lp_problem$add_constraints()</code></a></span></li>
 </ul>
 </details>}}
 \if{html}{\out{<hr>}}

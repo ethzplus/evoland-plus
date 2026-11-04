@@ -1,6 +1,6 @@
-#' evoland utility functions
+#' evoland.plus utility functions
 #'
-#' These are mostly used to validate evoland S3 objects.
+#' These are mostly used to validate evoland.plus S3 objects.
 #'
 #' @name util
 NULL
@@ -91,7 +91,7 @@ ensure_dir <- function(dir) {
   invisible(dir)
 }
 
-#' @describeIn util Require a package that evoland only suggests, failing with an
+#' @describeIn util Require a package that evoland.plus only suggests, failing with an
 #' actionable message rather than with the one R gives for a missing namespace
 #' @param package Name of the suggested package
 #' @param purpose What the package is needed for, completing "is required to ..."
@@ -103,7 +103,7 @@ require_suggested <- function(package, purpose) {
   stop(
     glue::glue(
       "Package '{package}' is required to {purpose}. ",
-      "It is a suggested dependency of evoland; ",
+      "It is a suggested dependency of evoland.plus; ",
       "install it with: install.packages('{package}')"
     ),
     call. = FALSE
