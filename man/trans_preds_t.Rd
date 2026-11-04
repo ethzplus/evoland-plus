@@ -14,7 +14,13 @@ as_trans_preds_t(x)
 
 set_full_trans_preds(self, overwrite = FALSE)
 
-get_pred_filter_score(self, filter, trans_preds = NULL, cluster = NULL, ...)
+get_pred_filter_score(
+  self,
+  filter = "correlation",
+  trans_preds = NULL,
+  cluster = NULL,
+  ...
+)
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a trans_preds_t object. If missing, an

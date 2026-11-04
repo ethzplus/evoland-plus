@@ -7,7 +7,7 @@ This file covers what those don't decide, and where this package deliberately di
 
 - `glue` is the one tidyverse-adjacent package in use; it is stable and used throughout.
 - Packages needed by one optional feature go in `Suggests` and are checked with `require_suggested(package, purpose)` (`R/util.R`) at the start of the feature.
-- Call imported functions as `pkg::fun()`. `@importFrom` (in `R/init.R`) is only for operators and data.table specials such as `:=` and `%chin%`.
+- Call imported functions as `pkg::fun()`. Use `@importFrom` (in `R/init.R`) only for operators and NSE symbols, such as data.table specials like `:=` and `%chin%`.
 
 ## Naming
 

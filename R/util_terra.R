@@ -19,20 +19,11 @@ extract_using_coords_t <- function(x, coords, na_omit = TRUE) {
 
 #' @exportS3Method
 extract_using_coords_t.SpatRaster <- function(x, coords, na_omit = TRUE) {
-  pts <-
-    coords[, .(id_coord, lon, lat)] |>
-    data.table::as.data.table() |>
-    terra::vect(crs = paste0("epsg:", attr(coords, "epsg")))
-
+  # read by cell index rather than through point geometries, which cost several times the
+  # memory (ethzplus/evoland-plus#86)
+  cells <- coords_cells(coords, x)
   out <-
-    terra::extract(
-      x = x,
-      y = pts,
-      method = "simple",
-      ID = FALSE,
-      bind = TRUE
-    ) |>
-    data.table::as.data.table() |>
+    data.table::data.table(id_coord = cells[["id_coord"]], terra::extract(x, cells[["cell"]])) |>
     data.table::melt(
       id.vars = "id_coord",
       variable.name = "layer",
@@ -115,31 +106,7 @@ tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = 
     "coords must have epsg attribute" = !is.null(attr(coords, "epsg"))
   )
 
-  # Determine resolution if not provided
-  if (is.null(resolution)) {
-    resolution <- attr(coords, "resolution")
-    if (is.null(resolution)) {
-      # estimate from first 1000 points
-      resolution <-
-        coords[seq_len(min(1000L, nrow(coords))), .(lon, lat)] |>
-        stats::dist() |> # lower triangular distance matrix
-        min() # minimum distance
-    }
-  }
-
-  extent <- terra::ext(
-    min(coords$lon) - resolution / 2,
-    max(coords$lon) + resolution / 2,
-    min(coords$lat) - resolution / 2,
-    max(coords$lat) + resolution / 2
-  )
-
-  # Create raster template
-  rast_template <- terra::rast(
-    x = extent,
-    crs = paste0("epsg:", attr(coords, "epsg")),
-    resolution = resolution
-  )
+  grid <- coords_grid(coords, resolution)
 
   # if more than 2 columns, we have columns that are not id_coord or value
   is_multilayer <- length(names(data)) > 2L
@@ -165,24 +132,104 @@ tabular_to_raster <- function(data, coords, value_col = "id_lulc", resolution = 
     layernames <- value_col
   }
 
-  joint <- merge(
-    data,
-    coords[, .(id_coord, lon, lat)],
-    by = "id_coord"
+  lapply(layernames, \(layername) grid_to_rast(grid, data, layername)) |>
+    terra::rast()
+}
+
+#' Raster grid of a coordinate table
+#'
+#' @description
+#' Internal helpers for the code that works on rasters (the CLUMPY and Dinamica allocators,
+#' [tabular_to_raster()]): a raster covering the coordinate points, and the raster cell of each
+#' point, to move values between rows keyed by `id_coord` and raster cells.
+#'
+#' - `coords_grid()` builds the grid.
+#' - `coords_cells()` finds the cell of every coordinate point in any raster `x`; points
+#'   outside it get `NA`. [extract_using_coords_t()] reads rasters through it.
+#' - `grid_values()` lays values given per coordinate point out over every cell of the grid,
+#'   in terra's cell order; cells without a coordinate point, or without a value, are `NA`.
+#' - `grid_to_rast()` does the same, but returns a single-layer raster.
+#' - `rast_to_grid()` reads a raster on the grid back into one value per coordinate point.
+#'
+#' The cells are only meaningful for a regular grid of points: on any other set of points,
+#' several points can fall into one cell.
+#'
+#' @param coords A [coords_t] (or `db$coords_minimal`): `id_coord`, `lon`, `lat` and an `epsg`
+#'   attribute.
+#' @param resolution Numeric scalar or `NULL`; the cell size in CRS units. `NULL` uses the
+#'   `resolution` attribute of `coords`, or else the smallest distance among its first 1000
+#'   points.
+#' @param grid A list as returned by `coords_grid()`: `template`, an empty
+#'   [terra::SpatRaster], and `cells`, a data.table with `id_coord` and `cell`.
+#' @param x For `grid_values()` and `grid_to_rast()`, a data.table with `id_coord` and
+#'   `value_col`; for `coords_cells()`, any [terra::SpatRaster]; for `rast_to_grid()`, a
+#'   single-layer [terra::SpatRaster] on the grid.
+#' @param value_col Character scalar, the column of `x` holding the values.
+#'
+#' @return `coords_grid()`: the grid, see `grid`. `coords_cells()`: a data.table with
+#'   `id_coord` and `cell`. `grid_values()`: a vector of the type of
+#'   `x[[value_col]]`, one element per cell. `grid_to_rast()`: a [terra::SpatRaster] with one
+#'   layer named `value_col`. `rast_to_grid()`: a data.table with `id_coord` and `value`.
+#'
+#' @name coords_grid
+#' @keywords internal
+coords_grid <- function(coords, resolution = NULL) {
+  if (is.null(resolution)) {
+    resolution <- attr(coords, "resolution")
+    if (is.null(resolution)) {
+      # estimate from first 1000 points
+      resolution <-
+        coords[seq_len(min(1000L, nrow(coords))), .(lon, lat)] |>
+        stats::dist() |> # lower triangular distance matrix
+        min() # minimum distance
+    }
+  }
+
+  template <- terra::rast(
+    x = terra::ext(
+      min(coords[["lon"]]) - resolution / 2,
+      max(coords[["lon"]]) + resolution / 2,
+      min(coords[["lat"]]) - resolution / 2,
+      max(coords[["lat"]]) + resolution / 2
+    ),
+    crs = paste0("epsg:", attr(coords, "epsg")),
+    resolution = resolution
   )
 
-  # Rasterize in layers as a workaround for terra being weird about multicolumn values
-  lapply(
-    layernames,
-    function(layername) {
-      terra::rasterize(
-        x = as.matrix(joint[, .(lon, lat)]),
-        y = rast_template,
-        values = joint[[layername]],
-        fun = "first"
-      )
-    }
-  ) |>
-    terra::rast() |>
-    stats::setNames(layernames)
+  list(template = template, cells = coords_cells(coords, template))
+}
+
+#' @rdname coords_grid
+coords_cells <- function(coords, x) {
+  data.table::data.table(
+    id_coord = coords[["id_coord"]],
+    cell = terra::cellFromXY(x, as.matrix(coords[, .(lon, lat)]))
+  )
+}
+
+#' @rdname coords_grid
+grid_values <- function(grid, x, value_col) {
+  # the cell of every coordinate point that carries a value
+  valued_cells <- grid[["cells"]][
+    x[, .(id_coord, value = .SD[[1L]]), .SDcols = value_col],
+    on = "id_coord",
+    nomatch = NULL
+  ]
+  # every cell of the raster, NA unless it holds such a point
+  data.table::data.table(cell = seq_len(terra::ncell(grid[["template"]])))[
+    valued_cells,
+    on = "cell",
+    value := i.value
+  ][["value"]]
+}
+
+#' @rdname coords_grid
+grid_to_rast <- function(grid, x, value_col) {
+  terra::rast(grid[["template"]], vals = grid_values(grid, x, value_col)) |>
+    stats::setNames(value_col)
+}
+
+#' @rdname coords_grid
+rast_to_grid <- function(grid, x) {
+  grid[["cells"]][, .(id_coord, value = terra::extract(x, cell)[[1L]])]
 }
