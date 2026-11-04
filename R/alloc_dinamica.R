@@ -9,7 +9,7 @@
 #' `patch_size_variance`, `patch_isometry`).
 #'
 #' [check_dinamica()] runs before anything is predicted or written. Dinamica draws its own
-#' random seed, so its realisations cannot be replayed (see ethzplus/evoland-plus#104).
+#' random seed, so its realisations cannot be replayed (see ethzplus/evoland.plus#104).
 #'
 #' @param work_dir Character or `NULL`; directory under which each period gets its own working
 #'   directory, `run_<id_run>_period_<id_period_post>`. `NULL` (default) uses a temporary

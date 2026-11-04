@@ -34,5 +34,5 @@ expect_equal(
     end_observed = "2005-01-01",
     end_extrapolated = "2015-01-01"
   ),
-  evoland:::test_periods_t
+  evoland.plus:::test_periods_t
 )

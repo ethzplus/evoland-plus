@@ -12,7 +12,7 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 
 // raster_neighbors_cpp
 List raster_neighbors_cpp(int nrow, int ncol);
-RcppExport SEXP _evoland_raster_neighbors_cpp(SEXP nrowSEXP, SEXP ncolSEXP) {
+RcppExport SEXP _evoland_plus_raster_neighbors_cpp(SEXP nrowSEXP, SEXP ncolSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -24,7 +24,7 @@ END_RCPP
 }
 // must_cpp
 IntegerVector must_cpp(NumericMatrix P, IntegerVector states, Nullable<NumericVector> u);
-RcppExport SEXP _evoland_must_cpp(SEXP PSEXP, SEXP statesSEXP, SEXP uSEXP) {
+RcppExport SEXP _evoland_plus_must_cpp(SEXP PSEXP, SEXP statesSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -37,7 +37,7 @@ END_RCPP
 }
 // sample_lognorm_area_cpp
 int sample_lognorm_area_cpp(double area_mean, double area_var);
-RcppExport SEXP _evoland_sample_lognorm_area_cpp(SEXP area_meanSEXP, SEXP area_varSEXP) {
+RcppExport SEXP _evoland_plus_sample_lognorm_area_cpp(SEXP area_meanSEXP, SEXP area_varSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -49,7 +49,7 @@ END_RCPP
 }
 // sample_normal_area_cpp
 int sample_normal_area_cpp(double area_mean, double area_var);
-RcppExport SEXP _evoland_sample_normal_area_cpp(SEXP area_meanSEXP, SEXP area_varSEXP) {
+RcppExport SEXP _evoland_plus_sample_normal_area_cpp(SEXP area_meanSEXP, SEXP area_varSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -61,7 +61,7 @@ END_RCPP
 }
 // grow_patch_cpp
 IntegerVector grow_patch_cpp(IntegerVector landscape, const IntegerVector& ant_landscape, const NumericVector& probs, const IntegerVector& nbr_above, const IntegerVector& nbr_below, const IntegerVector& nbr_left, const IntegerVector& nbr_right, int pivot, int target_area, int from_class, int to_class, double elongation, int ncol, bool avoid_aggregation);
-RcppExport SEXP _evoland_grow_patch_cpp(SEXP landscapeSEXP, SEXP ant_landscapeSEXP, SEXP probsSEXP, SEXP nbr_aboveSEXP, SEXP nbr_belowSEXP, SEXP nbr_leftSEXP, SEXP nbr_rightSEXP, SEXP pivotSEXP, SEXP target_areaSEXP, SEXP from_classSEXP, SEXP to_classSEXP, SEXP elongationSEXP, SEXP ncolSEXP, SEXP avoid_aggregationSEXP) {
+RcppExport SEXP _evoland_plus_grow_patch_cpp(SEXP landscapeSEXP, SEXP ant_landscapeSEXP, SEXP probsSEXP, SEXP nbr_aboveSEXP, SEXP nbr_belowSEXP, SEXP nbr_leftSEXP, SEXP nbr_rightSEXP, SEXP pivotSEXP, SEXP target_areaSEXP, SEXP from_classSEXP, SEXP to_classSEXP, SEXP elongationSEXP, SEXP ncolSEXP, SEXP avoid_aggregationSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -85,7 +85,7 @@ END_RCPP
 }
 // allocate_clumpy_cpp
 IntegerVector allocate_clumpy_cpp(IntegerVector landscape, int nrow, int ncol, IntegerVector trans_from, IntegerVector trans_to, List prob_cell, List prob_value, NumericVector area_mean, NumericVector area_var, NumericVector elongation, NumericVector target_rate, int method, int batch_size, bool rarefy, bool shuffle, bool avoid_aggregation, int area_dist);
-RcppExport SEXP _evoland_allocate_clumpy_cpp(SEXP landscapeSEXP, SEXP nrowSEXP, SEXP ncolSEXP, SEXP trans_fromSEXP, SEXP trans_toSEXP, SEXP prob_cellSEXP, SEXP prob_valueSEXP, SEXP area_meanSEXP, SEXP area_varSEXP, SEXP elongationSEXP, SEXP target_rateSEXP, SEXP methodSEXP, SEXP batch_sizeSEXP, SEXP rarefySEXP, SEXP shuffleSEXP, SEXP avoid_aggregationSEXP, SEXP area_distSEXP) {
+RcppExport SEXP _evoland_plus_allocate_clumpy_cpp(SEXP landscapeSEXP, SEXP nrowSEXP, SEXP ncolSEXP, SEXP trans_fromSEXP, SEXP trans_toSEXP, SEXP prob_cellSEXP, SEXP prob_valueSEXP, SEXP area_meanSEXP, SEXP area_varSEXP, SEXP elongationSEXP, SEXP target_rateSEXP, SEXP methodSEXP, SEXP batch_sizeSEXP, SEXP rarefySEXP, SEXP shuffleSEXP, SEXP avoid_aggregationSEXP, SEXP area_distSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -112,7 +112,7 @@ END_RCPP
 }
 // greedy_fill_cpp
 LogicalVector greedy_fill_cpp(IntegerVector cell, IntegerVector trans, IntegerVector quota, int n_cells);
-RcppExport SEXP _evoland_greedy_fill_cpp(SEXP cellSEXP, SEXP transSEXP, SEXP quotaSEXP, SEXP n_cellsSEXP) {
+RcppExport SEXP _evoland_plus_greedy_fill_cpp(SEXP cellSEXP, SEXP transSEXP, SEXP quotaSEXP, SEXP n_cellsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -126,7 +126,7 @@ END_RCPP
 }
 // distance_neighbors_chunked_cpp
 double distance_neighbors_chunked_cpp(DataFrame coords_t, double max_distance, NumericVector breaks, double chunk_rows, Function callback, bool quiet);
-RcppExport SEXP _evoland_distance_neighbors_chunked_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP breaksSEXP, SEXP chunk_rowsSEXP, SEXP callbackSEXP, SEXP quietSEXP) {
+RcppExport SEXP _evoland_plus_distance_neighbors_chunked_cpp(SEXP coords_tSEXP, SEXP max_distanceSEXP, SEXP breaksSEXP, SEXP chunk_rowsSEXP, SEXP callbackSEXP, SEXP quietSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -142,7 +142,7 @@ END_RCPP
 }
 // calculate_class_stats_cpp
 DataFrame calculate_class_stats_cpp(IntegerMatrix mat, double cellsize);
-RcppExport SEXP _evoland_calculate_class_stats_cpp(SEXP matSEXP, SEXP cellsizeSEXP) {
+RcppExport SEXP _evoland_plus_calculate_class_stats_cpp(SEXP matSEXP, SEXP cellsizeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -154,19 +154,19 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_evoland_raster_neighbors_cpp", (DL_FUNC) &_evoland_raster_neighbors_cpp, 2},
-    {"_evoland_must_cpp", (DL_FUNC) &_evoland_must_cpp, 3},
-    {"_evoland_sample_lognorm_area_cpp", (DL_FUNC) &_evoland_sample_lognorm_area_cpp, 2},
-    {"_evoland_sample_normal_area_cpp", (DL_FUNC) &_evoland_sample_normal_area_cpp, 2},
-    {"_evoland_grow_patch_cpp", (DL_FUNC) &_evoland_grow_patch_cpp, 14},
-    {"_evoland_allocate_clumpy_cpp", (DL_FUNC) &_evoland_allocate_clumpy_cpp, 17},
-    {"_evoland_greedy_fill_cpp", (DL_FUNC) &_evoland_greedy_fill_cpp, 4},
-    {"_evoland_distance_neighbors_chunked_cpp", (DL_FUNC) &_evoland_distance_neighbors_chunked_cpp, 6},
-    {"_evoland_calculate_class_stats_cpp", (DL_FUNC) &_evoland_calculate_class_stats_cpp, 2},
+    {"_evoland_plus_raster_neighbors_cpp", (DL_FUNC) &_evoland_plus_raster_neighbors_cpp, 2},
+    {"_evoland_plus_must_cpp", (DL_FUNC) &_evoland_plus_must_cpp, 3},
+    {"_evoland_plus_sample_lognorm_area_cpp", (DL_FUNC) &_evoland_plus_sample_lognorm_area_cpp, 2},
+    {"_evoland_plus_sample_normal_area_cpp", (DL_FUNC) &_evoland_plus_sample_normal_area_cpp, 2},
+    {"_evoland_plus_grow_patch_cpp", (DL_FUNC) &_evoland_plus_grow_patch_cpp, 14},
+    {"_evoland_plus_allocate_clumpy_cpp", (DL_FUNC) &_evoland_plus_allocate_clumpy_cpp, 17},
+    {"_evoland_plus_greedy_fill_cpp", (DL_FUNC) &_evoland_plus_greedy_fill_cpp, 4},
+    {"_evoland_plus_distance_neighbors_chunked_cpp", (DL_FUNC) &_evoland_plus_distance_neighbors_chunked_cpp, 6},
+    {"_evoland_plus_calculate_class_stats_cpp", (DL_FUNC) &_evoland_plus_calculate_class_stats_cpp, 2},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_evoland(DllInfo *dll) {
+RcppExport void R_init_evoland_plus(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

@@ -7,7 +7,7 @@
 \usage{
 download_and_verify(
   df_in,
-  target_dir = getOption("evoland.cachedir"),
+  target_dir = getOption("evoland.plus.cachedir"),
   overwrite = FALSE
 )
 }
@@ -16,7 +16,7 @@ download_and_verify(
 retrieved from the \code{sources} column of \link{pred_meta_t}.}
 
 \item{target_dir}{Target directory for downloads, defaults to option
-\code{evoland.cachedir}}
+\code{evoland.plus.cachedir}}
 
 \item{overwrite}{Whether to overwrite existing files (default: FALSE)}
 }

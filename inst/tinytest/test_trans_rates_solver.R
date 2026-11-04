@@ -1,9 +1,9 @@
 library(tinytest)
 
 # Rates compound multiplicatively, so rescaling to a shorter period is not a division.
-expect_equal(evoland:::rescale_trans_rate(0.1, 10, 10), 0.1)
-expect_equal(evoland:::rescale_trans_rate(1 - 0.9^2, 10, 5), 0.1)
-expect_equal(evoland:::rescale_trans_rate(0.81, 10, 5, is_persistence = TRUE), 0.9)
+expect_equal(evoland.plus:::rescale_trans_rate(0.1, 10, 10), 0.1)
+expect_equal(evoland.plus:::rescale_trans_rate(1 - 0.9^2, 10, 5), 0.1)
+expect_equal(evoland.plus:::rescale_trans_rate(0.81, 10, 5, is_persistence = TRUE), 0.9)
 
 periods <-
   data.table::rowwiseDT(

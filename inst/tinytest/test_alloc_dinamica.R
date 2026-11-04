@@ -8,7 +8,7 @@ if (!at_home()) {
 # Dinamica is not installed, the test fallback copies the anterior map, which still exercises
 # writing the inputs and reading the posterior back; tinytest resets the option after this
 # file
-options(evoland.dinamica_fallback = !nzchar(Sys.which("DinamicaConsole")))
+options(evoland.plus.dinamica_fallback = !nzchar(Sys.which("DinamicaConsole")))
 
 grid_coords <- data.table::CJ(lat = seq(5, 95, 10), lon = seq(5, 95, 10))[,
   .(id_coord = .I, lon, lat)
@@ -33,14 +33,14 @@ dinamica_ctx <- list(
     patch_isometry = 1.5,
     frac_expander = 0.5
   ),
-  grid = evoland:::coords_grid(grid_coords)
+  grid = evoland.plus:::coords_grid(grid_coords)
 )
 
 # the inputs: tables in transition order, the anterior map and one probability map per
 # transition, all on the grid
 work_dir <- tempfile("dinamica_inputs_")
 dir.create(work_dir)
-evoland:::write_dinamica_inputs(dinamica_ctx, work_dir)
+evoland.plus:::write_dinamica_inputs(dinamica_ctx, work_dir)
 expect_equal(
   data.table::fread(file.path(work_dir, "trans_rates.csv")),
   data.table::data.table(`From*` = 1L, `To*` = 2L, Rate = 0.2)
@@ -50,7 +50,7 @@ expect_equal(
   2
 )
 expect_equal(
-  evoland:::rast_to_grid(dinamica_ctx$grid, terra::rast(file.path(work_dir, "anterior.tif"))),
+  evoland.plus:::rast_to_grid(dinamica_ctx$grid, terra::rast(file.path(work_dir, "anterior.tif"))),
   grid_coords[, .(id_coord, value = 1)]
 )
 expect_equal(
@@ -62,7 +62,7 @@ unlink(work_dir, recursive = TRUE)
 # a whole period: one row per anterior row, only classes 1 and 2, and the temporary working
 # directory is removed
 dirs_before <- list.files(tempdir(), pattern = "^dinamica_")
-if (getOption("evoland.dinamica_fallback")) {
+if (getOption("evoland.plus.dinamica_fallback")) {
   expect_warning(
     dinamica_posterior <- alloc_dinamica_spec()$one_period(dinamica_ctx),
     "as fallback so we can test"
@@ -76,6 +76,6 @@ expect_true(all(dinamica_posterior$id_lulc %in% 1:2))
 # copies the anterior map
 expect_equal(
   sum(dinamica_posterior$id_lulc == 2L),
-  if (getOption("evoland.dinamica_fallback")) 0L else 20L
+  if (getOption("evoland.plus.dinamica_fallback")) 0L else 20L
 )
 expect_equal(list.files(tempdir(), pattern = "^dinamica_"), dirs_before)

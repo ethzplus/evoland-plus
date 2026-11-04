@@ -7,7 +7,7 @@ Applies to vignettes (`vignettes/*.qmd`), roxygen documentation, Markdown files,
 - Write engaging but technical documentation, not marketing copy. Avoid rhetorical contrasts such as "it's not the x, it's the y" or "it never was the z"; state what something is and does.
 - Write for a GIS modeler who knows R and geodata but not this package's internals. Define a domain term (*transition potential*, *allocation*, *anterior*/*posterior*) in italics the first time a document uses it.
 - American spelling, to match the identifiers (`neighbors`, `color`).
-- The project is `evoland-plus` in prose; `evoland` is the R package name in code (`library(evoland)`). The naming is to be settled before publication, see ethzplus/evoland-plus#74.
+- The project and the R package are both `evoland.plus` (`library(evoland.plus)`); write it in backticks in prose.
 - Code identifiers in backticks: functions with parentheses (`as_periods_t()`), methods with `$` (`$commit()`), tables and columns bare (`periods_t`, `id_run`).
 - Cite methods from the literature with author, year, a link (DOI preferred) and the equation or section, e.g. "Mazy (2022), eq. 3.I.12".
 
@@ -22,7 +22,7 @@ Vignettes are [tutorials or how-to guides](../README.md#what-goes-where).
 Say which one a vignette is, and what it assumes, in an italic note at the top:
 
 ```markdown
-*Note: this tutorial assumes that you already know the basic `evoland-plus` workflow ...*
+*Note: this tutorial assumes that you already know the basic `evoland.plus` workflow ...*
 ```
 
 Front matter follows the existing vignettes, with a `VignetteIndexEntry` matching the file name:
@@ -52,7 +52,7 @@ Code chunks:
 
 Much of the existing documentation groups a table's functions with `@describeIn`.
 roxygen still supports it, but advises structuring such pages by hand; treat `@describeIn` as legacy and prefer a manual structure with sections that fit the content.
-A canonical layout for the table pages (`as_*_t()` and their helpers) is to be worked out in ethzplus/evoland-plus#81.
+A canonical layout for the table pages (`as_*_t()` and their helpers) is to be worked out in ethzplus/evoland.plus#81.
 
 - The title is a short noun phrase in title case without a full stop ("Create Period Table").
 - `@param` starts with the type when it isn't obvious from the name, then the meaning and the default's effect: "`Logical`. If true, the catalog is attached read-only."

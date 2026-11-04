@@ -1,5 +1,5 @@
 ---
-title: "`evoland-plus` tutorial"
+title: "`evoland.plus` tutorial"
 author: Jan Hartman
 date: last-modified
 vignette: >
@@ -51,8 +51,8 @@ local({
 
 *Note: This tutorial expects that you already know about geodata and some central principles of pattern-based land use change modelling.*
 
-This file introduces the `evoland-plus` R package, or `evoland` for short.
-`evoland-plus` builds on the idea that land use change can be predicted from observed change patterns.
+This file introduces the `evoland.plus` R package, or `evoland.plus` for short.
+`evoland.plus` builds on the idea that land use change can be predicted from observed change patterns.
 The likelihood that a location and its neighbors will change state is called *transition potential* and is estimated per location.
 A concrete realization of all possible transitions (e.g. forest->grass, grass->forest, etc.) is realized in an *allocation* across all locations and classes.
 Because the transition potential is spatially and temporally autocorrelated, an extrapolation must be autoregressive.
@@ -130,12 +130,12 @@ We'll use the following packages:
 ```{r}
 #| label: setup
 #| output: false
-library(evoland)
+library(evoland.plus)
 library(data.table)
 library(terra)
 ```
 
-## Creating an `evoland` database
+## Creating an `evoland.plus` database
 
 First, we load the package and create an `evoland_db` database object: unlike most R objects (e.g. `data.frame`), this is a mutable object[^r6], meaning we can alter its state like we would with a Python object.
 This nicely mirrors our persistent database on disk.
@@ -349,7 +349,7 @@ db$pred_meta_t
 
 # Calibration
 
-For consistency across different model packages, `evoland-plus` uses the [`mlr3`](https://mlr-org.com/) machine learning and statistics environment.
+For consistency across different model packages, `evoland.plus` uses the [`mlr3`](https://mlr-org.com/) machine learning and statistics environment.
 For a hands-on introduction, see [mlr3 by Example](https://mlr3book.mlr-org.com/chapters/chapter1/introduction_and_overview.html#mlr3-by-example).
 
 ## Eligible Transitions and Predictor Pruning
