@@ -4,7 +4,7 @@
 \alias{util_terra}
 \alias{extract_using_coords_t}
 \alias{tabular_to_raster}
-\title{evoland utility functions to work with terra objects}
+\title{evoland.plus utility functions to work with terra objects}
 \usage{
 extract_using_coords_t(x, coords, na_omit = TRUE)
 
@@ -32,7 +32,7 @@ use "resolution" attribute on coords, or estimate from coord spacing.}
 returns a multi-layer raster with one layer per period.
 }
 \description{
-Useful to coax terra raster and vector data into evoland tabular form.
+Useful to coax terra raster and vector data into evoland.plus tabular form.
 }
 \section{Functions}{
 \itemize{

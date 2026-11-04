@@ -2,7 +2,7 @@
 # Source this from any test file that needs a populated evoland_db.
 #
 # Usage:
-#   source(file.path(system.file("tinytest", package = "evoland"), "helper_testdb.R"))
+#   source(file.path(system.file("tinytest", package = "evoland.plus"), "helper_testdb.R"))
 #   db <- make_test_db()
 
 #' Create a fully-populated evoland_db in a temp directory
@@ -26,12 +26,12 @@ make_test_db <- function(
   db <- evoland_db$new(test_dir)
 
   # synthetic tables
-  db$coords_t <- evoland:::test_coords_t
-  db$periods_t <- evoland:::test_periods_t
-  db$lulc_meta_t <- evoland:::test_lulc_meta_t[order(id_lulc)]
-  db$lulc_data_t <- evoland:::test_lulc_data_t
-  db$pred_meta_t <- evoland:::test_pred_meta_t[order(id_pred)]
-  db$pred_data_t <- evoland:::test_pred_data_t
+  db$coords_t <- evoland.plus:::test_coords_t
+  db$periods_t <- evoland.plus:::test_periods_t
+  db$lulc_meta_t <- evoland.plus:::test_lulc_meta_t[order(id_lulc)]
+  db$lulc_data_t <- evoland.plus:::test_lulc_data_t
+  db$pred_meta_t <- evoland.plus:::test_pred_meta_t[order(id_pred)]
+  db$pred_data_t <- evoland.plus:::test_pred_data_t
 
   # derived tables
   db$trans_meta_t <- create_trans_meta_t(db$trans_v, min_cardinality_abs = 5L)
