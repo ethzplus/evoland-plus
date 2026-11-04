@@ -12,7 +12,7 @@
 if (file.exists("DESCRIPTION") && requireNamespace("pkgload", quietly = TRUE)) {
   pkgload::load_all(quiet = TRUE)
 } else {
-  library(evoland)
+  library(evoland.plus)
 }
 
 target_file <- file.path("devdocs", "design", "database.md")
@@ -23,10 +23,10 @@ begin_marker <- paste(
 end_marker <- "<!-- END GENERATED ER DIAGRAM -->"
 
 constructor_names <- setdiff(
-  grep("^as_.*_t$", getNamespaceExports("evoland"), value = TRUE),
+  grep("^as_.*_t$", getNamespaceExports("evoland.plus"), value = TRUE),
   "as_ducklake_db_t"
 )
-tables <- lapply(sort(constructor_names), \(fn) getExportedValue("evoland", fn)())
+tables <- lapply(sort(constructor_names), \(fn) getExportedValue("evoland.plus", fn)())
 names(tables) <- sub("^as_", "", sort(constructor_names))
 
 column_type <- function(column, column_name, map_cols) {

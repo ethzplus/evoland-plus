@@ -8,11 +8,11 @@
     ) |>
     path.expand()
 
-  options("evoland.cachedir" = cache_path)
+  options("evoland.plus.cachedir" = cache_path)
 }
 
 .onUnload <- function(libpath) {
-  .Options$evoland.cachedir <- NULL
+  .Options$evoland.plus.cachedir <- NULL
 }
 
 #' @importFrom data.table :=
@@ -21,7 +21,7 @@
 
 # rcpp imports
 #' @importFrom Rcpp sourceCpp
-#' @useDynLib evoland, .registration = TRUE
+#' @useDynLib evoland.plus, .registration = TRUE
 NULL
 
 # silence R CMD check complaints - it doesn't see :: namespace imports inside/around R6 constructors
@@ -36,7 +36,7 @@ NULL
 # reports each of them as "no visible binding for global variable" in a NOTE; declaring
 # them here silences the false positive
 # Regenerate after adding NSE expressions with:
-#   tools:::.check_code_usage_in_package("evoland")
+#   tools:::.check_code_usage_in_package("evoland.plus")
 utils::globalVariables(c(
   ".",
   ".I",

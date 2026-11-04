@@ -1,6 +1,6 @@
-#' evoland utility functions to work with terra objects
+#' evoland.plus utility functions to work with terra objects
 #'
-#' Useful to coax terra raster and vector data into evoland tabular form.
+#' Useful to coax terra raster and vector data into evoland.plus tabular form.
 #'
 #' @name util_terra
 NULL
@@ -20,7 +20,7 @@ extract_using_coords_t <- function(x, coords, na_omit = TRUE) {
 #' @exportS3Method
 extract_using_coords_t.SpatRaster <- function(x, coords, na_omit = TRUE) {
   # read by cell index rather than through point geometries, which cost several times the
-  # memory (ethzplus/evoland-plus#86)
+  # memory (ethzplus/evoland.plus#86)
   cells <- coords_cells(coords, x)
   out <-
     data.table::data.table(id_coord = cells[["id_coord"]], terra::extract(x, cells[["cell"]])) |>

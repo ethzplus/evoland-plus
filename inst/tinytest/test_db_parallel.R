@@ -26,7 +26,7 @@ expect_equal(res, as.list(paste(FALSE, c(2, 4, 6))))
 can_run_parallel <- FALSE
 cluster <- NULL
 
-if (!at_home() || !requireNamespace("evoland", quietly = TRUE)) {
+if (!at_home() || !requireNamespace("evoland.plus", quietly = TRUE)) {
   message(
     "\n  Skipping parallel tests: workers could not initialize (package likely not installed)"
   )
@@ -88,7 +88,7 @@ if (can_run_parallel) {
     cl = conc_cluster,
     X = seq_len(n_workers),
     fun = function(id_worker, path) {
-      library(evoland)
+      library(evoland.plus)
       db <- ducklake_db$new(path = path)
       row <- data.table::data.table(id_worker = as.integer(id_worker), value = id_worker * 1.0)
       data.table::setattr(row, "key_cols", "id_worker")

@@ -16,14 +16,14 @@ non_dt <- data.frame(x = 1:3)
 class(non_dt) <- c("test_class", "ducklake_db_t", class(non_dt))
 expect_error(validate(non_dt), "needs to be a data.table")
 
-# Test evoland:::`%||%`() operator
-expect_equal(evoland:::`%||%`(NULL, "default"), "default")
-expect_equal(evoland:::`%||%`("value", "default"), "value")
-expect_equal(evoland:::`%||%`(0, "default"), 0)
-expect_equal(evoland:::`%||%`(FALSE, "default"), FALSE)
-expect_equal(evoland:::`%||%`("", "default"), "")
+# Test evoland.plus:::`%||%`() operator
+expect_equal(evoland.plus:::`%||%`(NULL, "default"), "default")
+expect_equal(evoland.plus:::`%||%`("value", "default"), "value")
+expect_equal(evoland.plus:::`%||%`(0, "default"), 0)
+expect_equal(evoland.plus:::`%||%`(FALSE, "default"), FALSE)
+expect_equal(evoland.plus:::`%||%`("", "default"), "")
 
-# Test evoland:::pluck_wildcard
+# Test evoland.plus:::pluck_wildcard
 test_list <- list(
   a = list(
     x = 1,
@@ -48,16 +48,16 @@ test_list <- list(
 )
 
 # Normal, wildcard, no, nonexistent indexing
-expect_equal(evoland:::pluck_wildcard(test_list, "a", "x"), 1)
+expect_equal(evoland.plus:::pluck_wildcard(test_list, "a", "x"), 1)
 expect_equal(
-  evoland:::pluck_wildcard(test_list, NA, "x"),
+  evoland.plus:::pluck_wildcard(test_list, NA, "x"),
   list(a = 1, b = 3, c = 5, group1 = NULL, group2 = NULL)
 )
-expect_equal(evoland:::pluck_wildcard(test_list), test_list)
-expect_null(evoland:::pluck_wildcard(test_list, "nonexistent"))
+expect_equal(evoland.plus:::pluck_wildcard(test_list), test_list)
+expect_null(evoland.plus:::pluck_wildcard(test_list, "nonexistent"))
 
 # Nested wildcards
-nested_result <- evoland:::pluck_wildcard(
+nested_result <- evoland.plus:::pluck_wildcard(
   test_list[c("group1", "group2")],
   NA,
   NA,
@@ -69,13 +69,13 @@ expected_nested <- list(
 )
 expect_equal(nested_result, expected_nested)
 
-# Test evoland:::ensure_dir
+# Test evoland.plus:::ensure_dir
 temp_dir <- tempfile()
-expect_equal(evoland:::ensure_dir(temp_dir), temp_dir)
+expect_equal(evoland.plus:::ensure_dir(temp_dir), temp_dir)
 expect_true(dir.exists(temp_dir))
 
 # Test with existing directory (should not error)
-expect_silent(evoland:::ensure_dir(temp_dir))
+expect_silent(evoland.plus:::ensure_dir(temp_dir))
 expect_true(dir.exists(temp_dir))
 
 # Test with nested directory creation
@@ -86,18 +86,18 @@ if (
   Sys.info()[["sysname"]] == "Darwin" &&
     numeric_version(Sys.info()[["release"]]) >= "19.0.0"
 ) {
-  expect_error(evoland:::ensure_dir("/tests"), "Read-only file system")
+  expect_error(evoland.plus:::ensure_dir("/tests"), "Read-only file system")
 }
 
 # argument predicates: each candidate against is_integerish, is_scalar_integerish,
 # is_scalar_numeric, is_scalar_character, is_scalar_logical
 predicate_results <- function(x) {
   c(
-    evoland:::is_integerish(x),
-    evoland:::is_scalar_integerish(x),
-    evoland:::is_scalar_numeric(x),
-    evoland:::is_scalar_character(x),
-    evoland:::is_scalar_logical(x)
+    evoland.plus:::is_integerish(x),
+    evoland.plus:::is_scalar_integerish(x),
+    evoland.plus:::is_scalar_numeric(x),
+    evoland.plus:::is_scalar_character(x),
+    evoland.plus:::is_scalar_logical(x)
   )
 }
 expect_equal(

@@ -26,7 +26,7 @@ vals_after <- rep(1, 100)
 vals_after[1:20] <- 2
 map_after <- make_test_raster(values = vals_after)
 
-change_map <- evoland:::create_change_map(map_before, map_after)
+change_map <- evoland.plus:::create_change_map(map_before, map_after)
 expect_true(terra::is.bool(change_map))
 expect_equal(
   as.vector(terra::values(change_map)),
@@ -36,9 +36,9 @@ expect_equal(
 # only the requested transition counts as change
 map_mixed1 <- make_test_raster(values = c(rep(1, 30), rep(2, 30), rep(3, 40)))
 map_mixed2 <- make_test_raster(values = c(rep(2, 30), rep(3, 30), rep(1, 40)))
-change_map_filtered <- evoland:::create_change_map(map_mixed1, map_mixed2, 1, 2)
+change_map_filtered <- evoland.plus:::create_change_map(map_mixed1, map_mixed2, 1, 2)
 expect_equal(terra::global(change_map_filtered, "sum")[1, 1], 30)
-expect_error(evoland:::create_change_map(map_mixed1, map_mixed2, from_class = 1))
+expect_error(evoland.plus:::create_change_map(map_mixed1, map_mixed2, from_class = 1))
 
 # Test calc_transition_similarity with perfect match
 vals_initial <- rep(1, 100)

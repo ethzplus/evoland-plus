@@ -18,7 +18,7 @@ Let's start by attaching a database to work in, and setting some coordinate poin
 
 ```{r}
 #| label: create-db
-library(evoland)
+library(evoland.plus)
 library(data.table)
 db <- evoland_db$new(path = "noisemodel.evolanddb")
 db$set_coords(

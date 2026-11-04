@@ -218,19 +218,19 @@ grid_coords <- data.table::CJ(lat = c(5, 15, 25), lon = c(5, 15, 25))[,
 ]
 data.table::setattr(grid_coords, "epsg", 2056L)
 data.table::setattr(grid_coords, "resolution", 10)
-grid <- evoland:::coords_grid(grid_coords)
+grid <- evoland.plus:::coords_grid(grid_coords)
 expect_equal(grid$cells$cell, c(7, 8, 9, 4, 5, 6, 1, 2, 3))
 
 # values per coordinate point fill their cells; the others are NA, and the type is kept
 some_values <- data.table::data.table(id_coord = c(2L, 5L, 9L), v = c(10L, 20L, 30L))
 expect_identical(
-  evoland:::grid_values(grid, some_values, "v"),
+  evoland.plus:::grid_values(grid, some_values, "v"),
   c(NA, NA, 30L, NA, 20L, NA, NA, 10L, NA)
 )
-some_rast <- evoland:::grid_to_rast(grid, some_values, "v")
+some_rast <- evoland.plus:::grid_to_rast(grid, some_values, "v")
 expect_equal(names(some_rast), "v")
 # and read back per coordinate point
 expect_equal(
-  evoland:::rast_to_grid(grid, some_rast)[!is.na(value)],
+  evoland.plus:::rast_to_grid(grid, some_rast)[!is.na(value)],
   data.table::data.table(id_coord = c(2L, 5L, 9L), value = c(10, 20, 30))
 )

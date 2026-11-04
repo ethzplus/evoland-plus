@@ -1,13 +1,14 @@
-Package: evoland
-Title: evoland-plus - or evoland for short - analyses land use evolution
+Package: evoland.plus
+Title: Simulate Land Use Evolution
 Version: 0.1.0.9000
 Authors@R:
     person("Jan", "Hartman", email = "jhartman@ethz.ch", role = c("aut", "cre"))
-Description: The evoland-plus package gathers land use data and can be
-    used to extrapolate likely future land use patterns.
+Description: Gathers land use data and extrapolates likely future land use
+    patterns with statistically calibrated, constrained models of land use
+    change.
 License: AGPL (>= 3)
-URL: https://ethzplus.github.io/evoland-plus, https://github.com/ethzplus/evoland-plus
-BugReports: https://github.com/ethzplus/evoland-plus/issues
+URL: https://ethzplus.github.io/evoland.plus, https://github.com/ethzplus/evoland.plus
+BugReports: https://github.com/ethzplus/evoland.plus/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:
