@@ -162,7 +162,7 @@ validate.ducklake_db_t <- function(x, ...) {
 #' file are filled from the named arguments given alongside it.
 #' @param file Name of a SQL file in the installed package.
 read_sql <- function(file) {
-  paste(readLines(system.file(file, package = "evoland")), collapse = "\n")
+  paste(readLines(system.file(file, package = "evoland.plus")), collapse = "\n")
 }
 
 #' @describeIn ducklake_db_utils Serialize a named list of atomic vectors into the
@@ -353,7 +353,7 @@ commit_replace_slices <- function(self, x, table_name, slice_cols) {
   )
 
   # the slices are deleted before the insert, so appending cannot duplicate keys
-  previous_warning_option <- options(evoland.ducklake_db_append_warning = FALSE)
+  previous_warning_option <- options(evoland.plus.ducklake_db_append_warning = FALSE)
   on.exit(options(previous_warning_option), add = TRUE)
   on.exit(
     try(duckdb::duckdb_unregister(self$connection, "replaced_slices"), silent = TRUE),

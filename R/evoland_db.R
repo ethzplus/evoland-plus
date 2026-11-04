@@ -2,7 +2,7 @@
 #'
 #' @description
 #' An R6 class that provides an interface to a folder-based data storage system
-#' for the evoland package. This class uses DuckDB for in-memory SQL operations
+#' for the evoland.plus package. This class uses DuckDB for in-memory SQL operations
 #' while persisting data to a DuckLake catalog on disk.
 #'
 #' Inherits from [ducklake_db] for generic database operations.
