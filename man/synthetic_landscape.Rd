@@ -64,10 +64,8 @@ order of the table. A third, \code{random_nuisance} field has no influence on th
 returned as a predictor a model should learn to ignore.
 
 Arable land, with its higher economic input and output, is cleared on good sites and
-abandoned to forest on poor, remote ones. Apart from that, the process is the one behind
-Fig. 2 of the evoland-plus model description paper, which has forest on the better sites.
-All random draws go through R's random number generator, so \code{\link[=set.seed]{set.seed()}} makes a landscape
-replay.
+abandoned to forest on poor, remote ones. All random draws go through R's random
+number generator, so \code{\link[=set.seed]{set.seed()}} makes a landscape reproducible.
 
 The grid lies at the origin of Web Mercator (EPSG:3857) by default: a coordinate system
 that belongs to no country, with coordinates that start near zero and, at the equator,
