@@ -9,8 +9,8 @@ NULL
 # Tables whose inheritance slice is coarser than the columns found above. A run's predictor
 # set for a transition is one slice, so that a child run replaces it as a whole, including with
 # fewer predictors; per (id_trans, id_pred) pair, a predictor the child drops would be inherited
-# from the parent (ethzplus/evoland-plus#93). To be folded into a per-table schema declaration
-# (ethzplus/evoland-plus#105).
+# from the parent (ethzplus/evoland.plus#93). To be folded into a per-table schema declaration
+# (ethzplus/evoland.plus#105).
 INHERITANCE_SLICE_COLS <- list(
   trans_preds_t = "id_trans"
 )
