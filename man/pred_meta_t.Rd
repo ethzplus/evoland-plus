@@ -51,7 +51,7 @@ metadata.
 }}
 \section{Functions}{
 \itemize{
-\item \code{create_pred_meta_t()}: Creates a \code{pred_meta_t} table from intervention
+\item \code{create_pred_meta_t()}: Creates a \code{pred_meta_t} table from predictor
 specifications. Attributes incremental IDs to predictors, starting from
 \code{starting_id}. See examples for schema of \code{pred_spec}.
 

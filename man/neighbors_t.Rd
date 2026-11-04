@@ -27,7 +27,7 @@ set_neighbors(
 
 generate_neighbor_predictors(self)
 
-upsert_new_neighbors(self, id_period)
+upsert_new_neighbors(self, id_period, id_run = self$id_run)
 }
 \arguments{
 \item{x}{An object that can be passed to \code{\link[data.table:setDT]{data.table::setDT()}}}
@@ -54,6 +54,9 @@ computing and committing (default: 1e7, a few hundred MB)}
 
 \item{id_period}{Integer period ID for which to generate predictors; if
 missing, only use non-extrapolated periods}
+
+\item{id_run}{Integer, the run whose map is counted and under which the predictors are
+written}
 }
 \value{
 A data.table of class "neighbors_t" with columns:
