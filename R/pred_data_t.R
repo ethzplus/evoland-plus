@@ -37,8 +37,7 @@ as_pred_data_t <- function(x) {
     x,
     class_name = "pred_data_t",
     key_cols = c("id_run", "id_period", "id_pred", "id_coord"),
-    partition_cols = c("id_run", "id_period"),
-    fixed_schema = TRUE
+    partition_cols = c("id_run", "id_period")
   )
 }
 
@@ -56,6 +55,7 @@ validate.pred_data_t <- function(x, ...) {
       "value"
     )
   )
+  stop_on_extra_cols(x, c("id_run", "id_period", "id_pred", "id_coord", "value"))
 
   stopifnot(
     is.integer(x[["id_run"]]),

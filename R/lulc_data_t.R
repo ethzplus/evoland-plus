@@ -33,8 +33,7 @@ as_lulc_data_t <- function(x) {
     x = x,
     class_name = "lulc_data_t",
     key_cols = c("id_run", "id_coord", "id_period"),
-    partition_cols = "id_run",
-    fixed_schema = TRUE
+    partition_cols = "id_run"
   )
 }
 
@@ -51,6 +50,7 @@ validate.lulc_data_t <- function(x, ...) {
       "id_period"
     )
   )
+  stop_on_extra_cols(x, c("id_run", "id_coord", "id_lulc", "id_period"))
 
   stopifnot(
     is.integer(x[["id_run"]]),

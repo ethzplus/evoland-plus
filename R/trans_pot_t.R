@@ -35,8 +35,7 @@ as_trans_pot_t <- function(x) {
     x,
     class_name = "trans_pot_t",
     key_cols = c("id_run", "id_trans", "id_period_post", "id_coord"),
-    partition_cols = "id_run",
-    fixed_schema = TRUE
+    partition_cols = "id_run"
   )
 }
 
@@ -54,6 +53,7 @@ validate.trans_pot_t <- function(x, ...) {
       "value"
     )
   )
+  stop_on_extra_cols(x, c("id_run", "id_trans", "id_period_post", "id_coord", "value"))
 
   # Skip soft checks if empty
   if (nrow(x) == 0L) {

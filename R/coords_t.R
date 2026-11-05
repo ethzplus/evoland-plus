@@ -39,8 +39,7 @@ as_coords_t <- function(x) {
   as_ducklake_db_t(
     x,
     class_name = "coords_t",
-    key_cols = "id_coord",
-    fixed_schema = TRUE
+    key_cols = "id_coord"
   )
 }
 
@@ -56,6 +55,7 @@ validate.coords_t <- function(x, ...) {
       "lat"
     )
   )
+  stop_on_extra_cols(x, c("id_coord", "lon", "lat"))
 
   stopifnot(
     is.integer(x[["id_coord"]]),

@@ -93,3 +93,16 @@ local({
     evoland.plus:::test_pred_data_t
   )
 })
+
+# readers rely on the exact columns, so a stray one is rejected before it reaches the database
+expect_error(
+  as_pred_data_t(data.table::data.table(
+    id_run = 0L,
+    id_period = 0L,
+    id_pred = 1L,
+    id_coord = 1L,
+    value = 1,
+    note = "x"
+  )),
+  "pred_data_t holds only id_run, id_period, id_pred, id_coord, value; drop note"
+)

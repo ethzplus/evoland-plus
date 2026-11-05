@@ -708,8 +708,7 @@ expect_equal(statement_attempts, 5L)
 db$retry_max <- retry_defaults[["retry_max"]]
 db$retry_wait <- retry_defaults[["retry_wait"]]
 
-# Test 54: append and upsert add the columns a table does not have yet; a table
-# declared with a fixed schema rejects them instead
+# Test 54: append and upsert add the columns a table does not have yet
 narrow <- data.table::data.table(id_run = 1:2, descr = c("a", "b"))
 data.table::setattr(narrow, "key_cols", "id_run")
 db$commit(narrow, "schema_t", method = "overwrite")
@@ -732,24 +731,10 @@ data.table::setattr(duplicated_keys, "key_cols", "id_run")
 expect_error(db$commit(duplicated_keys, "schema_t", method = "upsert"), "Duplicate key")
 expect_false("other" %in% names(db$fetch("schema_t", limit = 0L)))
 
-# the fixed schema is stored with the table, so it holds for data that does not declare it
-db$commit(
-  as_ducklake_db_t(narrow, key_cols = "id_run", fixed_schema = TRUE),
-  "fixed_schema_t",
-  method = "overwrite"
-)
-expect_error(
-  db$commit(wider, "fixed_schema_t", method = "upsert"),
-  "Cannot commit columns that `fixed_schema_t` does not have: extra"
-)
-expect_error(
-  db$commit(wider, "fixed_schema_t", method = "append"),
-  'its schema is fixed'
-)
-
 # overwrite replaces the schema along with the data, in one step
-expect_equal(db$commit(wider, "fixed_schema_t", method = "overwrite"), 2L)
-expect_equal(sort(names(db$fetch("fixed_schema_t"))), c("descr", "extra", "id_run"))
+expect_equal(db$commit(narrow, "schema_t", method = "overwrite"), 2L)
+expect_equal(sort(names(db$fetch("schema_t"))), c("descr", "id_run"))
+suppressMessages(db$commit(wider, "schema_t", method = "upsert"))
 
 # a source missing one of the table's columns is still fine; it comes back NULL
 db$commit(

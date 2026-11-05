@@ -19,8 +19,7 @@ as_ducklake_db_t(
   key_cols = NULL,
   alternate_key_cols = NULL,
   map_cols = NULL,
-  partition_cols = NULL,
-  fixed_schema = FALSE
+  partition_cols = NULL
 )
 
 read_sql(file)
@@ -63,10 +62,6 @@ MAP type, used to store named unnested lists from R.}
 
 \item{partition_cols}{Optional character vector. Used to specify columns for
 hive style partitioning of the data files.}
-
-\item{fixed_schema}{Logical. If \code{TRUE}, \link{ducklake_db}'s \verb{$commit()} rejects columns
-the table does not have, instead of adding them. Meant for large tables whose
-columns readers rely on exactly.}
 
 \item{file}{Name of a SQL file in the installed package.}
 

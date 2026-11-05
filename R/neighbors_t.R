@@ -33,8 +33,7 @@ as_neighbors_t <- function(x) {
   as_ducklake_db_t(
     x,
     class_name = "neighbors_t",
-    key_cols = c("id_coord_origin", "id_coord_neighbor"),
-    fixed_schema = TRUE
+    key_cols = c("id_coord_origin", "id_coord_neighbor")
   )
 }
 
@@ -46,6 +45,7 @@ validate.neighbors_t <- function(x, ...) {
   required_cols <- c("id_coord_origin", "id_coord_neighbor", "distance")
 
   data.table::setcolorder(x, required_cols)
+  stop_on_extra_cols(x, c(required_cols, "distance_class"))
 
   stopifnot(
     is.integer(x[["id_coord_origin"]]),

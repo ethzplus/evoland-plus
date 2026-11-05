@@ -374,8 +374,8 @@ ducklake_db <- R6::R6Class(
     #' update for existing rows, and insert for new rows). "overwrite" replaces the table's
     #' schema along with its data. "append" and "upsert" add the columns of `x` that the
     #' table does not have yet, as an `alter table ... add column`, which leaves the data
-    #' files alone, so existing rows read `NULL` in them. A table with a fixed schema (see
-    #' `fixed_schema` in [as_ducklake_db_t()]) rejects such columns instead.
+    #' files alone, so existing rows read `NULL` in them. A table whose readers rely on its
+    #' exact columns should reject others in its `as_*_t()` validator.
     #' @return Number of rows written
     commit = function(
       x,
@@ -395,8 +395,7 @@ ducklake_db <- R6::R6Class(
       all_new_cols <- private$register_new_data_v(x, specs[["map_cols"]])
 
       added_cols <- if (table_exists && method != "overwrite") {
-        fixed_schema <- isTRUE(attr(x, "fixed_schema") %||% stored[["fixed_schema"]])
-        private$check_target_columns(table_name, all_new_cols, fixed_schema)
+        private$new_target_columns(table_name, all_new_cols)
       }
 
       # as_<table>_t() already rejected duplicates in the columns the object itself
@@ -408,7 +407,12 @@ ducklake_db <- R6::R6Class(
         list()
       }
 
-      write_rows <- function() {
+      # the new columns land together with the data, or not at all
+      rows <- self$transaction({
+        if (length(added_cols)) {
+          private$add_target_columns(table_name, added_cols)
+        }
+
         if (method == "overwrite" || !table_exists) {
           private$commit_overwrite(table_name, specs, replace = method == "overwrite")
         } else if (method == "append" || length(specs[["key_cols"]]) == 0L) {
@@ -429,17 +433,8 @@ ducklake_db <- R6::R6Class(
         } else {
           private$commit_upsert(table_name, all_new_cols, specs, validated_cols)
         }
-      }
+      })
 
-      rows <- if (length(added_cols)) {
-        # the new columns land together with the data, or not at all
-        self$transaction({
-          private$add_target_columns(table_name, added_cols)
-          write_rows()
-        })
-      } else {
-        write_rows()
-      }
       if (length(added_cols)) {
         message(glue::glue(
           "Added column(s) to `{table_name}`: ",
@@ -873,9 +868,9 @@ ducklake_db <- R6::R6Class(
       )
     },
 
-    # The columns of new_data_v that the table does not have, named by their type, so
-    # that add_target_columns() can add them. A table with a fixed schema rejects them.
-    check_target_columns = function(table_name, all_new_cols, fixed_schema = FALSE) {
+    # The columns of new_data_v that the table does not have, named by their type, so that
+    # add_target_columns() can add them
+    new_target_columns = function(table_name, all_new_cols) {
       target_cols <- self$get_query(
         "select column_name from (describe dl_db.{`table_name`})",
         as_atomic = TRUE
@@ -884,16 +879,6 @@ ducklake_db <- R6::R6Class(
       unknown_cols <- setdiff(all_new_cols, target_cols)
       if (length(unknown_cols) == 0L) {
         return(character(0))
-      }
-
-      if (fixed_schema) {
-        stop(glue::glue(
-          "Cannot commit columns that `{table_name}` does not have: ",
-          "{toString(unknown_cols)}\n",
-          "  table has: {toString(target_cols)}\n",
-          "  its schema is fixed; drop the columns, or use method = \"overwrite\" to ",
-          "replace the table and its schema"
-        ))
       }
 
       new_types <- self$get_query("select column_name, column_type from (describe new_data_v)")

@@ -25,9 +25,6 @@ NULL
 #'        MAP type, used to store named unnested lists from R.
 #' @param partition_cols Optional character vector. Used to specify columns for
 #'        hive style partitioning of the data files.
-#' @param fixed_schema Logical. If `TRUE`, [ducklake_db]'s `$commit()` rejects columns
-#'        the table does not have, instead of adding them. Meant for large tables whose
-#'        columns readers rely on exactly.
 #' @export
 as_ducklake_db_t <- function(
   x,
@@ -35,10 +32,8 @@ as_ducklake_db_t <- function(
   key_cols = NULL,
   alternate_key_cols = NULL,
   map_cols = NULL,
-  partition_cols = NULL,
-  fixed_schema = FALSE
+  partition_cols = NULL
 ) {
-  stopifnot("fixed_schema must be TRUE or FALSE" = is_scalar_logical(fixed_schema))
   data.table::setDT(x)
 
   # subclassses for more specific validation methods
@@ -55,9 +50,6 @@ as_ducklake_db_t <- function(
 
   # partition_cols for hive style partitioning
   data.table::setattr(x, "partition_cols", partition_cols)
-
-  # only set when TRUE, so that other tables' metadata stays as it was
-  data.table::setattr(x, "fixed_schema", if (fixed_schema) TRUE)
 
   validate(x)
 }

@@ -159,6 +159,19 @@ is_scalar_logical <- function(x) {
   is.logical(x) && length(x) == 1L && !is.na(x)
 }
 
+# Large per-coordinate tables are read by queries that assume their exact columns, and an
+# extra column would be added to the stored table by ducklake_db$commit(); so their
+# validators reject any column they do not declare.
+stop_on_extra_cols <- function(x, cols) {
+  extra_cols <- setdiff(names(x), cols)
+  if (length(extra_cols) > 0L) {
+    stop(glue::glue(
+      "{class(x)[1]} holds only {toString(cols)}; drop {toString(extra_cols)}"
+    ))
+  }
+  invisible(x)
+}
+
 #' @describeIn util Print a dataframe in a row-wise yaml style
 #' @param df A data.frame or data.table to print
 #' @export
