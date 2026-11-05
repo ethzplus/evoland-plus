@@ -142,6 +142,7 @@ erDiagram
         int id_run PK, FK
         int id_pred PK, FK
         int id_trans PK, FK
+        bool is_selected
     }
     trans_rates_t {
         int id_run PK, FK
