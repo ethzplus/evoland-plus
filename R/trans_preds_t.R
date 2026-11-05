@@ -4,30 +4,55 @@
 #' and predictors. This function establishes which predictors are useful for
 #' modelling each transition type.
 #'
+#' The table holds every transition / predictor pair a run considers, and
+#' `is_selected` says which of them the models use. Pruning a predictor sets its
+#' `is_selected` to `FALSE` rather than removing the row, so that a child run can
+#' deselect a predictor it inherits, and so that the scores the selection was based on
+#' stay next to it. Further columns, such as the scores of [get_pred_filter_score()],
+#' are added to the table as they are written; they are for interpretation only.
+#'
+#' A typical selection step:
+#' ```r
+#' scores <- db$get_pred_filter_score("importance")
+#' scores[, is_selected := importance > 100]
+#' db$trans_preds_t <- scores
+#' ```
+#' Assign the scored table with its flags rather than a subset of it: rows left out of
+#' the assignment keep the flags they had.
+#'
 #' @name trans_preds_t
 #'
 #' @param self An [evoland_db] instance with populated trans_meta_t and pred_meta_t tables
 #' @param x A list or data.frame coercible to a trans_preds_t object. If missing, an
-#' empty table will be created.
+#' empty table will be created. If it has no `is_selected` column, every pair is selected.
 #'
 #' @return A data.table of class "trans_preds_t" with columns:
 #'   - `id_run`: Foreign key to runs_t
 #'   - `id_pred`: Foreign key to pred_meta_t
 #'   - `id_trans`: Foreign key to trans_meta_t
+#'   - `is_selected`: Logical, whether the models of the transition use the predictor
+#'   - any further columns, e.g. filter scores
 #' @export
 as_trans_preds_t <- function(x) {
   if (missing(x)) {
     x <- data.table::data.table(
       id_run = integer(0),
       id_pred = integer(0),
-      id_trans = integer(0)
+      id_trans = integer(0),
+      is_selected = logical(0)
     )
   }
 
-  data.table::setDT(x) |>
+  data.table::setDT(x)
+  if (!"is_selected" %in% names(x)) {
+    x[, is_selected := TRUE]
+  }
+
+  x |>
     cast_dt_col("id_run", "int") |>
     cast_dt_col("id_pred", "int") |>
-    cast_dt_col("id_trans", "int")
+    cast_dt_col("id_trans", "int") |>
+    cast_dt_col("is_selected", "bool")
 
   as_ducklake_db_t(
     x,
@@ -45,7 +70,8 @@ validate.trans_preds_t <- function(x, ...) {
     c(
       "id_run",
       "id_pred",
-      "id_trans"
+      "id_trans",
+      "is_selected"
     )
   )
 
@@ -58,8 +84,10 @@ validate.trans_preds_t <- function(x, ...) {
     is.integer(x[["id_run"]]),
     is.integer(x[["id_pred"]]),
     is.integer(x[["id_trans"]]),
+    is.logical(x[["is_selected"]]),
     all(x[["id_pred"]] > 0),
-    all(x[["id_trans"]] > 0)
+    all(x[["id_trans"]] > 0),
+    "is_selected must be TRUE or FALSE, not NA" = !anyNA(x[["is_selected"]])
   )
 
   return(x)
@@ -71,15 +99,16 @@ validate.trans_preds_t <- function(x, ...) {
 #' @param ... passed to [data.table::print.data.table]
 print.trans_preds_t <- function(x, nrow = 10, ...) {
   if (nrow(x) > 0) {
-    n_preds <- data.table::uniqueN(x[["id_pred"]])
-    n_trans <- data.table::uniqueN(x[["id_trans"]])
-    avg_preds_per_trans <- nrow(x) / n_trans
-    avg_trans_per_pred <- nrow(x) / n_preds
+    selected <- x[x[["is_selected"]]]
+    n_preds <- data.table::uniqueN(selected[["id_pred"]])
+    n_trans <- data.table::uniqueN(selected[["id_trans"]])
+    avg_preds_per_trans <- nrow(selected) / n_trans
+    avg_trans_per_pred <- nrow(selected) / n_preds
 
     cat(glue::glue(
       "Transition-Predictor Relationships Table\n",
-      "Total relationships: {nrow(x)}\n",
-      "Predictors: {n_preds}, Transitions: {n_trans}\n",
+      "Total relationships: {nrow(x)}, selected: {nrow(selected)}\n",
+      "Selected predictors: {n_preds}, transitions: {n_trans}\n",
       "Avg predictors per transition: {round(avg_preds_per_trans, 1)}\n",
       "Avg transitions per predictor: {round(avg_trans_per_pred, 1)}\n\n"
     ))
@@ -91,8 +120,9 @@ print.trans_preds_t <- function(x, nrow = 10, ...) {
 }
 
 #' @describeIn trans_preds_t Set an initial full set of transition / predictor relations for
-#' the active run: every predictor for every viable transition
-#' @param overwrite Bool, replace predictor sets the active run already holds?
+#' the active run: every predictor for every viable transition, all selected
+#' @param overwrite Bool, start the active run's selection over? This removes the
+#' active run's rows, including their scores, before writing the full set.
 set_full_trans_preds <- function(self, overwrite = FALSE) {
   has_table <- "trans_preds_t" %in% self$list_tables()
   exists <- has_table &&
@@ -110,11 +140,16 @@ set_full_trans_preds <- function(self, overwrite = FALSE) {
     id_run = self$id_run,
     id_pred = p[["id_pred"]],
     id_trans = t[["id_trans"]],
+    is_selected = TRUE,
     KEEP.OUT.ATTRS = FALSE
   )
 
-  # replaces the active run's predictor sets of the viable transitions only
-  commit_replace_slices(self, as_trans_preds_t(full), "trans_preds_t", c("id_run", "id_trans"))
+  self$transaction({
+    if (exists) {
+      self$delete_from("trans_preds_t", where = glue::glue("id_run = {self$id_run}"))
+    }
+    self$commit(as_trans_preds_t(full), "trans_preds_t", method = "upsert")
+  })
 }
 
 # Worker function for parallel mlr3filter::Filter
@@ -161,6 +196,7 @@ pred_filter_worker <- function(item, db, filter) {
       scores_dt[, id_pred := as.integer(sub("^id_pred_", "", id_pred))]
       scores_dt[, id_run := id_run]
       scores_dt[, id_trans := id_trans]
+      scores_dt[, is_selected := TRUE]
 
       return(scores_dt)
     },
@@ -172,13 +208,13 @@ pred_filter_worker <- function(item, db, filter) {
   )
 }
 
-#' @describeIn trans_preds_t Get a filter score for all transition-predictor
+#' @describeIn trans_preds_t Get a filter score for the selected transition-predictor
 #' relationships based on mlr3filters. Returns trans_preds_t with an additional
 #' column named after the filter$id. The filter score can be used for feature
-#' selection: simply subset according to the score and write it back using
-#' `db$trans_preds_t <- trans_preds_t[score > threshold]` or similar. The assignment
-#' replaces the predictor set of each run and transition in the subset, and leaves other runs
-#' and transitions alone.
+#' selection: set `is_selected` according to the score and write the table back, e.g.
+#' `scores[, is_selected := importance > 100]; db$trans_preds_t <- scores`. Writing it
+#' back also stores the scores. Only the selected pairs are scored, so a second filter
+#' refines the selection of the first.
 #' @param filter An [mlr3filters::Filter] object or a character string
 #' specifying the filter method, retrieved via [mlr3filters::flt]. Note that your
 #' filter must be compatible with the feature data types; compare your
@@ -207,7 +243,7 @@ get_pred_filter_score <- function(
   } else {
     stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
   }
-  items <- split(trans_preds, by = c("id_run", "id_trans"))
+  items <- split(trans_preds[is_selected == TRUE], by = c("id_run", "id_trans"))
 
   message(glue::glue("Processing {length(items)} transitions..."))
 

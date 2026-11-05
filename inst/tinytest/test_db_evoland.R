@@ -403,3 +403,25 @@ expect_message(
   db$set_neighbors(overwrite = TRUE, quiet = TRUE, chunksize = 500),
   "in [0-9]+ chunk\\(s\\)"
 )
+
+# a child run deselects an inherited predictor by holding the pair with is_selected = FALSE;
+# readers skip it, and the transition's other pairs are still inherited (#93)
+base_preds <- db$trans_preds_t
+child_trans <- base_preds[["id_trans"]][1L]
+expect_true(nrow(base_preds[id_trans == child_trans]) > 2L)
+db$runs_t <- as_runs_t(rbind(
+  db$runs_t,
+  list(id_run = 13L, parent_id_run = 10L, description = "fewer predictors")
+))
+db$id_run <- 13L
+db$trans_preds_t <-
+  base_preds[id_trans == child_trans][-(1:2)][, `:=`(id_run = 13L, is_selected = FALSE)]
+child_preds <- db$trans_preds_t
+expect_equal(nrow(child_preds), nrow(base_preds))
+expect_equal(child_preds[id_trans == child_trans & is_selected == TRUE, .N], 2L)
+expect_equal(child_preds[id_trans != child_trans], base_preds[id_trans != child_trans])
+expect_equal(
+  grep("^id_pred_", names(db$pred_wide_predict_v(child_trans, 1L)), value = TRUE),
+  paste0("id_pred_", base_preds[id_trans == child_trans][1:2, id_pred])
+)
+db$id_run <- 0L

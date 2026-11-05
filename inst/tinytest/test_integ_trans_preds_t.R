@@ -94,28 +94,43 @@ expect_equal(
   tol = 1e-7
 )
 
-# assigning a predictor set replaces it for the runs and transitions it holds, and leaves the
-# others alone (#97)
+# selecting by score: the assignment flips the flags and stores the scores, and the pruned
+# pairs stay in the table (#97)
 db$set_full_trans_preds(overwrite = TRUE)
-full_preds <- db$trans_preds_t
-db$trans_preds_t <- importance_results[id_trans == 1L & importance > 100]
-expect_equal(nrow(db$trans_preds_t[id_trans == 1L]), 2L)
-expect_equal(db$trans_preds_t[id_trans == 2L, id_pred], full_preds[id_trans == 2L, id_pred])
+importance_results[, is_selected := id_trans != 1L | importance > 100]
+expect_message(db$trans_preds_t <- importance_results, "Added column\\(s\\).*importance")
+stored <- db$trans_preds_t
+expect_equal(nrow(stored), nrow(importance_results))
+expect_equal(stored[is_selected == TRUE & id_trans == 1L, id_pred], 1:2)
+expect_equal(stored[["importance"]], importance_results[["importance"]], tol = 1e-6)
 
-# a child run's predictor set leaves the base run's alone
+# a second filter only scores what the first one kept
+set.seed(123)
+expect_message(
+  perf_refined <- db$get_pred_filter_score(
+    filter = mlr3filters::FilterPerformance$new(resampling = mlr3::rsmp("cv", folds = 2))
+  ),
+  "Processing 2 transitions"
+)
+expect_equal(perf_refined[id_trans == 1L, id_pred], 1:2)
+db$trans_preds_t <- perf_refined
+expect_true(all(c("importance", "performance") %in% names(db$trans_preds_t)))
+
+# a child run's selection leaves the base run's alone
 db$runs_t <- as_runs_t(rbind(
   db$runs_t,
   list(id_run = 4L, parent_id_run = 0L, description = "own predictor sets")
 ))
 db$id_run <- 4L
 db$set_full_trans_preds() # run 4 holds no predictor sets of its own yet
-expect_equal(
-  db$get_query("select count(*) from dl_db.trans_preds_t where id_run = 4", as_atomic = TRUE),
-  nrow(full_preds)
-)
-expect_equal(
-  db$get_query("select count(*) from dl_db.trans_preds_t where id_run = 0", as_atomic = TRUE),
-  nrow(full_preds[id_trans == 2L]) + 2
-)
+expect_true(all(db$trans_preds_t[["is_selected"]]))
+db$id_run <- 0L
+expect_equal(db$trans_preds_t[is_selected == TRUE & id_trans == 1L, id_pred], 1:2)
+db$id_run <- 4L
 expect_error(db$set_full_trans_preds(), "already holds predictor sets for this run")
 db$id_run <- 0L
+
+# starting over removes the run's scores along with its flags
+db$set_full_trans_preds(overwrite = TRUE)
+expect_true(all(db$trans_preds_t[["is_selected"]]))
+expect_true(all(is.na(db$trans_preds_t[["importance"]])))

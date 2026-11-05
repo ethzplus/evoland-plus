@@ -320,9 +320,11 @@ and a table first created from one has none.
 constraints. If character, treated as an in-DuckDB-memory table or view name.}
       \item{\code{table_name}}{Target table name to commit to.}
       \item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
-update for existing rows, and insert for new rows). Only "overwrite" can change a
-table's schema; even if a table is empty, the others reject columns the table
-does not have.}
+update for existing rows, and insert for new rows). "overwrite" replaces the table's
+schema along with its data. "append" and "upsert" add the columns of \code{x} that the
+table does not have yet, as an \verb{alter table ... add column}, which leaves the data
+files alone, so existing rows read \code{NULL} in them. A table with a fixed schema (see
+\code{fixed_schema} in \code{\link[=as_ducklake_db_t]{as_ducklake_db_t()}}) rejects such columns instead.}
     }
     \if{html}{\out{</div>}}
   }

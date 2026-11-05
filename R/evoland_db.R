@@ -296,8 +296,8 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Set an initial full set of transition / predictor relations for the active run, see
     #' [set_full_trans_preds()]
-    #' @param overwrite Logical, replace predictor sets the active run already holds? Default
-    #' FALSE.
+    #' @param overwrite Logical, start the active run's selection over, removing its rows and
+    #' their scores? Default FALSE.
     set_full_trans_preds = function(overwrite = FALSE) {
       create_method_binding(set_full_trans_preds)
     },
@@ -384,13 +384,9 @@ evoland_db <- R6::R6Class(
     pred_meta_t = create_table_binding("pred_meta_t", "upsert"),
     #' @field trans_meta_t Get or upsert [trans_meta_t]
     trans_meta_t = create_table_binding("trans_meta_t", "upsert"),
-    #' @field trans_preds_t Get [trans_preds_t], or replace the predictor sets of the runs and
-    #' transitions the assigned table holds
-    trans_preds_t = create_table_binding(
-      "trans_preds_t",
-      "replace_slices",
-      slice_cols = c("id_run", "id_trans")
-    ),
+    #' @field trans_preds_t Get or upsert [trans_preds_t]; deselect a predictor by setting
+    #' its `is_selected` to `FALSE`
+    trans_preds_t = create_table_binding("trans_preds_t", "upsert"),
     #' @field trans_rates_t Get or upsert [trans_rates_t]
     trans_rates_t = create_table_binding("trans_rates_t", "upsert"),
     #' @field trans_models_t Get or upsert [trans_models_t]

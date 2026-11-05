@@ -39,7 +39,8 @@ as_coords_t <- function(x) {
   as_ducklake_db_t(
     x,
     class_name = "coords_t",
-    key_cols = "id_coord"
+    key_cols = "id_coord",
+    fixed_schema = TRUE
   )
 }
 

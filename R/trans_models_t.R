@@ -325,9 +325,9 @@ fit_partial_models <- function(
 
   preds_source <- if (!is.null(trans_preds)) {
     stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
-    data.table::as.data.table(trans_preds)
+    data.table::as.data.table(trans_preds)[is_selected == TRUE]
   } else {
-    data.table::as.data.table(self$trans_preds_t)
+    data.table::as.data.table(self$trans_preds_t)[is_selected == TRUE]
   }
 
   trans_preds_nested <- preds_source[,
@@ -440,9 +440,9 @@ fit_full_models <- function(
     # Direct mode: get viable transitions with their predictor lists
     preds_source <- if (!is.null(trans_preds)) {
       stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
-      data.table::as.data.table(trans_preds)
+      data.table::as.data.table(trans_preds)[is_selected == TRUE]
     } else {
-      data.table::as.data.table(self$trans_preds_t)
+      data.table::as.data.table(self$trans_preds_t)[is_selected == TRUE]
     }
 
     trans_preds_nested <- preds_source[,
@@ -503,6 +503,8 @@ fit_full_models <- function(
           list(id_pred) as id_pred
         from
           {self$get_read_expr("trans_preds_t")}
+        where
+          is_selected
         group by
           id_run, id_trans
       )

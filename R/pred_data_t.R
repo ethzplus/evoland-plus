@@ -37,7 +37,8 @@ as_pred_data_t <- function(x) {
     x,
     class_name = "pred_data_t",
     key_cols = c("id_run", "id_period", "id_pred", "id_coord"),
-    partition_cols = c("id_run", "id_period")
+    partition_cols = c("id_run", "id_period"),
+    fixed_schema = TRUE
   )
 }
 
@@ -193,7 +194,11 @@ pred_wide_predict_v <- function(
     trans_filter <- private$sql("where {trans_condition}")
   }
 
-  trans_preds_read_expr <- self$get_read_expr("trans_preds_t", id_run = id_run)
+  # filtered after the lineage is resolved, so that a run's deselection wins over the
+  # selection it inherits
+  trans_preds_read_expr <- private$sql(
+    "(select * from {self$get_read_expr('trans_preds_t', id_run = id_run)} where is_selected)"
+  )
   # the pivot needs its columns spelled out, see inst/pred_wide_predict.sql
   id_pred <- self$get_query(
     "select distinct id_pred from {trans_preds_read_expr} {trans_filter} order by id_pred",

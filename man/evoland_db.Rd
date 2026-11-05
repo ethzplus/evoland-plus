@@ -36,8 +36,8 @@ Additional methods and active bindings are added to this class in separate files
 
     \item{\code{trans_meta_t}}{Get or upsert \link{trans_meta_t}}
 
-    \item{\code{trans_preds_t}}{Get \link{trans_preds_t}, or replace the predictor sets of the runs and
-transitions the assigned table holds}
+    \item{\code{trans_preds_t}}{Get or upsert \link{trans_preds_t}; deselect a predictor by setting
+its \code{is_selected} to \code{FALSE}}
 
     \item{\code{trans_rates_t}}{Get or upsert \link{trans_rates_t}}
 
@@ -595,8 +595,8 @@ observed periods.}
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{overwrite}}{Logical, replace predictor sets the active run already holds? Default
-FALSE.}
+      \item{\code{overwrite}}{Logical, start the active run's selection over, removing its rows and
+their scores? Default FALSE.}
     }
     \if{html}{\out{</div>}}
   }

@@ -24,7 +24,7 @@ get_pred_filter_score(
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a trans_preds_t object. If missing, an
-empty table will be created.}
+empty table will be created. If it has no \code{is_selected} column, every pair is selected.}
 
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
@@ -32,7 +32,8 @@ empty table will be created.}
 
 \item{self}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
 
-\item{overwrite}{Bool, replace predictor sets the active run already holds?}
+\item{overwrite}{Bool, start the active run's selection over? This removes the
+active run's rows, including their scores, before writing the full set.}
 
 \item{filter}{An \link[mlr3filters:Filter]{mlr3filters::Filter} object or a character string
 specifying the filter method, retrieved via \link[mlr3filters:flt]{mlr3filters::flt}. Note that your
@@ -51,12 +52,32 @@ A data.table of class "trans_preds_t" with columns:
 \item \code{id_run}: Foreign key to runs_t
 \item \code{id_pred}: Foreign key to pred_meta_t
 \item \code{id_trans}: Foreign key to trans_meta_t
+\item \code{is_selected}: Logical, whether the models of the transition use the predictor
+\item any further columns, e.g. filter scores
 }
 }
 \description{
 Creates a trans_preds_t table based on the relationships between transitions
 and predictors. This function establishes which predictors are useful for
 modelling each transition type.
+}
+\details{
+The table holds every transition / predictor pair a run considers, and
+\code{is_selected} says which of them the models use. Pruning a predictor sets its
+\code{is_selected} to \code{FALSE} rather than removing the row, so that a child run can
+deselect a predictor it inherits, and so that the scores the selection was based on
+stay next to it. Further columns, such as the scores of \code{\link[=get_pred_filter_score]{get_pred_filter_score()}},
+are added to the table as they are written; they are for interpretation only.
+
+A typical selection step:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{scores <- db$get_pred_filter_score("importance")
+scores[, is_selected := importance > 100]
+db$trans_preds_t <- scores
+}\if{html}{\out{</div>}}
+
+Assign the scored table with its flags rather than a subset of it: rows left out of
+the assignment keep the flags they had.
 }
 \section{Methods (by generic)}{
 \itemize{
@@ -66,14 +87,14 @@ modelling each transition type.
 \section{Functions}{
 \itemize{
 \item \code{set_full_trans_preds()}: Set an initial full set of transition / predictor relations for
-the active run: every predictor for every viable transition
+the active run: every predictor for every viable transition, all selected
 
-\item \code{get_pred_filter_score()}: Get a filter score for all transition-predictor
+\item \code{get_pred_filter_score()}: Get a filter score for the selected transition-predictor
 relationships based on mlr3filters. Returns trans_preds_t with an additional
 column named after the filter$id. The filter score can be used for feature
-selection: simply subset according to the score and write it back using
-\code{db$trans_preds_t <- trans_preds_t[score > threshold]} or similar. The assignment
-replaces the predictor set of each run and transition in the subset, and leaves other runs
-and transitions alone.
+selection: set \code{is_selected} according to the score and write the table back, e.g.
+\verb{scores[, is_selected := importance > 100]; db$trans_preds_t <- scores}. Writing it
+back also stores the scores. Only the selected pairs are scored, so a second filter
+refines the selection of the first.
 
 }}

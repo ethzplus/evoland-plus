@@ -33,7 +33,8 @@ as_neighbors_t <- function(x) {
   as_ducklake_db_t(
     x,
     class_name = "neighbors_t",
-    key_cols = c("id_coord_origin", "id_coord_neighbor")
+    key_cols = c("id_coord_origin", "id_coord_neighbor"),
+    fixed_schema = TRUE
   )
 }
 

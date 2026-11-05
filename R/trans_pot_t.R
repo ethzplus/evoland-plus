@@ -35,7 +35,8 @@ as_trans_pot_t <- function(x) {
     x,
     class_name = "trans_pot_t",
     key_cols = c("id_run", "id_trans", "id_period_post", "id_coord"),
-    partition_cols = "id_run"
+    partition_cols = "id_run",
+    fixed_schema = TRUE
   )
 }
 

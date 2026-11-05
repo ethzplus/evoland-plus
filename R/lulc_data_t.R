@@ -33,7 +33,8 @@ as_lulc_data_t <- function(x) {
     x = x,
     class_name = "lulc_data_t",
     key_cols = c("id_run", "id_coord", "id_period"),
-    partition_cols = "id_run"
+    partition_cols = "id_run",
+    fixed_schema = TRUE
   )
 }
 
