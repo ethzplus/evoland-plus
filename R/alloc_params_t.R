@@ -266,7 +266,7 @@ create_alloc_params_t <- function(self, id_period_post = NULL) {
   } else {
     self$periods_t[is_extrapolated == FALSE & id_period > 1 & id_period %in% id_period_post]
   }
-  viable_trans <- self$trans_meta_t[is_viable == TRUE]
+  viable_trans <- viable_trans_meta(self)
 
   # validate DB inputs
   stopifnot(

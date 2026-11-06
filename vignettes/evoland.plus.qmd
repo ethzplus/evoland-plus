@@ -368,8 +368,8 @@ db$trans_meta_t
 
 Because each transition may be modelled using different predictors (aka *features*), we start out by setting the `trans_preds_t` table to the full cross product of viable transitions and predictors.
 We then carry out a feature selection step in `get_pred_filter_score`, which here is used with a variable [importance filter](https://mlr3filters.mlr-org.com/reference/mlr_filters_importance.html) - an [mlr3 Learner](https://mlr3.mlr-org.com/reference/Learner.html) is passed that returns an importance score for each predictor.
-We can then subset the returned `trans_preds_t` object and overwrite the existing set of "every predictor for every transition".
-The assignment to `db$trans_preds_t` will overwrite the existing relations; you will be prompted if you want to do this if you're running R interactively.
+We then set `is_selected` from the score and assign the scored table back to `db$trans_preds_t`.
+The assignment is an upsert: it updates the `is_selected` fields and adds the score column to the DB table for reporting purposes.
 
 ```{r}
 #| seed: 666
@@ -384,11 +384,9 @@ trans_pred_scored <- db$get_pred_filter_score(
   )
 )
 
-# overwrite using a subset
-db$trans_preds_t <- trans_pred_scored[
-  importance > 5 |
-    is.na(importance) # keep predictors that couldn't be scored
-]
+# deselect the low scorers; keep predictors that couldn't be scored
+trans_pred_scored[, is_selected := importance > 5 | is.na(importance)]
+db$trans_preds_t <- trans_pred_scored
 ```
 
 ## Transition Models

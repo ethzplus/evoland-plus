@@ -237,10 +237,7 @@ evoland_db <- R6::R6Class(
     #'   (`NULL` when `learner` is used).
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
     #' @param cluster Optional cluster object for parallel processing
-    #' @param trans_preds Optional [trans_preds_t]; bypasses the database read in
-    #'   direct-learner mode. Ignored in score-select mode.
-    #' @param trans_meta Optional [trans_meta_t]; bypasses the database read in
-    #'   direct-learner mode. Ignored in score-select mode.
+    #' @param id_trans Optional integer vector; fit only these transitions.
     #' @param id_period_anterior Optional integer vector; train only on transitions
     #'   observed from these anterior periods. `NULL` (default) uses all observed periods.
     fit_full_models = function(
@@ -248,8 +245,7 @@ evoland_db <- R6::R6Class(
       select_score = NULL,
       select_maximize = TRUE,
       cluster = NULL,
-      trans_preds = NULL,
-      trans_meta = NULL,
+      id_trans = NULL,
       id_period_anterior = NULL
     ) {
       create_method_binding(fit_full_models)
@@ -264,10 +260,7 @@ evoland_db <- R6::R6Class(
     #' @param sample_frac Fraction in \(0, 1\) for stratified sampling.
     #' @param seed Random seed for reproducible sampling
     #' @param cluster Optional cluster object for parallel processing
-    #' @param trans_preds Optional [trans_preds_t]; bypasses the `trans_preds_t`
-    #'   database read.
-    #' @param trans_meta Optional [trans_meta_t]; bypasses the `trans_meta_t`
-    #'   database read.
+    #' @param id_trans Optional integer vector; fit only these transitions.
     #' @param id_period_anterior Optional integer vector; train and score only on
     #'   transitions observed from these anterior periods. `NULL` (default) uses all
     #'   observed periods.
@@ -277,8 +270,7 @@ evoland_db <- R6::R6Class(
       sample_frac = 0.7,
       seed = NULL,
       cluster = NULL,
-      trans_preds = NULL,
-      trans_meta = NULL,
+      id_trans = NULL,
       id_period_anterior = NULL
     ) {
       create_method_binding(fit_partial_models)
@@ -294,9 +286,11 @@ evoland_db <- R6::R6Class(
     },
 
     #' @description
-    #' Set an initial full set of transition / predictor relations, see [set_full_trans_preds()]
-    #' @param overwrite Logical, whether to overwrite existing `trans_preds_t` table. Default FALSE.
-    set_full_trans_preds = function(overwrite = FALSE) {
+    #' Set an initial full set of transition / predictor relations for the active run, see
+    #' [set_full_trans_preds()]
+    #' @param reset Logical, start the active run's selection over, removing its rows and
+    #' their scores? Default FALSE.
+    set_full_trans_preds = function(reset = FALSE) {
       create_method_binding(set_full_trans_preds)
     },
 
@@ -305,13 +299,12 @@ evoland_db <- R6::R6Class(
     #' @param filter Character passed to [mlr3filters::flt] or
     #' [mlr3filters::Filter] object specifying the filter method to use for
     #' feature selection.
-    #' @param trans_preds Optional [trans_preds_t]; when supplied, it is used
-    #'   directly instead of reading from the database.
+    #' @param id_trans Optional integer vector; score only these transitions.
     #' @param cluster Optional cluster object for parallel processing
     #' @param ... Additional arguments passed to `flt`.
     get_pred_filter_score = function(
       filter = "correlation",
-      trans_preds = NULL,
+      id_trans = NULL,
       cluster = NULL,
       ...
     ) {
@@ -382,8 +375,9 @@ evoland_db <- R6::R6Class(
     pred_meta_t = create_table_binding("pred_meta_t", "upsert"),
     #' @field trans_meta_t Get or upsert [trans_meta_t]
     trans_meta_t = create_table_binding("trans_meta_t", "upsert"),
-    #' @field trans_preds_t Get or upsert [trans_preds_t]
-    trans_preds_t = create_table_binding("trans_preds_t", "overwrite"),
+    #' @field trans_preds_t Get or upsert [trans_preds_t]; deselect a predictor by setting
+    #' its `is_selected` to `FALSE`
+    trans_preds_t = create_table_binding("trans_preds_t", "upsert"),
     #' @field trans_rates_t Get or upsert [trans_rates_t]
     trans_rates_t = create_table_binding("trans_rates_t", "upsert"),
     #' @field trans_models_t Get or upsert [trans_models_t]

@@ -53,6 +53,7 @@ validate.trans_pot_t <- function(x, ...) {
       "value"
     )
   )
+  stop_on_extra_cols(x, c("id_run", "id_trans", "id_period_post", "id_coord", "value"))
 
   # Skip soft checks if empty
   if (nrow(x) == 0L) {
@@ -121,7 +122,7 @@ predict_trans_pot <- function(
   id_run = self$id_run
 ) {
   stopifnot("id_run must be a single integer" = is_scalar_integerish(id_run))
-  viable_trans <- self$trans_meta_t[is_viable == TRUE]
+  viable_trans <- viable_trans_meta(self)
 
   # potentials may come from outside evoland.plus (written to trans_pot_t directly); models are only
   # needed for the transitions left to predict
@@ -218,7 +219,7 @@ predict_trans_pot <- function(
 # called for side effect: error if a viable transition does either not have a full model available
 # OR it does not have the required crossvalidation score
 .check_viable_trans_models <- function(self, select_score, id_run = self$id_run) {
-  viable_trans <- self$trans_meta_t[is_viable == TRUE]
+  viable_trans <- viable_trans_meta(self)
 
   modeled_ids <- self$get_query(
     r"[

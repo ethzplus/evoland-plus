@@ -185,3 +185,13 @@ print.trans_meta_t <- function(x, nrow = 10, ...) {
   NextMethod(nrow = nrow, ...)
   invisible(x)
 }
+
+# The viable transitions, optionally narrowed to `id_trans`
+viable_trans_meta <- function(self, id_trans = NULL) {
+  stopifnot("id_trans must be NULL or integers" = is.null(id_trans) || is_integerish(id_trans))
+  if (is.null(id_trans)) {
+    return(self$trans_meta_t[is_viable == TRUE])
+  }
+  # env renames the argument, which inside `[` would be masked by the column of the same name
+  self$trans_meta_t[is_viable == TRUE & id_trans %in% ids, env = list(ids = I(id_trans))]
+}

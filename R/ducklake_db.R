@@ -256,13 +256,18 @@ ducklake_db <- R6::R6Class(
     #' @description
     #' Get row count for a table; returns 0 if table does not exist
     #' @param table_name Character string. Name of the table to query.
+    #' @param where Character string. Optional WHERE clause, e.g. `"id_run = 2"`.
     #' @return Integer number of rows
-    row_count = function(table_name) {
+    row_count = function(table_name, where = NULL) {
       if (!table_name %in% self$list_tables()) {
         return(0L)
       }
 
-      self$get_query("select count(*) from dl_db.{`table_name`}", as_atomic = TRUE)
+      where_clause <- if (is.null(where)) DBI::SQL("") else private$sql("where {DBI::SQL(where)}")
+      self$get_query(
+        "select count(*) from dl_db.{`table_name`} {where_clause}",
+        as_atomic = TRUE
+      )
     },
 
     #' @description
@@ -371,9 +376,10 @@ ducklake_db <- R6::R6Class(
     #' constraints. If character, treated as an in-DuckDB-memory table or view name.
     #' @param table_name Target table name to commit to.
     #' @param method Character, one of "overwrite", "append", "upsert" (upsert being an
-    #' update for existing rows, and insert for new rows). Only "overwrite" can change a
-    #' table's schema; even if a table is empty, the others reject columns the table
-    #' does not have.
+    #' update for existing rows, and insert for new rows). "overwrite" replaces the table's
+    #' schema along with its data. "append" and "upsert" add the columns of `x` that the
+    #' table does not have yet, as an `alter table ... add column`, which leaves the data
+    #' files alone, so existing rows read `NULL` in them.
     #' @return Number of rows written
     commit = function(
       x,
@@ -392,8 +398,8 @@ ducklake_db <- R6::R6Class(
       on.exit(private$cleanup_new_data_v(), add = TRUE)
       all_new_cols <- private$register_new_data_v(x, specs[["map_cols"]])
 
-      if (table_exists && method != "overwrite") {
-        private$check_target_columns(table_name, all_new_cols) # friendly errors
+      added_cols <- if (table_exists && method != "overwrite") {
+        private$new_target_columns(table_name, all_new_cols)
       }
 
       # as_<table>_t() already rejected duplicates in the columns the object itself
@@ -405,25 +411,39 @@ ducklake_db <- R6::R6Class(
         list()
       }
 
-      rows <- if (method == "overwrite" || !table_exists) {
-        private$commit_overwrite(table_name, specs, replace = method == "overwrite")
-      } else if (method == "append" || length(specs[["key_cols"]]) == 0L) {
-        # if there are no key columns to join on, upsert becomes append
-        if (
-          length(specs[["key_cols"]]) &&
-            getOption("evoland.plus.ducklake_db_append_warning", TRUE)
-        ) {
-          warning(
-            "!! No uniqueness checks are performed when appending.\n",
-            "  Only use if you need high speed _and_ know you're not introducing duplicates\n",
-            "  Use upsert to be safe.\n",
-            "  Set option 'evoland.plus.ducklake_db_append_warning' to FALSE to disable this warning."
-          )
+      # the new columns land together with the data, or not at all
+      rows <- self$transaction({
+        if (length(added_cols)) {
+          private$add_target_columns(table_name, added_cols)
         }
-        # "by name" tolerates columns missing from the new data
-        self$execute("insert into dl_db.{`table_name`} by name (from new_data_v)")
-      } else {
-        private$commit_upsert(table_name, all_new_cols, specs, validated_cols)
+
+        if (method == "overwrite" || !table_exists) {
+          private$commit_overwrite(table_name, specs, replace = method == "overwrite")
+        } else if (method == "append" || length(specs[["key_cols"]]) == 0L) {
+          # if there are no key columns to join on, upsert becomes append
+          if (
+            length(specs[["key_cols"]]) &&
+              getOption("evoland.plus.ducklake_db_append_warning", TRUE)
+          ) {
+            warning(
+              "!! No uniqueness checks are performed when appending.\n",
+              "  Only use if you need high speed _and_ know you're not introducing duplicates\n",
+              "  Use upsert to be safe.\n",
+              "  Set option 'evoland.plus.ducklake_db_append_warning' to FALSE to disable this warning."
+            )
+          }
+          # "by name" tolerates columns missing from the new data
+          self$execute("insert into dl_db.{`table_name`} by name (from new_data_v)")
+        } else {
+          private$commit_upsert(table_name, all_new_cols, specs, validated_cols)
+        }
+      })
+
+      if (length(added_cols)) {
+        message(glue::glue(
+          "Added column(s) to `{table_name}`: ",
+          "{toString(paste0(names(added_cols), ' (', added_cols, ')'))}"
+        ))
       }
 
       # `create or replace` drops the comment, so overwrite always passes an empty list
@@ -852,8 +872,9 @@ ducklake_db <- R6::R6Class(
       )
     },
 
-    # Friendly warning if an additional column has been provided
-    check_target_columns = function(table_name, all_new_cols) {
+    # The columns of new_data_v that the table does not have, named by their type, so that
+    # add_target_columns() can add them
+    new_target_columns = function(table_name, all_new_cols) {
       target_cols <- self$get_query(
         "select column_name from (describe dl_db.{`table_name`})",
         as_atomic = TRUE
@@ -861,15 +882,26 @@ ducklake_db <- R6::R6Class(
 
       unknown_cols <- setdiff(all_new_cols, target_cols)
       if (length(unknown_cols) == 0L) {
-        return(invisible(NULL))
+        return(character(0))
       }
 
-      stop(glue::glue(
-        "Cannot commit columns that `{table_name}` does not have: ",
-        "{toString(unknown_cols)}\n",
-        "  table has: {toString(target_cols)}\n",
-        '  use method = "overwrite" to replace the table and its schema'
-      ))
+      new_types <- self$get_query("select column_name, column_type from (describe new_data_v)")
+      stats::setNames(
+        new_types[["column_type"]][match(unknown_cols, new_types[["column_name"]])],
+        unknown_cols
+      )
+    },
+
+    # Add columns, named by their types, to an existing table. Only touches the catalog:
+    # the data files are not rewritten, and existing rows read NULL in the new columns.
+    add_target_columns = function(table_name, cols) {
+      for (col in names(cols)) {
+        # the type comes from DuckDB's own describe, so it is inserted as it stands
+        self$execute(
+          "alter table dl_db.{`table_name`} add column {`col`} {DBI::SQL(cols[[col]])}"
+        )
+      }
+      invisible(NULL)
     },
 
     # DuckLake supports no constraints, keys or indexes, and MERGE silently

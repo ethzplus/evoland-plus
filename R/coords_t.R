@@ -55,6 +55,7 @@ validate.coords_t <- function(x, ...) {
       "lat"
     )
   )
+  stop_on_extra_cols(x, c("id_coord", "lon", "lat"))
 
   stopifnot(
     is.integer(x[["id_coord"]]),

@@ -198,7 +198,7 @@ allocation_context <- function(db, id_period_post, id_run, potentials_run) {
   }
 
   viable_trans <-
-    db$trans_meta_t[is_viable == TRUE, .(id_trans, id_lulc_anterior, id_lulc_posterior)] |>
+    viable_trans_meta(db)[, .(id_trans, id_lulc_anterior, id_lulc_posterior)] |>
     data.table::setorder(id_trans)
   stopifnot("No viable transitions found" = nrow(viable_trans) > 0L)
 
