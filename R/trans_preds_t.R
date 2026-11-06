@@ -227,10 +227,12 @@ get_pred_filter_score <- function(
   if (self$row_count("trans_preds_t") == 0) {
     self$set_full_trans_preds()
   }
-  # only the key columns: scores of earlier filters are not passed on to the workers
+  # the scores are for the active run; the predictor sets may be inherited from an ancestor,
+  # so they are labelled with the active run here. Only the key columns: scores of earlier
+  # filters are not passed on to the workers
   items <-
     self$get_query(
-      "select id_run, id_pred, id_trans, is_selected
+      "select {self$id_run}::integer as id_run, id_pred, id_trans, is_selected
        from {self$get_read_expr('trans_preds_t')}
        where is_selected {id_trans_filter}",
       id_trans_filter = if (is.null(id_trans)) {
@@ -239,7 +241,7 @@ get_pred_filter_score <- function(
         glue::glue_sql("and id_trans in ({id_trans*})", .con = self$connection)
       }
     ) |>
-    split(by = c("id_run", "id_trans"))
+    split(by = "id_trans")
 
   message(glue::glue("Processing {length(items)} transitions..."))
 
