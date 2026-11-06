@@ -8,12 +8,12 @@ Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
 - {trans_condition}
 - {id_period_anterior}
+- {id_pred*}: the selected predictors of the transition(s)
 Columns:
 - {pred_cols*}: the pivoted column names, `id_pred_<n>` for every predictor of the
   transition(s).
 Data sources:
 - {trans_meta_read_expr}
-- {trans_preds_read_expr}
 - {lulc_data_read_expr}
 - {pred_data_read_expr}
 */
@@ -40,13 +40,6 @@ with
       d.id_period = {id_period_anterior}
       and d.id_lulc = s.id_lulc_anterior
   ),
-  preds_select as (
-    -- we only fetch the predictors that are of relevance to the transition
-    select distinct
-      id_pred
-    from
-      {trans_preds_read_expr} {trans_filter}
-  ),
   -- a predictor may carry both a period-specific value and an id_period = 0
   -- fallback (e.g. a climate baseline overridden by a scenario projection).
   -- id_period = 0 is a *fallback*, so the period-specific slice must win; without
@@ -71,10 +64,7 @@ with
       {pred_data_read_expr}
     where
       id_period in (0, {id_period_anterior})
-      and id_pred in (
-        from
-          preds_select
-      )
+      and id_pred in ({id_pred*})
     group by
       id_pred
   ),
@@ -92,10 +82,7 @@ with
       inner join anterior_coords ac on ac.id_coord = pd.id_coord
     where
       pd.id_period in (0, {id_period_anterior})
-      and pd.id_pred in (
-        from
-          preds_select
-      )
+      and pd.id_pred in ({id_pred*})
   ),
   -- a resolved slice need not cover any of the coordinates selected above, and a
   -- predictor may have no slice at all. The explicit column list still yields a column

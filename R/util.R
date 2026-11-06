@@ -159,6 +159,18 @@ is_scalar_logical <- function(x) {
   is.logical(x) && length(x) == 1L && !is.na(x)
 }
 
+# ducklake_db$commit() adds the columns a table does not have yet; the validators of the
+# large per-coordinate tables reject undeclared columns instead, to keep those tables lean
+stop_on_extra_cols <- function(x, cols) {
+  extra_cols <- setdiff(names(x), cols)
+  if (length(extra_cols) > 0L) {
+    stop(glue::glue(
+      "{class(x)[1]} holds only {toString(cols)}; drop {toString(extra_cols)}"
+    ))
+  }
+  invisible(x)
+}
+
 #' @describeIn util Print a dataframe in a row-wise yaml style
 #' @param df A data.frame or data.table to print
 #' @export

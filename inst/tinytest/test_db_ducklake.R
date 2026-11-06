@@ -708,29 +708,33 @@ expect_equal(statement_attempts, 5L)
 db$retry_max <- retry_defaults[["retry_max"]]
 db$retry_wait <- retry_defaults[["retry_wait"]]
 
-# Test 54: a table's schema is fixed once created. Emptying it no longer drops
-# it, so "delete, then insert with an extra column" has to go through overwrite.
+# Test 54: append and upsert add the columns a table does not have yet
 narrow <- data.table::data.table(id_run = 1:2, descr = c("a", "b"))
 data.table::setattr(narrow, "key_cols", "id_run")
 db$commit(narrow, "schema_t", method = "overwrite")
 
-wider <- data.table::data.table(id_run = 1:3, descr = c("a", "b", "c"), extra = 9)
+wider <- data.table::data.table(id_run = 2:3, descr = c("B", "c"), extra = 9)
 data.table::setattr(wider, "key_cols", "id_run")
-
-db$delete_from("schema_t")
-expect_equal(db$row_count("schema_t"), 0L)
-expect_error(
+expect_message(
   db$commit(wider, "schema_t", method = "upsert"),
-  "Cannot commit columns that `schema_t` does not have: extra"
+  "Added column\\(s\\) to `schema_t`: extra \\(DOUBLE\\)"
 )
-expect_error(
-  db$commit(wider, "schema_t", method = "append"),
-  'use method = "overwrite"'
+expect_equal(
+  db$fetch("schema_t")[order(id_run)],
+  data.table::data.table(id_run = 1:3, descr = c("a", "B", "c"), extra = c(NA, 9, 9)),
+  check.attributes = FALSE
 )
+
+# a write that fails leaves the schema as it was: the column comes with the data or not
+duplicated_keys <- data.table::data.table(id_run = c(5L, 5L), other = 1:2)
+data.table::setattr(duplicated_keys, "key_cols", "id_run")
+expect_error(db$commit(duplicated_keys, "schema_t", method = "upsert"), "Duplicate key")
+expect_false("other" %in% names(db$fetch("schema_t", limit = 0L)))
 
 # overwrite replaces the schema along with the data, in one step
-expect_equal(db$commit(wider, "schema_t", method = "overwrite"), 3L)
-expect_equal(sort(names(db$fetch("schema_t"))), c("descr", "extra", "id_run"))
+expect_equal(db$commit(narrow, "schema_t", method = "overwrite"), 2L)
+expect_equal(sort(names(db$fetch("schema_t"))), c("descr", "id_run"))
+suppressMessages(db$commit(wider, "schema_t", method = "upsert"))
 
 # a source missing one of the table's columns is still fine; it comes back NULL
 db$commit(

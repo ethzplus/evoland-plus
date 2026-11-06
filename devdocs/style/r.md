@@ -18,7 +18,7 @@ This file covers what those don't decide, and where this package deliberately di
 | Constructor from a specification | `create_<entity>_t(...)`                    | `create_periods_t(period_length_str =)`  |
 | View (computed, not stored)      | `<name>_v`                                  | `trans_v`, `adjusted_trans_pot_v`        |
 | Rcpp export                      | `<name>_cpp`                                | `distance_neighbors_cpp()`               |
-| Function bound as an R6 method   | takes `self` (and `private`, `super`) first | `set_full_trans_preds(self, overwrite)`  |
+| Function bound as an R6 method   | takes `self` (and `private`, `super`) first | `set_full_trans_preds(self, reset)`      |
 | Constant                         | `SCREAMING_SNAKE_CASE`                      | `TRANSIENT_CATALOG_ERRORS`               |
 
 Column names are part of the database schema and therefore of the API; see [Schema names](#schema-names).

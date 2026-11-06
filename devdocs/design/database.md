@@ -10,6 +10,8 @@ The catalog can also live in PostgreSQL and the data in object storage (S3 and s
 DuckLake was chosen over plain Parquet files because it gives atomic writes and snapshot isolation: several processes can write to one database concurrently, and a reader never sees a half-written table.
 It supports no constraints, keys, or indexes so `ducklake_db$commit()` enforces key uniqueness itself.
 The keys, partitioning and map columns of each table are declared by its `as_*_t()` constructor and stored as table comments.
+An append or upsert that brings columns a table does not have adds them (`alter table ... add column`, which only touches the catalog; existing rows read `NULL`).
+The validators of the large per-coordinate tables (`coords_t`, `lulc_data_t`, `pred_data_t`, `neighbors_t`, `trans_pot_t`) reject columns they do not declare, to keep those tables lean.
 DuckLake also does not support ENUMs, so R factors are stored as strings and cast back by the `as_*_t()` constructors.
 
 Because other tools may read and write the catalog, the schema should be considered to be part of the package's API; see [../style/r.md](../style/r.md#schema-names).
@@ -140,6 +142,7 @@ erDiagram
         int id_run PK, FK
         int id_pred PK, FK
         int id_trans PK, FK
+        bool is_selected
     }
     trans_rates_t {
         int id_run PK, FK
@@ -329,15 +332,22 @@ And a transition may be observed too rarely for statistical inference (`min_card
 ### `trans_preds_t`
 
 An m to n relation listing the predictors each transition's model may use.
-`$set_full_trans_preds()` initializes it with the cartesian product of predictors and viable transitions.
-Feature selection then prunes it: `$get_pred_filter_score()` scores every transition-predictor pair with an [mlr3filters](https://mlr3filters.mlr-org.com) filter, and the table is overwritten with the pairs that pass a threshold.
-Repeating this with different filters prunes the table step by step, e.g. a cheap correlation filter first and an importance-based one on what remains.
+`$set_full_trans_preds()` initializes it with the cartesian product of predictors and viable transitions, all selected.
+Feature selection then prunes it: `$get_pred_filter_score()` scores the selected transition-predictor pairs with an [mlr3filters](https://mlr3filters.mlr-org.com) filter, the caller sets `is_selected` from the score, and the scored table is upserted.
+Repeating this with different filters prunes the selection step by step, e.g. a cheap correlation filter first and an importance-based one on what remains.
 
-| uniqueness | colname  | type | description            |
-| ---------- | -------- | ---- | ---------------------- |
-| \*         | id_run   | int  | FK from `runs_t`       |
-| \*         | id_pred  | int  | FK from `pred_meta_t`  |
-| \*         | id_trans | int  | FK from `trans_meta_t` |
+Pruning flips `is_selected` rather than deleting rows, for two reasons.
+A run inherits each pair from its closest ancestor that holds it, so a child run can only drop an inherited predictor by holding the pair with `is_selected = FALSE`; a missing row would let the ancestor's show through.
+And the scores each filter writes, in a column named after the filter, stay next to the decision they informed.
+These score columns are added to the table as they are first written and are not part of the schema readers rely on; readers use only the selected pairs.
+
+| uniqueness | colname     | type | description                                 |
+| ---------- | ----------- | ---- | ------------------------------------------- |
+| \*         | id_run      | int  | FK from `runs_t`                            |
+| \*         | id_pred     | int  | FK from `pred_meta_t`                       |
+| \*         | id_trans    | int  | FK from `trans_meta_t`                      |
+|            | is_selected | bool | whether the transition's model uses it      |
+|            | _filter id_ | num  | score of that filter, for interpretation    |
 
 ### `trans_rates_t`
 

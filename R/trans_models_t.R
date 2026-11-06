@@ -295,10 +295,8 @@ fit_full_model_worker <- function(item, db, learner = NULL, id_period_anterior =
 #' @param seed Optional integer seed for reproducible subsampling.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
-#' @param trans_preds Optional [trans_preds_t] object. When supplied, it is used
-#'   directly instead of reading `trans_preds_t` from the database.
-#' @param trans_meta Optional [trans_meta_t] object. When supplied, it is used
-#'   directly instead of reading `trans_meta_t` from the database.
+#' @param id_trans Optional integer vector of transition IDs; only these transitions are
+#'   fitted. `NULL` (default) fits every viable transition.
 #' @param id_period_anterior Optional integer vector of anterior period IDs; only the
 #'   transitions observed from these periods are used for training and scoring, e.g. to
 #'   hold out the last observed transition for a backcast. `NULL` (default) uses every
@@ -310,8 +308,7 @@ fit_partial_models <- function(
   sample_frac = 0.7,
   seed = NULL,
   cluster = NULL,
-  trans_preds = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 ) {
   # Accept either a character vector of measure IDs or a list of Measure objects
@@ -319,32 +316,16 @@ fit_partial_models <- function(
     measures <- mlr3::msrs(measures)
   }
 
-  preds_source <- if (!is.null(trans_preds)) {
-    stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
-    data.table::as.data.table(trans_preds)
-  } else {
-    data.table::as.data.table(self$trans_preds_t)
-  }
-
   # the run fitted for is the active one; the predictor sets may be inherited from an
   # ancestor, whose id_run they carry
-  trans_preds_nested <- preds_source[,
+  trans_preds_nested <- data.table::as.data.table(self$trans_preds_t)[
+    is_selected == TRUE,
     .(id_run = self$id_run, id_pred = list(sort(unique(id_pred)))),
     by = id_trans
   ]
 
-  meta <- if (!is.null(trans_meta)) {
-    stopifnot("trans_meta must be a trans_meta_t" = inherits(trans_meta, "trans_meta_t"))
-    trans_meta
-  } else {
-    self$trans_meta_t
-  }
-
   viable_trans <-
-    meta[
-      is_viable == TRUE,
-      .(id_trans, id_lulc_anterior, id_lulc_posterior)
-    ][
+    viable_trans_meta(self, id_trans)[, .(id_trans)][
       trans_preds_nested,
       on = "id_trans",
       nomatch = NULL
@@ -405,12 +386,8 @@ fit_partial_models <- function(
 #'   `select_score` is selected; if `FALSE`, the lowest. Only used in score-select mode.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
-#' @param trans_preds Optional [trans_preds_t] object. When supplied in direct-learner
-#'   mode, it is used directly instead of reading `trans_preds_t` from the database.
-#'   Ignored in score-select mode.
-#' @param trans_meta Optional [trans_meta_t] object. When supplied in direct-learner
-#'   mode, it is used directly instead of reading `trans_meta_t` from the database.
-#'   Ignored in score-select mode.
+#' @param id_trans Optional integer vector of transition IDs; only these transitions are
+#'   fitted. `NULL` (default) fits every viable transition.
 #' @param id_period_anterior Optional integer vector of anterior period IDs; only the
 #'   transitions observed from these periods are used for training. In score-select mode
 #'   this should match what was passed to [fit_partial_models()]. `NULL` (default) uses
@@ -421,8 +398,7 @@ fit_full_models <- function(
   select_score = NULL,
   select_maximize = TRUE,
   cluster = NULL,
-  trans_preds = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 ) {
   has_learner <- !is.null(learner)
@@ -436,29 +412,15 @@ fit_full_models <- function(
     coerce_learner_for_classif(learner)
 
     # Direct mode: get viable transitions with their predictor lists
-    preds_source <- if (!is.null(trans_preds)) {
-      stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
-      data.table::as.data.table(trans_preds)
-    } else {
-      data.table::as.data.table(self$trans_preds_t)
-    }
-
     # the run fitted for is the active one, see fit_partial_models()
-    trans_preds_nested <- preds_source[,
+    trans_preds_nested <- data.table::as.data.table(self$trans_preds_t)[
+      is_selected == TRUE,
       .(id_run = self$id_run, id_pred = list(sort(unique(id_pred)))),
       by = id_trans
     ]
 
-    meta <- if (!is.null(trans_meta)) {
-      stopifnot("trans_meta must be a trans_meta_t" = inherits(trans_meta, "trans_meta_t"))
-      trans_meta
-    } else {
-      self$trans_meta_t
-    }
-
     viable_trans <-
-      meta[
-        is_viable == TRUE,
+      viable_trans_meta(self, id_trans)[,
         .(id_trans)
       ][
         trans_preds_nested,
@@ -503,6 +465,8 @@ fit_full_models <- function(
           list(distinct id_pred order by id_pred) as id_pred
         from
           {self$get_read_expr("trans_preds_t")}
+        where
+          is_selected
         group by
           id_trans
       )
@@ -535,6 +499,10 @@ fit_full_models <- function(
         c("learner_params", "crossval_score"),
         kv_df_to_list
       )
+    if (!is.null(id_trans)) {
+      keep <- best_models[["id_trans"]] %in% id_trans
+      best_models <- best_models[keep]
+    }
 
     message(glue::glue(
       "Fitting full models for {nrow(best_models)} transitions..."

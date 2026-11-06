@@ -12,19 +12,19 @@ as_trans_preds_t(x)
 
 \method{print}{trans_preds_t}(x, nrow = 10, ...)
 
-set_full_trans_preds(self, overwrite = FALSE)
+set_full_trans_preds(self, reset = FALSE)
 
 get_pred_filter_score(
   self,
   filter = "correlation",
-  trans_preds = NULL,
+  id_trans = NULL,
   cluster = NULL,
   ...
 )
 }
 \arguments{
 \item{x}{A list or data.frame coercible to a trans_preds_t object. If missing, an
-empty table will be created.}
+empty table will be created. If it has no \code{is_selected} column, every pair is selected.}
 
 \item{nrow}{see \link[data.table:print.data.table]{data.table::print.data.table}}
 
@@ -32,16 +32,16 @@ empty table will be created.}
 
 \item{self}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
 
-\item{overwrite}{Bool, should a potentially existing table be overwritten?}
+\item{reset}{Bool, start the active run's selection over? This removes the active run's
+rows, including their score columns' values, before writing the full set.}
 
 \item{filter}{An \link[mlr3filters:Filter]{mlr3filters::Filter} object or a character string
 specifying the filter method, retrieved via \link[mlr3filters:flt]{mlr3filters::flt}. Note that your
 filter must be compatible with the feature data types; compare your
 \code{pred_meta_t} table to \url{https://mlr3filters.mlr-org.com} for filter compatibility.}
 
-\item{trans_preds}{Optional \link{trans_preds_t} object. When supplied, it is used
-directly instead of reading from the database, which is useful for targeted
-exploratory work on a subset of transitions or predictors.}
+\item{id_trans}{Optional integer vector of transition IDs; only these transitions are
+scored. \code{NULL} (default) scores every transition with selected predictors.}
 
 \item{cluster}{An optional cluster object, see \link{run_parallel_evoland}}
 }
@@ -51,12 +51,17 @@ A data.table of class "trans_preds_t" with columns:
 \item \code{id_run}: Foreign key to runs_t
 \item \code{id_pred}: Foreign key to pred_meta_t
 \item \code{id_trans}: Foreign key to trans_meta_t
+\item \code{is_selected}: Logical, whether the models of the transition use the predictor
+\item any further columns, e.g. filter scores
 }
 }
 \description{
-Creates a trans_preds_t table based on the relationships between transitions
-and predictors. This function establishes which predictors are useful for
-modelling each transition type.
+Creates a trans_preds_t table, which lists the transition / predictor pairs a run
+considers. \code{is_selected} says which of them the transition models use: feature
+selection sets it to \code{FALSE} for the predictors it prunes. Further columns, such as the
+scores of \code{\link[=get_pred_filter_score]{get_pred_filter_score()}}, are added to the table as they are written; they
+are for reporting only. When writing a selection back, assign the scored table with its
+flags rather than a subset of it: rows left out of the assignment keep the flags they had.
 }
 \section{Methods (by generic)}{
 \itemize{
@@ -65,13 +70,23 @@ modelling each transition type.
 }}
 \section{Functions}{
 \itemize{
-\item \code{set_full_trans_preds()}: Set an initial full set of transition / predictor relations
+\item \code{set_full_trans_preds()}: Set an initial full set of transition / predictor relations for
+the active run: every predictor for every viable transition, all selected
 
-\item \code{get_pred_filter_score()}: Get a filter score for all transition-predictor
+\item \code{get_pred_filter_score()}: Get a filter score for the selected transition-predictor
 relationships based on mlr3filters. Returns trans_preds_t with an additional
 column named after the filter$id. The filter score can be used for feature
-selection: simply subset according to the score and overwrite trans_preds_t
-in the database using \code{db$trans_preds_t <- trans_preds_t[score > threshold]}
-or similar.
+selection: set \code{is_selected} according to the score and write the table back, e.g.
+\verb{scores[, is_selected := importance > 100]; db$trans_preds_t <- scores}. Writing it
+back also stores the scores. Only the selected pairs are scored, so a second filter
+refines the selection of the first.
 
 }}
+\examples{
+\dontrun{
+# a typical selection step
+scores <- db$get_pred_filter_score("importance")
+scores[, is_selected := importance > 100]
+db$trans_preds_t <- scores
+}
+}

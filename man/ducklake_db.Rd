@@ -189,13 +189,14 @@ as a plain vector rather than a one-column data.table.}
   Get row count for a table; returns 0 if table does not exist
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$row_count(table_name)}
+    \preformatted{ducklake_db$row_count(table_name, where = NULL)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{table_name}}{Character string. Name of the table to query.}
+      \item{\code{where}}{Character string. Optional WHERE clause, e.g. \code{"id_run = 2"}.}
     }
     \if{html}{\out{</div>}}
   }
@@ -320,9 +321,10 @@ and a table first created from one has none.
 constraints. If character, treated as an in-DuckDB-memory table or view name.}
       \item{\code{table_name}}{Target table name to commit to.}
       \item{\code{method}}{Character, one of "overwrite", "append", "upsert" (upsert being an
-update for existing rows, and insert for new rows). Only "overwrite" can change a
-table's schema; even if a table is empty, the others reject columns the table
-does not have.}
+update for existing rows, and insert for new rows). "overwrite" replaces the table's
+schema along with its data. "append" and "upsert" add the columns of \code{x} that the
+table does not have yet, as an \verb{alter table ... add column}, which leaves the data
+files alone, so existing rows read \code{NULL} in them.}
     }
     \if{html}{\out{</div>}}
   }

@@ -50,6 +50,7 @@ validate.lulc_data_t <- function(x, ...) {
       "id_period"
     )
   )
+  stop_on_extra_cols(x, c("id_run", "id_coord", "id_lulc", "id_period"))
 
   stopifnot(
     is.integer(x[["id_run"]]),

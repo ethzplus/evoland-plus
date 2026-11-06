@@ -55,6 +55,7 @@ validate.pred_data_t <- function(x, ...) {
       "value"
     )
   )
+  stop_on_extra_cols(x, c("id_run", "id_period", "id_pred", "id_coord", "value"))
 
   stopifnot(
     is.integer(x[["id_run"]]),
@@ -190,13 +191,16 @@ pred_wide_predict_v <- function(
   } else {
     # only fetch data for single transition
     trans_condition <- private$sql("id_trans = {id_trans}")
-    trans_filter <- private$sql("where {trans_condition}")
+    trans_filter <- private$sql("and {trans_condition}")
   }
 
-  trans_preds_read_expr <- self$get_read_expr("trans_preds_t", id_run = id_run)
-  # the pivot needs its columns spelled out, see inst/pred_wide_predict.sql
+  # the read expression resolves the lineage before the filter, so a run's deselection wins
+  # over an inherited selection. The pivot needs its columns spelled out, so the selected
+  # predictors are passed to inst/pred_wide_predict.sql as a list
   id_pred <- self$get_query(
-    "select distinct id_pred from {trans_preds_read_expr} {trans_filter} order by id_pred",
+    "select distinct id_pred from {self$get_read_expr('trans_preds_t', id_run = id_run)}
+     where is_selected {trans_filter}
+     order by id_pred",
     as_atomic = TRUE
   )
   stopifnot("no predictors in trans_preds_t for the transition(s)" = length(id_pred) > 0L)
@@ -205,12 +209,11 @@ pred_wide_predict_v <- function(
     self$get_query(
       read_sql("pred_wide_predict.sql"),
       trans_meta_read_expr = self$get_read_expr("trans_meta_t"),
-      trans_preds_read_expr = trans_preds_read_expr,
       lulc_data_read_expr = self$get_read_expr("lulc_data_t", id_run = id_run),
       pred_data_read_expr = self$get_read_expr("pred_data_t", id_run = id_run),
       trans_condition = trans_condition,
-      trans_filter = trans_filter,
       id_period_anterior = id_period_anterior,
+      id_pred = id_pred,
       pred_cols = paste0("id_pred_", id_pred)
     )
 

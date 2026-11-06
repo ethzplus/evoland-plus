@@ -73,6 +73,8 @@ utils::globalVariables(c(
   "id_trans",
   "is_extrapolated",
   "is_persistence",
+  "ids",
+  "is_selected",
   "is_viable",
   "lat",
   "local_filename",

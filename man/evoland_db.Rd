@@ -36,7 +36,8 @@ Additional methods and active bindings are added to this class in separate files
 
     \item{\code{trans_meta_t}}{Get or upsert \link{trans_meta_t}}
 
-    \item{\code{trans_preds_t}}{Get or upsert \link{trans_preds_t}}
+    \item{\code{trans_preds_t}}{Get or upsert \link{trans_preds_t}; deselect a predictor by setting
+its \code{is_selected} to \code{FALSE}}
 
     \item{\code{trans_rates_t}}{Get or upsert \link{trans_rates_t}}
 
@@ -491,8 +492,7 @@ directly, or pass \code{select_score} to pick the best partial model by score.
   select_score = NULL,
   select_maximize = TRUE,
   cluster = NULL,
-  trans_preds = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 )}
     \if{html}{\out{</div>}}
@@ -506,10 +506,7 @@ when \code{select_score} is used).}
 (\code{NULL} when \code{learner} is used).}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
       \item{\code{cluster}}{Optional cluster object for parallel processing}
-      \item{\code{trans_preds}}{Optional \link{trans_preds_t}; bypasses the database read in
-direct-learner mode. Ignored in score-select mode.}
-      \item{\code{trans_meta}}{Optional \link{trans_meta_t}; bypasses the database read in
-direct-learner mode. Ignored in score-select mode.}
+      \item{\code{id_trans}}{Optional integer vector; fit only these transitions.}
       \item{\code{id_period_anterior}}{Optional integer vector; train only on transitions
 observed from these anterior periods. \code{NULL} (default) uses all observed periods.}
     }
@@ -532,8 +529,7 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
   sample_frac = 0.7,
   seed = NULL,
   cluster = NULL,
-  trans_preds = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 )}
     \if{html}{\out{</div>}}
@@ -547,10 +543,7 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
       \item{\code{sample_frac}}{Fraction in \(0, 1\) for stratified sampling.}
       \item{\code{seed}}{Random seed for reproducible sampling}
       \item{\code{cluster}}{Optional cluster object for parallel processing}
-      \item{\code{trans_preds}}{Optional \link{trans_preds_t}; bypasses the \code{trans_preds_t}
-database read.}
-      \item{\code{trans_meta}}{Optional \link{trans_meta_t}; bypasses the \code{trans_meta_t}
-database read.}
+      \item{\code{id_trans}}{Optional integer vector; fit only these transitions.}
       \item{\code{id_period_anterior}}{Optional integer vector; train and score only on
 transitions observed from these anterior periods. \code{NULL} (default) uses all
 observed periods.}
@@ -584,16 +577,18 @@ observed periods.}
 \if{html}{\out{<a id="method-evoland_db-set_full_trans_preds"></a>}}
 \if{latex}{\out{\hypertarget{method-evoland_db-set_full_trans_preds}{}}}
 \subsection{\code{evoland_db$set_full_trans_preds()}}{
-  Set an initial full set of transition / predictor relations, see \code{\link[=set_full_trans_preds]{set_full_trans_preds()}}
+  Set an initial full set of transition / predictor relations for the active run, see
+\code{\link[=set_full_trans_preds]{set_full_trans_preds()}}
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{evoland_db$set_full_trans_preds(overwrite = FALSE)}
+    \preformatted{evoland_db$set_full_trans_preds(reset = FALSE)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{overwrite}}{Logical, whether to overwrite existing \code{trans_preds_t} table. Default FALSE.}
+      \item{\code{reset}}{Logical, start the active run's selection over, removing its rows and
+their scores? Default FALSE.}
     }
     \if{html}{\out{</div>}}
   }
@@ -609,7 +604,7 @@ See \code{\link[=get_pred_filter_score]{get_pred_filter_score()}}.
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$get_pred_filter_score(
   filter = "correlation",
-  trans_preds = NULL,
+  id_trans = NULL,
   cluster = NULL,
   ...
 )}
@@ -621,8 +616,7 @@ See \code{\link[=get_pred_filter_score]{get_pred_filter_score()}}.
       \item{\code{filter}}{Character passed to \link[mlr3filters:flt]{mlr3filters::flt} or
 \link[mlr3filters:Filter]{mlr3filters::Filter} object specifying the filter method to use for
 feature selection.}
-      \item{\code{trans_preds}}{Optional \link{trans_preds_t}; when supplied, it is used
-directly instead of reading from the database.}
+      \item{\code{id_trans}}{Optional integer vector; score only these transitions.}
       \item{\code{cluster}}{Optional cluster object for parallel processing}
       \item{\code{...}}{Additional arguments passed to \code{flt}.}
     }

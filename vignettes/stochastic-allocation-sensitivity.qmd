@@ -191,11 +191,12 @@ trans_pred_scored <- db$get_pred_filter_score(
   )
 )
 
-db$commit(
-  trans_pred_scored[order(-importance)][, head(.SD, 3), by = id_trans], # top three per id_trans
-  "trans_preds_t",
-  method = "overwrite"
-)
+# keep the top three per id_trans
+trans_pred_scored[,
+  is_selected := frank(-importance, ties.method = "first", na.last = TRUE) <= 3,
+  by = id_trans
+]
+db$trans_preds_t <- trans_pred_scored
 ```
 
 ### Transition models
