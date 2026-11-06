@@ -379,8 +379,7 @@ ducklake_db <- R6::R6Class(
     #' update for existing rows, and insert for new rows). "overwrite" replaces the table's
     #' schema along with its data. "append" and "upsert" add the columns of `x` that the
     #' table does not have yet, as an `alter table ... add column`, which leaves the data
-    #' files alone, so existing rows read `NULL` in them. A table whose readers rely on its
-    #' exact columns should reject others in its `as_*_t()` validator.
+    #' files alone, so existing rows read `NULL` in them.
     #' @return Number of rows written
     commit = function(
       x,

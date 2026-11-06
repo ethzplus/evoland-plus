@@ -324,8 +324,7 @@ constraints. If character, treated as an in-DuckDB-memory table or view name.}
 update for existing rows, and insert for new rows). "overwrite" replaces the table's
 schema along with its data. "append" and "upsert" add the columns of \code{x} that the
 table does not have yet, as an \verb{alter table ... add column}, which leaves the data
-files alone, so existing rows read \code{NULL} in them. A table whose readers rely on its
-exact columns should reject others in its \verb{as_*_t()} validator.}
+files alone, so existing rows read \code{NULL} in them.}
     }
     \if{html}{\out{</div>}}
   }

@@ -279,18 +279,6 @@ fit_full_model_worker <- function(item, db, learner = NULL, id_period_anterior =
 }
 
 
-# The transitions to fit: the viable ones, optionally narrowed to `id_trans`
-viable_trans_meta <- function(self, id_trans = NULL) {
-  stopifnot("id_trans must be NULL or integers" = is.null(id_trans) || is_integerish(id_trans))
-  meta <- self$trans_meta_t
-  if (!is.null(id_trans)) {
-    # computed outside `[`, where `id_trans` would be the column
-    keep <- meta[["id_trans"]] %in% id_trans
-    meta <- meta[keep]
-  }
-  meta
-}
-
 #' @describeIn trans_models_t Fit partial (cross-validation) models for each viable
 #' transition; returns a [trans_models_t] object with one row per viable transition,
 #' containing the learner identity, serialized spec, cross-validation scores
@@ -339,8 +327,7 @@ fit_partial_models <- function(
   ]
 
   viable_trans <-
-    viable_trans_meta(self, id_trans)[
-      is_viable == TRUE,
+    viable_trans_meta(self, id_trans)[,
       .(id_trans, id_lulc_anterior, id_lulc_posterior)
     ][
       trans_preds_nested,
@@ -436,8 +423,7 @@ fit_full_models <- function(
     ]
 
     viable_trans <-
-      viable_trans_meta(self, id_trans)[
-        is_viable == TRUE,
+      viable_trans_meta(self, id_trans)[,
         .(id_trans)
       ][
         trans_preds_nested,

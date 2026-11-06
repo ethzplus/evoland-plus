@@ -93,8 +93,7 @@ validate.trans_preds_t <- function(x, ...) {
 #' @param ... passed to [data.table::print.data.table]
 print.trans_preds_t <- function(x, nrow = 10, ...) {
   if (nrow(x) > 0) {
-    # a table derived from a trans_preds_t may have lost the flag
-    selected <- if ("is_selected" %in% names(x)) x[x[["is_selected"]]] else x
+    selected <- x[x[["is_selected"]]]
     n_preds <- data.table::uniqueN(selected[["id_pred"]])
     n_trans <- data.table::uniqueN(selected[["id_trans"]])
     avg_preds_per_trans <- nrow(selected) / n_trans
@@ -124,7 +123,7 @@ set_full_trans_preds <- function(self, reset = FALSE) {
     stop("`trans_preds_t` already holds predictor sets for this run; use reset = TRUE")
   }
   p <- self$pred_meta_t
-  t <- self$trans_meta_t[is_viable == TRUE]
+  t <- viable_trans_meta(self)
 
   full <- expand.grid(
     id_run = self$id_run,
@@ -228,11 +227,19 @@ get_pred_filter_score <- function(
   if (self$row_count("trans_preds_t") == 0) {
     self$set_full_trans_preds()
   }
-  # computed outside `[`, where `id_trans` would be the column
-  trans_preds <- self$trans_preds_t
-  keep <- trans_preds[["is_selected"]] &
-    (is.null(id_trans) | trans_preds[["id_trans"]] %in% id_trans)
-  items <- split(trans_preds[keep], by = c("id_run", "id_trans"))
+  # only the key columns: scores of earlier filters are not passed on to the workers
+  items <-
+    self$get_query(
+      "select id_run, id_pred, id_trans, is_selected
+       from {self$get_read_expr('trans_preds_t')}
+       where is_selected {id_trans_filter}",
+      id_trans_filter = if (is.null(id_trans)) {
+        DBI::SQL("")
+      } else {
+        glue::glue_sql("and id_trans in ({id_trans*})", .con = self$connection)
+      }
+    ) |>
+    split(by = c("id_run", "id_trans"))
 
   message(glue::glue("Processing {length(items)} transitions..."))
 
