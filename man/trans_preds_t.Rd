@@ -12,7 +12,7 @@ as_trans_preds_t(x)
 
 \method{print}{trans_preds_t}(x, nrow = 10, ...)
 
-set_full_trans_preds(self, overwrite = FALSE)
+set_full_trans_preds(self, reset = FALSE)
 
 get_pred_filter_score(
   self,
@@ -32,8 +32,8 @@ empty table will be created. If it has no \code{is_selected} column, every pair 
 
 \item{self}{An \link{evoland_db} instance with populated trans_meta_t and pred_meta_t tables}
 
-\item{overwrite}{Bool, start the active run's selection over? This removes the
-active run's rows, including their scores, before writing the full set.}
+\item{reset}{Bool, start the active run's selection over? This removes the active run's
+rows, including their score columns' values, before writing the full set.}
 
 \item{filter}{An \link[mlr3filters:Filter]{mlr3filters::Filter} object or a character string
 specifying the filter method, retrieved via \link[mlr3filters:flt]{mlr3filters::flt}. Note that your
@@ -57,27 +57,12 @@ A data.table of class "trans_preds_t" with columns:
 }
 }
 \description{
-Creates a trans_preds_t table based on the relationships between transitions
-and predictors. This function establishes which predictors are useful for
-modelling each transition type.
-}
-\details{
-The table holds every transition / predictor pair a run considers, and
-\code{is_selected} says which of them the models use. Pruning a predictor sets its
-\code{is_selected} to \code{FALSE} rather than removing the row, so that a child run can
-deselect a predictor it inherits, and so that the scores the selection was based on
-stay next to it. Further columns, such as the scores of \code{\link[=get_pred_filter_score]{get_pred_filter_score()}},
-are added to the table as they are written; they are for interpretation only.
-
-A typical selection step:
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{scores <- db$get_pred_filter_score("importance")
-scores[, is_selected := importance > 100]
-db$trans_preds_t <- scores
-}\if{html}{\out{</div>}}
-
-Assign the scored table with its flags rather than a subset of it: rows left out of
-the assignment keep the flags they had.
+Creates a trans_preds_t table, which lists the transition / predictor pairs a run
+considers. \code{is_selected} says which of them the transition models use: feature
+selection sets it to \code{FALSE} for the predictors it prunes. Further columns, such as the
+scores of \code{\link[=get_pred_filter_score]{get_pred_filter_score()}}, are added to the table as they are written; they
+are for reporting only. When writing a selection back, assign the scored table with its
+flags rather than a subset of it: rows left out of the assignment keep the flags they had.
 }
 \section{Methods (by generic)}{
 \itemize{
@@ -98,3 +83,11 @@ back also stores the scores. Only the selected pairs are scored, so a second fil
 refines the selection of the first.
 
 }}
+\examples{
+\dontrun{
+# a typical selection step
+scores <- db$get_pred_filter_score("importance")
+scores[, is_selected := importance > 100]
+db$trans_preds_t <- scores
+}
+}

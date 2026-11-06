@@ -159,9 +159,8 @@ is_scalar_logical <- function(x) {
   is.logical(x) && length(x) == 1L && !is.na(x)
 }
 
-# Large per-coordinate tables are read by queries that assume their exact columns, and an
-# extra column would be added to the stored table by ducklake_db$commit(); so their
-# validators reject any column they do not declare.
+# ducklake_db$commit() adds the columns a table does not have yet; the validators of the
+# large per-coordinate tables reject undeclared columns instead, to keep those tables lean
 stop_on_extra_cols <- function(x, cols) {
   extra_cols <- setdiff(names(x), cols)
   if (length(extra_cols) > 0L) {

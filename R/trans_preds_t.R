@@ -1,24 +1,11 @@
 #' Create Transition-Predictor Relationship Table
 #'
-#' Creates a trans_preds_t table based on the relationships between transitions
-#' and predictors. This function establishes which predictors are useful for
-#' modelling each transition type.
-#'
-#' The table holds every transition / predictor pair a run considers, and
-#' `is_selected` says which of them the models use. Pruning a predictor sets its
-#' `is_selected` to `FALSE` rather than removing the row, so that a child run can
-#' deselect a predictor it inherits, and so that the scores the selection was based on
-#' stay next to it. Further columns, such as the scores of [get_pred_filter_score()],
-#' are added to the table as they are written; they are for interpretation only.
-#'
-#' A typical selection step:
-#' ```r
-#' scores <- db$get_pred_filter_score("importance")
-#' scores[, is_selected := importance > 100]
-#' db$trans_preds_t <- scores
-#' ```
-#' Assign the scored table with its flags rather than a subset of it: rows left out of
-#' the assignment keep the flags they had.
+#' Creates a trans_preds_t table, which lists the transition / predictor pairs a run
+#' considers. `is_selected` says which of them the transition models use: feature
+#' selection sets it to `FALSE` for the predictors it prunes. Further columns, such as the
+#' scores of [get_pred_filter_score()], are added to the table as they are written; they
+#' are for reporting only. When writing a selection back, assign the scored table with its
+#' flags rather than a subset of it: rows left out of the assignment keep the flags they had.
 #'
 #' @name trans_preds_t
 #'
@@ -32,6 +19,13 @@
 #'   - `id_trans`: Foreign key to trans_meta_t
 #'   - `is_selected`: Logical, whether the models of the transition use the predictor
 #'   - any further columns, e.g. filter scores
+#' @examples
+#' \dontrun{
+#' # a typical selection step
+#' scores <- db$get_pred_filter_score("importance")
+#' scores[, is_selected := importance > 100]
+#' db$trans_preds_t <- scores
+#' }
 #' @export
 as_trans_preds_t <- function(x) {
   if (missing(x)) {
@@ -99,7 +93,8 @@ validate.trans_preds_t <- function(x, ...) {
 #' @param ... passed to [data.table::print.data.table]
 print.trans_preds_t <- function(x, nrow = 10, ...) {
   if (nrow(x) > 0) {
-    selected <- x[x[["is_selected"]]]
+    # a table derived from a trans_preds_t may have lost the flag
+    selected <- if ("is_selected" %in% names(x)) x[x[["is_selected"]]] else x
     n_preds <- data.table::uniqueN(selected[["id_pred"]])
     n_trans <- data.table::uniqueN(selected[["id_trans"]])
     avg_preds_per_trans <- nrow(selected) / n_trans
@@ -108,7 +103,7 @@ print.trans_preds_t <- function(x, nrow = 10, ...) {
     cat(glue::glue(
       "Transition-Predictor Relationships Table\n",
       "Total relationships: {nrow(x)}, selected: {nrow(selected)}\n",
-      "Selected predictors: {n_preds}, transitions: {n_trans}\n",
+      "Distinct selected predictors: {n_preds}, distinct transitions: {n_trans}\n",
       "Avg predictors per transition: {round(avg_preds_per_trans, 1)}\n",
       "Avg transitions per predictor: {round(avg_trans_per_pred, 1)}\n\n"
     ))
@@ -121,17 +116,12 @@ print.trans_preds_t <- function(x, nrow = 10, ...) {
 
 #' @describeIn trans_preds_t Set an initial full set of transition / predictor relations for
 #' the active run: every predictor for every viable transition, all selected
-#' @param overwrite Bool, start the active run's selection over? This removes the
-#' active run's rows, including their scores, before writing the full set.
-set_full_trans_preds <- function(self, overwrite = FALSE) {
-  has_table <- "trans_preds_t" %in% self$list_tables()
-  exists <- has_table &&
-    self$get_query(
-      "select exists (from dl_db.trans_preds_t where id_run = {self$id_run})",
-      as_atomic = TRUE
-    )
-  if (exists && !overwrite) {
-    stop("`trans_preds_t` already holds predictor sets for this run; use overwrite = TRUE")
+#' @param reset Bool, start the active run's selection over? This removes the active run's
+#' rows, including their score columns' values, before writing the full set.
+set_full_trans_preds <- function(self, reset = FALSE) {
+  exists <- self$row_count("trans_preds_t", where = glue::glue("id_run = {self$id_run}")) > 0L
+  if (exists && !reset) {
+    stop("`trans_preds_t` already holds predictor sets for this run; use reset = TRUE")
   }
   p <- self$pred_meta_t
   t <- self$trans_meta_t[is_viable == TRUE]

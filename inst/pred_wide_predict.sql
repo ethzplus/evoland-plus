@@ -7,6 +7,7 @@ Assumes that the read expressions return a single run.
 Interpolated by `ducklake_db$get_query()`, requiring
 Filters:
 - {trans_condition}
+- {trans_filter}: empty, or `and <condition>` narrowing the selected predictors
 - {id_period_anterior}
 Columns:
 - {pred_cols*}: the pivoted column names, `id_pred_<n>` for every predictor of the
@@ -41,11 +42,14 @@ with
       and d.id_lulc = s.id_lulc_anterior
   ),
   preds_select as (
-    -- we only fetch the predictors that are of relevance to the transition
+    -- we only fetch the predictors selected for the transition; the read expression
+    -- resolves the lineage first, so a run's deselection wins over an inherited selection
     select distinct
       id_pred
     from
-      {trans_preds_read_expr} {trans_filter}
+      {trans_preds_read_expr}
+    where
+      is_selected {trans_filter}
   ),
   -- a predictor may carry both a period-specific value and an id_period = 0
   -- fallback (e.g. a climate baseline overridden by a scenario projection).

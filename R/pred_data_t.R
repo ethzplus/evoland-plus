@@ -191,17 +191,15 @@ pred_wide_predict_v <- function(
   } else {
     # only fetch data for single transition
     trans_condition <- private$sql("id_trans = {id_trans}")
-    trans_filter <- private$sql("where {trans_condition}")
+    trans_filter <- private$sql("and {trans_condition}")
   }
 
-  # filtered after the lineage is resolved, so that a run's deselection wins over the
-  # selection it inherits
-  trans_preds_read_expr <- private$sql(
-    "(select * from {self$get_read_expr('trans_preds_t', id_run = id_run)} where is_selected)"
-  )
+  trans_preds_read_expr <- self$get_read_expr("trans_preds_t", id_run = id_run)
   # the pivot needs its columns spelled out, see inst/pred_wide_predict.sql
   id_pred <- self$get_query(
-    "select distinct id_pred from {trans_preds_read_expr} {trans_filter} order by id_pred",
+    "select distinct id_pred from {trans_preds_read_expr}
+     where is_selected {trans_filter}
+     order by id_pred",
     as_atomic = TRUE
   )
   stopifnot("no predictors in trans_preds_t for the transition(s)" = length(id_pred) > 0L)

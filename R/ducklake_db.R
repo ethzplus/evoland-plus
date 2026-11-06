@@ -256,13 +256,18 @@ ducklake_db <- R6::R6Class(
     #' @description
     #' Get row count for a table; returns 0 if table does not exist
     #' @param table_name Character string. Name of the table to query.
+    #' @param where Character string. Optional WHERE clause, e.g. `"id_run = 2"`.
     #' @return Integer number of rows
-    row_count = function(table_name) {
+    row_count = function(table_name, where = NULL) {
       if (!table_name %in% self$list_tables()) {
         return(0L)
       }
 
-      self$get_query("select count(*) from dl_db.{`table_name`}", as_atomic = TRUE)
+      where_clause <- if (is.null(where)) DBI::SQL("") else private$sql("where {DBI::SQL(where)}")
+      self$get_query(
+        "select count(*) from dl_db.{`table_name`} {where_clause}",
+        as_atomic = TRUE
+      )
     },
 
     #' @description

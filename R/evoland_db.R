@@ -237,8 +237,6 @@ evoland_db <- R6::R6Class(
     #'   (`NULL` when `learner` is used).
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
     #' @param cluster Optional cluster object for parallel processing
-    #' @param trans_preds Optional [trans_preds_t]; bypasses the database read in
-    #'   direct-learner mode. Ignored in score-select mode.
     #' @param trans_meta Optional [trans_meta_t]; bypasses the database read in
     #'   direct-learner mode. Ignored in score-select mode.
     #' @param id_period_anterior Optional integer vector; train only on transitions
@@ -248,7 +246,6 @@ evoland_db <- R6::R6Class(
       select_score = NULL,
       select_maximize = TRUE,
       cluster = NULL,
-      trans_preds = NULL,
       trans_meta = NULL,
       id_period_anterior = NULL
     ) {
@@ -264,8 +261,6 @@ evoland_db <- R6::R6Class(
     #' @param sample_frac Fraction in \(0, 1\) for stratified sampling.
     #' @param seed Random seed for reproducible sampling
     #' @param cluster Optional cluster object for parallel processing
-    #' @param trans_preds Optional [trans_preds_t]; bypasses the `trans_preds_t`
-    #'   database read.
     #' @param trans_meta Optional [trans_meta_t]; bypasses the `trans_meta_t`
     #'   database read.
     #' @param id_period_anterior Optional integer vector; train and score only on
@@ -277,7 +272,6 @@ evoland_db <- R6::R6Class(
       sample_frac = 0.7,
       seed = NULL,
       cluster = NULL,
-      trans_preds = NULL,
       trans_meta = NULL,
       id_period_anterior = NULL
     ) {
@@ -296,9 +290,9 @@ evoland_db <- R6::R6Class(
     #' @description
     #' Set an initial full set of transition / predictor relations for the active run, see
     #' [set_full_trans_preds()]
-    #' @param overwrite Logical, start the active run's selection over, removing its rows and
+    #' @param reset Logical, start the active run's selection over, removing its rows and
     #' their scores? Default FALSE.
-    set_full_trans_preds = function(overwrite = FALSE) {
+    set_full_trans_preds = function(reset = FALSE) {
       create_method_binding(set_full_trans_preds)
     },
 

@@ -120,15 +120,15 @@ expect_message(
   "Fitting full models for"
 )
 
-# fit_partial_models: supply trans_preds restricted to id_trans == 1
-trans_preds_t1 <- db$trans_preds_t[id_trans == 1L]
+# fit_partial_models: supply trans_meta restricted to id_trans == 1
+trans_meta_t1 <- db$trans_meta_t[id_trans == 1L]
 expect_message(
   partial_t1 <- db$fit_partial_models(
     learner = test_learner,
     measures = test_measures,
     sample_frac = 0.7,
     seed = 123,
-    trans_preds = trans_preds_t1
+    trans_meta = trans_meta_t1
   ),
   "Fitting partial models for 1 transitions"
 )
@@ -142,7 +142,7 @@ expect_message(
     measures = test_measures,
     sample_frac = 0.7,
     seed = 123,
-    trans_preds = trans_preds_t1,
+    trans_meta = trans_meta_t1,
     id_period_anterior = 1L
   ),
   "Fitting partial models for 1 transitions"
@@ -150,30 +150,6 @@ expect_message(
 n_scored <- function(models) length(qs2::qs_deserialize(models$crossval_predictions[[1L]])$row_ids)
 expect_equal(n_scored(partial_t1), 321L)
 expect_equal(n_scored(partial_t1_held_out), 190L)
-
-# fit_partial_models: supply trans_meta restricted to id_trans == 1
-trans_meta_t1 <- db$trans_meta_t[id_trans == 1L]
-expect_message(
-  partial_meta_t1 <- db$fit_partial_models(
-    learner = test_learner,
-    measures = test_measures,
-    sample_frac = 0.7,
-    seed = 123,
-    trans_meta = trans_meta_t1
-  ),
-  "Fitting partial models for 1 transitions"
-)
-expect_equal(partial_meta_t1$id_trans, 1L)
-
-# fit_partial_models: wrong type for trans_preds should error
-expect_error(
-  db$fit_partial_models(
-    learner = test_learner,
-    measures = test_measures,
-    trans_preds = data.table::data.table(id_run = 0L, id_pred = 1L, id_trans = 1L)
-  ),
-  "trans_preds must be a trans_preds_t"
-)
 
 # fit_partial_models: wrong type for trans_meta should error
 expect_error(
@@ -195,12 +171,12 @@ expect_match(
   "Error from classif.debug->predict()"
 )
 
-# fit_full_models (direct mode): supply trans_preds restricted to id_trans == 1
-db$set_full_trans_preds(overwrite = TRUE)
+# fit_full_models (direct mode): supply trans_meta restricted to id_trans == 1
+db$set_full_trans_preds(reset = TRUE)
 expect_message(
   full_direct_t1 <- db$fit_full_models(
     learner = test_learner,
-    trans_preds = db$trans_preds_t[id_trans == 1L]
+    trans_meta = trans_meta_t1
   ),
   "Fitting full models for 1 transitions"
 )
@@ -213,7 +189,7 @@ expect_true(is.raw(full_direct_t1$learner_full[[1]]))
 expect_message(
   full_direct_t1_held_out <- db$fit_full_models(
     learner = test_learner,
-    trans_preds = db$trans_preds_t[id_trans == 1L],
+    trans_meta = trans_meta_t1,
     id_period_anterior = 1L
   ),
   "Fitting full models for 1 transitions"
@@ -221,17 +197,6 @@ expect_message(
 n_trained <- function(models) sum(qs2::qs_deserialize(models$learner_full[[1L]])$model$tab)
 expect_equal(n_trained(full_direct_t1), 1067L)
 expect_equal(n_trained(full_direct_t1_held_out), 636L)
-
-# fit_full_models (direct mode): supply trans_meta restricted to id_trans == 1
-expect_message(
-  full_direct_meta_t1 <- db$fit_full_models(
-    learner = test_learner,
-    trans_meta = db$trans_meta_t[id_trans == 1L]
-  ),
-  "Fitting full models for 1 transitions"
-)
-expect_equal(nrow(full_direct_meta_t1), 1L)
-expect_equal(full_direct_meta_t1$id_trans, 1L)
 
 # Test error handling - missing learner parameter
 expect_error(
@@ -329,7 +294,7 @@ expect_warning(
 expect_equal(partial_models_error$learner_id, "classif.featureless")
 
 # Test direct-learner mode: fit_full_models with a learner
-db$set_full_trans_preds(overwrite = TRUE)
+db$set_full_trans_preds(reset = TRUE)
 expect_message(
   db$trans_models_t <- full_models_direct <- db$fit_full_models(learner = test_learner),
   "Fitting full models for"
@@ -451,7 +416,6 @@ if (
   seeded_forest <- function() {
     fitted <- suppressMessages(db$fit_full_models(
       learner = mlr3::lrn("classif.ranger", predict_type = "prob", num.trees = 20, seed = 1L),
-      trans_preds = db$trans_preds_t[id_trans == 1L],
       trans_meta = db$trans_meta_t[id_trans == 1L]
     ))
     qs2::qs_deserialize(fitted$learner_full[[1L]])$model$forest$split.values

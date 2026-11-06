@@ -369,7 +369,7 @@ db$trans_meta_t
 Because each transition may be modelled using different predictors (aka *features*), we start out by setting the `trans_preds_t` table to the full cross product of viable transitions and predictors.
 We then carry out a feature selection step in `get_pred_filter_score`, which here is used with a variable [importance filter](https://mlr3filters.mlr-org.com/reference/mlr_filters_importance.html) - an [mlr3 Learner](https://mlr3.mlr-org.com/reference/Learner.html) is passed that returns an importance score for each predictor.
 We then set `is_selected` from the score and assign the scored table back to `db$trans_preds_t`.
-The assignment is an upsert: it updates the flags and stores the scores, so the pruned predictors stay in the table, deselected, next to the score that dropped them.
+The assignment is an upsert: it updates the `is_selected` fields and adds the score column to the DB table for reporting purposes.
 
 ```{r}
 #| seed: 666

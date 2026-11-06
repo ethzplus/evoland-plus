@@ -405,23 +405,39 @@ expect_message(
 )
 
 # a child run deselects an inherited predictor by holding the pair with is_selected = FALSE;
-# readers skip it, and the transition's other pairs are still inherited (#93)
+# readers skip it, and the transition's other pairs are still inherited
 base_preds <- db$trans_preds_t
 child_trans <- base_preds[["id_trans"]][1L]
-expect_true(nrow(base_preds[id_trans == child_trans]) > 2L)
+expect_equal(nrow(base_preds), 20L)
 db$runs_t <- as_runs_t(rbind(
   db$runs_t,
   list(id_run = 13L, parent_id_run = 10L, description = "fewer predictors")
 ))
 db$id_run <- 13L
-db$trans_preds_t <-
-  base_preds[id_trans == child_trans][-(1:2)][, `:=`(id_run = 13L, is_selected = FALSE)]
+expect_message(
+  db$trans_preds_t <- base_preds[id_trans == child_trans][-(1:2)][,
+    `:=`(id_run = 13L, is_selected = FALSE, score = 1)
+  ],
+  "Added column\\(s\\) to `trans_preds_t`: score"
+)
 child_preds <- db$trans_preds_t
-expect_equal(nrow(child_preds), nrow(base_preds))
+expect_equal(nrow(child_preds), 20L)
 expect_equal(child_preds[id_trans == child_trans & is_selected == TRUE, .N], 2L)
-expect_equal(child_preds[id_trans != child_trans], base_preds[id_trans != child_trans])
+expect_equal(
+  child_preds[id_trans != child_trans, .(id_run, id_pred, id_trans, is_selected)],
+  base_preds[id_trans != child_trans, .(id_run, id_pred, id_trans, is_selected)]
+)
 expect_equal(
   grep("^id_pred_", names(db$pred_wide_predict_v(child_trans, 1L)), value = TRUE),
   paste0("id_pred_", base_preds[id_trans == child_trans][1:2, id_pred])
 )
+
+# set_full_trans_preds() refuses a run that holds predictor sets; reset = TRUE starts the run's
+# selection over, its scores included, and leaves the parent's rows alone
+expect_error(db$set_full_trans_preds(), "already holds predictor sets for this run")
+db$set_full_trans_preds(reset = TRUE)
+run_13 <- db$fetch("trans_preds_t", where = "id_run = 13")
+expect_true(all(run_13[["is_selected"]]))
+expect_true(all(is.na(run_13[["score"]])))
+expect_equal(db$row_count("trans_preds_t", where = "id_run = 0"), 20L)
 db$id_run <- 0L

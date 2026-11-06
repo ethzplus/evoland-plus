@@ -189,13 +189,14 @@ as a plain vector rather than a one-column data.table.}
   Get row count for a table; returns 0 if table does not exist
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{ducklake_db$row_count(table_name)}
+    \preformatted{ducklake_db$row_count(table_name, where = NULL)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{table_name}}{Character string. Name of the table to query.}
+      \item{\code{where}}{Character string. Optional WHERE clause, e.g. \code{"id_run = 2"}.}
     }
     \if{html}{\out{</div>}}
   }

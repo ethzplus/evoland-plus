@@ -18,7 +18,6 @@ fit_partial_models(
   sample_frac = 0.7,
   seed = NULL,
   cluster = NULL,
-  trans_preds = NULL,
   trans_meta = NULL,
   id_period_anterior = NULL
 )
@@ -29,7 +28,6 @@ fit_full_models(
   select_score = NULL,
   select_maximize = TRUE,
   cluster = NULL,
-  trans_preds = NULL,
   trans_meta = NULL,
   id_period_anterior = NULL
 )
@@ -61,10 +59,6 @@ testing).}
 
 \item{cluster}{An optional cluster object created by \code{\link[parallel:makeCluster]{parallel::makeCluster()}} or
 \code{\link[mirai:make_cluster]{mirai::make_cluster()}}.}
-
-\item{trans_preds}{Optional \link{trans_preds_t} object. When supplied in direct-learner
-mode, it is used directly instead of reading \code{trans_preds_t} from the database.
-Ignored in score-select mode.}
 
 \item{trans_meta}{Optional \link{trans_meta_t} object. When supplied in direct-learner
 mode, it is used directly instead of reading \code{trans_meta_t} from the database.
