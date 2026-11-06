@@ -492,7 +492,7 @@ directly, or pass \code{select_score} to pick the best partial model by score.
   select_score = NULL,
   select_maximize = TRUE,
   cluster = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 )}
     \if{html}{\out{</div>}}
@@ -506,8 +506,7 @@ when \code{select_score} is used).}
 (\code{NULL} when \code{learner} is used).}
       \item{\code{select_maximize}}{Logical; maximize (\code{TRUE}) or minimize (\code{FALSE}) the score.}
       \item{\code{cluster}}{Optional cluster object for parallel processing}
-      \item{\code{trans_meta}}{Optional \link{trans_meta_t}; bypasses the database read in
-direct-learner mode. Ignored in score-select mode.}
+      \item{\code{id_trans}}{Optional integer vector; fit only these transitions.}
       \item{\code{id_period_anterior}}{Optional integer vector; train only on transitions
 observed from these anterior periods. \code{NULL} (default) uses all observed periods.}
     }
@@ -530,7 +529,7 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
   sample_frac = 0.7,
   seed = NULL,
   cluster = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 )}
     \if{html}{\out{</div>}}
@@ -544,8 +543,7 @@ sampling. Models are trained on a subsample and evaluated on held-out data, see
       \item{\code{sample_frac}}{Fraction in \(0, 1\) for stratified sampling.}
       \item{\code{seed}}{Random seed for reproducible sampling}
       \item{\code{cluster}}{Optional cluster object for parallel processing}
-      \item{\code{trans_meta}}{Optional \link{trans_meta_t}; bypasses the \code{trans_meta_t}
-database read.}
+      \item{\code{id_trans}}{Optional integer vector; fit only these transitions.}
       \item{\code{id_period_anterior}}{Optional integer vector; train and score only on
 transitions observed from these anterior periods. \code{NULL} (default) uses all
 observed periods.}
@@ -606,7 +604,7 @@ See \code{\link[=get_pred_filter_score]{get_pred_filter_score()}}.
     \if{html}{\out{<div class="r">}}
     \preformatted{evoland_db$get_pred_filter_score(
   filter = "correlation",
-  trans_preds = NULL,
+  id_trans = NULL,
   cluster = NULL,
   ...
 )}
@@ -618,8 +616,7 @@ See \code{\link[=get_pred_filter_score]{get_pred_filter_score()}}.
       \item{\code{filter}}{Character passed to \link[mlr3filters:flt]{mlr3filters::flt} or
 \link[mlr3filters:Filter]{mlr3filters::Filter} object specifying the filter method to use for
 feature selection.}
-      \item{\code{trans_preds}}{Optional \link{trans_preds_t}; when supplied, it is used
-directly instead of reading from the database.}
+      \item{\code{id_trans}}{Optional integer vector; score only these transitions.}
       \item{\code{cluster}}{Optional cluster object for parallel processing}
       \item{\code{...}}{Additional arguments passed to \code{flt}.}
     }

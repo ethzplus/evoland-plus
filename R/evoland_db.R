@@ -237,8 +237,7 @@ evoland_db <- R6::R6Class(
     #'   (`NULL` when `learner` is used).
     #' @param select_maximize Logical; maximize (`TRUE`) or minimize (`FALSE`) the score.
     #' @param cluster Optional cluster object for parallel processing
-    #' @param trans_meta Optional [trans_meta_t]; bypasses the database read in
-    #'   direct-learner mode. Ignored in score-select mode.
+    #' @param id_trans Optional integer vector; fit only these transitions.
     #' @param id_period_anterior Optional integer vector; train only on transitions
     #'   observed from these anterior periods. `NULL` (default) uses all observed periods.
     fit_full_models = function(
@@ -246,7 +245,7 @@ evoland_db <- R6::R6Class(
       select_score = NULL,
       select_maximize = TRUE,
       cluster = NULL,
-      trans_meta = NULL,
+      id_trans = NULL,
       id_period_anterior = NULL
     ) {
       create_method_binding(fit_full_models)
@@ -261,8 +260,7 @@ evoland_db <- R6::R6Class(
     #' @param sample_frac Fraction in \(0, 1\) for stratified sampling.
     #' @param seed Random seed for reproducible sampling
     #' @param cluster Optional cluster object for parallel processing
-    #' @param trans_meta Optional [trans_meta_t]; bypasses the `trans_meta_t`
-    #'   database read.
+    #' @param id_trans Optional integer vector; fit only these transitions.
     #' @param id_period_anterior Optional integer vector; train and score only on
     #'   transitions observed from these anterior periods. `NULL` (default) uses all
     #'   observed periods.
@@ -272,7 +270,7 @@ evoland_db <- R6::R6Class(
       sample_frac = 0.7,
       seed = NULL,
       cluster = NULL,
-      trans_meta = NULL,
+      id_trans = NULL,
       id_period_anterior = NULL
     ) {
       create_method_binding(fit_partial_models)
@@ -301,13 +299,12 @@ evoland_db <- R6::R6Class(
     #' @param filter Character passed to [mlr3filters::flt] or
     #' [mlr3filters::Filter] object specifying the filter method to use for
     #' feature selection.
-    #' @param trans_preds Optional [trans_preds_t]; when supplied, it is used
-    #'   directly instead of reading from the database.
+    #' @param id_trans Optional integer vector; score only these transitions.
     #' @param cluster Optional cluster object for parallel processing
     #' @param ... Additional arguments passed to `flt`.
     get_pred_filter_score = function(
       filter = "correlation",
-      trans_preds = NULL,
+      id_trans = NULL,
       cluster = NULL,
       ...
     ) {

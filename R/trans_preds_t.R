@@ -209,15 +209,14 @@ pred_filter_worker <- function(item, db, filter) {
 #' specifying the filter method, retrieved via [mlr3filters::flt]. Note that your
 #' filter must be compatible with the feature data types; compare your
 #' `pred_meta_t` table to <https://mlr3filters.mlr-org.com> for filter compatibility.
-#' @param trans_preds Optional [trans_preds_t] object. When supplied, it is used
-#' directly instead of reading from the database, which is useful for targeted
-#' exploratory work on a subset of transitions or predictors.
+#' @param id_trans Optional integer vector of transition IDs; only these transitions are
+#' scored. `NULL` (default) scores every transition with selected predictors.
 #' @param cluster An optional cluster object, see [run_parallel_evoland]
 #' @param ... Additional arguments passed to `flt` if `filter` is a character string
 get_pred_filter_score <- function(
   self,
   filter = "correlation",
-  trans_preds = NULL,
+  id_trans = NULL,
   cluster = NULL,
   ...
 ) {
@@ -225,15 +224,15 @@ get_pred_filter_score <- function(
   if (is.character(filter)) {
     filter <- mlr3filters::flt(filter, ...)
   }
-  if (is.null(trans_preds)) {
-    if (self$row_count("trans_preds_t") == 0) {
-      self$set_full_trans_preds()
-    }
-    trans_preds <- self$trans_preds_t
-  } else {
-    stopifnot("trans_preds must be a trans_preds_t" = inherits(trans_preds, "trans_preds_t"))
+  stopifnot("id_trans must be NULL or integers" = is.null(id_trans) || is_integerish(id_trans))
+  if (self$row_count("trans_preds_t") == 0) {
+    self$set_full_trans_preds()
   }
-  items <- split(trans_preds[is_selected == TRUE], by = c("id_run", "id_trans"))
+  # computed outside `[`, where `id_trans` would be the column
+  trans_preds <- self$trans_preds_t
+  keep <- trans_preds[["is_selected"]] &
+    (is.null(id_trans) | trans_preds[["id_trans"]] %in% id_trans)
+  items <- split(trans_preds[keep], by = c("id_run", "id_trans"))
 
   message(glue::glue("Processing {length(items)} transitions..."))
 

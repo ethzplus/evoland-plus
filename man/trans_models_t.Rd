@@ -18,7 +18,7 @@ fit_partial_models(
   sample_frac = 0.7,
   seed = NULL,
   cluster = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 )
 
@@ -28,7 +28,7 @@ fit_full_models(
   select_score = NULL,
   select_maximize = TRUE,
   cluster = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 )
 
@@ -60,9 +60,7 @@ testing).}
 \item{cluster}{An optional cluster object created by \code{\link[parallel:makeCluster]{parallel::makeCluster()}} or
 \code{\link[mirai:make_cluster]{mirai::make_cluster()}}.}
 
-\item{trans_meta}{Optional \link{trans_meta_t} object. When supplied in direct-learner
-mode, it is used directly instead of reading \code{trans_meta_t} from the database.
-Ignored in score-select mode.}
+\item{id_trans}{Optional integer; filter by transition ID.}
 
 \item{id_period_anterior}{Optional integer vector of anterior period IDs; only the
 transitions observed from these periods are used for training. In score-select mode
@@ -78,8 +76,6 @@ rank partial models in score-select mode. Must be \code{NULL} when \code{learner
 \item{...}{Passed to \code{\link[mlr3viz:autoplot.PredictionClassif]{mlr3viz::autoplot.PredictionClassif()}}}
 
 \item{id_run}{Optional integer; filter by run ID.}
-
-\item{id_trans}{Optional integer; filter by transition ID.}
 }
 \value{
 A data.table of class "trans_models_t" with columns:

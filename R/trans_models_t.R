@@ -279,6 +279,18 @@ fit_full_model_worker <- function(item, db, learner = NULL, id_period_anterior =
 }
 
 
+# The transitions to fit: the viable ones, optionally narrowed to `id_trans`
+viable_trans_meta <- function(self, id_trans = NULL) {
+  stopifnot("id_trans must be NULL or integers" = is.null(id_trans) || is_integerish(id_trans))
+  meta <- self$trans_meta_t
+  if (!is.null(id_trans)) {
+    # computed outside `[`, where `id_trans` would be the column
+    keep <- meta[["id_trans"]] %in% id_trans
+    meta <- meta[keep]
+  }
+  meta
+}
+
 #' @describeIn trans_models_t Fit partial (cross-validation) models for each viable
 #' transition; returns a [trans_models_t] object with one row per viable transition,
 #' containing the learner identity, serialized spec, cross-validation scores
@@ -299,8 +311,8 @@ fit_full_model_worker <- function(item, db, learner = NULL, id_period_anterior =
 #' @param seed Optional integer seed for reproducible subsampling.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
-#' @param trans_meta Optional [trans_meta_t] object. When supplied, it is used
-#'   directly instead of reading `trans_meta_t` from the database.
+#' @param id_trans Optional integer vector of transition IDs; only these transitions are
+#'   fitted. `NULL` (default) fits every viable transition.
 #' @param id_period_anterior Optional integer vector of anterior period IDs; only the
 #'   transitions observed from these periods are used for training and scoring, e.g. to
 #'   hold out the last observed transition for a backcast. `NULL` (default) uses every
@@ -312,7 +324,7 @@ fit_partial_models <- function(
   sample_frac = 0.7,
   seed = NULL,
   cluster = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 ) {
   # Accept either a character vector of measure IDs or a list of Measure objects
@@ -326,15 +338,8 @@ fit_partial_models <- function(
     by = .(id_run, id_trans)
   ]
 
-  meta <- if (!is.null(trans_meta)) {
-    stopifnot("trans_meta must be a trans_meta_t" = inherits(trans_meta, "trans_meta_t"))
-    trans_meta
-  } else {
-    self$trans_meta_t
-  }
-
   viable_trans <-
-    meta[
+    viable_trans_meta(self, id_trans)[
       is_viable == TRUE,
       .(id_trans, id_lulc_anterior, id_lulc_posterior)
     ][
@@ -398,9 +403,8 @@ fit_partial_models <- function(
 #'   `select_score` is selected; if `FALSE`, the lowest. Only used in score-select mode.
 #' @param cluster An optional cluster object created by [parallel::makeCluster()] or
 #' [mirai::make_cluster()].
-#' @param trans_meta Optional [trans_meta_t] object. When supplied in direct-learner
-#'   mode, it is used directly instead of reading `trans_meta_t` from the database.
-#'   Ignored in score-select mode.
+#' @param id_trans Optional integer vector of transition IDs; only these transitions are
+#'   fitted. `NULL` (default) fits every viable transition.
 #' @param id_period_anterior Optional integer vector of anterior period IDs; only the
 #'   transitions observed from these periods are used for training. In score-select mode
 #'   this should match what was passed to [fit_partial_models()]. `NULL` (default) uses
@@ -411,7 +415,7 @@ fit_full_models <- function(
   select_score = NULL,
   select_maximize = TRUE,
   cluster = NULL,
-  trans_meta = NULL,
+  id_trans = NULL,
   id_period_anterior = NULL
 ) {
   has_learner <- !is.null(learner)
@@ -431,15 +435,8 @@ fit_full_models <- function(
       by = .(id_run, id_trans)
     ]
 
-    meta <- if (!is.null(trans_meta)) {
-      stopifnot("trans_meta must be a trans_meta_t" = inherits(trans_meta, "trans_meta_t"))
-      trans_meta
-    } else {
-      self$trans_meta_t
-    }
-
     viable_trans <-
-      meta[
+      viable_trans_meta(self, id_trans)[
         is_viable == TRUE,
         .(id_trans)
       ][
@@ -519,6 +516,10 @@ fit_full_models <- function(
         c("learner_params", "crossval_score"),
         kv_df_to_list
       )
+    if (!is.null(id_trans)) {
+      keep <- best_models[["id_trans"]] %in% id_trans
+      best_models <- best_models[keep]
+    }
 
     message(glue::glue(
       "Fitting full models for {nrow(best_models)} transitions..."

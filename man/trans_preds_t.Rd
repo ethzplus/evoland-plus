@@ -17,7 +17,7 @@ set_full_trans_preds(self, reset = FALSE)
 get_pred_filter_score(
   self,
   filter = "correlation",
-  trans_preds = NULL,
+  id_trans = NULL,
   cluster = NULL,
   ...
 )
@@ -40,9 +40,8 @@ specifying the filter method, retrieved via \link[mlr3filters:flt]{mlr3filters::
 filter must be compatible with the feature data types; compare your
 \code{pred_meta_t} table to \url{https://mlr3filters.mlr-org.com} for filter compatibility.}
 
-\item{trans_preds}{Optional \link{trans_preds_t} object. When supplied, it is used
-directly instead of reading from the database, which is useful for targeted
-exploratory work on a subset of transitions or predictors.}
+\item{id_trans}{Optional integer vector of transition IDs; only these transitions are
+scored. \code{NULL} (default) scores every transition with selected predictors.}
 
 \item{cluster}{An optional cluster object, see \link{run_parallel_evoland}}
 }
