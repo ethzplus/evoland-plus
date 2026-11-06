@@ -327,9 +327,7 @@ fit_partial_models <- function(
   ]
 
   viable_trans <-
-    viable_trans_meta(self, id_trans)[,
-      .(id_trans, id_lulc_anterior, id_lulc_posterior)
-    ][
+    viable_trans_meta(self, id_trans)[, .(id_trans)][
       trans_preds_nested,
       on = "id_trans",
       nomatch = NULL
